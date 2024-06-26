@@ -1,7 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import umap
 
 matplotlib.use("Agg")
 
@@ -30,6 +29,10 @@ colormap = (
 
 
 def plot_embeddings(embeddings, num_classes_in_batch):
+    try:
+        import umap
+    except ImportError as e:
+        raise ImportError("Package not installed: umap-learn") from e
     num_utter_per_class = embeddings.shape[0] // num_classes_in_batch
 
     # if necessary get just the first 10 classes

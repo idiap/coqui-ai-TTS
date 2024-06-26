@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import traceback
+import warnings
 
 import torch
 from torch.utils.data import DataLoader
@@ -116,11 +117,14 @@ def evaluation(model, criterion, data_loader, global_step):
     eval_avg_loss = eval_loss / len(data_loader)
     # save stats
     dashboard_logger.eval_stats(global_step, {"loss": eval_avg_loss})
-    # plot the last batch in the evaluation
-    figures = {
-        "UMAP Plot": plot_embeddings(outputs.detach().cpu().numpy(), c.num_classes_in_batch),
-    }
-    dashboard_logger.eval_figures(global_step, figures)
+    try:
+        # plot the last batch in the evaluation
+        figures = {
+            "UMAP Plot": plot_embeddings(outputs.detach().cpu().numpy(), c.num_classes_in_batch),
+        }
+        dashboard_logger.eval_figures(global_step, figures)
+    except ImportError:
+        warnings.warn("Install the `umap-learn` package to see embedding plots.")
     return eval_avg_loss
 
 
