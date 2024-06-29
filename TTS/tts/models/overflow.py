@@ -5,6 +5,7 @@ from typing import Dict, List, Union
 import torch
 from coqpit import Coqpit
 from torch import nn
+from trainer.io import load_fsspec
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
 from TTS.tts.layers.overflow.common_layers import Encoder, OverflowUtils
@@ -19,7 +20,6 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input
-from TTS.utils.io import load_fsspec
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools",
+    "setuptools-scm",
     "cython~=0.29.30",
     "numpy>=2.0.0",
 ]
@@ -63,7 +64,7 @@ dependencies = [
     # Training
     "matplotlib>=3.7.0",
     # Coqui stack
-    "coqui-tts-trainer>=0.1",
+    "coqui-tts-trainer>=0.1.4",
     "coqpit>=0.0.16",
     # Gruut + supported languages
     "gruut[de,es,fr]==2.2.3",
@@ -73,7 +74,7 @@ dependencies = [
     # Bark
     "encodec>=0.1.1",
     # XTTS
-    "num2words",
+    "num2words>=0.5.11",
     "spacy[ja]>=3"
 ]
 
@@ -81,20 +82,20 @@ dependencies = [
 # Development dependencies
 dev = [
     "black==24.2.0",
-    "coverage[toml]",
-    "nose2",
-    "pre-commit",
+    "coverage[toml]>=7",
+    "nose2>=0.15",
+    "pre-commit>=3",
     "ruff==0.4.9",
-    "tomli; python_version < '3.11'",
+    "tomli>=2; python_version < '3.11'",
 ]
 # Dependencies for building the documentation
 docs = [
-    "furo",
+    "furo>=2023.5.20",
     "myst-parser==2.0.0",
     "sphinx==7.2.5",
-    "sphinx_inline_tabs",
-    "sphinx_copybutton",
-    "linkify-it-py",
+    "sphinx_inline_tabs>=2023.4.21",
+    "sphinx_copybutton>=0.1",
+    "linkify-it-py>=2.0.0",
 ]
 # Only used in notebooks
 notebooks = [
@@ -102,30 +103,30 @@ notebooks = [
     "pandas>=1.4,<2.0",
 ]
 # For running the TTS server
-server = ["flask>=2.0.1"]
+server = ["flask>=3.0.0"]
 # Language-specific dependencies, mainly for G2P
 # Bangla
 bn = [
-    "bangla",
-    "bnnumerizer",
-    "bnunicodenormalizer",
+    "bangla>=0.0.2",
+    "bnnumerizer>=0.0.2",
+    "bnunicodenormalizer>=0.1.0",
 ]
 # Korean
 ko = [
-    "hangul_romanize",
-    "jamo",
+    "hangul_romanize>=0.1.0",
+    "jamo>=0.4.1",
     "g2pkk>=0.1.1",
 ]
 # Japanese
 ja = [
-    "mecab-python3",
+    "mecab-python3>=1.0.2",
     "unidic-lite==1.0.8",
-    "cutlet",
+    "cutlet>=0.2.0",
 ]
 # Chinese
 zh = [
-    "jieba",
-    "pypinyin",
+    "jieba>=0.42.1",
+    "pypinyin>=0.40.0",
 ]
 # All language-specific dependencies
 languages = [

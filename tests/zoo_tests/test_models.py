@@ -4,11 +4,11 @@ import os
 import shutil
 
 import torch
+from trainer.io import get_user_data_dir
 
 from tests import get_tests_data_path, get_tests_output_path, run_cli
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.utils.generic_utils import get_user_data_dir
 from TTS.utils.manage import ModelManager
 
 MODELS_WITH_SEP_TESTS = [

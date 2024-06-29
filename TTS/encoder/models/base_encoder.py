@@ -5,10 +5,10 @@ import torch
 import torchaudio
 from coqpit import Coqpit
 from torch import nn
+from trainer.io import load_fsspec
 
 from TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
 from TTS.utils.generic_utils import set_init_dict
-from TTS.utils.io import load_fsspec
 
 logger = logging.getLogger(__name__)
 

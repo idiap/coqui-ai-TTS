@@ -4,6 +4,7 @@ from typing import Dict, List, Union
 import torch
 from coqpit import Coqpit
 from torch import nn
+from trainer.io import load_fsspec
 
 from TTS.tts.layers.align_tts.mdn import MDNBlock
 from TTS.tts.layers.feed_forward.decoder import Decoder
@@ -15,7 +16,6 @@ from TTS.tts.utils.helpers import generate_path, maximum_path, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
-from TTS.utils.io import load_fsspec
 
 
 @dataclass

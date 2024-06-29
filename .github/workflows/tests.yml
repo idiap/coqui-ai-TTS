@@ -45,8 +45,11 @@ jobs:
           sed -i 's/https:\/\/coqui.gateway.scarf.sh\//https:\/\/github.com\/coqui-ai\/TTS\/releases\/download\//g' TTS/.models.json
       - name: Install TTS
         run: |
-          python3 -m uv pip install --system "coqui-tts[dev,server,languages] @ ."
-          python3 setup.py egg_info
+          resolution=highest
+          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+            resolution=lowest-direct
+          fi
+          python3 -m uv pip install --resolution=$resolution --system "coqui-tts[dev,server,languages] @ ."
       - name: Unit tests
         run: make ${{ matrix.subset }}
       - name: Upload coverage data

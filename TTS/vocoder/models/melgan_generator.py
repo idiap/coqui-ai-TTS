@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 from torch.nn.utils.parametrizations import weight_norm
+from trainer.io import load_fsspec
 
-from TTS.utils.io import load_fsspec
 from TTS.vocoder.layers.melgan import ResidualStack
 
 

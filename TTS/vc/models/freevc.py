@@ -11,12 +11,12 @@ from torch.nn import functional as F
 from torch.nn.utils import spectral_norm
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
+from trainer.io import load_fsspec
 
 import TTS.vc.modules.freevc.commons as commons
 import TTS.vc.modules.freevc.modules as modules
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.utils.io import load_fsspec
 from TTS.vc.configs.freevc_config import FreeVCConfig
 from TTS.vc.models.base_vc import BaseVC
 from TTS.vc.modules.freevc.commons import init_weights

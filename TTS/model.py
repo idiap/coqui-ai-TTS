@@ -60,6 +60,7 @@ class BaseTrainerModel(TrainerModel):
             checkpoint_path (str | os.PathLike): Path to the model checkpoint file.
             eval (bool, optional): If true, init model for inference else for training. Defaults to False.
             strict (bool, optional): Match all checkpoint keys to model's keys. Defaults to True.
-            cache (bool, optional): If True, cache the file locally for subsequent calls. It is cached under `get_user_data_dir()/tts_cache`. Defaults to False.
+            cache (bool, optional): If True, cache the file locally for subsequent calls.
+                It is cached under `trainer.io.get_user_data_dir()/tts_cache`. Defaults to False.
         """
         ...

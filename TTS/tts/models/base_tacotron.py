@@ -6,6 +6,7 @@ from typing import Dict, Tuple
 import torch
 from coqpit import Coqpit
 from torch import nn
+from trainer.io import load_fsspec
 
 from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
@@ -15,7 +16,6 @@ from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input
-from TTS.utils.io import load_fsspec
 from TTS.utils.training import gradual_training_scheduler
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,8 @@ class BaseTacotron(BaseTTS):
             config (Coqpi): model configuration.
             checkpoint_path (str): path to checkpoint file.
             eval (bool, optional): whether to load model for evaluation.
-            cache (bool, optional): If True, cache the file locally for subsequent calls. It is cached under `get_user_data_dir()/tts_cache`. Defaults to False.
+            cache (bool, optional): If True, cache the file locally for subsequent calls.
+                It is cached under `trainer.io.get_user_data_dir()/tts_cache`. Defaults to False.
         """
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])

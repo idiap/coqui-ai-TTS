@@ -7,6 +7,7 @@ import torch.nn as nn
 import torchaudio
 from coqpit import Coqpit
 from torch.utils.data import DataLoader
+from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
@@ -18,7 +19,6 @@ from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
-from TTS.utils.io import load_fsspec
 
 logger = logging.getLogger(__name__)
 

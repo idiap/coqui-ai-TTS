@@ -3,8 +3,8 @@ import os
 import urllib.request
 
 import torch
+from trainer.io import get_user_data_dir
 
-from TTS.utils.generic_utils import get_user_data_dir
 from TTS.vc.modules.freevc.wavlm.wavlm import WavLM, WavLMConfig
 
 logger = logging.getLogger(__name__)

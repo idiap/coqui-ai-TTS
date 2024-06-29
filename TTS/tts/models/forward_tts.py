@@ -6,6 +6,7 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from torch.cuda.amp.autocast_mode import autocast
+from trainer.io import load_fsspec
 
 from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.encoder import Encoder
@@ -17,7 +18,6 @@ from TTS.tts.utils.helpers import average_over_durations, generate_path, maximum
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
-from TTS.utils.io import load_fsspec
 
 logger = logging.getLogger(__name__)
 

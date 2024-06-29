@@ -221,7 +221,7 @@ class GeneratorLoss(nn.Module):
     changing configurations.
 
     Args:
-        C (AttrDict): model configuration.
+        C (Coqpit): model configuration.
     """
 
     def __init__(self, C):

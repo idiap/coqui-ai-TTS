@@ -4,8 +4,8 @@ import math
 import numpy as np
 import torch
 from torch.nn.utils.parametrize import remove_parametrizations
+from trainer.io import load_fsspec
 
-from TTS.utils.io import load_fsspec
 from TTS.vocoder.layers.parallel_wavegan import ResidualBlock
 from TTS.vocoder.layers.upsample import ConvUpsample
 

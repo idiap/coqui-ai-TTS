@@ -11,9 +11,9 @@ from typing import Dict, Tuple
 import fsspec
 import requests
 from tqdm import tqdm
+from trainer.io import get_user_data_dir
 
 from TTS.config import load_config, read_json_with_comments
-from TTS.utils.generic_utils import get_user_data_dir
 
 logger = logging.getLogger(__name__)
 

@@ -5,8 +5,8 @@ from typing import List, Union
 import numpy as np
 import torch
 from torch import nn
+from trainer.io import load_fsspec
 
-from TTS.utils.io import load_fsspec
 from TTS.vc.modules.freevc.speaker_encoder import audio
 from TTS.vc.modules.freevc.speaker_encoder.hparams import (
     mel_n_channels,

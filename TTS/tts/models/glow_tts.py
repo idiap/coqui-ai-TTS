@@ -7,6 +7,7 @@ from coqpit import Coqpit
 from torch import nn
 from torch.cuda.amp.autocast_mode import autocast
 from torch.nn import functional as F
+from trainer.io import load_fsspec
 
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.glow_tts.decoder import Decoder
@@ -17,7 +18,6 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
-from TTS.utils.io import load_fsspec
 
 logger = logging.getLogger(__name__)
 
