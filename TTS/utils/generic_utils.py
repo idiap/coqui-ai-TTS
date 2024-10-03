@@ -31,6 +31,7 @@ def to_camel(text):
     text = re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
     text = text.replace("Tts", "TTS")
     text = text.replace("vc", "VC")
+    text = text.replace("Knn", "KNN")
     return text
 
 

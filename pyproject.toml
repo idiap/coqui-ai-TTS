@@ -70,6 +70,7 @@ dependencies = [
     "pyyaml>=6.0",
     "fsspec[http]>=2023.6.0",
     "packaging>=23.1",
+    "typing_extensions>=4.10",
     # Inference
     "pysbd>=0.3.4",
     # Training

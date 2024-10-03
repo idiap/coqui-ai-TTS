@@ -98,6 +98,7 @@ repository are also still a useful source of information.
 
 ### Voice Conversion
 - [FreeVC](https://arxiv.org/abs/2210.15418)
+- [kNN-VC](https://doi.org/10.21437/Interspeech.2023-419)
 - [OpenVoice](https://arxiv.org/abs/2312.01479)
 
 ### Others

@@ -139,7 +139,9 @@ class Synthesizer(nn.Module):
         """
         # pylint: disable=global-statement
         self.vc_config = load_config(vc_config_path)
-        self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
+        self.output_sample_rate = self.vc_config.audio.get(
+            "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
+        )
         self.vc_model = setup_vc_model(config=self.vc_config)
         self.vc_model.load_checkpoint(self.vc_config, vc_checkpoint)
         if use_cuda:

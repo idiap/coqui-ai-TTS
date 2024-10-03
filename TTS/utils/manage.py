@@ -15,6 +15,7 @@ from trainer.io import get_user_data_dir
 from typing_extensions import Required
 
 from TTS.config import load_config, read_json_with_comments
+from TTS.vc.configs.knnvc_config import KNNVCConfig
 
 logger = logging.getLogger(__name__)
 
@@ -267,9 +268,9 @@ class ModelManager(object):
             model_item["model_url"] = model_item["github_rls_url"]
         elif "hf_url" in model_item:
             model_item["model_url"] = model_item["hf_url"]
-        elif "fairseq" in model_item["model_name"]:
+        elif "fairseq" in model_item.get("model_name", ""):
             model_item["model_url"] = "https://dl.fbaipublicfiles.com/mms/tts/"
-        elif "xtts" in model_item["model_name"]:
+        elif "xtts" in model_item.get("model_name", ""):
             model_item["model_url"] = "https://huggingface.co/coqui/"
         return model_item
 
@@ -367,6 +368,9 @@ class ModelManager(object):
             logger.exception("Failed to download the model file to %s", output_path)
             rmtree(output_path)
             raise e
+        checkpoints = list(Path(output_path).glob("*.pt*"))
+        if len(checkpoints) == 1:
+            checkpoints[0].rename(checkpoints[0].parent / "model.pth")
         self.print_model_license(model_item=model_item)
 
     def check_if_configs_are_equal(self, model_name: str, model_item: ModelItem, output_path: Path) -> None:
@@ -431,11 +435,14 @@ class ModelManager(object):
         output_model_path = output_path
         output_config_path = None
         if (
-            model not in ["tortoise-v2", "bark"] and "fairseq" not in model_name and "xtts" not in model_name
+            model not in ["tortoise-v2", "bark", "knnvc"] and "fairseq" not in model_name and "xtts" not in model_name
         ):  # TODO:This is stupid but don't care for now.
             output_model_path, output_config_path = self._find_files(output_path)
         else:
             output_config_path = output_model_path / "config.json"
+        if model == "knnvc" and not output_config_path.exists():
+            knnvc_config = KNNVCConfig()
+            knnvc_config.save_json(output_config_path)
         # update paths in the config.json
         self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item
