@@ -77,8 +77,8 @@ class TTS(nn.Module):
         super().__init__()
         self.manager = ModelManager(models_file=self.get_models_file_path(), progress_bar=progress_bar)
         self.config = load_config(config_path) if config_path else None
-        self.synthesizer = None
-        self.voice_converter = None
+        self.synthesizer: Optional[Synthesizer] = None
+        self.voice_converter: Optional[Synthesizer] = None
         self.model_name = ""
 
         self.vocoder_path = vocoder_path

@@ -37,7 +37,7 @@ class BaseVC(BaseTrainerModel):
     def __init__(
         self,
         config: Coqpit,
-        ap: AudioProcessor,
+        ap: Optional[AudioProcessor] = None,
         speaker_manager: Optional[SpeakerManager] = None,
         language_manager: Optional[LanguageManager] = None,
     ) -> None:
@@ -51,7 +51,7 @@ class BaseVC(BaseTrainerModel):
     def _set_model_args(self, config: Coqpit) -> None:
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
 
-        `ModelArgs` has all the fields reuqired to initialize the model architecture.
+        `ModelArgs` has all the fields required to initialize the model architecture.
 
         `ModelConfig` has all the fields required for training, inference and containes `ModelArgs`.
 

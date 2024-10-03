@@ -5,11 +5,13 @@ import re
 from coqpit import Coqpit
 
 from TTS.utils.generic_utils import to_camel
+from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig, BaseVocoderConfig
+from TTS.vocoder.models.base_vocoder import BaseVocoder
 
 logger = logging.getLogger(__name__)
 
 
-def setup_model(config: Coqpit):
+def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     """Load models directly from configuration."""
     if "discriminator_model" in config and "generator_model" in config:
         MyModel = importlib.import_module("TTS.vocoder.models.gan")
@@ -26,12 +28,12 @@ def setup_model(config: Coqpit):
             try:
                 MyModel = getattr(MyModel, to_camel(config.model))
             except ModuleNotFoundError as e:
-                raise ValueError(f"Model {config.model} not exist!") from e
+                raise ValueError(f"Model {config.model} does not exist!") from e
     logger.info("Vocoder model: %s", config.model)
     return MyModel.init_from_config(config)
 
 
-def setup_generator(c):
+def setup_generator(c: BaseGANVocoderConfig):
     """TODO: use config object as arguments"""
     logger.info("Generator model: %s", c.generator_model)
     MyModel = importlib.import_module("TTS.vocoder.models." + c.generator_model.lower())
@@ -94,8 +96,8 @@ def setup_generator(c):
     return model
 
 
-def setup_discriminator(c):
-    """TODO: use config objekt as arguments"""
+def setup_discriminator(c: BaseGANVocoderConfig):
+    """TODO: use config object as arguments"""
     logger.info("Discriminator model: %s", c.discriminator_model)
     if "parallel_wavegan" in c.discriminator_model:
         MyModel = importlib.import_module("TTS.vocoder.models.parallel_wavegan_discriminator")

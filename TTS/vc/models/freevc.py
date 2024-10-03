@@ -233,7 +233,7 @@ class SpeakerEncoder(torch.nn.Module):
 class FreeVC(BaseVC):
     """
 
-    Papaer::
+    Paper::
         https://arxiv.org/abs/2210.15418#
 
     Paper Abstract::
