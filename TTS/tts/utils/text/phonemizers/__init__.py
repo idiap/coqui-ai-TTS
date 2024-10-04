@@ -2,6 +2,7 @@ from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 from TTS.tts.utils.text.phonemizers.belarusian_phonemizer import BEL_Phonemizer
 from TTS.tts.utils.text.phonemizers.espeak_wrapper import ESpeak
 from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
+from TTS.tts.utils.text.phonemizers.pygoruut_wrapper import Pygoruut
 
 try:
     from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
@@ -23,11 +24,12 @@ try:
 except ImportError:
     ZH_CN_Phonemizer = None
 
-PHONEMIZERS = {b.name(): b for b in (ESpeak, Gruut)}
+PHONEMIZERS = {b.name(): b for b in (ESpeak, Gruut, Pygoruut)}
 
 
 ESPEAK_LANGS = list(ESpeak.supported_languages().keys())
 GRUUT_LANGS = list(Gruut.supported_languages())
+PYGORUUT_LANGS = list(Pygoruut.supported_languages())
 
 
 # Dict setting default phonemizers for each language
@@ -35,6 +37,10 @@ GRUUT_LANGS = list(Gruut.supported_languages())
 _ = [Gruut.name()] * len(GRUUT_LANGS)
 DEF_LANG_TO_PHONEMIZER = dict(list(zip(GRUUT_LANGS, _)))
 
+# Add Pygoruut languages and override any existing ones
+_ = [Pygoruut.name()] * len(PYGORUUT_LANGS)
+_new_dict = dict(list(zip(list(PYGORUUT_LANGS), _)))
+DEF_LANG_TO_PHONEMIZER.update(_new_dict)
 
 # Add ESpeak languages and override any existing ones
 _ = [ESpeak.name()] * len(ESPEAK_LANGS)
@@ -75,6 +81,8 @@ def get_phonemizer_by_name(name: str, **kwargs) -> BasePhonemizer:
         return ESpeak(**kwargs)
     if name == "gruut":
         return Gruut(**kwargs)
+    if name == "pygoruut":
+        return Pygoruut(**kwargs)
     if name == "zh_cn_phonemizer":
         if ZH_CN_Phonemizer is None:
             raise ValueError("You need to install ZH phonemizer dependencies. Try `pip install coqui-tts[zh]`.")

@@ -66,6 +66,8 @@ dependencies = [
     "coqpit>=0.0.16",
     # Gruut + supported languages
     "gruut[de,es,fr]>=2.4.0",
+    # PyGoruut
+    "pygoruut>=0.0.6",
     # Tortoise
     "einops>=0.6.0",
     "transformers>=4.42.0,<4.43.0",
