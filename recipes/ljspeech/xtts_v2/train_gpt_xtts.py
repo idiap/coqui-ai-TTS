@@ -156,11 +156,15 @@ def main():
     )
 
     # init the trainer and 🚀
+    continue_path = None # path to the checkpoint that you want to continue training
+    restore_path = None
+    
     trainer = Trainer(
         TrainerArgs(
-            restore_path=None,  # xtts checkpoint is restored via xtts_checkpoint key so no need of restore it using Trainer restore_path parameter
+            continue_path=continue_path,
+            restore_path=restore_path,
             skip_train_epoch=False,
-            start_with_eval=START_WITH_EVAL,
+            start_with_eval=START_WITH_EVAL if continue_path is None and restore_path is None else False,
             grad_accum_steps=GRAD_ACUMM_STEPS,
         ),
         config,
