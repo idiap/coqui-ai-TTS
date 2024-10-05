@@ -68,7 +68,7 @@ dependencies = [
     "gruut[de,es,fr]>=2.4.0",
     # Tortoise
     "einops>=0.6.0",
-    "transformers>=4.42.0,<4.43.0",
+    "transformers>=4.43.0",
     # Bark
     "encodec>=0.1.1",
     # XTTS
