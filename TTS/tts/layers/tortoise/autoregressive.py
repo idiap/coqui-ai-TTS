@@ -600,7 +600,7 @@ class UnifiedVoice(nn.Module):
             inputs,
             bos_token_id=self.start_mel_token,
             pad_token_id=self.stop_mel_token,
-            eos_token_id=self.stop_mel_token,
+            eos_token_id=self.stop_mel_token+1,
             max_length=max_length,
             logits_processor=logits_processor,
             num_return_sequences=num_return_sequences,
