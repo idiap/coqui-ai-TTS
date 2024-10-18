@@ -52,12 +52,14 @@ def format_audio_list(
     audio_total_size = 0
     # make sure that ooutput file exists
     os.makedirs(out_path, exist_ok=True)
-
+    
     # Loading Whisper
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu" 
+    compute_type = "float16" if device == "cuda" else "int8"
+    print(f"Becuase Device is : {device}, compute type selected is : {compute_type}")
 
     print("Loading Whisper Model!")
-    asr_model = WhisperModel("large-v2", device=device, compute_type="float16")
+    asr_model = WhisperModel("large-v2", device=device, compute_type=compute_type)
 
     metadata = {"audio_file": [], "text": [], "speaker_name": []}
 
