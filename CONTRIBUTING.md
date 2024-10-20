@@ -44,29 +44,37 @@ If you have a new feature, a model to implement, or a bug to squash, go ahead an
 Please use the following steps to send a ✨**PR**✨.
 Let us know if you encounter a problem along the way.
 
-The following steps are tested on an Ubuntu system.
+The following steps are tested on an Ubuntu system and require
+[uv](https://docs.astral.sh/uv/) for virtual environment management. Choose your
+preferred [installation
+method](https://docs.astral.sh/uv/getting-started/installation/), e.g. the
+standalone installer:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 1. Fork 🐸TTS[https://github.com/idiap/coqui-ai-TTS] by clicking the fork button at the top right corner of the project page.
 
 2. Clone 🐸TTS and add the main repo as a new remote named ```upstream```.
 
     ```bash
-    $ git clone git@github.com:<your Github name>/coqui-ai-TTS.git
-    $ cd coqui-ai-TTS
-    $ git remote add upstream https://github.com/idiap/coqui-ai-TTS.git
+    git clone git@github.com:<your Github name>/coqui-ai-TTS.git
+    cd coqui-ai-TTS
+    git remote add upstream https://github.com/idiap/coqui-ai-TTS.git
     ```
 
 3. Install 🐸TTS for development.
 
     ```bash
-    $ make system-deps  # intended to be used on Ubuntu (Debian). Let us know if you have a different OS.
-    $ make install_dev
+    make system-deps  # intended to be used on Ubuntu (Debian). Let us know if you have a different OS.
+    make install_dev
     ```
 
 4. Create a new branch with an informative name for your goal.
 
     ```bash
-    $ git checkout -b an_informative_name_for_my_branch
+    git checkout -b an_informative_name_for_my_branch
     ```
 
 5. Implement your changes on your new branch.
@@ -75,39 +83,42 @@ The following steps are tested on an Ubuntu system.
 
 7. Add your tests to our test suite under ```tests```  folder. It is important to show that your code works, edge cases are considered, and inform others about the intended use.
 
-8. Run the tests to see how your updates work with the rest of the project. You can repeat this step multiple times as you implement your changes to make sure you are on the right direction.
+8. Run the tests to see how your updates work with the rest of the project. You
+   can repeat this step multiple times as you implement your changes to make
+   sure you are on the right direction. **NB: running all tests takes a long time,
+   it is better to leave this to the CI.**
 
     ```bash
-    $ make test  # stop at the first error
-    $ make test_all  # run all the tests, report all the errors
+    uv run make test  # stop at the first error
+    uv run make test_all  # run all the tests, report all the errors
     ```
 
 9. Format your code. We use ```black``` for code formatting.
 
     ```bash
-    $ make style
+    make style
     ```
 
 10. Run the linter and correct the issues raised. We use ```ruff``` for linting.  It helps to enforce a coding standard, offers simple refactoring suggestions.
 
     ```bash
-    $ make lint
+    make lint
     ```
 
 11. When things are good, add new files and commit your changes.
 
     ```bash
-    $ git add my_file1.py my_file2.py ...
-    $ git commit
+    git add my_file1.py my_file2.py ...
+    git commit
     ```
 
     It's a good practice to regularly sync your local copy of the project with the upstream code to keep up with the recent updates.
 
     ```bash
-    $ git fetch upstream
-    $ git rebase upstream/main
+    git fetch upstream
+    git rebase upstream/main
     # or for the development version
-    $ git rebase upstream/dev
+    git rebase upstream/dev
     ```
 
 12. Send a PR to ```dev``` branch.
@@ -115,7 +126,7 @@ The following steps are tested on an Ubuntu system.
     Push your branch to your fork.
 
     ```bash
-    $ git push -u origin an_informative_name_for_my_branch
+    git push -u origin an_informative_name_for_my_branch
     ```
 
     Then go to your fork's Github page and click on 'Pull request' to send your ✨**PR**✨.
@@ -137,9 +148,9 @@ If you prefer working within a Docker container as your development environment,
 2. Clone 🐸TTS and add the main repo as a new remote named ```upsteam```.
 
     ```bash
-    $ git clone git@github.com:<your Github name>/coqui-ai-TTS.git
-    $ cd coqui-ai-TTS
-    $ git remote add upstream https://github.com/idiap/coqui-ai-TTS.git
+    git clone git@github.com:<your Github name>/coqui-ai-TTS.git
+    cd coqui-ai-TTS
+    git remote add upstream https://github.com/idiap/coqui-ai-TTS.git
     ```
 
 3. Build the Docker Image as your development environment (it installs all of the dependencies for you):

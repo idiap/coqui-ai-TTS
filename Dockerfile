@@ -14,7 +14,7 @@ RUN rm -rf /root/.cache/pip
 WORKDIR /root
 COPY . /root
 
-RUN make install
+RUN pip3 install -e .[all]
 
 ENTRYPOINT ["tts"]
 CMD ["--help"]

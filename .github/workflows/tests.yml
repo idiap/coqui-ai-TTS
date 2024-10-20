@@ -16,17 +16,14 @@ jobs:
         subset: ["data_tests", "inference_tests", "test_aux", "test_text", "test_tts", "test_tts2", "test_vocoder", "test_xtts", "test_zoo0", "test_zoo1", "test_zoo2"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
-          cache: 'pip'
-          cache-dependency-path: 'requirements*'
-      - name: check OS
-        run: cat /etc/os-release
-      - name: set ENV
-        run: export TRAINER_TELEMETRY=0
+          version: "0.4.24"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         if: contains(fromJSON('["inference_tests", "test_text", "test_tts", "test_tts2", "test_xtts", "test_zoo0", "test_zoo1", "test_zoo2"]'), matrix.subset)
         run: |
@@ -37,21 +34,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends git make gcc
           make system-deps
-      - name: Install/upgrade Python setup deps
-        run: python3 -m pip install --upgrade pip setuptools wheel uv
       - name: Replace scarf urls
         if: contains(fromJSON('["data_tests", "inference_tests", "test_aux", "test_tts", "test_tts2", "test_xtts", "test_zoo0", "test_zoo1", "test_zoo2"]'), matrix.subset)
         run: |
           sed -i 's/https:\/\/coqui.gateway.scarf.sh\//https:\/\/github.com\/coqui-ai\/TTS\/releases\/download\//g' TTS/.models.json
-      - name: Install TTS
+      - name: Unit tests
         run: |
           resolution=highest
           if [ "${{ matrix.python-version }}" == "3.9" ]; then
             resolution=lowest-direct
           fi
-          python3 -m uv pip install --resolution=$resolution --system "coqui-tts[dev,server,languages] @ ."
-      - name: Unit tests
-        run: make ${{ matrix.subset }}
+          uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
@@ -65,18 +58,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.12"
+          version: "0.4.24"
       - uses: actions/download-artifact@v4
         with:
           pattern: coverage-data-*
           merge-multiple: true
       - name: Combine coverage
         run: |
-          python -Im pip install --upgrade coverage[toml]
-
-          python -Im coverage combine
-          python -Im coverage html --skip-covered --skip-empty
-
-          python -Im coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+          uv python install
+          uvx coverage combine
+          uvx coverage html --skip-covered --skip-empty
+          uvx coverage report --format=markdown >> $GITHUB_STEP_SUMMARY

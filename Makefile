@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: test system-deps dev-deps style lint install install_dev help docs
+.PHONY: test system-deps style lint install install_dev help docs
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -50,27 +50,24 @@ test_failed:  ## only run tests failed the last time.
 	coverage run -m nose2 -F -v -B tests
 
 style:	## update code style.
-	black ${target_dirs}
+	uv run --only-dev black ${target_dirs}
 
 lint:	## run linters.
-	ruff check ${target_dirs}
-	black ${target_dirs} --check
+	uv run --only-dev ruff check ${target_dirs}
+	uv run --only-dev black ${target_dirs} --check
 
 system-deps:	## install linux system deps
 	sudo apt-get install -y libsndfile1-dev
-
-dev-deps:  ## install development deps
-	pip install -r requirements.dev.txt
 
 build-docs: ## build the docs
 	cd docs && make clean && make build
 
 install:	## install 🐸 TTS
-	pip install -e .[all]
+	uv sync --all-extras
 
 install_dev:	## install 🐸 TTS for development.
-	pip install -e .[all,dev]
-	pre-commit install
+	uv sync --all-extras
+	uv run pre-commit install
 
 docs:	## build the docs
 	$(MAKE) -C docs clean && $(MAKE) -C docs html
