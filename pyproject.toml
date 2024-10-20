@@ -44,7 +44,7 @@ classifiers = [
 ]
 dependencies = [
     # Core
-    "numpy>=1.25.2",
+    "numpy>=1.25.2,<2.0",
     "cython>=3.0.0",
     "scipy>=1.11.2",
     "torch>=2.4",
@@ -68,7 +68,7 @@ dependencies = [
     "gruut[de,es,fr]>=2.4.0",
     # Tortoise
     "einops>=0.6.0",
-    "transformers>=4.42.0,<4.43.0",
+    "transformers>=4.43.0",
     # Bark
     "encodec>=0.1.1",
     # XTTS
@@ -146,6 +146,9 @@ Discussions = "https://github.com/idiap/coqui-ai-TTS/discussions"
 [project.scripts]
 tts = "TTS.bin.synthesize:main"
 tts-server = "TTS.server.server:main"
+
+[tool.uv]
+constraint-dependencies = ["numba>0.58.0"]
 
 [tool.ruff]
 target-version = "py39"
