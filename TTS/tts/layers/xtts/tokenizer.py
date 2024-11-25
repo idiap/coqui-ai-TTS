@@ -239,6 +239,16 @@ _abbreviations = {
             # Hindi doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
+    "vi": [
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        for x in [
+            ("ông", "ông"),  # Mr.
+            ("bà", "bà"),    # Mrs.
+            ("dr", "bác sĩ"), # doctor
+            ("ts", "tiến sĩ"), # PhD
+            ("st", "số thứ tự"), # ordinal
+        ]
+    ],
 }
 
 
@@ -447,6 +457,19 @@ _symbols_multilingual = {
             ("°", " डिग्री "),
         ]
     ],
+    "vi": [
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        for x in [
+            ("&", " và "),        # and
+            ("@", " a còng "),    # at
+            ("%", " phần trăm "), # percent
+            ("#", " dấu thăng "), # hash
+            ("$", " đô la "),     # dollar
+            ("£", " bảng Anh "),  # pound
+            ("°", " độ "),        # degree
+        ]
+    ],
+
 }
 
 
@@ -473,7 +496,9 @@ _ordinal_re = {
     "hu": re.compile(r"([0-9]+)(\.|adik|edik|odik|edik|ödik|ödike|ik)"),
     "ko": re.compile(r"([0-9]+)(번째|번|차|째)"),
     "hi": re.compile(r"([0-9]+)(st|nd|rd|th)"),  # To check
+    "vi": re.compile(r"([0-9]+)(th|thứ)?"),  # Matches "1", "thứ 1", "2", "thứ 2"
 }
+
 _number_re = re.compile(r"[0-9]+")
 _currency_re = {
     "USD": re.compile(r"((\$[0-9\.\,]*[0-9]+)|([0-9\.\,]*[0-9]+\$))"),
@@ -664,7 +689,7 @@ class VoiceBpeTokenizer:
             )
 
     def preprocess_text(self, txt, lang):
-        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
+        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko", "vi"}:
             txt = multilingual_cleaners(txt, lang)
             if lang == "zh":
                 txt = chinese_transliterate(txt)
@@ -675,6 +700,7 @@ class VoiceBpeTokenizer:
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
+
 
     def encode(self, txt, lang):
         lang = lang.split("-")[0]  # remove the region
