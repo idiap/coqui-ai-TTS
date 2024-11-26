@@ -550,6 +550,8 @@ def _expand_currency(m, lang="en", currency="USD"):
         "hu": ", ",
         "ko": ", ",
         "hi": ", ",
+        "vi": " và ",
+
     }
 
     if amount.is_integer():
@@ -670,6 +672,7 @@ class VoiceBpeTokenizer:
             "hu": 224,
             "ko": 95,
             "hi": 150,
+            "vi": 250,
         }
 
     @cached_property
@@ -823,6 +826,14 @@ def test_expand_numbers_multilingual():
         # Hindi
         ("12.5 सेकंड में।", "साढ़े बारह सेकंड में।", "hi"),
         ("50 सैनिक थे।", "पचास सैनिक थे।", "hi"),
+        # Vietnamese
+        ("Trong 12,5 giây.", "Trong mười hai phẩy năm giây.", "vi"),
+        ("Có 50 binh sĩ.", "Có năm mươi binh sĩ.", "vi"),
+        ("Đây là bài kiểm tra thứ 1", "Đây là bài kiểm tra thứ nhất", "vi"),
+        ("Đó sẽ là $20 thưa ông.", "Đó sẽ là hai mươi đô la thưa ông.", "vi"),
+        ("Đó sẽ là 20€ thưa ông.", "Đó sẽ là hai mươi euro thưa ông.", "vi"),
+        ("Đó sẽ là 20,15€ thưa ông.", "Đó sẽ là hai mươi euro, mười lăm xu thưa ông.", "vi"),
+
     ]
     for a, b, lang in test_cases:
         out = expand_numbers_multilingual(a, lang=lang)
@@ -865,6 +876,11 @@ def test_abbreviations_multilingual():
         ("Dr. Ayşe burada.", "doktor Ayşe burada.", "tr"),
         # Hungarian
         ("Dr. Szabó itt van.", "doktor Szabó itt van.", "hu"),
+        # Vietnamese
+        ("Chào Ông. Nguyễn.", "Chào ông Nguyễn.", "vi"),
+        ("Bà. Trần đã đến.", "Bà Trần đã đến.", "vi"),
+        ("Tiến sĩ. Lê đang đợi bạn.", "Tiến sĩ Lê đang đợi bạn.", "vi"),
+
     ]
 
     for a, b, lang in test_cases:
@@ -893,6 +909,10 @@ def test_symbols_multilingual():
         ("Az akkumulátorom töltöttsége 14%", "Az akkumulátorom töltöttsége 14 százalék", "hu"),
         ("배터리 잔량이 14%입니다.", "배터리 잔량이 14 퍼센트입니다.", "ko"),
         ("मेरे पास 14% बैटरी है।", "मेरे पास चौदह प्रतिशत बैटरी है।", "hi"),
+        ("Tôi còn 14% pin", "Tôi còn 14 phần trăm pin", "vi"),
+        ("Hẹn gặp @ bữa tiệc", "Hẹn gặp tại bữa tiệc", "vi"),
+        ("Nhiệt độ là 36.5°", "Nhiệt độ là 36.5 độ", "vi"),
+
     ]
 
     for a, b, lang in test_cases:
