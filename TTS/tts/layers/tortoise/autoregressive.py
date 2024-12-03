@@ -1,5 +1,6 @@
 # AGPL: a notification must be added stating that changes have been made to that file.
 import functools
+import random
 from typing import Optional
 
 import torch
@@ -123,7 +124,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         else:
             emb = self.embeddings(input_ids)
             emb = emb + self.text_pos_embedding.get_fixed_embedding(
-                attention_mask.shape[1] - mel_len, attention_mask.device
+                attention_mask.shape[1] - (mel_len + 1), attention_mask.device
             )
 
         transformer_outputs = self.transformer(
@@ -175,8 +176,6 @@ class ConditioningEncoder(nn.Module):
         embedding_dim,
         attn_blocks=6,
         num_attn_heads=4,
-        do_checkpointing=False,
-        mean=False,
     ):
         super().__init__()
         attn = []
@@ -185,34 +184,46 @@ class ConditioningEncoder(nn.Module):
             attn.append(AttentionBlock(embedding_dim, num_attn_heads))
         self.attn = nn.Sequential(*attn)
         self.dim = embedding_dim
-        self.do_checkpointing = do_checkpointing
-        self.mean = mean
 
     def forward(self, x):
+        """
+        x: (b, 80, s)
+        """
         h = self.init(x)
         h = self.attn(h)
-        if self.mean:
-            return h.mean(dim=2)
-        else:
-            return h[:, :, 0]
+        return h
 
 
 class LearnedPositionEmbeddings(nn.Module):
-    def __init__(self, seq_len, model_dim, init=0.02):
+    def __init__(self, seq_len, model_dim, init=0.02, relative=False):
         super().__init__()
         self.emb = nn.Embedding(seq_len, model_dim)
         # Initializing this way is standard for GPT-2
         self.emb.weight.data.normal_(mean=0.0, std=init)
+        self.relative = relative
+        self.seq_len = seq_len
 
     def forward(self, x):
         sl = x.shape[1]
-        return self.emb(torch.arange(0, sl, device=x.device))
+        if self.relative:
+            start = random.randint(sl, self.seq_len) - sl
+            return self.emb(torch.arange(start, start + sl, device=x.device))
+        else:
+            return self.emb(torch.arange(0, sl, device=x.device))
 
     def get_fixed_embedding(self, ind, dev):
-        return self.emb(torch.arange(0, ind, device=dev))[ind - 1 : ind]
+        return self.emb(torch.tensor([ind], device=dev)).unsqueeze(0)
 
 
-def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text_seq_len, checkpointing):
+def build_hf_gpt_transformer(
+    layers: int,
+    model_dim: int,
+    heads: int,
+    max_mel_seq_len: int,
+    max_text_seq_len: int,
+    checkpointing: bool,
+    max_prompt_len: int = 0,
+):
     """
     GPT-2 implemented by the HuggingFace library.
     """
@@ -220,8 +231,8 @@ def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text
 
     gpt_config = GPT2Config(
         vocab_size=256,  # Unused.
-        n_positions=max_mel_seq_len + max_text_seq_len,
-        n_ctx=max_mel_seq_len + max_text_seq_len,
+        n_positions=max_mel_seq_len + max_text_seq_len + max_prompt_len,
+        n_ctx=max_mel_seq_len + max_text_seq_len + max_prompt_len,
         n_embd=model_dim,
         n_layer=layers,
         n_head=heads,
@@ -234,13 +245,18 @@ def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text
     gpt.wpe = functools.partial(null_position_embeddings, dim=model_dim)
     # Built-in token embeddings are unused.
     del gpt.wte
-    return (
-        gpt,
-        LearnedPositionEmbeddings(max_mel_seq_len, model_dim),
-        LearnedPositionEmbeddings(max_text_seq_len, model_dim),
-        None,
-        None,
+
+    mel_pos_emb = (
+        LearnedPositionEmbeddings(max_mel_seq_len, model_dim)
+        if max_mel_seq_len != -1
+        else functools.partial(null_position_embeddings, dim=model_dim)
     )
+    text_pos_emb = (
+        LearnedPositionEmbeddings(max_text_seq_len, model_dim)
+        if max_mel_seq_len != -1
+        else functools.partial(null_position_embeddings, dim=model_dim)
+    )
+    return gpt, mel_pos_emb, text_pos_emb, None, None
 
 
 class MelEncoder(nn.Module):
@@ -334,12 +350,12 @@ class UnifiedVoice(nn.Module):
             self.mel_layer_pos_embedding,
             self.text_layer_pos_embedding,
         ) = build_hf_gpt_transformer(
-            layers,
-            model_dim,
-            heads,
-            self.max_mel_tokens + 2 + self.max_conditioning_inputs,
-            self.max_text_tokens + 2,
-            checkpointing,
+            layers=layers,
+            model_dim=model_dim,
+            heads=heads,
+            max_mel_seq_len=self.max_mel_tokens + 2 + self.max_conditioning_inputs,
+            max_text_seq_len=self.max_text_tokens + 2,
+            checkpointing=checkpointing,
         )
         if train_solo_embeddings:
             self.mel_solo_embedding = nn.Parameter(torch.randn(1, 1, model_dim) * 0.02, requires_grad=True)
@@ -455,7 +471,7 @@ class UnifiedVoice(nn.Module):
         )
         conds = []
         for j in range(speech_conditioning_input.shape[1]):
-            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j]))
+            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j])[:, :, 0])
         conds = torch.stack(conds, dim=1)
         conds = conds.mean(dim=1)
         return conds

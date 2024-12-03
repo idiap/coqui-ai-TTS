@@ -8,6 +8,7 @@ from torch import nn
 from trainer.io import load_fsspec
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
+from TTS.tts.layers.losses import NLLLoss
 from TTS.tts.layers.overflow.common_layers import Encoder, OverflowUtils
 from TTS.tts.layers.overflow.decoder import Decoder
 from TTS.tts.layers.overflow.neural_hmm import NeuralHMM
@@ -389,21 +390,3 @@ class Overflow(BaseTTS):
     ) -> None:
         logger.test_audios(steps, outputs[1], self.ap.sample_rate)
         logger.test_figures(steps, outputs[0])
-
-
-class NLLLoss(nn.Module):
-    """Negative log likelihood loss."""
-
-    def forward(self, log_prob: torch.Tensor) -> dict:  # pylint: disable=no-self-use
-        """Compute the loss.
-
-        Args:
-            logits (Tensor): [B, T, D]
-
-        Returns:
-            Tensor: [1]
-
-        """
-        return_dict = {}
-        return_dict["loss"] = -log_prob.mean()
-        return return_dict

@@ -14,7 +14,7 @@ from TTS.tts.layers.generic.aligner import AlignmentNetwork
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.helpers import average_over_durations, generate_path, sequence_mask
+from TTS.tts.utils.helpers import average_over_durations, expand_encoder_outputs, generate_attention, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
@@ -310,49 +310,6 @@ class ForwardTTS(BaseTTS):
             self.emb_g = nn.Embedding(self.num_speakers, self.args.hidden_channels)
             nn.init.uniform_(self.emb_g.weight, -0.1, 0.1)
 
-    @staticmethod
-    def generate_attn(dr, x_mask, y_mask=None):
-        """Generate an attention mask from the durations.
-
-        Shapes
-           - dr: :math:`(B, T_{en})`
-           - x_mask: :math:`(B, T_{en})`
-           - y_mask: :math:`(B, T_{de})`
-        """
-        # compute decode mask from the durations
-        if y_mask is None:
-            y_lengths = dr.sum(1).long()
-            y_lengths[y_lengths < 1] = 1
-            y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(dr.dtype)
-        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        attn = generate_path(dr, attn_mask.squeeze(1)).to(dr.dtype)
-        return attn
-
-    def expand_encoder_outputs(self, en, dr, x_mask, y_mask):
-        """Generate attention alignment map from durations and
-        expand encoder outputs
-
-        Shapes:
-            - en: :math:`(B, D_{en}, T_{en})`
-            - dr: :math:`(B, T_{en})`
-            - x_mask: :math:`(B, T_{en})`
-            - y_mask: :math:`(B, T_{de})`
-
-        Examples::
-
-            encoder output: [a,b,c,d]
-            durations: [1, 3, 2, 1]
-
-            expanded: [a, b, b, b, c, c, d]
-            attention map: [[0, 0, 0, 0, 0, 0, 1],
-                            [0, 0, 0, 0, 1, 1, 0],
-                            [0, 1, 1, 1, 0, 0, 0],
-                            [1, 0, 0, 0, 0, 0, 0]]
-        """
-        attn = self.generate_attn(dr, x_mask, y_mask)
-        o_en_ex = torch.matmul(attn.squeeze(1).transpose(1, 2).to(en.dtype), en.transpose(1, 2)).transpose(1, 2)
-        return o_en_ex, attn
-
     def format_durations(self, o_dr_log, x_mask):
         """Format predicted durations.
         1. Convert to linear scale from log scale
@@ -443,9 +400,8 @@ class ForwardTTS(BaseTTS):
         Returns:
             Tuple[torch.FloatTensor, torch.FloatTensor]: Decoder output, attention map from durations.
         """
-        y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en.dtype)
         # expand o_en with durations
-        o_en_ex, attn = self.expand_encoder_outputs(o_en, dr, x_mask, y_mask)
+        o_en_ex, attn, y_mask = expand_encoder_outputs(o_en, dr, x_mask, y_lengths)
         # positional encoding
         if hasattr(self, "pos_encoder"):
             o_en_ex = self.pos_encoder(o_en_ex, y_mask)
@@ -624,7 +580,7 @@ class ForwardTTS(BaseTTS):
             o_dr_log = self.duration_predictor(o_en, x_mask)
         o_dr = torch.clamp(torch.exp(o_dr_log) - 1, 0, self.max_duration)
         # generate attn mask from predicted durations
-        o_attn = self.generate_attn(o_dr.squeeze(1), x_mask)
+        o_attn = generate_attention(o_dr.squeeze(1), x_mask)
         # aligner
         o_alignment_dur = None
         alignment_soft = None

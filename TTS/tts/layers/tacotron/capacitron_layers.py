@@ -3,6 +3,8 @@ from torch import nn
 from torch.distributions.multivariate_normal import MultivariateNormal as MVN
 from torch.nn import functional as F
 
+from TTS.tts.layers.tacotron.common_layers import calculate_post_conv_height
+
 
 class CapacitronVAE(nn.Module):
     """Effective Use of Variational Embedding Capacity for prosody transfer.
@@ -97,7 +99,7 @@ class ReferenceEncoder(nn.Module):
         self.training = False
         self.bns = nn.ModuleList([nn.BatchNorm2d(num_features=filter_size) for filter_size in filters[1:]])
 
-        post_conv_height = self.calculate_post_conv_height(num_mel, 3, 2, 2, num_layers)
+        post_conv_height = calculate_post_conv_height(num_mel, 3, 2, 2, num_layers)
         self.recurrence = nn.LSTM(
             input_size=filters[-1] * post_conv_height, hidden_size=out_dim, batch_first=True, bidirectional=False
         )
@@ -154,13 +156,6 @@ class ReferenceEncoder(nn.Module):
         last_output = ht[-1]
 
         return last_output.to(inputs.device)  # [B, 128]
-
-    @staticmethod
-    def calculate_post_conv_height(height, kernel_size, stride, pad, n_convs):
-        """Height of spec after n convolutions with fixed kernel/stride/pad."""
-        for _ in range(n_convs):
-            height = (height - kernel_size + 2 * pad) // stride + 1
-        return height
 
 
 class TextSummary(nn.Module):

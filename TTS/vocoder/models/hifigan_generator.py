@@ -178,6 +178,7 @@ class HifiganGenerator(torch.nn.Module):
         conv_pre_weight_norm=True,
         conv_post_weight_norm=True,
         conv_post_bias=True,
+        cond_in_each_up_layer=False,
     ):
         r"""HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
 
@@ -202,6 +203,8 @@ class HifiganGenerator(torch.nn.Module):
         self.inference_padding = inference_padding
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_factors)
+        self.cond_in_each_up_layer = cond_in_each_up_layer
+
         # initial upsampling layers
         self.conv_pre = weight_norm(Conv1d(in_channels, upsample_initial_channel, 7, 1, padding=3))
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
@@ -236,6 +239,12 @@ class HifiganGenerator(torch.nn.Module):
         if not conv_post_weight_norm:
             remove_parametrizations(self.conv_post, "weight")
 
+        if self.cond_in_each_up_layer:
+            self.conds = nn.ModuleList()
+            for i in range(len(self.ups)):
+                ch = upsample_initial_channel // (2 ** (i + 1))
+                self.conds.append(nn.Conv1d(cond_channels, ch, 1))
+
     def forward(self, x, g=None):
         """
         Args:
@@ -255,6 +264,10 @@ class HifiganGenerator(torch.nn.Module):
         for i in range(self.num_upsamples):
             o = F.leaky_relu(o, LRELU_SLOPE)
             o = self.ups[i](o)
+
+            if self.cond_in_each_up_layer:
+                o = o + self.conds[i](g)
+
             z_sum = None
             for j in range(self.num_kernels):
                 if z_sum is None:

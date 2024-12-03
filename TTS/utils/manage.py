@@ -424,7 +424,7 @@ class ModelManager(object):
         model_file = None
         config_file = None
         for file_name in os.listdir(output_path):
-            if file_name in ["model_file.pth", "model_file.pth.tar", "model.pth"]:
+            if file_name in ["model_file.pth", "model_file.pth.tar", "model.pth", "checkpoint.pth"]:
                 model_file = os.path.join(output_path, file_name)
             elif file_name == "config.json":
                 config_file = os.path.join(output_path, file_name)

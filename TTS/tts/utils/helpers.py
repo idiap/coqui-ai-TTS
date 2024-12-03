@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import torch
 from scipy.stats import betabinom
@@ -33,7 +35,7 @@ class StandardScaler:
 
 
 # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
-def sequence_mask(sequence_length, max_len=None):
+def sequence_mask(sequence_length: torch.Tensor, max_len: Optional[int] = None) -> torch.Tensor:
     """Create a sequence mask for filtering padding in a sequence tensor.
 
     Args:
@@ -44,7 +46,7 @@ def sequence_mask(sequence_length, max_len=None):
         - mask: :math:`[B, T_max]`
     """
     if max_len is None:
-        max_len = sequence_length.max()
+        max_len = int(sequence_length.max())
     seq_range = torch.arange(max_len, dtype=sequence_length.dtype, device=sequence_length.device)
     # B x T_max
     return seq_range.unsqueeze(0) < sequence_length.unsqueeze(1)
@@ -143,22 +145,75 @@ def convert_pad_shape(pad_shape: list[list]) -> list:
     return [item for sublist in l for item in sublist]
 
 
-def generate_path(duration, mask):
-    """
+def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Generate alignment path based on the given segment durations.
+
     Shapes:
         - duration: :math:`[B, T_en]`
         - mask: :math:'[B, T_en, T_de]`
         - path: :math:`[B, T_en, T_de]`
     """
     b, t_x, t_y = mask.shape
-    cum_duration = torch.cumsum(duration, 1)
+    cum_duration = torch.cumsum(duration, dim=1)
 
     cum_duration_flat = cum_duration.view(b * t_x)
     path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
     path = path.view(b, t_x, t_y)
     path = path - F.pad(path, convert_pad_shape([[0, 0], [1, 0], [0, 0]]))[:, :-1]
-    path = path * mask
-    return path
+    return path * mask
+
+
+def generate_attention(
+    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: Optional[torch.Tensor] = None
+) -> torch.Tensor:
+    """Generate an attention map from the linear scale durations.
+
+    Args:
+        duration (Tensor): Linear scale durations.
+        x_mask (Tensor): Mask for the input (character) sequence.
+        y_mask (Tensor): Mask for the output (spectrogram) sequence. Compute it from the predicted durations
+            if None. Defaults to None.
+
+    Shapes
+       - duration: :math:`(B, T_{en})`
+       - x_mask: :math:`(B, T_{en})`
+       - y_mask: :math:`(B, T_{de})`
+    """
+    # compute decode mask from the durations
+    if y_mask is None:
+        y_lengths = duration.sum(dim=1).long()
+        y_lengths[y_lengths < 1] = 1
+        y_mask = sequence_mask(y_lengths).unsqueeze(1).to(duration.dtype)
+    attn_mask = x_mask.unsqueeze(-1) * y_mask.unsqueeze(2)
+    return generate_path(duration, attn_mask.squeeze(1)).to(duration.dtype)
+
+
+def expand_encoder_outputs(
+    x: torch.Tensor, duration: torch.Tensor, x_mask: torch.Tensor, y_lengths: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Generate attention alignment map from durations and expand encoder outputs.
+
+    Shapes:
+        - x: Encoder output :math:`(B, D_{en}, T_{en})`
+        - duration: :math:`(B, T_{en})`
+        - x_mask: :math:`(B, T_{en})`
+        - y_lengths: :math:`(B)`
+
+    Examples::
+
+        encoder output: [a,b,c,d]
+        durations: [1, 3, 2, 1]
+
+        expanded: [a, b, b, b, c, c, d]
+        attention map: [[0, 0, 0, 0, 0, 0, 1],
+                        [0, 0, 0, 0, 1, 1, 0],
+                        [0, 1, 1, 1, 0, 0, 0],
+                        [1, 0, 0, 0, 0, 0, 0]]
+    """
+    y_mask = sequence_mask(y_lengths).unsqueeze(1).to(x.dtype)
+    attn = generate_attention(duration, x_mask, y_mask)
+    x_expanded = torch.einsum("kmn, kjm -> kjn", [attn.float(), x])
+    return x_expanded, attn, y_mask
 
 
 def beta_binomial_prior_distribution(phoneme_count, mel_count, scaling_factor=1.0):

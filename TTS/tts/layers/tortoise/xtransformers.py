@@ -1,12 +1,14 @@
 import math
 from collections import namedtuple
 from functools import partial
-from inspect import isfunction
 
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
 from torch import einsum, nn
+
+from TTS.tts.layers.tortoise.transformer import cast_tuple, max_neg_value
+from TTS.utils.generic_utils import default, exists
 
 DEFAULT_DIM_HEAD = 64
 
@@ -23,20 +25,6 @@ LayerIntermediates = namedtuple(
 
 
 # helpers
-
-
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    if exists(val):
-        return val
-    return d() if isfunction(d) else d
-
-
-def cast_tuple(val, depth):
-    return val if isinstance(val, tuple) else (val,) * depth
 
 
 class always:
@@ -61,10 +49,6 @@ class equals:
 
     def __call__(self, x, *args, **kwargs):
         return x == self.val
-
-
-def max_neg_value(tensor):
-    return -torch.finfo(tensor.dtype).max
 
 
 def l2norm(t):

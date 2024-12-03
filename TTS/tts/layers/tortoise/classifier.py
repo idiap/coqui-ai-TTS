@@ -16,7 +16,6 @@ class ResBlock(nn.Module):
         up=False,
         down=False,
         kernel_size=3,
-        do_checkpoint=True,
     ):
         super().__init__()
         self.channels = channels
@@ -24,7 +23,6 @@ class ResBlock(nn.Module):
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
         self.use_scale_shift_norm = use_scale_shift_norm
-        self.do_checkpoint = do_checkpoint
         padding = 1 if kernel_size == 3 else 2
 
         self.in_layers = nn.Sequential(
@@ -92,14 +90,14 @@ class AudioMiniEncoder(nn.Module):
         self.layers = depth
         for l in range(depth):
             for r in range(resnet_blocks):
-                res.append(ResBlock(ch, dropout, do_checkpoint=False, kernel_size=kernel_size))
+                res.append(ResBlock(ch, dropout, kernel_size=kernel_size))
             res.append(Downsample(ch, use_conv=True, out_channels=ch * 2, factor=downsample_factor))
             ch *= 2
         self.res = nn.Sequential(*res)
         self.final = nn.Sequential(normalization(ch), nn.SiLU(), nn.Conv1d(ch, embedding_dim, 1))
         attn = []
         for a in range(attn_blocks):
-            attn.append(AttentionBlock(embedding_dim, num_attn_heads, do_checkpoint=False))
+            attn.append(AttentionBlock(embedding_dim, num_attn_heads))
         self.attn = nn.Sequential(*attn)
         self.dim = embedding_dim
 

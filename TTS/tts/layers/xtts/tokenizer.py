@@ -15,6 +15,7 @@ from spacy.lang.zh import Chinese
 from tokenizers import Tokenizer
 
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
+from TTS.tts.utils.text.cleaners import collapse_whitespace, lowercase
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,6 @@ def split_sentence(text, lang, text_split_length=250):
 
     return text_splits
 
-
-_whitespace_re = re.compile(r"\s+")
 
 # List of (regular expression, replacement) pairs for abbreviations:
 _abbreviations = {
@@ -591,14 +590,6 @@ def expand_numbers_multilingual(text, lang="en"):
     return text
 
 
-def lowercase(text):
-    return text.lower()
-
-
-def collapse_whitespace(text):
-    return re.sub(_whitespace_re, " ", text)
-
-
 def multilingual_cleaners(text, lang):
     text = text.replace('"', "")
     if lang == "tr":
@@ -609,13 +600,6 @@ def multilingual_cleaners(text, lang):
     text = expand_numbers_multilingual(text, lang)
     text = expand_abbreviations_multilingual(text, lang)
     text = expand_symbols_multilingual(text, lang=lang)
-    text = collapse_whitespace(text)
-    return text
-
-
-def basic_cleaners(text):
-    """Basic pipeline that lowercases and collapses whitespace without transliteration."""
-    text = lowercase(text)
     text = collapse_whitespace(text)
     return text
 

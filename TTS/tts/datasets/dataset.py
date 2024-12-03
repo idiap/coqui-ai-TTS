@@ -63,6 +63,31 @@ def get_audio_size(audiopath: Union[str, os.PathLike[Any]]) -> int:
         raise RuntimeError(msg) from e
 
 
+def get_attribute_balancer_weights(items: list, attr_name: str, multi_dict: Optional[dict] = None):
+    """Create inverse frequency weights for balancing the dataset.
+
+    Use `multi_dict` to scale relative weights."""
+    attr_names_samples = np.array([item[attr_name] for item in items])
+    unique_attr_names = np.unique(attr_names_samples).tolist()
+    attr_idx = [unique_attr_names.index(l) for l in attr_names_samples]
+    attr_count = np.array([len(np.where(attr_names_samples == l)[0]) for l in unique_attr_names])
+    weight_attr = 1.0 / attr_count
+    dataset_samples_weight = np.array([weight_attr[l] for l in attr_idx])
+    dataset_samples_weight = dataset_samples_weight / np.linalg.norm(dataset_samples_weight)
+    if multi_dict is not None:
+        # check if all keys are in the multi_dict
+        for k in multi_dict:
+            assert k in unique_attr_names, f"{k} not in {unique_attr_names}"
+        # scale weights
+        multiplier_samples = np.array([multi_dict.get(item[attr_name], 1.0) for item in items])
+        dataset_samples_weight *= multiplier_samples
+    return (
+        torch.from_numpy(dataset_samples_weight).float(),
+        unique_attr_names,
+        np.unique(dataset_samples_weight).tolist(),
+    )
+
+
 class TTSDataset(Dataset):
     def __init__(
         self,

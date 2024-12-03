@@ -155,8 +155,10 @@ class TTS(nn.Module):
             gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
         """
         self.model_name = model_name
-        model_path, config_path, _, _, _ = self.download_model_by_name(model_name)
-        self.voice_converter = Synthesizer(vc_checkpoint=model_path, vc_config=config_path, use_cuda=gpu)
+        model_path, config_path, _, _, model_dir = self.download_model_by_name(model_name)
+        self.voice_converter = Synthesizer(
+            vc_checkpoint=model_path, vc_config=config_path, model_dir=model_dir, use_cuda=gpu
+        )
 
     def load_tts_model_by_name(self, model_name: str, gpu: bool = False):
         """Load one of 🐸TTS models by name.
@@ -355,15 +357,17 @@ class TTS(nn.Module):
             target_wav (str):`
                 Path to the target wav file.
         """
-        wav = self.voice_converter.voice_conversion(source_wav=source_wav, target_wav=target_wav)
-        return wav
+        if self.voice_converter is None:
+            msg = "The selected model does not support voice conversion."
+            raise RuntimeError(msg)
+        return self.voice_converter.voice_conversion(source_wav=source_wav, target_wav=target_wav)
 
     def voice_conversion_to_file(
         self,
         source_wav: str,
         target_wav: str,
         file_path: str = "output.wav",
-    ):
+    ) -> str:
         """Voice conversion with FreeVC. Convert source wav to target speaker.
 
         Args:

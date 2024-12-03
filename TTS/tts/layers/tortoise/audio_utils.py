@@ -9,7 +9,7 @@ import torch
 import torchaudio
 from scipy.io.wavfile import read
 
-from TTS.utils.audio.torch_transforms import TorchSTFT
+from TTS.utils.audio.torch_transforms import TorchSTFT, amp_to_db
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 logger = logging.getLogger(__name__)
@@ -88,24 +88,6 @@ def normalize_tacotron_mel(mel):
     return 2 * ((mel - TACOTRON_MEL_MIN) / (TACOTRON_MEL_MAX - TACOTRON_MEL_MIN)) - 1
 
 
-def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """
-    PARAMS
-    ------
-    C: compression factor
-    """
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def dynamic_range_decompression(x, C=1):
-    """
-    PARAMS
-    ------
-    C: compression factor used to compress
-    """
-    return torch.exp(x) / C
-
-
 def get_voices(extra_voice_dirs: List[str] = []):
     dirs = extra_voice_dirs
     voices: Dict[str, List[str]] = {}
@@ -175,7 +157,7 @@ def wav_to_univnet_mel(wav, do_normalization=False, device="cuda"):
     )
     stft = stft.to(device)
     mel = stft(wav)
-    mel = dynamic_range_compression(mel)
+    mel = amp_to_db(mel)
     if do_normalization:
         mel = normalize_tacotron_mel(mel)
     return mel

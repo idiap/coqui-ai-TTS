@@ -3,7 +3,7 @@ import math
 import torch
 from torch.nn import functional as F
 
-from TTS.tts.utils.helpers import convert_pad_shape, sequence_mask
+from TTS.tts.utils.helpers import convert_pad_shape
 
 
 def init_weights(m: torch.nn.Module, mean: float = 0.0, std: float = 0.01) -> None:
@@ -96,35 +96,9 @@ def subsequent_mask(length):
     return mask
 
 
-@torch.jit.script
-def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
-    n_channels_int = n_channels[0]
-    in_act = input_a + input_b
-    t_act = torch.tanh(in_act[:, :n_channels_int, :])
-    s_act = torch.sigmoid(in_act[:, n_channels_int:, :])
-    acts = t_act * s_act
-    return acts
-
-
 def shift_1d(x):
     x = F.pad(x, convert_pad_shape([[0, 0], [0, 0], [1, 0]]))[:, :, :-1]
     return x
-
-
-def generate_path(duration, mask):
-    """
-    duration: [b, 1, t_x]
-    mask: [b, 1, t_y, t_x]
-    """
-    b, _, t_y, t_x = mask.shape
-    cum_duration = torch.cumsum(duration, -1)
-
-    cum_duration_flat = cum_duration.view(b * t_x)
-    path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
-    path = path.view(b, t_x, t_y)
-    path = path - F.pad(path, convert_pad_shape([[0, 0], [1, 0], [0, 0]]))[:, :-1]
-    path = path.unsqueeze(1).transpose(2, 3) * mask
-    return path
 
 
 def clip_grad_value_(parameters, clip_value, norm_type=2):

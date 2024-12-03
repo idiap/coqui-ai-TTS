@@ -6,7 +6,7 @@ import torch
 from trainer.io import get_user_data_dir
 
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
-from TTS.vc.modules.freevc.wavlm.wavlm import WavLM, WavLMConfig
+from TTS.vc.layers.freevc.wavlm.wavlm import WavLM, WavLMConfig
 
 logger = logging.getLogger(__name__)
 

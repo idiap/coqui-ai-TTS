@@ -6,10 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-
-class GroupNorm32(nn.GroupNorm):
-    def forward(self, x):
-        return super().forward(x.float()).type(x.dtype)
+from TTS.tts.layers.tortoise.arch_utils import normalization, zero_module
 
 
 def conv_nd(dims, *args, **kwargs):
@@ -20,24 +17,6 @@ def conv_nd(dims, *args, **kwargs):
     elif dims == 3:
         return nn.Conv3d(*args, **kwargs)
     raise ValueError(f"unsupported dimensions: {dims}")
-
-
-def normalization(channels):
-    groups = 32
-    if channels <= 16:
-        groups = 8
-    elif channels <= 64:
-        groups = 16
-    while channels % groups != 0:
-        groups = int(groups / 2)
-    assert groups > 2
-    return GroupNorm32(groups, channels)
-
-
-def zero_module(module):
-    for p in module.parameters():
-        p.detach().zero_()
-    return module
 
 
 class QKVAttention(nn.Module):
@@ -114,28 +93,3 @@ class AttentionBlock(nn.Module):
         h = self.proj_out(h)
         xp = self.x_proj(x)
         return (xp + h).reshape(b, xp.shape[1], *spatial)
-
-
-class ConditioningEncoder(nn.Module):
-    def __init__(
-        self,
-        spec_dim,
-        embedding_dim,
-        attn_blocks=6,
-        num_attn_heads=4,
-    ):
-        super().__init__()
-        attn = []
-        self.init = nn.Conv1d(spec_dim, embedding_dim, kernel_size=1)
-        for a in range(attn_blocks):
-            attn.append(AttentionBlock(embedding_dim, num_attn_heads))
-        self.attn = nn.Sequential(*attn)
-        self.dim = embedding_dim
-
-    def forward(self, x):
-        """
-        x: (b, 80, s)
-        """
-        h = self.init(x)
-        h = self.attn(h)
-        return h

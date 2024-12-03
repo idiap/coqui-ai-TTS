@@ -1,22 +1,19 @@
+from typing import TypeVar, Union
+
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 from torch import nn
 
+from TTS.utils.generic_utils import exists
+
 # helpers
+_T = TypeVar("_T")
 
 
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    return val if exists(val) else d
-
-
-def cast_tuple(val, depth=1):
+def cast_tuple(val: Union[tuple[_T], list[_T], _T], depth: int = 1) -> tuple[_T]:
     if isinstance(val, list):
-        val = tuple(val)
+        return tuple(val)
     return val if isinstance(val, tuple) else (val,) * depth
 
 

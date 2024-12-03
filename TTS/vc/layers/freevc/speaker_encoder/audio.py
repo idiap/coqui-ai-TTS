@@ -5,7 +5,7 @@ from typing import Optional, Union
 import librosa
 import numpy as np
 
-from TTS.vc.modules.freevc.speaker_encoder.hparams import (
+from TTS.vc.layers.freevc.speaker_encoder.hparams import (
     audio_norm_target_dBFS,
     mel_n_channels,
     mel_window_length,

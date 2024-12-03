@@ -4,12 +4,25 @@ import importlib
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional, TypeVar, Union
 
 import torch
 from packaging.version import Version
+from typing_extensions import TypeIs
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+def exists(val: Union[_T, None]) -> TypeIs[_T]:
+    return val is not None
+
+
+def default(val: Union[_T, None], d: Union[_T, Callable[[], _T]]) -> _T:
+    if exists(val):
+        return val
+    return d() if callable(d) else d
 
 
 def to_camel(text):
@@ -52,25 +65,6 @@ def get_import_path(obj: object) -> str:
         str: The import path of the class.
     """
     return ".".join([type(obj).__module__, type(obj).__name__])
-
-
-def set_init_dict(model_dict, checkpoint_state, c):
-    # Partial initialization: if there is a mismatch with new and old layer, it is skipped.
-    for k, v in checkpoint_state.items():
-        if k not in model_dict:
-            logger.warning("Layer missing in the model finition %s", k)
-    # 1. filter out unnecessary keys
-    pretrained_dict = {k: v for k, v in checkpoint_state.items() if k in model_dict}
-    # 2. filter out different size layers
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if v.numel() == model_dict[k].numel()}
-    # 3. skip reinit layers
-    if c.has("reinit_layers") and c.reinit_layers is not None:
-        for reinit_layer_name in c.reinit_layers:
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if reinit_layer_name not in k}
-    # 4. overwrite entries in the existing state dict
-    model_dict.update(pretrained_dict)
-    logger.info("%d / %d layers are restored.", len(pretrained_dict), len(model_dict))
-    return model_dict
 
 
 def format_aux_input(def_args: Dict, kwargs: Dict) -> Dict:

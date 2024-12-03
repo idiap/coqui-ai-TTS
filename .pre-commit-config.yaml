@@ -2,6 +2,8 @@ repos:
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: v5.0.0
     hooks:
+      - id: check-json
+        files: "TTS/.models.json"
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace

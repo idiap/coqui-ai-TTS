@@ -22,30 +22,18 @@ BATCH_SIZE = 3
 
 class TestFreeVC(unittest.TestCase):
     def _create_inputs(self, config, batch_size=2):
-        input_dummy = torch.rand(batch_size, 30 * config.audio["hop_length"]).to(device)
-        input_lengths = torch.randint(100, 30 * config.audio["hop_length"], (batch_size,)).long().to(device)
-        input_lengths[-1] = 30 * config.audio["hop_length"]
         spec = torch.rand(batch_size, 30, config.audio["filter_length"] // 2 + 1).to(device)
         mel = torch.rand(batch_size, 30, config.audio["n_mel_channels"]).to(device)
         spec_lengths = torch.randint(20, 30, (batch_size,)).long().to(device)
         spec_lengths[-1] = spec.size(2)
         waveform = torch.rand(batch_size, spec.size(2) * config.audio["hop_length"]).to(device)
-        return input_dummy, input_lengths, mel, spec, spec_lengths, waveform
+        return mel, spec, spec_lengths, waveform
 
     @staticmethod
     def _create_inputs_inference():
-        source_wav = torch.rand(16000)
+        source_wav = torch.rand(15999)
         target_wav = torch.rand(16000)
         return source_wav, target_wav
-
-    @staticmethod
-    def _check_parameter_changes(model, model_ref):
-        count = 0
-        for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
-            )
-            count += 1
 
     def test_methods(self):
         config = FreeVCConfig()
@@ -69,7 +57,7 @@ class TestFreeVC(unittest.TestCase):
         model.train()
         print(" > Num parameters for FreeVC model:%s" % (count_parameters(model)))
 
-        _, _, mel, spec, spec_lengths, waveform = self._create_inputs(config, batch_size)
+        mel, spec, spec_lengths, waveform = self._create_inputs(config, batch_size)
 
         wavlm_vec = model.extract_wavlm_features(waveform)
         wavlm_vec_lengths = torch.ones(batch_size, dtype=torch.long)
@@ -86,7 +74,7 @@ class TestFreeVC(unittest.TestCase):
         model = FreeVC(config).to(device)
         model.eval()
 
-        _, _, mel, _, _, waveform = self._create_inputs(config, batch_size)
+        mel, _, _, waveform = self._create_inputs(config, batch_size)
 
         wavlm_vec = model.extract_wavlm_features(waveform)
         wavlm_vec_lengths = torch.ones(batch_size, dtype=torch.long)
@@ -108,8 +96,8 @@ class TestFreeVC(unittest.TestCase):
         source_wav, target_wav = self._create_inputs_inference()
         output_wav = model.voice_conversion(source_wav, target_wav)
         assert (
-            output_wav.shape[0] + config.audio.hop_length == source_wav.shape[0]
-        ), f"{output_wav.shape} != {source_wav.shape}"
+            output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length
+        ), f"{output_wav.shape} != {source_wav.shape}, {config.audio.hop_length}"
 
     def test_train_step(self): ...
 

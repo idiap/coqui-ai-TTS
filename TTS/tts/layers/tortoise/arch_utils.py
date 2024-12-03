@@ -93,12 +93,10 @@ class AttentionBlock(nn.Module):
         channels,
         num_heads=1,
         num_head_channels=-1,
-        do_checkpoint=True,
         relative_pos_embeddings=False,
     ):
         super().__init__()
         self.channels = channels
-        self.do_checkpoint = do_checkpoint
         if num_head_channels == -1:
             self.num_heads = num_heads
         else:
@@ -183,114 +181,6 @@ class Downsample(nn.Module):
     def forward(self, x):
         assert x.shape[1] == self.channels
         return self.op(x)
-
-
-class ResBlock(nn.Module):
-    def __init__(
-        self,
-        channels,
-        dropout,
-        out_channels=None,
-        use_conv=False,
-        use_scale_shift_norm=False,
-        up=False,
-        down=False,
-        kernel_size=3,
-    ):
-        super().__init__()
-        self.channels = channels
-        self.dropout = dropout
-        self.out_channels = out_channels or channels
-        self.use_conv = use_conv
-        self.use_scale_shift_norm = use_scale_shift_norm
-        padding = 1 if kernel_size == 3 else 2
-
-        self.in_layers = nn.Sequential(
-            normalization(channels),
-            nn.SiLU(),
-            nn.Conv1d(channels, self.out_channels, kernel_size, padding=padding),
-        )
-
-        self.updown = up or down
-
-        if up:
-            self.h_upd = Upsample(channels, False)
-            self.x_upd = Upsample(channels, False)
-        elif down:
-            self.h_upd = Downsample(channels, False)
-            self.x_upd = Downsample(channels, False)
-        else:
-            self.h_upd = self.x_upd = nn.Identity()
-
-        self.out_layers = nn.Sequential(
-            normalization(self.out_channels),
-            nn.SiLU(),
-            nn.Dropout(p=dropout),
-            zero_module(nn.Conv1d(self.out_channels, self.out_channels, kernel_size, padding=padding)),
-        )
-
-        if self.out_channels == channels:
-            self.skip_connection = nn.Identity()
-        elif use_conv:
-            self.skip_connection = nn.Conv1d(channels, self.out_channels, kernel_size, padding=padding)
-        else:
-            self.skip_connection = nn.Conv1d(channels, self.out_channels, 1)
-
-    def forward(self, x):
-        if self.updown:
-            in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
-            h = in_rest(x)
-            h = self.h_upd(h)
-            x = self.x_upd(x)
-            h = in_conv(h)
-        else:
-            h = self.in_layers(x)
-        h = self.out_layers(h)
-        return self.skip_connection(x) + h
-
-
-class AudioMiniEncoder(nn.Module):
-    def __init__(
-        self,
-        spec_dim,
-        embedding_dim,
-        base_channels=128,
-        depth=2,
-        resnet_blocks=2,
-        attn_blocks=4,
-        num_attn_heads=4,
-        dropout=0,
-        downsample_factor=2,
-        kernel_size=3,
-    ):
-        super().__init__()
-        self.init = nn.Sequential(nn.Conv1d(spec_dim, base_channels, 3, padding=1))
-        ch = base_channels
-        res = []
-        for l in range(depth):
-            for r in range(resnet_blocks):
-                res.append(ResBlock(ch, dropout, kernel_size=kernel_size))
-            res.append(Downsample(ch, use_conv=True, out_channels=ch * 2, factor=downsample_factor))
-            ch *= 2
-        self.res = nn.Sequential(*res)
-        self.final = nn.Sequential(normalization(ch), nn.SiLU(), nn.Conv1d(ch, embedding_dim, 1))
-        attn = []
-        for a in range(attn_blocks):
-            attn.append(
-                AttentionBlock(
-                    embedding_dim,
-                    num_attn_heads,
-                )
-            )
-        self.attn = nn.Sequential(*attn)
-        self.dim = embedding_dim
-
-    def forward(self, x):
-        h = self.init(x)
-        h = self.res(h)
-        h = self.final(h)
-        h = self.attn(h)
-        return h[:, :, 0]
 
 
 DEFAULT_MEL_NORM_FILE = "https://github.com/coqui-ai/TTS/releases/download/v0.14.1_models/mel_norms.pth"

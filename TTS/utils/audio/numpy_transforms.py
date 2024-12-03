@@ -59,7 +59,7 @@ def _exp(x, base):
     return np.exp(x)
 
 
-def amp_to_db(*, x: np.ndarray, gain: float = 1, base: int = 10, **kwargs) -> np.ndarray:
+def amp_to_db(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> np.ndarray:
     """Convert amplitude values to decibels.
 
     Args:

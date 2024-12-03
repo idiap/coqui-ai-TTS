@@ -80,7 +80,7 @@ Example run:
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
     # TODO: handle multi-speaker
     model = setup_model(C)
-    model, _ = load_checkpoint(model, args.model_path, args.use_cuda, True)
+    model, _ = load_checkpoint(model, args.model_path, use_cuda=args.use_cuda, eval=True)
 
     # data loader
     preprocessor = importlib.import_module("TTS.tts.datasets.formatters")

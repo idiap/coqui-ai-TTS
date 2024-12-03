@@ -6,29 +6,7 @@ from TTS.tts.utils.helpers import sequence_mask
 # pylint: disable=unused-variable
 
 
-def expand_encoder_outputs_test():
-    model = ForwardTTS(ForwardTTSArgs(num_chars=10))
-
-    inputs = T.rand(2, 5, 57)
-    durations = T.randint(1, 4, (2, 57))
-
-    x_mask = T.ones(2, 1, 57)
-    y_mask = T.ones(2, 1, durations.sum(1).max())
-
-    expanded, _ = model.expand_encoder_outputs(inputs, durations, x_mask, y_mask)
-
-    for b in range(durations.shape[0]):
-        index = 0
-        for idx, dur in enumerate(durations[b]):
-            diff = (
-                expanded[b, :, index : index + dur.item()]
-                - inputs[b, :, idx].repeat(dur.item()).view(expanded[b, :, index : index + dur.item()].shape)
-            ).sum()
-            assert abs(diff) < 1e-6, diff
-            index += dur
-
-
-def model_input_output_test():
+def test_model_input_output():
     """Assert the output shapes of the model in different modes"""
 
     # VANILLA MODEL

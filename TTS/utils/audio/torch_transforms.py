@@ -1,6 +1,112 @@
+import logging
+
 import librosa
 import torch
 from torch import nn
+
+logger = logging.getLogger(__name__)
+
+
+hann_window = {}
+mel_basis = {}
+
+
+def amp_to_db(x: torch.Tensor, *, spec_gain: float = 1.0, clip_val: float = 1e-5) -> torch.Tensor:
+    """Spectral normalization / dynamic range compression."""
+    return torch.log(torch.clamp(x, min=clip_val) * spec_gain)
+
+
+def db_to_amp(x: torch.Tensor, *, spec_gain: float = 1.0) -> torch.Tensor:
+    """Spectral denormalization / dynamic range decompression."""
+    return torch.exp(x) / spec_gain
+
+
+def wav_to_spec(y: torch.Tensor, n_fft: int, hop_length: int, win_length: int, *, center: bool = False) -> torch.Tensor:
+    """
+    Args Shapes:
+        - y : :math:`[B, 1, T]`
+
+    Return Shapes:
+        - spec : :math:`[B,C,T]`
+    """
+    y = y.squeeze(1)
+
+    if torch.min(y) < -1.0:
+        logger.info("min value is %.3f", torch.min(y))
+    if torch.max(y) > 1.0:
+        logger.info("max value is %.3f", torch.max(y))
+
+    global hann_window
+    wnsize_dtype_device = f"{win_length}_{y.dtype}_{y.device}"
+    if wnsize_dtype_device not in hann_window:
+        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
+
+    y = torch.nn.functional.pad(
+        y.unsqueeze(1),
+        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
+        mode="reflect",
+    )
+    y = y.squeeze(1)
+
+    spec = torch.view_as_real(
+        torch.stft(
+            y,
+            n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=hann_window[wnsize_dtype_device],
+            center=center,
+            pad_mode="reflect",
+            normalized=False,
+            onesided=True,
+            return_complex=True,
+        )
+    )
+
+    return torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+
+
+def spec_to_mel(
+    spec: torch.Tensor, n_fft: int, num_mels: int, sample_rate: int, fmin: float, fmax: float
+) -> torch.Tensor:
+    """
+    Args Shapes:
+        - spec : :math:`[B,C,T]`
+
+    Return Shapes:
+        - mel : :math:`[B,C,T]`
+    """
+    global mel_basis
+    fmax_dtype_device = f"{n_fft}_{fmax}_{spec.dtype}_{spec.device}"
+    if fmax_dtype_device not in mel_basis:
+        # TODO: switch librosa to torchaudio
+        mel = librosa.filters.mel(sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
+        mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(dtype=spec.dtype, device=spec.device)
+    mel = torch.matmul(mel_basis[fmax_dtype_device], spec)
+    return amp_to_db(mel)
+
+
+def wav_to_mel(
+    y: torch.Tensor,
+    n_fft: int,
+    num_mels: int,
+    sample_rate: int,
+    hop_length: int,
+    win_length: int,
+    fmin: float,
+    fmax: float,
+    *,
+    center: bool = False,
+) -> torch.Tensor:
+    """
+    Args Shapes:
+        - y : :math:`[B, 1, T]`
+
+    Return Shapes:
+        - spec : :math:`[B,C,T]`
+    """
+    spec = wav_to_spec(y, n_fft, hop_length, win_length, center=center)
+    return spec_to_mel(spec, n_fft, num_mels, sample_rate, fmin, fmax)
 
 
 class TorchSTFT(nn.Module):  # pylint: disable=abstract-method
@@ -157,11 +263,3 @@ class TorchSTFT(nn.Module):  # pylint: disable=abstract-method
             norm=self.mel_norm,
         )
         self.mel_basis = torch.from_numpy(mel_basis).float()
-
-    @staticmethod
-    def _amp_to_db(x, spec_gain=1.0):
-        return torch.log(torch.clamp(x, min=1e-5) * spec_gain)
-
-    @staticmethod
-    def _db_to_amp(x, spec_gain=1.0):
-        return torch.exp(x) / spec_gain

@@ -931,6 +931,28 @@
                     "license": "MIT",
                     "commit": null
                 }
+            },
+            "multi-dataset": {
+                "openvoice_v1": {
+                    "hf_url": [
+                        "https://huggingface.co/myshell-ai/OpenVoice/resolve/main/checkpoints/converter/config.json",
+                        "https://huggingface.co/myshell-ai/OpenVoice/resolve/main/checkpoints/converter/checkpoint.pth"
+                    ],
+                    "description": "OpenVoice VC model from https://huggingface.co/myshell-ai/OpenVoiceV2",
+                    "author": "MyShell.ai",
+                    "license": "MIT",
+                    "commit": null
+                },
+                "openvoice_v2": {
+                    "hf_url": [
+                        "https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main/converter/config.json",
+                        "https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main/converter/checkpoint.pth"
+                    ],
+                    "description": "OpenVoice VC model from https://huggingface.co/myshell-ai/OpenVoiceV2",
+                    "author": "MyShell.ai",
+                    "license": "MIT",
+                    "commit": null
+                }
             }
         }
     }

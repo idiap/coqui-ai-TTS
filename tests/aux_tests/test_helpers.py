@@ -1,6 +1,14 @@
 import torch as T
 
-from TTS.tts.utils.helpers import average_over_durations, generate_path, rand_segments, segment, sequence_mask
+from TTS.tts.utils.helpers import (
+    average_over_durations,
+    expand_encoder_outputs,
+    generate_attention,
+    generate_path,
+    rand_segments,
+    segment,
+    sequence_mask,
+)
 
 
 def test_average_over_durations():  # pylint: disable=no-self-use
@@ -86,3 +94,24 @@ def test_generate_path():
             assert all(path[b, t, :current_idx] == 0.0)
             assert all(path[b, t, current_idx + durations[b, t].item() :] == 0.0)
             current_idx += durations[b, t].item()
+
+    assert T.all(path == generate_attention(durations, x_mask, y_mask))
+    assert T.all(path == generate_attention(durations, x_mask))
+
+
+def test_expand_encoder_outputs():
+    inputs = T.rand(2, 5, 57)
+    durations = T.randint(1, 4, (2, 57))
+
+    x_mask = T.ones(2, 1, 57)
+    y_lengths = T.ones(2) * durations.sum(1).max()
+
+    expanded, _, _ = expand_encoder_outputs(inputs, durations, x_mask, y_lengths)
+
+    for b in range(durations.shape[0]):
+        index = 0
+        for idx, dur in enumerate(durations[b]):
+            idx_expanded = expanded[b, :, index : index + dur.item()]
+            diff = (idx_expanded - inputs[b, :, idx].repeat(int(dur)).view(idx_expanded.shape)).sum()
+            assert abs(diff) < 1e-6, diff
+            index += dur

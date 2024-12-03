@@ -4,12 +4,9 @@ import re
 
 from coqpit import Coqpit
 
+from TTS.utils.generic_utils import to_camel
+
 logger = logging.getLogger(__name__)
-
-
-def to_camel(text):
-    text = text.capitalize()
-    return re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
 
 
 def setup_model(config: Coqpit):

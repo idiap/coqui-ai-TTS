@@ -7,8 +7,8 @@ import torch
 from torch import nn
 from trainer.io import load_fsspec
 
-from TTS.vc.modules.freevc.speaker_encoder import audio
-from TTS.vc.modules.freevc.speaker_encoder.hparams import (
+from TTS.vc.layers.freevc.speaker_encoder import audio
+from TTS.vc.layers.freevc.speaker_encoder.hparams import (
     mel_n_channels,
     mel_window_step,
     model_embedding_size,

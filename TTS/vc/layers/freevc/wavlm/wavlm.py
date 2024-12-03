@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import LayerNorm
 
-from TTS.vc.modules.freevc.wavlm.modules import (
+from TTS.vc.layers.freevc.wavlm.modules import (
     Fp32GroupNorm,
     Fp32LayerNorm,
     GLU_Linear,

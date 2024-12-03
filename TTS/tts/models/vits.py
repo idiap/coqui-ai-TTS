@@ -10,7 +10,6 @@ import torch
 import torch.distributed as dist
 import torchaudio
 from coqpit import Coqpit
-from librosa.filters import mel as librosa_mel_fn
 from monotonic_alignment_search import maximum_path
 from torch import nn
 from torch.nn import functional as F
@@ -21,7 +20,7 @@ from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.configs.shared_configs import CharactersConfig
-from TTS.tts.datasets.dataset import TTSDataset, _parse_sample
+from TTS.tts.datasets.dataset import TTSDataset, _parse_sample, get_attribute_balancer_weights
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.layers.vits.discriminator import VitsDiscriminator
 from TTS.tts.layers.vits.networks import PosteriorEncoder, ResidualCouplingBlocks, TextEncoder
@@ -35,6 +34,7 @@ from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment
+from TTS.utils.audio.torch_transforms import spec_to_mel, wav_to_mel, wav_to_spec
 from TTS.utils.samplers import BucketBatchSampler
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
@@ -44,10 +44,6 @@ logger = logging.getLogger(__name__)
 ##############################
 # IO / Feature extraction
 ##############################
-
-# pylint: disable=global-statement
-hann_window = {}
-mel_basis = {}
 
 
 @torch.no_grad()
@@ -78,143 +74,6 @@ def load_audio(file_path):
     return x, sr
 
 
-def _amp_to_db(x, C=1, clip_val=1e-5):
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def _db_to_amp(x, C=1):
-    return torch.exp(x) / C
-
-
-def amp_to_db(magnitudes):
-    output = _amp_to_db(magnitudes)
-    return output
-
-
-def db_to_amp(magnitudes):
-    output = _db_to_amp(magnitudes)
-    return output
-
-
-def wav_to_spec(y, n_fft, hop_length, win_length, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T]`
-    """
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        logger.info("min value is %.3f", torch.min(y))
-    if torch.max(y) > 1.0:
-        logger.info("max value is %.3f", torch.max(y))
-
-    global hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_length) + "_" + dtype_device
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.view_as_real(
-        torch.stft(
-            y,
-            n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=hann_window[wnsize_dtype_device],
-            center=center,
-            pad_mode="reflect",
-            normalized=False,
-            onesided=True,
-            return_complex=True,
-        )
-    )
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    return spec
-
-
-def spec_to_mel(spec, n_fft, num_mels, sample_rate, fmin, fmax):
-    """
-    Args Shapes:
-        - spec : :math:`[B,C,T]`
-
-    Return Shapes:
-        - mel : :math:`[B,C,T]`
-    """
-    global mel_basis
-    dtype_device = str(spec.dtype) + "_" + str(spec.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
-    if fmax_dtype_device not in mel_basis:
-        mel = librosa_mel_fn(sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
-        mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(dtype=spec.dtype, device=spec.device)
-    mel = torch.matmul(mel_basis[fmax_dtype_device], spec)
-    mel = amp_to_db(mel)
-    return mel
-
-
-def wav_to_mel(y, n_fft, num_mels, sample_rate, hop_length, win_length, fmin, fmax, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T]`
-    """
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        logger.info("min value is %.3f", torch.min(y))
-    if torch.max(y) > 1.0:
-        logger.info("max value is %.3f", torch.max(y))
-
-    global mel_basis, hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
-    wnsize_dtype_device = str(win_length) + "_" + dtype_device
-    if fmax_dtype_device not in mel_basis:
-        mel = librosa_mel_fn(sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
-        mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(dtype=y.dtype, device=y.device)
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.view_as_real(
-        torch.stft(
-            y,
-            n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=hann_window[wnsize_dtype_device],
-            center=center,
-            pad_mode="reflect",
-            normalized=False,
-            onesided=True,
-            return_complex=True,
-        )
-    )
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    spec = torch.matmul(mel_basis[fmax_dtype_device], spec)
-    spec = amp_to_db(spec)
-    return spec
-
-
 #############################
 # CONFIGS
 #############################
@@ -234,30 +93,6 @@ class VitsAudioConfig(Coqpit):
 ##############################
 # DATASET
 ##############################
-
-
-def get_attribute_balancer_weights(items: list, attr_name: str, multi_dict: dict = None):
-    """Create inverse frequency weights for balancing the dataset.
-    Use `multi_dict` to scale relative weights."""
-    attr_names_samples = np.array([item[attr_name] for item in items])
-    unique_attr_names = np.unique(attr_names_samples).tolist()
-    attr_idx = [unique_attr_names.index(l) for l in attr_names_samples]
-    attr_count = np.array([len(np.where(attr_names_samples == l)[0]) for l in unique_attr_names])
-    weight_attr = 1.0 / attr_count
-    dataset_samples_weight = np.array([weight_attr[l] for l in attr_idx])
-    dataset_samples_weight = dataset_samples_weight / np.linalg.norm(dataset_samples_weight)
-    if multi_dict is not None:
-        # check if all keys are in the multi_dict
-        for k in multi_dict:
-            assert k in unique_attr_names, f"{k} not in {unique_attr_names}"
-        # scale weights
-        multiplier_samples = np.array([multi_dict.get(item[attr_name], 1.0) for item in items])
-        dataset_samples_weight *= multiplier_samples
-    return (
-        torch.from_numpy(dataset_samples_weight).float(),
-        unique_attr_names,
-        np.unique(dataset_samples_weight).tolist(),
-    )
 
 
 class VitsDataset(TTSDataset):

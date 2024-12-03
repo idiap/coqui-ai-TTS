@@ -1,13 +1,12 @@
 
 ## 🐸Coqui TTS News
 - 📣 Fork of the [original, unmaintained repository](https://github.com/coqui-ai/TTS). New PyPI package: [coqui-tts](https://pypi.org/project/coqui-tts)
+- 📣 [OpenVoice](https://github.com/myshell-ai/OpenVoice) models now available for voice conversion.
 - 📣 Prebuilt wheels are now also published for Mac and Windows (in addition to Linux as before) for easier installation across platforms.
-- 📣 ⓍTTSv2 is here with 16 languages and better performance across the board.
+- 📣 ⓍTTSv2 is here with 17 languages and better performance across the board. ⓍTTS can stream with <200ms latency.
 - 📣 ⓍTTS fine-tuning code is out. Check the [example recipes](https://github.com/idiap/coqui-ai-TTS/tree/dev/recipes/ljspeech).
-- 📣 ⓍTTS can now stream with <200ms latency.
-- 📣 ⓍTTS, our production TTS model that can speak 13 languages, is released [Blog Post](https://coqui.ai/blog/tts/open_xtts), [Demo](https://huggingface.co/spaces/coqui/xtts), [Docs](https://coqui-tts.readthedocs.io/en/latest/models/xtts.html)
 - 📣 [🐶Bark](https://github.com/suno-ai/bark) is now available for inference with unconstrained voice cloning. [Docs](https://coqui-tts.readthedocs.io/en/latest/models/bark.html)
-- 📣 You can use [~1100 Fairseq models](https://github.com/facebookresearch/fairseq/tree/main/examples/mms) with 🐸TTS.
+- 📣 You can use [Fairseq models in ~1100 languages](https://github.com/facebookresearch/fairseq/tree/main/examples/mms) with 🐸TTS.
 
 ## <img src="https://raw.githubusercontent.com/idiap/coqui-ai-TTS/main/images/coqui-log-green-TTS.png" height="56"/>
 
@@ -121,6 +120,7 @@ repository are also still a useful source of information.
 
 ### Voice Conversion
 - FreeVC: [paper](https://arxiv.org/abs/2210.15418)
+- OpenVoice: [technical report](https://arxiv.org/abs/2312.01479)
 
 You can also help us implement more models.
 
@@ -244,8 +244,14 @@ tts = TTS(model_name="voice_conversion_models/multilingual/vctk/freevc24", progr
 tts.voice_conversion_to_file(source_wav="my/source.wav", target_wav="my/target.wav", file_path="output.wav")
 ```
 
-#### Example voice cloning together with the voice conversion model.
-This way, you can clone voices by using any model in 🐸TTS.
+Other available voice conversion models:
+- `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
+- `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
+
+#### Example voice cloning together with the default voice conversion model.
+
+This way, you can clone voices by using any model in 🐸TTS. The FreeVC model is
+used for voice conversion after synthesizing speech.
 
 ```python
 
@@ -411,5 +417,7 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
     |- speaker_encoder/ (Speaker Encoder models.)
         |- (same)
     |- vocoder/         (Vocoder models.)
+        |- (same)
+    |- vc/         (Voice conversion models.)
         |- (same)
 ```

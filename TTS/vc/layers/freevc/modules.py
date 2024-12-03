@@ -5,9 +5,9 @@ from torch.nn import functional as F
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 
-import TTS.vc.modules.freevc.commons as commons
 from TTS.tts.layers.generic.normalization import LayerNorm2
-from TTS.vc.modules.freevc.commons import init_weights
+from TTS.tts.layers.generic.wavenet import fused_add_tanh_sigmoid_multiply
+from TTS.vc.layers.freevc.commons import init_weights
 from TTS.vocoder.models.hifigan_generator import get_padding
 
 LRELU_SLOPE = 0.1
@@ -99,7 +99,7 @@ class WN(torch.nn.Module):
             else:
                 g_l = torch.zeros_like(x_in)
 
-            acts = commons.fused_add_tanh_sigmoid_multiply(x_in, g_l, n_channels_tensor)
+            acts = fused_add_tanh_sigmoid_multiply(x_in, g_l, n_channels_tensor)
             acts = self.drop(acts)
 
             res_skip_acts = self.res_skip_layers[i](acts)

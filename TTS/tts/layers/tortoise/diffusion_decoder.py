@@ -196,31 +196,26 @@ class DiffusionTts(nn.Module):
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
             ),
         )
         self.unconditioned_embedding = nn.Parameter(torch.randn(1, model_channels, 1))

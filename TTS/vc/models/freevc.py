@@ -6,24 +6,23 @@ import numpy as np
 import torch
 from coqpit import Coqpit
 from torch import nn
-from torch.nn import Conv1d, Conv2d, ConvTranspose1d
+from torch.nn import Conv1d, ConvTranspose1d
 from torch.nn import functional as F
-from torch.nn.utils import spectral_norm
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 from trainer.io import load_fsspec
 
-import TTS.vc.modules.freevc.commons as commons
-import TTS.vc.modules.freevc.modules as modules
+import TTS.vc.layers.freevc.modules as modules
+from TTS.tts.layers.vits.discriminator import DiscriminatorS
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.vc.configs.freevc_config import FreeVCConfig
+from TTS.vc.layers.freevc.commons import init_weights, rand_slice_segments
+from TTS.vc.layers.freevc.mel_processing import mel_spectrogram_torch
+from TTS.vc.layers.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx
+from TTS.vc.layers.freevc.wavlm import get_wavlm
 from TTS.vc.models.base_vc import BaseVC
-from TTS.vc.modules.freevc.commons import init_weights
-from TTS.vc.modules.freevc.mel_processing import mel_spectrogram_torch
-from TTS.vc.modules.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx
-from TTS.vc.modules.freevc.wavlm import get_wavlm
-from TTS.vocoder.models.hifigan_generator import get_padding
+from TTS.vocoder.models.hifigan_discriminator import DiscriminatorP
 
 logger = logging.getLogger(__name__)
 
@@ -162,75 +161,6 @@ class Generator(torch.nn.Module):
             remove_parametrizations(l, "weight")
         for l in self.resblocks:
             remove_parametrizations(l, "weight")
-
-
-class DiscriminatorP(torch.nn.Module):
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
-        super(DiscriminatorP, self).__init__()
-        self.period = period
-        self.use_spectral_norm = use_spectral_norm
-        norm_f = weight_norm if use_spectral_norm is False else spectral_norm
-        self.convs = nn.ModuleList(
-            [
-                norm_f(Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(get_padding(kernel_size, 1), 0))),
-            ]
-        )
-        self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
-
-    def forward(self, x):
-        fmap = []
-
-        # 1d to 2d
-        b, c, t = x.shape
-        if t % self.period != 0:  # pad first
-            n_pad = self.period - (t % self.period)
-            x = F.pad(x, (0, n_pad), "reflect")
-            t = t + n_pad
-        x = x.view(b, c, t // self.period, self.period)
-
-        for l in self.convs:
-            x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
-            fmap.append(x)
-        x = self.conv_post(x)
-        fmap.append(x)
-        x = torch.flatten(x, 1, -1)
-
-        return x, fmap
-
-
-class DiscriminatorS(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
-        super(DiscriminatorS, self).__init__()
-        norm_f = weight_norm if use_spectral_norm is False else spectral_norm
-        self.convs = nn.ModuleList(
-            [
-                norm_f(Conv1d(1, 16, 15, 1, padding=7)),
-                norm_f(Conv1d(16, 64, 41, 4, groups=4, padding=20)),
-                norm_f(Conv1d(64, 256, 41, 4, groups=16, padding=20)),
-                norm_f(Conv1d(256, 1024, 41, 4, groups=64, padding=20)),
-                norm_f(Conv1d(1024, 1024, 41, 4, groups=256, padding=20)),
-                norm_f(Conv1d(1024, 1024, 5, 1, padding=2)),
-            ]
-        )
-        self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
-
-    def forward(self, x):
-        fmap = []
-
-        for l in self.convs:
-            x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
-            fmap.append(x)
-        x = self.conv_post(x)
-        fmap.append(x)
-        x = torch.flatten(x, 1, -1)
-
-        return x, fmap
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
@@ -454,7 +384,7 @@ class FreeVC(BaseVC):
         z_p = self.flow(z, spec_mask, g=g)
 
         # Randomly slice z and compute o using dec
-        z_slice, ids_slice = commons.rand_slice_segments(z, spec_lengths, self.segment_size)
+        z_slice, ids_slice = rand_slice_segments(z, spec_lengths, self.segment_size)
         o = self.dec(z_slice, g=g)
 
         return o, ids_slice, spec_mask, (z, z_p, m_p, logs_p, m_q, logs_q)

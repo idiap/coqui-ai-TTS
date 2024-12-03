@@ -1,6 +1,5 @@
 # ported from: https://github.com/neonbjb/tortoise-tts
 
-import functools
 import random
 
 import torch
@@ -8,81 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import GPT2Config
 
-from TTS.tts.layers.tortoise.autoregressive import _prepare_attention_mask_for_generation
+from TTS.tts.layers.tortoise.autoregressive import (
+    ConditioningEncoder,
+    LearnedPositionEmbeddings,
+    _prepare_attention_mask_for_generation,
+    build_hf_gpt_transformer,
+)
 from TTS.tts.layers.xtts.gpt_inference import GPT2InferenceModel
-from TTS.tts.layers.xtts.latent_encoder import ConditioningEncoder
 from TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
-
-
-def null_position_embeddings(range, dim):
-    return torch.zeros((range.shape[0], range.shape[1], dim), device=range.device)
-
-
-class LearnedPositionEmbeddings(nn.Module):
-    def __init__(self, seq_len, model_dim, init=0.02, relative=False):
-        super().__init__()
-        # nn.Embedding
-        self.emb = torch.nn.Embedding(seq_len, model_dim)
-        # Initializing this way is standard for GPT-2
-        self.emb.weight.data.normal_(mean=0.0, std=init)
-        self.relative = relative
-        self.seq_len = seq_len
-
-    def forward(self, x):
-        sl = x.shape[1]
-        if self.relative:
-            start = random.randint(sl, self.seq_len) - sl
-            return self.emb(torch.arange(start, start + sl, device=x.device))
-        else:
-            return self.emb(torch.arange(0, sl, device=x.device))
-
-    def get_fixed_embedding(self, ind, dev):
-        return self.emb(torch.tensor([ind], device=dev)).unsqueeze(0)
-
-
-def build_hf_gpt_transformer(
-    layers,
-    model_dim,
-    heads,
-    max_mel_seq_len,
-    max_text_seq_len,
-    max_prompt_len,
-    checkpointing,
-):
-    """
-    GPT-2 implemented by the HuggingFace library.
-    """
-    from transformers import GPT2Config, GPT2Model
-
-    gpt_config = GPT2Config(
-        vocab_size=256,  # Unused.
-        n_positions=max_mel_seq_len + max_text_seq_len + max_prompt_len,
-        n_ctx=max_mel_seq_len + max_text_seq_len + max_prompt_len,
-        n_embd=model_dim,
-        n_layer=layers,
-        n_head=heads,
-        gradient_checkpointing=checkpointing,
-        use_cache=not checkpointing,
-    )
-    gpt = GPT2Model(gpt_config)
-    # Override the built in positional embeddings
-    del gpt.wpe
-    gpt.wpe = functools.partial(null_position_embeddings, dim=model_dim)
-    # Built-in token embeddings are unused.
-    del gpt.wte
-
-    mel_pos_emb = (
-        LearnedPositionEmbeddings(max_mel_seq_len, model_dim)
-        if max_mel_seq_len != -1
-        else functools.partial(null_position_embeddings, dim=model_dim)
-    )
-    text_pos_emb = (
-        LearnedPositionEmbeddings(max_text_seq_len, model_dim)
-        if max_mel_seq_len != -1
-        else functools.partial(null_position_embeddings, dim=model_dim)
-    )
-    # gpt = torch.compile(gpt, mode="reduce-overhead", fullgraph=True)
-    return gpt, mel_pos_emb, text_pos_emb, None, None
 
 
 class GPT(nn.Module):
@@ -149,13 +81,13 @@ class GPT(nn.Module):
             self.mel_layer_pos_embedding,
             self.text_layer_pos_embedding,
         ) = build_hf_gpt_transformer(
-            layers,
-            model_dim,
-            heads,
-            self.max_mel_tokens,
-            self.max_text_tokens,
-            self.max_prompt_tokens,
-            checkpointing,
+            layers=layers,
+            model_dim=model_dim,
+            heads=heads,
+            max_mel_seq_len=self.max_mel_tokens,
+            max_text_seq_len=self.max_text_tokens,
+            max_prompt_len=self.max_prompt_tokens,
+            checkpointing=checkpointing,
         )
         if train_solo_embeddings:
             self.mel_solo_embedding = nn.Parameter(torch.randn(1, 1, model_dim) * 0.02, requires_grad=True)
@@ -303,19 +235,6 @@ class GPT(nn.Module):
         else:
             return first_logits
 
-    def get_conditioning(self, speech_conditioning_input):
-        speech_conditioning_input = (
-            speech_conditioning_input.unsqueeze(1)
-            if len(speech_conditioning_input.shape) == 3
-            else speech_conditioning_input
-        )
-        conds = []
-        for j in range(speech_conditioning_input.shape[1]):
-            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j]))
-        conds = torch.stack(conds, dim=1)
-        conds = conds.mean(dim=1)
-        return conds
-
     def get_prompts(self, prompt_codes):
         """
         Create a prompt from the mel codes. This is used to condition the model on the mel codes.
@@ -354,6 +273,7 @@ class GPT(nn.Module):
         """
         cond_input: (b, 80, s) or (b, 1, 80, s)
         conds: (b, 1024, s)
+        output: (b, 1024, 32)
         """
         conds = None
         if not return_latent:
