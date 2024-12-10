@@ -98,11 +98,11 @@ class Synthesizer(nn.Module):
         if tts_checkpoint:
             self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
 
-        if vocoder_checkpoint:
-            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
-
         if vc_checkpoint and model_dir == "":
             self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
+
+        if vocoder_checkpoint:
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
 
         if model_dir:
             if "fairseq" in model_dir:
@@ -275,8 +275,10 @@ class Synthesizer(nn.Module):
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
     def voice_conversion(self, source_wav: str, target_wav: str) -> List[int]:
-        output_wav = self.vc_model.voice_conversion(source_wav, target_wav)
-        return output_wav
+        output = self.vc_model.voice_conversion(source_wav, target_wav)
+        if self.vocoder_model is not None:
+            output = self.vocoder_model.inference(output)
+        return output.squeeze()
 
     def tts(
         self,
