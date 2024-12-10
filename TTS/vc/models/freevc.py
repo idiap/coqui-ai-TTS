@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import librosa
 import numpy as np
@@ -477,7 +477,7 @@ class FreeVC(BaseVC):
     def eval_step(): ...
 
     @staticmethod
-    def init_from_config(config: FreeVCConfig, samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: FreeVCConfig) -> "FreeVC":
         model = FreeVC(config)
         return model
 
