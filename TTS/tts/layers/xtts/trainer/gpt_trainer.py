@@ -197,10 +197,6 @@ class GPTTrainer(BaseTTS):
             mel_norm_file=self.args.mel_norm_file, sampling_rate=config.audio.dvae_sample_rate
         )
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def forward(self, text_inputs, text_lengths, audio_codes, wav_lengths, cond_mels, cond_idxs, cond_lens):
         """
         Forward pass that uses both text and voice in either text conditioning mode or voice conditioning mode

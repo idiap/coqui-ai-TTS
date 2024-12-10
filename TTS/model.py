@@ -64,3 +64,7 @@ class BaseTrainerModel(TrainerModel):
                 It is cached under `trainer.io.get_user_data_dir()/tts_cache`. Defaults to False.
         """
         ...
+
+    @property
+    def device(self) -> torch.device:
+        return next(self.parameters()).device

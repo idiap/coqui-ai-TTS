@@ -174,10 +174,6 @@ class OpenVoice(BaseVC):
 
         self.ref_enc = ReferenceEncoder(self.spec_channels, self.gin_channels)
 
-    @property
-    def device(self) -> torch.device:
-        return next(self.parameters()).device
-
     @staticmethod
     def init_from_config(config: OpenVoiceConfig) -> "OpenVoice":
         return OpenVoice(config)

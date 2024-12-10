@@ -43,10 +43,6 @@ class Bark(BaseTTS):
         self.encodec = EncodecModel.encodec_model_24khz()
         self.encodec.set_target_bandwidth(6.0)
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def load_bark_models(self):
         self.semantic_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["text"], device=self.device, config=self.config, model_type="text"

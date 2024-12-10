@@ -306,10 +306,6 @@ class FreeVC(BaseVC):
 
         self.wavlm = get_wavlm()
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def load_pretrained_speaker_encoder(self):
         """Load pretrained speaker encoder model as mentioned in the paper."""
         logger.info("Loading pretrained speaker encoder model ...")
