@@ -274,11 +274,18 @@ class Synthesizer(nn.Module):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str) -> List[int]:
-        output = self.vc_model.voice_conversion(source_wav, target_wav)
+    def voice_conversion(self, source_wav: str, target_wav: str, **kwargs) -> List[int]:
+        start_time = time.time()
+        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
         if self.vocoder_model is not None:
             output = self.vocoder_model.inference(output)
-        return output.squeeze()
+
+        output = output.squeeze()
+        process_time = time.time() - start_time
+        audio_time = len(output) / self.output_sample_rate
+        logger.info("Processing time: %.3f", process_time)
+        logger.info("Real-time factor: %.3f", process_time / audio_time)
+        return output
 
     def tts(
         self,
