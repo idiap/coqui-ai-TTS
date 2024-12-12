@@ -1,11 +1,9 @@
-import os
-
-from tests import get_tests_output_path, run_cli
+from tests import run_cli
 
 
-def test_synthesize():
+def test_synthesize(tmp_path):
     """Test synthesize.py with diffent arguments."""
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+    output_path = tmp_path / "output.wav"
     run_cli("tts --list_models")
 
     # single speaker model

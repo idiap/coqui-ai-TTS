@@ -1,4 +1,5 @@
 import json
+import shutil
 
 import torch
 from trainer.io import get_last_checkpoint
@@ -88,3 +89,4 @@ def test_train(tmp_path):
         f"CUDA_VISIBLE_DEVICES='{get_device_id()}' python TTS/bin/train_tts.py --continue_path {continue_path} "
     )
     run_cli(command_train)
+    shutil.rmtree(tmp_path)

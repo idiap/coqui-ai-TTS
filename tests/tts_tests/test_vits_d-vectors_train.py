@@ -1,3 +1,5 @@
+import shutil
+
 from tests import get_device_id, run_cli
 from TTS.tts.configs.vits_config import VitsConfig
 
@@ -56,3 +58,4 @@ def test_train(tmp_path):
         f"CUDA_VISIBLE_DEVICES='{get_device_id()}' python TTS/bin/train_tts.py --continue_path {continue_path} "
     )
     run_cli(command_train)
+    shutil.rmtree(tmp_path)

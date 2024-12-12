@@ -2,13 +2,16 @@
 import os
 import shutil
 
+import pytest
 import torch
 from trainer.io import get_user_data_dir
 
-from tests import get_tests_data_path, get_tests_output_path, run_cli
+from tests import get_tests_data_path, run_cli
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.manage import ModelManager
+
+GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 MODELS_WITH_SEP_TESTS = [
     "tts_models/multilingual/multi-dataset/bark",
@@ -18,11 +21,19 @@ MODELS_WITH_SEP_TESTS = [
 ]
 
 
-def run_models(offset=0, step=1):
+@pytest.fixture(autouse=True)
+def run_around_tests(tmp_path):
+    """Download models to a temp folder and delete it afterwards."""
+    os.environ["TTS_HOME"] = str(tmp_path)
+    yield
+    shutil.rmtree(tmp_path)
+
+
+def run_models(tmp_path, offset=0, step=1):
     """Check if all the models are downloadable and tts models run correctly."""
     print(" > Run synthesizer with all the models.")
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
-    manager = ModelManager(output_prefix=get_tests_output_path(), progress_bar=False)
+    output_path = tmp_path / "output.wav"
+    manager = ModelManager(output_prefix=tmp_path, progress_bar=False)
     model_names = [name for name in manager.list_models() if name not in MODELS_WITH_SEP_TESTS]
     print("Model names:", model_names)
     for model_name in model_names[offset::step]:
@@ -54,9 +65,6 @@ def run_models(offset=0, step=1):
                 f'tts --model_name  {model_name} --text "This is an example." '
                 f'--out_path "{output_path}" {speaker_arg} {language_arg} --no-progress_bar'
             )
-            # remove downloaded models
-            shutil.rmtree(local_download_dir)
-            shutil.rmtree(get_user_data_dir("tts"))
         elif "voice_conversion_models" in model_name:
             speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
             reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
@@ -67,12 +75,15 @@ def run_models(offset=0, step=1):
         else:
             # only download the model
             manager.download_model(model_name)
+        # remove downloaded models
+        shutil.rmtree(get_user_data_dir("tts"))
         print(f" | > OK: {model_name}")
 
 
-def test_xtts():
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_xtts(tmp_path):
     """XTTS is too big to run on github actions. We need to test it locally"""
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+    output_path = tmp_path / "output.wav"
     speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
     use_gpu = torch.cuda.is_available()
     if use_gpu:
@@ -91,6 +102,7 @@ def test_xtts():
         )
 
 
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_xtts_streaming():
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
@@ -124,9 +136,10 @@ def test_xtts_streaming():
     assert len(wav_chuncks) > 1
 
 
-def test_xtts_v2():
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_xtts_v2(tmp_path):
     """XTTS is too big to run on github actions. We need to test it locally"""
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+    output_path = tmp_path / "output.wav"
     speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
     speaker_wav_2 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0002.wav")
     use_gpu = torch.cuda.is_available()
@@ -146,6 +159,7 @@ def test_xtts_v2():
         )
 
 
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_xtts_v2_streaming():
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
@@ -205,8 +219,9 @@ def test_xtts_v2_streaming():
     assert normal_len > fast_len
 
 
-def test_tortoise():
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_tortoise(tmp_path):
+    output_path = tmp_path / "output.wav"
     use_gpu = torch.cuda.is_available()
     if use_gpu:
         run_cli(
@@ -220,9 +235,10 @@ def test_tortoise():
         )
 
 
-def test_bark():
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_bark(tmp_path):
     """Bark is too big to run on github actions. We need to test it locally"""
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+    output_path = tmp_path / "output.wav"
     use_gpu = torch.cuda.is_available()
     if use_gpu:
         run_cli(
@@ -236,13 +252,13 @@ def test_bark():
         )
 
 
-def test_voice_conversion():
+def test_voice_conversion(tmp_path):
     print(" > Run voice conversion inference using YourTTS model.")
     model_name = "tts_models/multilingual/multi-dataset/your_tts"
     language_id = "en"
     speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
     reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
-    output_path = os.path.join(get_tests_output_path(), "output.wav")
+    output_path = tmp_path / "output.wav"
     run_cli(
         f"tts --model_name  {model_name}"
         f" --out_path {output_path} --speaker_wav {speaker_wav} --reference_wav {reference_wav} --language_idx {language_id} --no-progress_bar"
@@ -254,13 +270,13 @@ These are used to split tests into different actions on Github.
 """
 
 
-def test_models_offset_0_step_3():
-    run_models(offset=0, step=3)
+def test_models_offset_0_step_3(tmp_path):
+    run_models(tmp_path, offset=0, step=3)
 
 
-def test_models_offset_1_step_3():
-    run_models(offset=1, step=3)
+def test_models_offset_1_step_3(tmp_path):
+    run_models(tmp_path, offset=1, step=3)
 
 
-def test_models_offset_2_step_3():
-    run_models(offset=2, step=3)
+def test_models_offset_2_step_3(tmp_path):
+    run_models(tmp_path, offset=2, step=3)
