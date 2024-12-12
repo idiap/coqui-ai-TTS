@@ -137,8 +137,8 @@ all = [
 dev = [
     "black==24.2.0",
     "coverage[toml]>=7",
-    "nose2>=0.15",
     "pre-commit>=3",
+    "pytest>=8",
     "ruff==0.7.0",
 ]
 # Dependencies for building the documentation
@@ -235,10 +235,10 @@ max-returns = 7
 line-length = 120
 target-version = ['py39']
 
+[tool.coverage.report]
+skip_covered = true
+skip_empty = true
+
 [tool.coverage.run]
 parallel = true
 source = ["TTS"]
-
-[tool.cibuildwheel]
-build = "cp*"
-skip = "*-win32 *i686 *musllinux*"
