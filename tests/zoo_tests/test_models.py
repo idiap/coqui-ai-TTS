@@ -7,6 +7,7 @@ import torch
 from trainer.io import get_user_data_dir
 
 from tests import get_tests_data_path, run_cli
+from TTS.api import TTS
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.manage import ModelManager
@@ -29,55 +30,61 @@ def run_around_tests(tmp_path):
     shutil.rmtree(tmp_path)
 
 
-def run_models(tmp_path, offset=0, step=1):
-    """Check if all the models are downloadable and tts models run correctly."""
-    print(" > Run synthesizer with all the models.")
+@pytest.fixture
+def manager(tmp_path):
+    """Set up model manager."""
+    return ModelManager(output_prefix=tmp_path, progress_bar=False)
+
+
+# To split tests into different CI jobs
+num_partitions = int(os.getenv("NUM_PARTITIONS", "1"))
+partition = int(os.getenv("TEST_PARTITION", "0"))
+model_names = [name for name in TTS.list_models() if name not in MODELS_WITH_SEP_TESTS]
+model_names = [name for i, name in enumerate(model_names) if i % num_partitions == partition]
+
+
+@pytest.mark.parametrize("model_name", model_names)
+def test_models(tmp_path, model_name, manager):
+    print(f"\n > Run - {model_name}")
     output_path = tmp_path / "output.wav"
-    manager = ModelManager(output_prefix=tmp_path, progress_bar=False)
-    model_names = [name for name in manager.list_models() if name not in MODELS_WITH_SEP_TESTS]
-    print("Model names:", model_names)
-    for model_name in model_names[offset::step]:
-        print(f"\n > Run - {model_name}")
-        model_path, _, _ = manager.download_model(model_name)
-        if "tts_models" in model_name:
-            local_download_dir = model_path.parent
-            # download and run the model
-            speaker_files = list(local_download_dir.glob("speaker*"))
-            language_files = list(local_download_dir.glob("language*"))
-            speaker_arg = ""
-            language_arg = ""
-            if len(speaker_files) > 0:
-                # multi-speaker model
-                if "speaker_ids" in speaker_files[0].stem:
-                    speaker_manager = SpeakerManager(speaker_id_file_path=speaker_files[0])
-                elif "speakers" in speaker_files[0].stem:
-                    speaker_manager = SpeakerManager(d_vectors_file_path=speaker_files[0])
-                speakers = list(speaker_manager.name_to_id.keys())
-                if len(speakers) > 1:
-                    speaker_arg = f'--speaker_idx "{speakers[0]}"'
-            if len(language_files) > 0 and "language_ids" in language_files[0].stem:
-                # multi-lingual model
-                language_manager = LanguageManager(language_ids_file_path=language_files[0])
-                languages = language_manager.language_names
-                if len(languages) > 1:
-                    language_arg = f'--language_idx "{languages[0]}"'
-            run_cli(
-                f'tts --model_name  {model_name} --text "This is an example." '
-                f'--out_path "{output_path}" {speaker_arg} {language_arg} --no-progress_bar'
-            )
-        elif "voice_conversion_models" in model_name:
-            speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
-            reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
-            run_cli(
-                f"tts --model_name  {model_name} "
-                f'--out_path "{output_path}" --source_wav "{speaker_wav}" --target_wav "{reference_wav}" --no-progress_bar'
-            )
-        else:
-            # only download the model
-            manager.download_model(model_name)
-        # remove downloaded models
-        shutil.rmtree(get_user_data_dir("tts"))
-        print(f" | > OK: {model_name}")
+    model_path, _, _ = manager.download_model(model_name)
+    if "tts_models" in model_name:
+        local_download_dir = model_path.parent
+        # download and run the model
+        speaker_files = list(local_download_dir.glob("speaker*"))
+        language_files = list(local_download_dir.glob("language*"))
+        speaker_arg = ""
+        language_arg = ""
+        if len(speaker_files) > 0:
+            # multi-speaker model
+            if "speaker_ids" in speaker_files[0].stem:
+                speaker_manager = SpeakerManager(speaker_id_file_path=speaker_files[0])
+            elif "speakers" in speaker_files[0].stem:
+                speaker_manager = SpeakerManager(d_vectors_file_path=speaker_files[0])
+            speakers = list(speaker_manager.name_to_id.keys())
+            if len(speakers) > 1:
+                speaker_arg = f'--speaker_idx "{speakers[0]}"'
+        if len(language_files) > 0 and "language_ids" in language_files[0].stem:
+            # multi-lingual model
+            language_manager = LanguageManager(language_ids_file_path=language_files[0])
+            languages = language_manager.language_names
+            if len(languages) > 1:
+                language_arg = f'--language_idx "{languages[0]}"'
+        run_cli(
+            f'tts --model_name  {model_name} --text "This is an example." '
+            f'--out_path "{output_path}" {speaker_arg} {language_arg} --no-progress_bar'
+        )
+    elif "voice_conversion_models" in model_name:
+        speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
+        reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
+        run_cli(
+            f"tts --model_name  {model_name} "
+            f'--out_path "{output_path}" --source_wav "{speaker_wav}" --target_wav "{reference_wav}" --no-progress_bar'
+        )
+    else:
+        # only download the model
+        manager.download_model(model_name)
+    print(f" | > OK: {model_name}")
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
@@ -263,20 +270,3 @@ def test_voice_conversion(tmp_path):
         f"tts --model_name  {model_name}"
         f" --out_path {output_path} --speaker_wav {speaker_wav} --reference_wav {reference_wav} --language_idx {language_id} --no-progress_bar"
     )
-
-
-"""
-These are used to split tests into different actions on Github.
-"""
-
-
-def test_models_offset_0_step_3(tmp_path):
-    run_models(tmp_path, offset=0, step=3)
-
-
-def test_models_offset_1_step_3(tmp_path):
-    run_models(tmp_path, offset=1, step=3)
-
-
-def test_models_offset_2_step_3(tmp_path):
-    run_models(tmp_path, offset=2, step=3)

@@ -25,13 +25,8 @@ test_aux:	## run aux tests.
 	coverage run -m pytest -x -v --durations=0 tests/aux_tests
 	./run_bash_tests.sh
 
-test_zoo0:	## run zoo tests.
-	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py \
-	-k "test_models_offset_0_step_3 or test_voice_conversion"
-test_zoo1:	## run zoo tests.
-	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py -k test_models_offset_1_step_3
-test_zoo2:	## run zoo tests.
-	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py -k test_models_offset_2_step_3
+test_zoo:	## run zoo tests.
+	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py
 
 inference_tests: ## run inference tests.
 	coverage run -m pytest -x -v --durations=0 tests/inference_tests
