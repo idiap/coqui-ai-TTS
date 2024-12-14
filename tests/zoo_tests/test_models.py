@@ -6,8 +6,9 @@ import pytest
 import torch
 from trainer.io import get_user_data_dir
 
-from tests import get_tests_data_path, run_cli
+from tests import get_tests_data_path, run_main
 from TTS.api import TTS
+from TTS.bin.synthesize import main
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.manage import ModelManager
@@ -46,15 +47,16 @@ model_names = [name for i, name in enumerate(model_names) if i % num_partitions 
 @pytest.mark.parametrize("model_name", model_names)
 def test_models(tmp_path, model_name, manager):
     print(f"\n > Run - {model_name}")
-    output_path = tmp_path / "output.wav"
+    output_path = str(tmp_path / "output.wav")
     model_path, _, _ = manager.download_model(model_name)
+    args = ["--model_name", model_name, "--out_path", output_path, "--no-progress_bar"]
     if "tts_models" in model_name:
         local_download_dir = model_path.parent
         # download and run the model
         speaker_files = list(local_download_dir.glob("speaker*"))
         language_files = list(local_download_dir.glob("language*"))
-        speaker_arg = ""
-        language_arg = ""
+        speaker_arg = []
+        language_arg = []
         if len(speaker_files) > 0:
             # multi-speaker model
             if "speaker_ids" in speaker_files[0].stem:
@@ -63,24 +65,18 @@ def test_models(tmp_path, model_name, manager):
                 speaker_manager = SpeakerManager(d_vectors_file_path=speaker_files[0])
             speakers = list(speaker_manager.name_to_id.keys())
             if len(speakers) > 1:
-                speaker_arg = f'--speaker_idx "{speakers[0]}"'
+                speaker_arg = ["--speaker_idx", speakers[0]]
         if len(language_files) > 0 and "language_ids" in language_files[0].stem:
             # multi-lingual model
             language_manager = LanguageManager(language_ids_file_path=language_files[0])
             languages = language_manager.language_names
             if len(languages) > 1:
-                language_arg = f'--language_idx "{languages[0]}"'
-        run_cli(
-            f'tts --model_name  {model_name} --text "This is an example." '
-            f'--out_path "{output_path}" {speaker_arg} {language_arg} --no-progress_bar'
-        )
+                language_arg = ["--language_idx", languages[0]]
+        run_main(main, [*args, "--text", "This is an example.", *speaker_arg, *language_arg])
     elif "voice_conversion_models" in model_name:
         speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
         reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
-        run_cli(
-            f"tts --model_name  {model_name} "
-            f'--out_path "{output_path}" --source_wav "{speaker_wav}" --target_wav "{reference_wav}" --no-progress_bar'
-        )
+        run_main(main, [*args, "--source_wav", speaker_wav, "--target_wav", reference_wav])
     else:
         # only download the model
         manager.download_model(model_name)
@@ -88,25 +84,26 @@ def test_models(tmp_path, model_name, manager):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts(tmp_path):
+def test_xtts(tmp_path, manager):
     """XTTS is too big to run on github actions. We need to test it locally"""
-    output_path = tmp_path / "output.wav"
-    speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        run_cli(
-            "yes | "
-            f"tts --model_name  tts_models/multilingual/multi-dataset/xtts_v1.1 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar --use_cuda '
-            f'--speaker_wav "{speaker_wav}" --language_idx "en"'
-        )
-    else:
-        run_cli(
-            "yes | "
-            f"tts --model_name  tts_models/multilingual/multi-dataset/xtts_v1.1 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar '
-            f'--speaker_wav "{speaker_wav}" --language_idx "en"'
-        )
+    model_name = "tts_models/multilingual/multi-dataset/xtts_v1.1"
+    model_path, _, _ = manager.download_model(model_name)
+    (model_path / "tos_agreed.txt").touch()
+    args = [
+        "--model_name",
+        model_name,
+        "--text",
+        "C'est un exemple.",
+        "--language_idx",
+        "fr",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+        "--speaker_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
+        "--use_cuda" if torch.cuda.is_available() else "",
+    ]
+    run_main(main, args)
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
@@ -146,24 +143,22 @@ def test_xtts_streaming():
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_xtts_v2(tmp_path):
     """XTTS is too big to run on github actions. We need to test it locally"""
-    output_path = tmp_path / "output.wav"
-    speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
-    speaker_wav_2 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0002.wav")
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        run_cli(
-            "yes | "
-            f"tts --model_name  tts_models/multilingual/multi-dataset/xtts_v2 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar --use_cuda '
-            f'--speaker_wav "{speaker_wav}" "{speaker_wav_2}"  --language_idx "en"'
-        )
-    else:
-        run_cli(
-            "yes | "
-            f"tts --model_name  tts_models/multilingual/multi-dataset/xtts_v2 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar '
-            f'--speaker_wav "{speaker_wav}" "{speaker_wav_2}" --language_idx "en"'
-        )
+    args = [
+        "--model_name",
+        "tts_models/multilingual/multi-dataset/xtts_v2",
+        "--text",
+        "C'est un exemple.",
+        "--language_idx",
+        "fr",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+        "--speaker_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0002.wav"),
+        "--use_cuda" if torch.cuda.is_available() else "",
+    ]
+    run_main(main, args)
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
@@ -228,45 +223,50 @@ def test_xtts_v2_streaming():
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_tortoise(tmp_path):
-    output_path = tmp_path / "output.wav"
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        run_cli(
-            f" tts --model_name  tts_models/en/multi-dataset/tortoise-v2 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar --use_cuda'
-        )
-    else:
-        run_cli(
-            f" tts --model_name  tts_models/en/multi-dataset/tortoise-v2 "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar'
-        )
+    args = [
+        "--model_name",
+        "tts_models/en/multi-dataset/tortoise-v2",
+        "--text",
+        "This is an example.",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+        "--use_cuda" if torch.cuda.is_available() else "",
+    ]
+    run_main(main, args)
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_bark(tmp_path):
     """Bark is too big to run on github actions. We need to test it locally"""
+    args = [
+        "--model_name",
+        "tts_models/multilingual/multi-dataset/bark",
+        "tts_models/en/multi-dataset/tortoise-v2",
+        "--text",
+        "This is an example.",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+        "--use_cuda" if torch.cuda.is_available() else "",
+    ]
+    run_main(main, args)
     output_path = tmp_path / "output.wav"
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        run_cli(
-            f" tts --model_name  tts_models/multilingual/multi-dataset/bark "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar --use_cuda'
-        )
-    else:
-        run_cli(
-            f" tts --model_name  tts_models/multilingual/multi-dataset/bark "
-            f'--text "This is an example." --out_path "{output_path}" --no-progress_bar'
-        )
 
 
 def test_voice_conversion(tmp_path):
     print(" > Run voice conversion inference using YourTTS model.")
-    model_name = "tts_models/multilingual/multi-dataset/your_tts"
-    language_id = "en"
-    speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
-    reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
-    output_path = tmp_path / "output.wav"
-    run_cli(
-        f"tts --model_name  {model_name}"
-        f" --out_path {output_path} --speaker_wav {speaker_wav} --reference_wav {reference_wav} --language_idx {language_id} --no-progress_bar"
-    )
+    args = [
+        "--model_name",
+        "tts_models/multilingual/multi-dataset/your_tts",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--speaker_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
+        "--reference_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav"),
+        "--language_idx",
+        "en",
+        "--no-progress_bar",
+    ]
+    run_main(main, args)

@@ -1,18 +1,17 @@
-from tests import run_cli
+from tests import run_main
+from TTS.bin.synthesize import main
 
 
 def test_synthesize(tmp_path):
     """Test synthesize.py with diffent arguments."""
-    output_path = tmp_path / "output.wav"
-    run_cli("tts --list_models")
+    output_path = str(tmp_path / "output.wav")
+
+    run_main(main, ["--list_models"])
 
     # single speaker model
-    run_cli(f'tts --text "This is an example." --out_path "{output_path}"')
-    run_cli(
-        "tts --model_name tts_models/en/ljspeech/glow-tts " f'--text "This is an example." --out_path "{output_path}"'
-    )
-    run_cli(
-        "tts --model_name tts_models/en/ljspeech/glow-tts  "
-        "--vocoder_name vocoder_models/en/ljspeech/multiband-melgan "
-        f'--text "This is an example." --out_path "{output_path}"'
-    )
+    args = ["--text", "This is an example.", "--out_path", output_path]
+    run_main(main, args)
+
+    args = [*args, "--model_name", "tts_models/en/ljspeech/glow-tts"]
+    run_main(main, args)
+    run_main(main, [*args, "--vocoder_name", "vocoder_models/en/ljspeech/multiband-melgan"])
