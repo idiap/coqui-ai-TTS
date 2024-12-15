@@ -118,6 +118,8 @@ class ModelManager(object):
         for model_type in self.models_dict:
             model_list = self._list_models(model_type, model_count)
             models_name_list.extend(model_list)
+        logger.info("")
+        logger.info("Path to downloaded models: %s", self.output_prefix)
         return models_name_list
 
     def log_model_details(self, model_type: str, lang: str, dataset: str, model: str) -> None:
