@@ -1,6 +1,7 @@
 import torch
 
-from tests import run_cli
+from tests import run_main
+from TTS.bin.find_unique_phonemes import main
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.vits_config import VitsConfig
 
@@ -27,7 +28,7 @@ dataset_config_pt = BaseDatasetConfig(
 
 def test_find_phonemes(tmp_path):
     # prepare the config
-    config_path = tmp_path / "test_model_config.json"
+    config_path = str(tmp_path / "test_model_config.json")
     config = VitsConfig(
         batch_size=2,
         eval_batch_size=2,
@@ -47,4 +48,4 @@ def test_find_phonemes(tmp_path):
     config.save_json(config_path)
 
     # run test
-    run_cli(f'CUDA_VISIBLE_DEVICES="" python TTS/bin/find_unique_phonemes.py --config_path "{config_path}"')
+    run_main(main, ["--config_path", config_path])
