@@ -2,16 +2,11 @@ import os
 
 import torch
 
-from tests import get_tests_input_path, get_tests_output_path, get_tests_path
+from tests import get_tests_input_path
 from TTS.config import BaseAudioConfig
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import stft
 from TTS.vocoder.layers.losses import MelganFeatureLoss, MultiScaleSTFTLoss, STFTLoss, TorchSTFT
-
-TESTS_PATH = get_tests_path()
-
-OUT_PATH = os.path.join(get_tests_output_path(), "audio_tests")
-os.makedirs(OUT_PATH, exist_ok=True)
 
 WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
 
