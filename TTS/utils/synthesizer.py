@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import pysbd
@@ -16,6 +16,7 @@ from TTS.tts.models.vits import Vits
 from TTS.tts.utils.synthesis import synthesis, transfer_voice, trim_silence
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
+from TTS.utils.generic_utils import optional_to_str
 from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models import setup_model as setup_vc_model
 from TTS.vc.models.openvoice import OpenVoice
@@ -29,18 +30,18 @@ class Synthesizer(nn.Module):
     def __init__(
         self,
         *,
-        tts_checkpoint: str = "",
-        tts_config_path: str = "",
-        tts_speakers_file: str = "",
-        tts_languages_file: str = "",
-        vocoder_checkpoint: str = "",
-        vocoder_config: str = "",
-        encoder_checkpoint: str = "",
-        encoder_config: str = "",
-        vc_checkpoint: str = "",
-        vc_config: str = "",
-        model_dir: str = "",
-        voice_dir: str = None,
+        tts_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
+        tts_config_path: Optional[Union[str, os.PathLike[Any]]] = None,
+        tts_speakers_file: Optional[Union[str, os.PathLike[Any]]] = None,
+        tts_languages_file: Optional[Union[str, os.PathLike[Any]]] = None,
+        vocoder_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
+        vocoder_config: Optional[Union[str, os.PathLike[Any]]] = None,
+        encoder_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
+        encoder_config: Optional[Union[str, os.PathLike[Any]]] = None,
+        vc_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
+        vc_config: Optional[Union[str, os.PathLike[Any]]] = None,
+        model_dir: Optional[Union[str, os.PathLike[Any]]] = None,
+        voice_dir: Optional[Union[str, os.PathLike[Any]]] = None,
         use_cuda: bool = False,
     ) -> None:
         """General 🐸 TTS interface for inference. It takes a tts and a vocoder
@@ -66,16 +67,17 @@ class Synthesizer(nn.Module):
             use_cuda (bool, optional): enable/disable cuda. Defaults to False.
         """
         super().__init__()
-        self.tts_checkpoint = tts_checkpoint
-        self.tts_config_path = tts_config_path
-        self.tts_speakers_file = tts_speakers_file
-        self.tts_languages_file = tts_languages_file
-        self.vocoder_checkpoint = vocoder_checkpoint
-        self.vocoder_config = vocoder_config
-        self.encoder_checkpoint = encoder_checkpoint
-        self.encoder_config = encoder_config
-        self.vc_checkpoint = vc_checkpoint
-        self.vc_config = vc_config
+        self.tts_checkpoint = optional_to_str(tts_checkpoint)
+        self.tts_config_path = optional_to_str(tts_config_path)
+        self.tts_speakers_file = optional_to_str(tts_speakers_file)
+        self.tts_languages_file = optional_to_str(tts_languages_file)
+        self.vocoder_checkpoint = optional_to_str(vocoder_checkpoint)
+        self.vocoder_config = optional_to_str(vocoder_config)
+        self.encoder_checkpoint = optional_to_str(encoder_checkpoint)
+        self.encoder_config = optional_to_str(encoder_config)
+        self.vc_checkpoint = optional_to_str(vc_checkpoint)
+        self.vc_config = optional_to_str(vc_config)
+        model_dir = optional_to_str(model_dir)
         self.use_cuda = use_cuda
 
         self.tts_model = None
@@ -89,18 +91,18 @@ class Synthesizer(nn.Module):
         self.d_vector_dim = 0
         self.seg = self._get_segmenter("en")
         self.use_cuda = use_cuda
-        self.voice_dir = voice_dir
+        self.voice_dir = optional_to_str(voice_dir)
         if self.use_cuda:
             assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
         if tts_checkpoint:
-            self._load_tts(tts_checkpoint, tts_config_path, use_cuda)
+            self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
 
         if vocoder_checkpoint:
-            self._load_vocoder(vocoder_checkpoint, vocoder_config, use_cuda)
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
 
-        if vc_checkpoint and model_dir is None:
-            self._load_vc(vc_checkpoint, vc_config, use_cuda)
+        if vc_checkpoint and model_dir == "":
+            self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
 
         if model_dir:
             if "fairseq" in model_dir:

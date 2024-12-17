@@ -11,30 +11,25 @@ You can contribute not only with code but with bug reports, comments, questions,
 
 If you like to contribute code, squash a bug but if you don't know where to start, here are some pointers.
 
-- [Development Road Map](https://github.com/coqui-ai/TTS/issues/378)
-
-    You can pick something out of our road map. We keep the progess of the project in this simple issue thread. It has new model proposals or developmental updates etc.
-
 - [Github Issues Tracker](https://github.com/idiap/coqui-ai-TTS/issues)
 
     This is a place to find feature requests, bugs.
 
-    Issues with the ```good first issue``` tag are good place for beginners to take on.
-
-- ✨**PR**✨ [pages](https://github.com/idiap/coqui-ai-TTS/pulls) with the ```🚀new version``` tag.
-
-    We list all the target improvements for the next version. You can pick one of them and start contributing.
+    Issues with the ```good first issue``` tag are good place for beginners to
+    take on. Issues tagged with `help wanted` are suited for more experienced
+    outside contributors.
 
 - Also feel free to suggest new features, ideas and models. We're always open for new things.
 
-## Call for sharing language models
+## Call for sharing pretrained models
 If possible, please consider sharing your pre-trained models in any language (if the licences allow for you to do so). We will include them in our model catalogue for public use and give the proper attribution, whether it be your name, company, website or any other source specified.
 
 This model can be shared in two ways:
 1. Share the model files with us and we serve them with the next 🐸 TTS release.
 2. Upload your models on GDrive and share the link.
 
-Models are served under `.models.json` file and any model is available under TTS CLI or Server end points.
+Models are served under `.models.json` file and any model is available under TTS
+CLI and Python API end points.
 
 Either way you choose, please make sure you send the models [here](https://github.com/coqui-ai/TTS/discussions/930).
 
@@ -135,7 +130,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 13. Let's discuss until it is perfect. 💪
 
-    We might ask you for certain changes that would appear in the ✨**PR**✨'s page under 🐸TTS[https://github.com/idiap/coqui-ai-TTS/pulls].
+    We might ask you for certain changes that would appear in the
+    [Github ✨**PR**✨'s page](https://github.com/idiap/coqui-ai-TTS/pulls).
 
 14. Once things look perfect, We merge it to the ```dev``` branch and make it ready for the next version.
 
@@ -143,9 +139,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 If you prefer working within a Docker container as your development environment, you can do the following:
 
-1. Fork 🐸TTS[https://github.com/idiap/coqui-ai-TTS] by clicking the fork button at the top right corner of the project page.
+1. Fork the 🐸TTS [Github repository](https://github.com/idiap/coqui-ai-TTS) by clicking the fork button at the top right corner of the page.
 
-2. Clone 🐸TTS and add the main repo as a new remote named ```upsteam```.
+2. Clone 🐸TTS and add the main repo as a new remote named ```upstream```.
 
     ```bash
     git clone git@github.com:<your Github name>/coqui-ai-TTS.git

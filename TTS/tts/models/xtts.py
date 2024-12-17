@@ -2,6 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import librosa
 import torch
@@ -101,10 +102,12 @@ class XttsAudioConfig(Coqpit):
     Args:
         sample_rate (int): The sample rate in which the GPT operates.
         output_sample_rate (int): The sample rate of the output audio waveform.
+        dvae_sample_rate (int): The sample rate of the DVAE
     """
 
     sample_rate: int = 22050
     output_sample_rate: int = 24000
+    dvae_sample_rate: int = 22050
 
 
 @dataclass
@@ -175,7 +178,7 @@ class XttsArgs(Coqpit):
 
 
 class Xtts(BaseTTS):
-    """ⓍTTS model implementation.
+    """XTTS model implementation.
 
     ❗ Currently it only supports inference.
 
@@ -457,7 +460,7 @@ class Xtts(BaseTTS):
             gpt_cond_chunk_len: (int) Chunk length used for cloning. It must be <= `gpt_cond_len`.
                 If gpt_cond_len == gpt_cond_chunk_len, no chunking. Defaults to 6 seconds.
 
-            hf_generate_kwargs: (**kwargs) The huggingface Transformers generate API is used for the autoregressive
+            hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive
                 transformer. Extra keyword args fed to this function get forwarded directly to that API. Documentation
                 here: https://huggingface.co/docs/transformers/internal/generation_utils
 
@@ -719,14 +722,14 @@ class Xtts(BaseTTS):
 
     def load_checkpoint(
         self,
-        config,
-        checkpoint_dir=None,
-        checkpoint_path=None,
-        vocab_path=None,
-        eval=True,
-        strict=True,
-        use_deepspeed=False,
-        speaker_file_path=None,
+        config: "XttsConfig",
+        checkpoint_dir: Optional[str] = None,
+        checkpoint_path: Optional[str] = None,
+        vocab_path: Optional[str] = None,
+        eval: bool = True,
+        strict: bool = True,
+        use_deepspeed: bool = False,
+        speaker_file_path: Optional[str] = None,
     ):
         """
         Loads a checkpoint from disk and initializes the model's state and tokenizer.
@@ -742,7 +745,9 @@ class Xtts(BaseTTS):
         Returns:
             None
         """
-
+        if checkpoint_dir is not None and Path(checkpoint_dir).is_file():
+            msg = f"You passed a file to `checkpoint_dir=`. Use `checkpoint_path={checkpoint_dir}` instead."
+            raise ValueError(msg)
         model_path = checkpoint_path or os.path.join(checkpoint_dir, "model.pth")
         if vocab_path is None:
             if checkpoint_dir is not None and (Path(checkpoint_dir) / "vocab.json").is_file():

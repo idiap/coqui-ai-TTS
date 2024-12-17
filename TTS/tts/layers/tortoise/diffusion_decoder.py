@@ -130,7 +130,7 @@ class DiffusionLayer(TimestepBlock):
             dims=1,
             use_scale_shift_norm=True,
         )
-        self.attn = AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True)
+        self.attn = AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True)
 
     def forward(self, x, time_emb):
         y = self.resblk(x, time_emb)
@@ -177,17 +177,17 @@ class DiffusionTts(nn.Module):
         # transformer network.
         self.code_embedding = nn.Embedding(in_tokens, model_channels)
         self.code_converter = nn.Sequential(
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
         )
         self.code_norm = normalization(model_channels)
         self.latent_conditioner = nn.Sequential(
             nn.Conv1d(in_latent_channels, model_channels, 3, padding=1),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
         )
         self.contextual_embedder = nn.Sequential(
             nn.Conv1d(in_channels, model_channels, 3, padding=1, stride=2),
@@ -196,26 +196,31 @@ class DiffusionTts(nn.Module):
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
+                tortoise_norm=True,
             ),
         )
         self.unconditioned_embedding = nn.Parameter(torch.randn(1, model_channels, 1))

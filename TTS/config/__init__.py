@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Dict
+from typing import Any, Dict, Union
 
 import fsspec
 import yaml
@@ -68,7 +68,7 @@ def _process_model_name(config_dict: Dict) -> str:
     return model_name
 
 
-def load_config(config_path: str) -> Coqpit:
+def load_config(config_path: Union[str, os.PathLike[Any]]) -> Coqpit:
     """Import `json` or `yaml` files as TTS configs. First, load the input file as a `dict` and check the model name
     to find the corresponding Config class. Then initialize the Config.
 
@@ -81,6 +81,7 @@ def load_config(config_path: str) -> Coqpit:
     Returns:
         Coqpit: TTS config object.
     """
+    config_path = str(config_path)
     config_dict = {}
     ext = os.path.splitext(config_path)[1]
     if ext in (".yml", ".yaml"):

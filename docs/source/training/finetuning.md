@@ -1,4 +1,4 @@
-# Fine-tuning a 🐸 TTS model
+# Fine-tuning a model
 
 ## Fine-tuning
 
@@ -21,17 +21,21 @@ them and fine-tune it for your own dataset. This will help you in two main ways:
     Fine-tuning comes to the rescue in this case. You can take one of our pre-trained models and fine-tune it on your own
     speech dataset and achieve reasonable results with only a couple of hours of data.
 
-    However, note that, fine-tuning does not ensure great results. The model performance still depends on the
-    {ref}`dataset quality <what_makes_a_good_dataset>` and the hyper-parameters you choose for fine-tuning. Therefore,
+    However, note that, fine-tuning does not ensure great results. The model
+    performance still depends on the [dataset quality](../datasets/what_makes_a_good_dataset.md)
+    and the hyper-parameters you choose for fine-tuning. Therefore,
     it still takes a bit of tinkering.
 
 
 ## Steps to fine-tune a 🐸 TTS model
 
+```{note} XTTS has separate fine-tuning scripts, see [here](../models/xtts.md#training).
+```
+
 1. Setup your dataset.
 
     You need to format your target dataset in a certain way so that 🐸TTS data loader will be able to load it for the
-    training. Please see {ref}`this page <formatting_your_dataset>` for more information about formatting.
+    training. Please see [this page](../datasets/formatting_your_dataset.md) for more information about formatting.
 
 2. Choose the model you want to fine-tune.
 
@@ -47,7 +51,8 @@ them and fine-tune it for your own dataset. This will help you in two main ways:
 
     You should choose the model based on your requirements. Some models are fast and some are better in speech quality.
     One lazy way to test a model is running the model on the hardware you want to use and see how it works. For
-    simple testing, you can use the `tts` command on the terminal. For more info see {ref}`here <synthesizing_speech>`.
+    simple testing, you can use the `tts` command on the terminal. For more info
+    see [here](../inference.md).
 
 3. Download the model.
 

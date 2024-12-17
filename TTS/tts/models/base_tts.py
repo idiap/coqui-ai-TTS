@@ -80,15 +80,17 @@ class BaseTTS(BaseTrainerModel):
             raise ValueError("config must be either a *Config or *Args")
 
     def init_multispeaker(self, config: Coqpit, data: List = None):
-        """Initialize a speaker embedding layer if needen and define expected embedding channel size for defining
-        `in_channels` size of the connected layers.
+        """Set up for multi-speaker TTS.
+
+        Initialize a speaker embedding layer if needed and define expected embedding
+        channel size for defining `in_channels` size of the connected layers.
 
         This implementation yields 3 possible outcomes:
 
-        1. If `config.use_speaker_embedding` and `config.use_d_vector_file are False, do nothing.
+        1. If `config.use_speaker_embedding` and `config.use_d_vector_file` are False, do nothing.
         2. If `config.use_d_vector_file` is True, set expected embedding channel size to `config.d_vector_dim` or 512.
         3. If `config.use_speaker_embedding`, initialize a speaker embedding layer with channel size of
-        `config.d_vector_dim` or 512.
+           `config.d_vector_dim` or 512.
 
         You can override this function for new models.
 

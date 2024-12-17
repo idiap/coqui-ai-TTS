@@ -18,7 +18,7 @@ from TTS.tts.layers.xtts.dvae import DiscreteVAE
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
+from TTS.tts.models.xtts import Xtts, XttsArgs
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 logger = logging.getLogger(__name__)
@@ -32,11 +32,6 @@ class GPTTrainerConfig(XttsConfig):
     weighted_loss_attrs: dict = field(default_factory=lambda: {})
     weighted_loss_multipliers: dict = field(default_factory=lambda: {})
     test_sentences: List[dict] = field(default_factory=lambda: [])
-
-
-@dataclass
-class XttsAudioConfig(XttsAudioConfig):
-    dvae_sample_rate: int = 22050
 
 
 @dataclass

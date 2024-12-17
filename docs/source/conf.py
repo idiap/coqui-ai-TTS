@@ -52,6 +52,7 @@ extensions = [
     "sphinx_inline_tabs",
 ]
 
+suppress_warnings = ["autosectionlabel.*"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -66,6 +67,8 @@ source_suffix = [".rst", ".md"]
 myst_enable_extensions = [
     "linkify",
 ]
+
+myst_heading_anchors = 4
 
 # 'sphinxcontrib.katex',
 # 'sphinx.ext.autosectionlabel',

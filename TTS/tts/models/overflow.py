@@ -33,32 +33,33 @@ class Overflow(BaseTTS):
 
     Paper abstract::
         Neural HMMs are a type of neural transducer recently proposed for
-    sequence-to-sequence modelling in text-to-speech. They combine the best features
-    of classic statistical speech synthesis and modern neural TTS, requiring less
-    data and fewer training updates, and are less prone to gibberish output caused
-    by neural attention failures. In this paper, we combine neural HMM TTS with
-    normalising flows for describing the highly non-Gaussian distribution of speech
-    acoustics. The result is a powerful, fully probabilistic model of durations and
-    acoustics that can be trained using exact maximum likelihood. Compared to
-    dominant flow-based acoustic models, our approach integrates autoregression for
-    improved modelling of long-range dependences such as utterance-level prosody.
-    Experiments show that a system based on our proposal gives more accurate
-    pronunciations and better subjective speech quality than comparable methods,
-    whilst retaining the original advantages of neural HMMs. Audio examples and code
-    are available at https://shivammehta25.github.io/OverFlow/.
+        sequence-to-sequence modelling in text-to-speech. They combine the best features
+        of classic statistical speech synthesis and modern neural TTS, requiring less
+        data and fewer training updates, and are less prone to gibberish output caused
+        by neural attention failures. In this paper, we combine neural HMM TTS with
+        normalising flows for describing the highly non-Gaussian distribution of speech
+        acoustics. The result is a powerful, fully probabilistic model of durations and
+        acoustics that can be trained using exact maximum likelihood. Compared to
+        dominant flow-based acoustic models, our approach integrates autoregression for
+        improved modelling of long-range dependences such as utterance-level prosody.
+        Experiments show that a system based on our proposal gives more accurate
+        pronunciations and better subjective speech quality than comparable methods,
+        whilst retaining the original advantages of neural HMMs. Audio examples and code
+        are available at https://shivammehta25.github.io/OverFlow/.
 
     Note:
-        - Neural HMMs uses flat start initialization i.e it computes the means and std and transition probabilities
-        of the dataset and uses them to initialize the model. This benefits the model and helps with faster learning
-        If you change the dataset or want to regenerate the parameters change the `force_generate_statistics` and
-        `mel_statistics_parameter_path` accordingly.
+        - Neural HMMs uses flat start initialization i.e it computes the means
+          and std and transition probabilities of the dataset and uses them to initialize
+          the model. This benefits the model and helps with faster learning If you change
+          the dataset or want to regenerate the parameters change the
+          `force_generate_statistics` and `mel_statistics_parameter_path` accordingly.
 
         - To enable multi-GPU training, set the `use_grad_checkpointing=False` in config.
-        This will significantly increase the memory usage.  This is because to compute
-        the actual data likelihood (not an approximation using MAS/Viterbi) we must use
-        all the states at the previous time step during the forward pass to decide the
-        probability distribution at the current step i.e the difference between the forward
-        algorithm and viterbi approximation.
+          This will significantly increase the memory usage.  This is because to compute
+          the actual data likelihood (not an approximation using MAS/Viterbi) we must use
+          all the states at the previous time step during the forward pass to decide the
+          probability distribution at the current step i.e the difference between the forward
+          algorithm and viterbi approximation.
 
     Check :class:`TTS.tts.configs.overflow.OverFlowConfig` for class arguments.
     """

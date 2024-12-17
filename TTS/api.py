@@ -1,12 +1,14 @@
+"""Coqui TTS Python API."""
+
 import logging
 import tempfile
 import warnings
 from pathlib import Path
+from typing import Optional
 
 from torch import nn
 
 from TTS.config import load_config
-from TTS.utils.audio.numpy_transforms import save_wav
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
@@ -19,13 +21,19 @@ class TTS(nn.Module):
     def __init__(
         self,
         model_name: str = "",
-        model_path: str = None,
-        config_path: str = None,
-        vocoder_path: str = None,
-        vocoder_config_path: str = None,
+        *,
+        model_path: Optional[str] = None,
+        config_path: Optional[str] = None,
+        vocoder_name: Optional[str] = None,
+        vocoder_path: Optional[str] = None,
+        vocoder_config_path: Optional[str] = None,
+        encoder_path: Optional[str] = None,
+        encoder_config_path: Optional[str] = None,
+        speakers_file_path: Optional[str] = None,
+        language_ids_file_path: Optional[str] = None,
         progress_bar: bool = True,
-        gpu=False,
-    ):
+        gpu: bool = False,
+    ) -> None:
         """🐸TTS python interface that allows to load and use the released models.
 
         Example with a multi-speaker model:
@@ -35,31 +43,36 @@ class TTS(nn.Module):
             >>> tts.tts_to_file(text="Hello world!", speaker=tts.speakers[0], language=tts.languages[0], file_path="output.wav")
 
         Example with a single-speaker model:
-            >>> tts = TTS(model_name="tts_models/de/thorsten/tacotron2-DDC", progress_bar=False, gpu=False)
+            >>> tts = TTS(model_name="tts_models/de/thorsten/tacotron2-DDC", progress_bar=False)
             >>> tts.tts_to_file(text="Ich bin eine Testnachricht.", file_path="output.wav")
 
         Example loading a model from a path:
-            >>> tts = TTS(model_path="/path/to/checkpoint_100000.pth", config_path="/path/to/config.json", progress_bar=False, gpu=False)
+            >>> tts = TTS(model_path="/path/to/checkpoint_100000.pth", config_path="/path/to/config.json", progress_bar=False)
             >>> tts.tts_to_file(text="Ich bin eine Testnachricht.", file_path="output.wav")
 
         Example voice cloning with YourTTS in English, French and Portuguese:
-            >>> tts = TTS(model_name="tts_models/multilingual/multi-dataset/your_tts", progress_bar=False, gpu=True)
+            >>> tts = TTS(model_name="tts_models/multilingual/multi-dataset/your_tts", progress_bar=False).to("cuda")
             >>> tts.tts_to_file("This is voice cloning.", speaker_wav="my/cloning/audio.wav", language="en", file_path="thisisit.wav")
             >>> tts.tts_to_file("C'est le clonage de la voix.", speaker_wav="my/cloning/audio.wav", language="fr", file_path="thisisit.wav")
             >>> tts.tts_to_file("Isso é clonagem de voz.", speaker_wav="my/cloning/audio.wav", language="pt", file_path="thisisit.wav")
 
         Example Fairseq TTS models (uses ISO language codes in https://dl.fbaipublicfiles.com/mms/tts/all-tts-languages.html):
-            >>> tts = TTS(model_name="tts_models/eng/fairseq/vits", progress_bar=False, gpu=True)
+            >>> tts = TTS(model_name="tts_models/eng/fairseq/vits", progress_bar=False).to("cuda")
             >>> tts.tts_to_file("This is a test.", file_path="output.wav")
 
         Args:
             model_name (str, optional): Model name to load. You can list models by ```tts.models```. Defaults to None.
             model_path (str, optional): Path to the model checkpoint. Defaults to None.
             config_path (str, optional): Path to the model config. Defaults to None.
+            vocoder_name (str, optional): Pre-trained vocoder to use. Defaults to None, i.e. using the default vocoder.
             vocoder_path (str, optional): Path to the vocoder checkpoint. Defaults to None.
             vocoder_config_path (str, optional): Path to the vocoder config. Defaults to None.
-            progress_bar (bool, optional): Whether to pring a progress bar while downloading a model. Defaults to True.
-            gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
+            encoder_path: Path to speaker encoder checkpoint. Default to None.
+            encoder_config_path: Path to speaker encoder config file. Defaults to None.
+            speakers_file_path: JSON file for multi-speaker model. Defaults to None.
+            language_ids_file_path: JSON file for multilingual model. Defaults to None
+            progress_bar (bool, optional): Whether to print a progress bar while downloading a model. Defaults to True.
+            gpu (bool, optional): Enable/disable GPU. Defaults to False. DEPRECATED, use TTS(...).to("cuda")
         """
         super().__init__()
         self.manager = ModelManager(models_file=self.get_models_file_path(), progress_bar=progress_bar)
@@ -67,34 +80,45 @@ class TTS(nn.Module):
         self.synthesizer = None
         self.voice_converter = None
         self.model_name = ""
+
+        self.vocoder_path = vocoder_path
+        self.vocoder_config_path = vocoder_config_path
+        self.encoder_path = encoder_path
+        self.encoder_config_path = encoder_config_path
+        self.speakers_file_path = speakers_file_path
+        self.language_ids_file_path = language_ids_file_path
+
         if gpu:
             warnings.warn("`gpu` will be deprecated. Please use `tts.to(device)` instead.")
 
         if model_name is not None and len(model_name) > 0:
             if "tts_models" in model_name:
-                self.load_tts_model_by_name(model_name, gpu)
+                self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
             elif "voice_conversion_models" in model_name:
-                self.load_vc_model_by_name(model_name, gpu)
+                self.load_vc_model_by_name(model_name, gpu=gpu)
+            # To allow just TTS("xtts")
             else:
-                self.load_model_by_name(model_name, gpu)
+                self.load_model_by_name(model_name, vocoder_name, gpu=gpu)
 
         if model_path:
-            self.load_tts_model_by_path(
-                model_path, config_path, vocoder_path=vocoder_path, vocoder_config=vocoder_config_path, gpu=gpu
-            )
+            self.load_tts_model_by_path(model_path, config_path, gpu=gpu)
 
     @property
-    def models(self):
+    def models(self) -> list[str]:
         return self.manager.list_tts_models()
 
     @property
-    def is_multi_speaker(self):
-        if hasattr(self.synthesizer.tts_model, "speaker_manager") and self.synthesizer.tts_model.speaker_manager:
+    def is_multi_speaker(self) -> bool:
+        if (
+            self.synthesizer is not None
+            and hasattr(self.synthesizer.tts_model, "speaker_manager")
+            and self.synthesizer.tts_model.speaker_manager
+        ):
             return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
         return False
 
     @property
-    def is_multi_lingual(self):
+    def is_multi_lingual(self) -> bool:
         # Not sure what sets this to None, but applied a fix to prevent crashing.
         if (
             isinstance(self.model_name, str)
@@ -103,51 +127,63 @@ class TTS(nn.Module):
             and ("xtts" in self.config.model or "languages" in self.config and len(self.config.languages) > 1)
         ):
             return True
-        if hasattr(self.synthesizer.tts_model, "language_manager") and self.synthesizer.tts_model.language_manager:
+        if (
+            self.synthesizer is not None
+            and hasattr(self.synthesizer.tts_model, "language_manager")
+            and self.synthesizer.tts_model.language_manager
+        ):
             return self.synthesizer.tts_model.language_manager.num_languages > 1
         return False
 
     @property
-    def speakers(self):
+    def speakers(self) -> list[str]:
         if not self.is_multi_speaker:
             return None
         return self.synthesizer.tts_model.speaker_manager.speaker_names
 
     @property
-    def languages(self):
+    def languages(self) -> list[str]:
         if not self.is_multi_lingual:
             return None
         return self.synthesizer.tts_model.language_manager.language_names
 
     @staticmethod
-    def get_models_file_path():
+    def get_models_file_path() -> Path:
         return Path(__file__).parent / ".models.json"
 
     @staticmethod
-    def list_models():
+    def list_models() -> list[str]:
         return ModelManager(models_file=TTS.get_models_file_path(), progress_bar=False).list_models()
 
-    def download_model_by_name(self, model_name: str):
+    def download_model_by_name(
+        self, model_name: str, vocoder_name: Optional[str] = None
+    ) -> tuple[Optional[Path], Optional[Path], Optional[Path]]:
         model_path, config_path, model_item = self.manager.download_model(model_name)
         if "fairseq" in model_name or (model_item is not None and isinstance(model_item["model_url"], list)):
             # return model directory if there are multiple files
             # we assume that the model knows how to load itself
-            return None, None, None, None, model_path
+            return None, None, model_path
         if model_item.get("default_vocoder") is None:
-            return model_path, config_path, None, None, None
-        vocoder_path, vocoder_config_path, _ = self.manager.download_model(model_item["default_vocoder"])
-        return model_path, config_path, vocoder_path, vocoder_config_path, None
+            return model_path, config_path, None
+        if vocoder_name is None:
+            vocoder_name = model_item["default_vocoder"]
+        vocoder_path, vocoder_config_path, _ = self.manager.download_model(vocoder_name)
+        # A local vocoder model will take precedence if specified via vocoder_path
+        if self.vocoder_path is None or self.vocoder_config_path is None:
+            self.vocoder_path = vocoder_path
+            self.vocoder_config_path = vocoder_config_path
+        return model_path, config_path, None
 
-    def load_model_by_name(self, model_name: str, gpu: bool = False):
+    def load_model_by_name(self, model_name: str, vocoder_name: Optional[str] = None, *, gpu: bool = False) -> None:
         """Load one of the 🐸TTS models by name.
 
         Args:
             model_name (str): Model name to load. You can list models by ```tts.models```.
             gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
         """
-        self.load_tts_model_by_name(model_name, gpu)
+        self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
 
-    def load_vc_model_by_name(self, model_name: str, gpu: bool = False):
+    def load_vc_model_by_name(self, model_name: str, *, gpu: bool = False) -> None:
         """Load one of the voice conversion models by name.
 
         Args:
@@ -155,12 +191,12 @@ class TTS(nn.Module):
             gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
         """
         self.model_name = model_name
-        model_path, config_path, _, _, model_dir = self.download_model_by_name(model_name)
+        model_path, config_path, model_dir = self.download_model_by_name(model_name)
         self.voice_converter = Synthesizer(
             vc_checkpoint=model_path, vc_config=config_path, model_dir=model_dir, use_cuda=gpu
         )
 
-    def load_tts_model_by_name(self, model_name: str, gpu: bool = False):
+    def load_tts_model_by_name(self, model_name: str, vocoder_name: Optional[str] = None, *, gpu: bool = False) -> None:
         """Load one of 🐸TTS models by name.
 
         Args:
@@ -172,7 +208,7 @@ class TTS(nn.Module):
         self.synthesizer = None
         self.model_name = model_name
 
-        model_path, config_path, vocoder_path, vocoder_config_path, model_dir = self.download_model_by_name(model_name)
+        model_path, config_path, model_dir = self.download_model_by_name(model_name, vocoder_name)
 
         # init synthesizer
         # None values are fetch from the model
@@ -181,17 +217,15 @@ class TTS(nn.Module):
             tts_config_path=config_path,
             tts_speakers_file=None,
             tts_languages_file=None,
-            vocoder_checkpoint=vocoder_path,
-            vocoder_config=vocoder_config_path,
-            encoder_checkpoint=None,
-            encoder_config=None,
+            vocoder_checkpoint=self.vocoder_path,
+            vocoder_config=self.vocoder_config_path,
+            encoder_checkpoint=self.encoder_path,
+            encoder_config=self.encoder_config_path,
             model_dir=model_dir,
             use_cuda=gpu,
         )
 
-    def load_tts_model_by_path(
-        self, model_path: str, config_path: str, vocoder_path: str = None, vocoder_config: str = None, gpu: bool = False
-    ):
+    def load_tts_model_by_path(self, model_path: str, config_path: str, *, gpu: bool = False) -> None:
         """Load a model from a path.
 
         Args:
@@ -205,22 +239,22 @@ class TTS(nn.Module):
         self.synthesizer = Synthesizer(
             tts_checkpoint=model_path,
             tts_config_path=config_path,
-            tts_speakers_file=None,
-            tts_languages_file=None,
-            vocoder_checkpoint=vocoder_path,
-            vocoder_config=vocoder_config,
-            encoder_checkpoint=None,
-            encoder_config=None,
+            tts_speakers_file=self.speakers_file_path,
+            tts_languages_file=self.language_ids_file_path,
+            vocoder_checkpoint=self.vocoder_path,
+            vocoder_config=self.vocoder_config_path,
+            encoder_checkpoint=self.encoder_path,
+            encoder_config=self.encoder_config_path,
             use_cuda=gpu,
         )
 
     def _check_arguments(
         self,
-        speaker: str = None,
-        language: str = None,
-        speaker_wav: str = None,
-        emotion: str = None,
-        speed: float = None,
+        speaker: Optional[str] = None,
+        language: Optional[str] = None,
+        speaker_wav: Optional[str] = None,
+        emotion: Optional[str] = None,
+        speed: Optional[float] = None,
         **kwargs,
     ) -> None:
         """Check if the arguments are valid for the model."""
@@ -280,10 +314,6 @@ class TTS(nn.Module):
             speaker_name=speaker,
             language_name=language,
             speaker_wav=speaker_wav,
-            reference_wav=None,
-            style_wav=None,
-            style_text=None,
-            reference_speaker_name=None,
             split_sentences=split_sentences,
             **kwargs,
         )
@@ -301,7 +331,7 @@ class TTS(nn.Module):
         file_path: str = "output.wav",
         split_sentences: bool = True,
         **kwargs,
-    ):
+    ) -> str:
         """Convert text to speech.
 
         Args:
@@ -367,6 +397,7 @@ class TTS(nn.Module):
         source_wav: str,
         target_wav: str,
         file_path: str = "output.wav",
+        pipe_out=None,
     ) -> str:
         """Voice conversion with FreeVC. Convert source wav to target speaker.
 
@@ -377,9 +408,11 @@ class TTS(nn.Module):
                 Path to the target wav file.
             file_path (str, optional):
                 Output file path. Defaults to "output.wav".
+            pipe_out (BytesIO, optional):
+                Flag to stdout the generated TTS wav file for shell pipe.
         """
         wav = self.voice_conversion(source_wav=source_wav, target_wav=target_wav)
-        save_wav(wav=wav, path=file_path, sample_rate=self.voice_converter.vc_config.audio.output_sample_rate)
+        self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
         return file_path
 
     def tts_with_vc(
@@ -432,7 +465,8 @@ class TTS(nn.Module):
         file_path: str = "output.wav",
         speaker: str = None,
         split_sentences: bool = True,
-    ):
+        pipe_out=None,
+    ) -> str:
         """Convert text to speech with voice conversion and save to file.
 
         Check `tts_with_vc` for more details.
@@ -455,8 +489,11 @@ class TTS(nn.Module):
                 Split text into sentences, synthesize them separately and concatenate the file audio.
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
+            pipe_out (BytesIO, optional):
+                Flag to stdout the generated TTS wav file for shell pipe.
         """
         wav = self.tts_with_vc(
             text=text, language=language, speaker_wav=speaker_wav, speaker=speaker, split_sentences=split_sentences
         )
-        save_wav(wav=wav, path=file_path, sample_rate=self.voice_converter.vc_config.audio.output_sample_rate)
+        self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
+        return file_path

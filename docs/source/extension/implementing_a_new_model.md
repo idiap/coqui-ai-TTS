@@ -1,4 +1,4 @@
-# Implementing a Model
+# Implementing new models
 
 1. Implement layers.
 
@@ -36,7 +36,8 @@
     There is also the `callback` interface by which you can manipulate both the model and the `Trainer` states. Callbacks give you
     an infinite flexibility to add custom behaviours for your model and training routines.
 
-    For more details, see {ref}`BaseTTS <Base tts Model>` and :obj:`TTS.utils.callbacks`.
+    For more details, see [BaseTTS](../main_classes/model_api.md#base-tts-model)
+    and `TTS.utils.callbacks`.
 
 6. Optionally, define `MyModelArgs`.
 
@@ -62,7 +63,7 @@
     We love you more when you document your code. ❤️
 
 
-# Template 🐸TTS Model implementation
+## Template 🐸TTS Model implementation
 
 You can start implementing your model by copying the following base class.
 

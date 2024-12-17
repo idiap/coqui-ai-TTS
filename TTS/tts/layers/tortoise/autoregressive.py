@@ -176,12 +176,14 @@ class ConditioningEncoder(nn.Module):
         embedding_dim,
         attn_blocks=6,
         num_attn_heads=4,
+        *,
+        tortoise_norm=False,
     ):
         super().__init__()
         attn = []
         self.init = nn.Conv1d(spec_dim, embedding_dim, kernel_size=1)
         for a in range(attn_blocks):
-            attn.append(AttentionBlock(embedding_dim, num_attn_heads))
+            attn.append(AttentionBlock(embedding_dim, num_attn_heads, tortoise_norm=tortoise_norm))
         self.attn = nn.Sequential(*attn)
         self.dim = embedding_dim
 

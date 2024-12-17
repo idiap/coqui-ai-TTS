@@ -1,4 +1,4 @@
-# Mary-TTS API Support for Coqui-TTS
+# Mary-TTS API support for Coqui TTS
 
 ## What is Mary-TTS?
 

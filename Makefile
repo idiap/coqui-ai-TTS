@@ -59,9 +59,6 @@ lint:	## run linters.
 system-deps:	## install linux system deps
 	sudo apt-get install -y libsndfile1-dev
 
-build-docs: ## build the docs
-	cd docs && make clean && make build
-
 install:	## install 🐸 TTS
 	uv sync --all-extras
 
@@ -70,4 +67,4 @@ install_dev:	## install 🐸 TTS for development.
 	uv run pre-commit install
 
 docs:	## build the docs
-	$(MAKE) -C docs clean && $(MAKE) -C docs html
+	uv run --group docs $(MAKE) -C docs clean && uv run --group docs $(MAKE) -C docs html

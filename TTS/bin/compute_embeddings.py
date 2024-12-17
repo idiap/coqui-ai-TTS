@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 from argparse import RawTextHelpFormatter
 
 import torch
@@ -102,7 +103,7 @@ def compute_embeddings(
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     parser = argparse.ArgumentParser(
         description="""Compute embedding vectors for each audio file in a dataset and store them keyed by `{dataset_name}#{file_path}` in a .pth file\n\n"""

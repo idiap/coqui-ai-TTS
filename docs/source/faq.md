@@ -1,28 +1,56 @@
-# Humble FAQ
-We tried to collect common issues and questions we receive about 🐸TTS. It is worth checking before going deeper.
+# FAQ
+We tried to collect common issues and questions we receive about 🐸TTS. It is
+worth checking before going deeper.
 
-## Errors with a pre-trained model. How can I resolve this?
-- Make sure you use the right commit version of 🐸TTS. Each pre-trained model has its corresponding version that needs to be used. It is defined on the model table.
-- If it is still problematic, post your problem on [Discussions](https://github.com/idiap/coqui-ai-TTS/discussions). Please give as many details as possible (error message, your TTS version, your TTS model and config.json etc.)
-- If you feel like it's a bug to be fixed, then prefer Github issues with the same level of scrutiny.
+## Using Coqui
 
-## What are the requirements of a good 🐸TTS dataset?
-* {ref}`See this page <what_makes_a_good_dataset>`
+### Where does Coqui store downloaded models?
 
-## How should I choose the right model?
+The path to downloaded models is printed when running `tts --list_models`.
+Default locations are:
+
+- **Linux:** `~/.local/share/tts`
+- **Mac:** `~/Library/Application Support/tts`
+- **Windows:** `C:\Users\<user>\AppData\Local\tts`
+
+You can change the prefix of this `tts/` folder by setting the `XDG_DATA_HOME`
+or `TTS_HOME` environment variables.
+
+### Errors with a pre-trained model. How can I resolve this?
+- Make sure you use the latest version of 🐸TTS. Each pre-trained model is only
+  supported from a certain minimum version.
+- If it is still problematic, post your problem on
+  [Discussions](https://github.com/idiap/coqui-ai-TTS/discussions). Please give
+  as many details as possible (error message, your TTS version, your TTS model
+  and config.json etc.)
+- If you feel like it's a bug to be fixed, then prefer Github issues with the
+  same level of scrutiny.
+
+## Training Coqui models
+
+### What are the requirements of a good 🐸TTS dataset?
+- [See this page](datasets/what_makes_a_good_dataset.md)
+
+### How should I choose the right model?
 - First, train Tacotron. It is smaller and faster to experiment with. If it performs poorly, try Tacotron2.
 - Tacotron models produce the most natural voice if your dataset is not too noisy.
 - If both models do not perform well and especially the attention does not align, then try AlignTTS or GlowTTS.
 - If you need faster models, consider SpeedySpeech, GlowTTS or AlignTTS. Keep in mind that SpeedySpeech requires a pre-trained Tacotron or Tacotron2 model to compute text-to-speech alignments.
 
-## How can I train my own `tts` model?
+### How can I train my own `tts` model?
+
+```{note} XTTS has separate fine-tuning scripts, see [here](models/xtts.md#training).
+```
+
 0. Check your dataset with notebooks in [dataset_analysis](https://github.com/idiap/coqui-ai-TTS/tree/main/notebooks/dataset_analysis) folder. Use [this notebook](https://github.com/idiap/coqui-ai-TTS/blob/main/notebooks/dataset_analysis/CheckSpectrograms.ipynb) to find the right audio processing parameters. A better set of parameters results in a better audio synthesis.
 
-1. Write your own dataset `formatter` in `datasets/formatters.py` or format your dataset as one of the supported datasets, like LJSpeech.
+1. Write your own dataset `formatter` in `datasets/formatters.py` or [format](datasets/formatting_your_dataset) your dataset as one of the supported datasets, like LJSpeech.
     A `formatter` parses the metadata file and converts a list of training samples.
 
 2. If you have a dataset with a different alphabet than English, you need to set your own character list in the ```config.json```.
-    - If you use phonemes for training and your language is supported [here](https://github.com/rhasspy/gruut#supported-languages), you don't need to set your character list.
+    - If you use phonemes for training and your language is supported by
+    [Espeak](https://github.com/espeak-ng/espeak-ng/blob/master/docs/languages.md)
+    or [Gruut](https://github.com/rhasspy/gruut#supported-languages), you don't need to set your character list.
     - You can use `TTS/bin/find_unique_chars.py` to get characters used in your dataset.
 
 3. Write your own text cleaner in ```utils.text.cleaners```. It is not always necessary, except when you have a different alphabet or language-specific requirements.
@@ -61,15 +89,16 @@ We tried to collect common issues and questions we receive about 🐸TTS. It is 
     - SingleGPU training: ```CUDA_VISIBLE_DEVICES="0" python train_tts.py --config_path config.json```
     - MultiGPU training: ```python3 -m trainer.distribute --gpus "0,1" --script TTS/bin/train_tts.py --config_path config.json```
 
-**Note:** You can also train your model using pure 🐍 python. Check ```{eval-rst} :ref: 'tutorial_for_nervous_beginners'```.
+**Note:** You can also train your model using pure 🐍 python. Check the
+[tutorial](tutorial_for_nervous_beginners.md).
 
-## How can I train in a different language?
+### How can I train in a different language?
 - Check steps 2, 3, 4, 5 above.
 
-## How can I train multi-GPUs?
+### How can I train multi-GPUs?
 - Check step 5 above.
 
-## How can I check model performance?
+### How can I check model performance?
 - You can inspect model training and performance using ```tensorboard```. It will show you loss, attention alignment, model output. Go with the order below to measure the model performance.
 1. Check ground truth spectrograms. If they do not look as they are supposed to, then check audio processing parameters in ```config.json```.
 2. Check train and eval losses and make sure that they all decrease smoothly in time.
@@ -84,7 +113,7 @@ We tried to collect common issues and questions we receive about 🐸TTS. It is 
         - 'bidirectional_decoder' is your ultimate savior, but it trains 2x slower and demands 1.5x more GPU memory.
     - You can also try the other models like AlignTTS or GlowTTS.
 
-## How do I know when to stop training?
+### How do I know when to stop training?
 There is no single objective metric to decide the end of a training since the voice quality is a subjective matter.
 
 In our model trainings, we follow these steps;
@@ -97,17 +126,17 @@ In our model trainings, we follow these steps;
 Keep in mind that the approach above only validates the model robustness. It is hard to estimate the voice quality without asking the actual people.
 The best approach is to pick a set of promising models and run a Mean-Opinion-Score study asking actual people to score the models.
 
-## My model does not learn. How can I debug?
+### My model does not learn. How can I debug?
 - Go over the steps under "How can I check model performance?"
 
-## Attention does not align. How can I make it work?
+### Attention does not align. How can I make it work?
 - Check the 4th step under "How can I check model performance?"
 
-## How can I test a trained model?
-- The best way is to use `tts` or `tts-server` commands. For details check {ref}`here <synthesizing_speech>`.
+### How can I test a trained model?
+- The best way is to use `tts` or `tts-server` commands. For details check [here](inference.md).
 - If you need to code your own ```TTS.utils.synthesizer.Synthesizer``` class.
 
-## My Tacotron model does not stop - I see "Decoder stopped with 'max_decoder_steps" - Stopnet does not work.
+### My Tacotron model does not stop - I see "Decoder stopped with 'max_decoder_steps" - Stopnet does not work.
 - In general, all of the above relates to the `stopnet`. It is the part of the model telling the `decoder` when to stop.
 - In general, a poor `stopnet` relates to something else that is broken in your model or dataset. Especially the attention module.
 - One common reason is the silent parts in the audio clips at the beginning and the ending. Check ```trim_db``` value in the config. You can find a better value for your dataset by using ```CheckSpectrogram``` notebook. If this value is too small, too much of the audio will be trimmed. If too big, then too much silence will remain. Both will curtail the `stopnet` performance.

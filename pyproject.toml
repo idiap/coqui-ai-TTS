@@ -25,7 +25,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.25.0"
+version = "0.25.1"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
@@ -143,12 +143,12 @@ dev = [
 ]
 # Dependencies for building the documentation
 docs = [
-    "furo>=2023.5.20",
-    "myst-parser==2.0.0",
-    "sphinx==7.2.5",
+    "furo>=2024.8.6",
+    "myst-parser==3.0.1",
+    "sphinx==7.4.7",
     "sphinx_inline_tabs>=2023.4.21",
-    "sphinx_copybutton>=0.1",
-    "linkify-it-py>=2.0.0",
+    "sphinx_copybutton>=0.5.2",
+    "linkify-it-py>=2.0.3",
 ]
 
 [project.urls]

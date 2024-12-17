@@ -2,6 +2,7 @@ import argparse
 import importlib
 import logging
 import os
+import sys
 from argparse import RawTextHelpFormatter
 
 import numpy as np
@@ -18,7 +19,7 @@ from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # pylint: disable=bad-option-value
     parser = argparse.ArgumentParser(

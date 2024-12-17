@@ -4,6 +4,7 @@
 import argparse
 import logging
 import os
+import sys
 
 import numpy as np
 import torch
@@ -273,7 +274,7 @@ def main(args):  # pylint: disable=redefined-outer-name
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", type=str, help="Path to config file for training.", required=True)

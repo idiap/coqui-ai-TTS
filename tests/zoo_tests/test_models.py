@@ -1,5 +1,4 @@
 #!/usr/bin/env python3`
-import glob
 import os
 import shutil
 
@@ -30,34 +29,31 @@ def run_models(offset=0, step=1):
         print(f"\n > Run - {model_name}")
         model_path, _, _ = manager.download_model(model_name)
         if "tts_models" in model_name:
-            local_download_dir = os.path.dirname(model_path)
+            local_download_dir = model_path.parent
             # download and run the model
-            speaker_files = glob.glob(local_download_dir + "/speaker*")
-            language_files = glob.glob(local_download_dir + "/language*")
-            language_id = ""
+            speaker_files = list(local_download_dir.glob("speaker*"))
+            language_files = list(local_download_dir.glob("language*"))
+            speaker_arg = ""
+            language_arg = ""
             if len(speaker_files) > 0:
                 # multi-speaker model
-                if "speaker_ids" in speaker_files[0]:
+                if "speaker_ids" in speaker_files[0].stem:
                     speaker_manager = SpeakerManager(speaker_id_file_path=speaker_files[0])
-                elif "speakers" in speaker_files[0]:
+                elif "speakers" in speaker_files[0].stem:
                     speaker_manager = SpeakerManager(d_vectors_file_path=speaker_files[0])
-
-                # multi-lingual model - Assuming multi-lingual models are also multi-speaker
-                if len(language_files) > 0 and "language_ids" in language_files[0]:
-                    language_manager = LanguageManager(language_ids_file_path=language_files[0])
-                    language_id = language_manager.language_names[0]
-
-                speaker_id = list(speaker_manager.name_to_id.keys())[0]
-                run_cli(
-                    f"tts --model_name  {model_name} "
-                    f'--text "This is an example." --out_path "{output_path}" --speaker_idx "{speaker_id}" --language_idx "{language_id}" --no-progress_bar'
-                )
-            else:
-                # single-speaker model
-                run_cli(
-                    f"tts --model_name  {model_name} "
-                    f'--text "This is an example." --out_path "{output_path}" --no-progress_bar'
-                )
+                speakers = list(speaker_manager.name_to_id.keys())
+                if len(speakers) > 1:
+                    speaker_arg = f'--speaker_idx "{speakers[0]}"'
+            if len(language_files) > 0 and "language_ids" in language_files[0].stem:
+                # multi-lingual model
+                language_manager = LanguageManager(language_ids_file_path=language_files[0])
+                languages = language_manager.language_names
+                if len(languages) > 1:
+                    language_arg = f'--language_idx "{languages[0]}"'
+            run_cli(
+                f'tts --model_name  {model_name} --text "This is an example." '
+                f'--out_path "{output_path}" {speaker_arg} {language_arg} --no-progress_bar'
+            )
             # remove downloaded models
             shutil.rmtree(local_download_dir)
             shutil.rmtree(get_user_data_dir("tts"))

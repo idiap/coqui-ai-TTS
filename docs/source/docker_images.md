@@ -1,20 +1,20 @@
 (docker_images)=
-## Docker images
+# Docker images
 We provide docker images to be able to test TTS without having to setup your own environment.
 
-### Using premade images
+## Using premade images
 You can use premade images built automatically from the latest TTS version.
 
-#### CPU version
+### CPU version
 ```bash
 docker pull ghcr.io/coqui-ai/tts-cpu
 ```
-#### GPU version
+### GPU version
 ```bash
 docker pull ghcr.io/coqui-ai/tts
 ```
 
-### Building your own image
+## Building your own image
 ```bash
 docker build -t tts .
 ```

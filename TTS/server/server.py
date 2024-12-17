@@ -25,7 +25,7 @@ from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
 logger = logging.getLogger(__name__)
-setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
 
 def create_argparser() -> argparse.ArgumentParser:

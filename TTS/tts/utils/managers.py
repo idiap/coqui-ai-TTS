@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from typing import Any, Dict, List, Tuple, Union
 
@@ -12,7 +13,8 @@ from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 
-def load_file(path: str):
+def load_file(path: Union[str, os.PathLike[Any]]):
+    path = str(path)
     if path.endswith(".json"):
         with fsspec.open(path, "r") as f:
             return json.load(f)
@@ -23,7 +25,8 @@ def load_file(path: str):
         raise ValueError("Unsupported file type")
 
 
-def save_file(obj: Any, path: str):
+def save_file(obj: Any, path: Union[str, os.PathLike[Any]]):
+    path = str(path)
     if path.endswith(".json"):
         with fsspec.open(path, "w") as f:
             json.dump(obj, f, indent=4)
@@ -39,20 +42,20 @@ class BaseIDManager:
     It defines common `ID` manager specific functions.
     """
 
-    def __init__(self, id_file_path: str = ""):
+    def __init__(self, id_file_path: Union[str, os.PathLike[Any]] = ""):
         self.name_to_id = {}
 
         if id_file_path:
             self.load_ids_from_file(id_file_path)
 
     @staticmethod
-    def _load_json(json_file_path: str) -> Dict:
-        with fsspec.open(json_file_path, "r") as f:
+    def _load_json(json_file_path: Union[str, os.PathLike[Any]]) -> Dict:
+        with fsspec.open(str(json_file_path), "r") as f:
             return json.load(f)
 
     @staticmethod
-    def _save_json(json_file_path: str, data: dict) -> None:
-        with fsspec.open(json_file_path, "w") as f:
+    def _save_json(json_file_path: Union[str, os.PathLike[Any]], data: dict) -> None:
+        with fsspec.open(str(json_file_path), "w") as f:
             json.dump(data, f, indent=4)
 
     def set_ids_from_data(self, items: List, parse_key: str) -> None:
@@ -63,7 +66,7 @@ class BaseIDManager:
         """
         self.name_to_id = self.parse_ids_from_data(items, parse_key=parse_key)
 
-    def load_ids_from_file(self, file_path: str) -> None:
+    def load_ids_from_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
         """Set IDs from a file.
 
         Args:
@@ -71,7 +74,7 @@ class BaseIDManager:
         """
         self.name_to_id = load_file(file_path)
 
-    def save_ids_to_file(self, file_path: str) -> None:
+    def save_ids_to_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
         """Save IDs to a json file.
 
         Args:
@@ -130,10 +133,10 @@ class EmbeddingManager(BaseIDManager):
 
     def __init__(
         self,
-        embedding_file_path: Union[str, List[str]] = "",
-        id_file_path: str = "",
-        encoder_model_path: str = "",
-        encoder_config_path: str = "",
+        embedding_file_path: Union[Union[str, os.PathLike[Any]], list[Union[str, os.PathLike[Any]]]] = "",
+        id_file_path: Union[str, os.PathLike[Any]] = "",
+        encoder_model_path: Union[str, os.PathLike[Any]] = "",
+        encoder_config_path: Union[str, os.PathLike[Any]] = "",
         use_cuda: bool = False,
     ):
         super().__init__(id_file_path=id_file_path)
@@ -176,7 +179,7 @@ class EmbeddingManager(BaseIDManager):
         """Get embedding names."""
         return list(self.embeddings_by_names.keys())
 
-    def save_embeddings_to_file(self, file_path: str) -> None:
+    def save_embeddings_to_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
         """Save embeddings to a json file.
 
         Args:
@@ -185,7 +188,7 @@ class EmbeddingManager(BaseIDManager):
         save_file(self.embeddings, file_path)
 
     @staticmethod
-    def read_embeddings_from_file(file_path: str):
+    def read_embeddings_from_file(file_path: Union[str, os.PathLike[Any]]):
         """Load embeddings from a json file.
 
         Args:
@@ -204,7 +207,7 @@ class EmbeddingManager(BaseIDManager):
                 embeddings_by_names[x["name"]].append(x["embedding"])
         return name_to_id, clip_ids, embeddings, embeddings_by_names
 
-    def load_embeddings_from_file(self, file_path: str) -> None:
+    def load_embeddings_from_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
         """Load embeddings from a json file.
 
         Args:
@@ -214,7 +217,7 @@ class EmbeddingManager(BaseIDManager):
             file_path
         )
 
-    def load_embeddings_from_list_of_files(self, file_paths: List[str]) -> None:
+    def load_embeddings_from_list_of_files(self, file_paths: list[Union[str, os.PathLike[Any]]]) -> None:
         """Load embeddings from a list of json files and don't allow duplicate keys.
 
         Args:
@@ -313,7 +316,9 @@ class EmbeddingManager(BaseIDManager):
     def get_clips(self) -> List:
         return sorted(self.embeddings.keys())
 
-    def init_encoder(self, model_path: str, config_path: str, use_cuda=False) -> None:
+    def init_encoder(
+        self, model_path: Union[str, os.PathLike[Any]], config_path: Union[str, os.PathLike[Any]], use_cuda=False
+    ) -> None:
         """Initialize a speaker encoder model.
 
         Args:
@@ -325,11 +330,13 @@ class EmbeddingManager(BaseIDManager):
         self.encoder_config = load_config(config_path)
         self.encoder = setup_encoder_model(self.encoder_config)
         self.encoder_criterion = self.encoder.load_checkpoint(
-            self.encoder_config, model_path, eval=True, use_cuda=use_cuda, cache=True
+            self.encoder_config, str(model_path), eval=True, use_cuda=use_cuda, cache=True
         )
         self.encoder_ap = AudioProcessor(**self.encoder_config.audio)
 
-    def compute_embedding_from_clip(self, wav_file: Union[str, List[str]]) -> list:
+    def compute_embedding_from_clip(
+        self, wav_file: Union[Union[str, os.PathLike[Any]], List[Union[str, os.PathLike[Any]]]]
+    ) -> list:
         """Compute a embedding from a given audio file.
 
         Args:

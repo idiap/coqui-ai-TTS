@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+import os
+from typing import Any, Optional, Union
 
 import librosa
 import numpy as np
@@ -548,7 +549,7 @@ class AudioProcessor:
         return volume_norm(x=x)
 
     ### save and load ###
-    def load_wav(self, filename: str, sr: Optional[int] = None) -> np.ndarray:
+    def load_wav(self, filename: Union[str, os.PathLike[Any]], sr: Optional[int] = None) -> np.ndarray:
         """Read a wav file using Librosa and optionally resample, silence trim, volume normalize.
 
         Resampling slows down loading the file significantly. Therefore it is recommended to resample the file before.
@@ -575,7 +576,9 @@ class AudioProcessor:
             x = rms_volume_norm(x=x, db_level=self.db_level)
         return x
 
-    def save_wav(self, wav: np.ndarray, path: str, sr: Optional[int] = None, pipe_out=None) -> None:
+    def save_wav(
+        self, wav: np.ndarray, path: Union[str, os.PathLike[Any]], sr: Optional[int] = None, pipe_out=None
+    ) -> None:
         """Save a waveform to a file using Scipy.
 
         Args:

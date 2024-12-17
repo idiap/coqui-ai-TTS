@@ -322,7 +322,7 @@ def main(args):  # pylint: disable=redefined-outer-name
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     args, c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = init_training()
 

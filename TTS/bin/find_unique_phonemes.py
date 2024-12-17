@@ -3,6 +3,7 @@
 import argparse
 import logging
 import multiprocessing
+import sys
 from argparse import RawTextHelpFormatter
 
 from tqdm.contrib.concurrent import process_map
@@ -20,7 +21,7 @@ def compute_phonemes(item):
 
 
 def main():
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # pylint: disable=W0601
     global c, phonemizer

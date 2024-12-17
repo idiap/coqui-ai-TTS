@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 
 from trainer import Trainer, TrainerArgs
@@ -17,7 +18,7 @@ class TrainTTSArgs(TrainerArgs):
 
 def main():
     """Run `tts` model training directly by a `config.json` file."""
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # init trainer args
     train_args = TrainTTSArgs()

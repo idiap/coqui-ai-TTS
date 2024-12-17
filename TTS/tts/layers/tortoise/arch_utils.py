@@ -70,11 +70,10 @@ class QKVAttentionLegacy(nn.Module):
             weight = rel_pos(weight.reshape(bs, self.n_heads, weight.shape[-2], weight.shape[-1])).reshape(
                 bs * self.n_heads, weight.shape[-2], weight.shape[-1]
             )
-        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
         if mask is not None:
-            # The proper way to do this is to mask before the softmax using -inf, but that doesn't work properly on CPUs.
-            mask = mask.repeat(self.n_heads, 1).unsqueeze(1)
-            weight = weight * mask
+            mask = mask.repeat(self.n_heads, 1, 1)
+            weight[mask.logical_not()] = -torch.inf
+        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
         a = torch.einsum("bts,bcs->bct", weight, v)
 
         return a.reshape(bs, -1, length)
@@ -93,7 +92,9 @@ class AttentionBlock(nn.Module):
         channels,
         num_heads=1,
         num_head_channels=-1,
+        *,
         relative_pos_embeddings=False,
+        tortoise_norm=False,
     ):
         super().__init__()
         self.channels = channels
@@ -108,6 +109,7 @@ class AttentionBlock(nn.Module):
         self.qkv = nn.Conv1d(channels, channels * 3, 1)
         # split heads before split qkv
         self.attention = QKVAttentionLegacy(self.num_heads)
+        self.tortoise_norm = tortoise_norm
 
         self.proj_out = zero_module(nn.Conv1d(channels, channels, 1))
         if relative_pos_embeddings:
@@ -124,10 +126,13 @@ class AttentionBlock(nn.Module):
     def forward(self, x, mask=None):
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
-        qkv = self.qkv(self.norm(x))
+        x_norm = self.norm(x)
+        qkv = self.qkv(x_norm)
         h = self.attention(qkv, mask, self.relative_pos_embeddings)
         h = self.proj_out(h)
-        return (x + h).reshape(b, c, *spatial)
+        if self.tortoise_norm:
+            return (x + h).reshape(b, c, *spatial)
+        return (x_norm + h).reshape(b, c, *spatial)
 
 
 class Upsample(nn.Module):

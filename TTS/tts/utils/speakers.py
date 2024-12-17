@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import fsspec
 import numpy as np
@@ -56,11 +56,11 @@ class SpeakerManager(EmbeddingManager):
 
     def __init__(
         self,
-        data_items: List[List[Any]] = None,
+        data_items: Optional[list[list[Any]]] = None,
         d_vectors_file_path: str = "",
-        speaker_id_file_path: str = "",
-        encoder_model_path: str = "",
-        encoder_config_path: str = "",
+        speaker_id_file_path: Union[str, os.PathLike[Any]] = "",
+        encoder_model_path: Union[str, os.PathLike[Any]] = "",
+        encoder_config_path: Union[str, os.PathLike[Any]] = "",
         use_cuda: bool = False,
     ):
         super().__init__(

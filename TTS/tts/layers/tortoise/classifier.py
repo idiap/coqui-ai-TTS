@@ -97,7 +97,7 @@ class AudioMiniEncoder(nn.Module):
         self.final = nn.Sequential(normalization(ch), nn.SiLU(), nn.Conv1d(ch, embedding_dim, 1))
         attn = []
         for a in range(attn_blocks):
-            attn.append(AttentionBlock(embedding_dim, num_attn_heads))
+            attn.append(AttentionBlock(embedding_dim, num_attn_heads, tortoise_norm=True))
         self.attn = nn.Sequential(*attn)
         self.dim = embedding_dim
 

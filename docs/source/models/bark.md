@@ -37,7 +37,7 @@ from TTS.api import TTS
 
 # Load the model to GPU
 # Bark is really slow on CPU, so we recommend using GPU.
-tts = TTS("tts_models/multilingual/multi-dataset/bark", gpu=True)
+tts = TTS("tts_models/multilingual/multi-dataset/bark").to("cuda")
 
 
 # Cloning a new speaker
@@ -57,7 +57,7 @@ tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
 
 
 # random speaker
-tts = TTS("tts_models/multilingual/multi-dataset/bark", gpu=True)
+tts = TTS("tts_models/multilingual/multi-dataset/bark").to("cuda")
 tts.tts_to_file("hello world", file_path="out.wav")
 ```
 
