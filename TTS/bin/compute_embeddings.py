@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 from argparse import RawTextHelpFormatter
+from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -13,6 +14,88 @@ from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.managers import save_file
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+
+
+def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="""Compute embedding vectors for each audio file in a dataset and store them keyed by `{dataset_name}#{file_path}` in a .pth file\n\n"""
+        """
+        Example runs:
+        python TTS/bin/compute_embeddings.py --model_path speaker_encoder_model.pth --config_path speaker_encoder_config.json  --config_dataset_path dataset_config.json
+
+        python TTS/bin/compute_embeddings.py --model_path speaker_encoder_model.pth --config_path speaker_encoder_config.json  --formatter_name coqui --dataset_path /path/to/vctk/dataset --dataset_name my_vctk --meta_file_train /path/to/vctk/metafile_train.csv --meta_file_val /path/to/vctk/metafile_eval.csv
+        """,
+        formatter_class=RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        help="Path to model checkpoint file. It defaults to the released speaker encoder.",
+        default="https://github.com/coqui-ai/TTS/releases/download/speaker_encoder_model/model_se.pth.tar",
+    )
+    parser.add_argument(
+        "--config_path",
+        type=str,
+        help="Path to model config file. It defaults to the released speaker encoder config.",
+        default="https://github.com/coqui-ai/TTS/releases/download/speaker_encoder_model/config_se.json",
+    )
+    parser.add_argument(
+        "--config_dataset_path",
+        type=str,
+        help="Path to dataset config file. You either need to provide this or `formatter_name`, `dataset_name` and `dataset_path` arguments.",
+        default=None,
+    )
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        help="Path for output `pth` or `json` file.",
+        default="speakers.pth",
+    )
+    parser.add_argument(
+        "--old_file",
+        type=str,
+        help="The old existing embedding file, from which the embeddings will be directly loaded for already computed audio clips.",
+        default=None,
+    )
+    parser.add_argument(
+        "--old_append",
+        help="Append new audio clip embeddings to the old embedding file, generate a new non-duplicated merged embedding file. Default False",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument("--disable_cuda", action="store_true", help="Flag to disable cuda.", default=False)
+    parser.add_argument("--no_eval", help="Do not compute eval?. Default False", default=False, action="store_true")
+    parser.add_argument(
+        "--formatter_name",
+        type=str,
+        help="Name of the formatter to use. You either need to provide this or `config_dataset_path`",
+        default=None,
+    )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        help="Name of the dataset to use. You either need to provide this or `config_dataset_path`",
+        default=None,
+    )
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        help="Path to the dataset. You either need to provide this or `config_dataset_path`",
+        default=None,
+    )
+    parser.add_argument(
+        "--meta_file_train",
+        type=str,
+        help="Path to the train meta file. If not set, dataset formatter uses the default metafile if it is defined in the formatter. You either need to provide this or `config_dataset_path`",
+        default=None,
+    )
+    parser.add_argument(
+        "--meta_file_val",
+        type=str,
+        help="Path to the evaluation meta file. If not set, dataset formatter uses the default metafile if it is defined in the formatter. You either need to provide this or `config_dataset_path`",
+        default=None,
+    )
+    return parser.parse_args()
 
 
 def compute_embeddings(
@@ -102,88 +185,9 @@ def compute_embeddings(
         print("Speaker embeddings saved at:", mapping_file_path)
 
 
-if __name__ == "__main__":
+def main(arg_list: Optional[list[str]] = None):
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
-
-    parser = argparse.ArgumentParser(
-        description="""Compute embedding vectors for each audio file in a dataset and store them keyed by `{dataset_name}#{file_path}` in a .pth file\n\n"""
-        """
-        Example runs:
-        python TTS/bin/compute_embeddings.py --model_path speaker_encoder_model.pth --config_path speaker_encoder_config.json  --config_dataset_path dataset_config.json
-
-        python TTS/bin/compute_embeddings.py --model_path speaker_encoder_model.pth --config_path speaker_encoder_config.json  --formatter_name coqui --dataset_path /path/to/vctk/dataset --dataset_name my_vctk --meta_file_train /path/to/vctk/metafile_train.csv --meta_file_val /path/to/vctk/metafile_eval.csv
-        """,
-        formatter_class=RawTextHelpFormatter,
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        help="Path to model checkpoint file. It defaults to the released speaker encoder.",
-        default="https://github.com/coqui-ai/TTS/releases/download/speaker_encoder_model/model_se.pth.tar",
-    )
-    parser.add_argument(
-        "--config_path",
-        type=str,
-        help="Path to model config file. It defaults to the released speaker encoder config.",
-        default="https://github.com/coqui-ai/TTS/releases/download/speaker_encoder_model/config_se.json",
-    )
-    parser.add_argument(
-        "--config_dataset_path",
-        type=str,
-        help="Path to dataset config file. You either need to provide this or `formatter_name`, `dataset_name` and `dataset_path` arguments.",
-        default=None,
-    )
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        help="Path for output `pth` or `json` file.",
-        default="speakers.pth",
-    )
-    parser.add_argument(
-        "--old_file",
-        type=str,
-        help="The old existing embedding file, from which the embeddings will be directly loaded for already computed audio clips.",
-        default=None,
-    )
-    parser.add_argument(
-        "--old_append",
-        help="Append new audio clip embeddings to the old embedding file, generate a new non-duplicated merged embedding file. Default False",
-        default=False,
-        action="store_true",
-    )
-    parser.add_argument("--disable_cuda", action="store_true", help="Flag to disable cuda.", default=False)
-    parser.add_argument("--no_eval", help="Do not compute eval?. Default False", default=False, action="store_true")
-    parser.add_argument(
-        "--formatter_name",
-        type=str,
-        help="Name of the formatter to use. You either need to provide this or `config_dataset_path`",
-        default=None,
-    )
-    parser.add_argument(
-        "--dataset_name",
-        type=str,
-        help="Name of the dataset to use. You either need to provide this or `config_dataset_path`",
-        default=None,
-    )
-    parser.add_argument(
-        "--dataset_path",
-        type=str,
-        help="Path to the dataset. You either need to provide this or `config_dataset_path`",
-        default=None,
-    )
-    parser.add_argument(
-        "--meta_file_train",
-        type=str,
-        help="Path to the train meta file. If not set, dataset formatter uses the default metafile if it is defined in the formatter. You either need to provide this or `config_dataset_path`",
-        default=None,
-    )
-    parser.add_argument(
-        "--meta_file_val",
-        type=str,
-        help="Path to the evaluation meta file. If not set, dataset formatter uses the default metafile if it is defined in the formatter. You either need to provide this or `config_dataset_path`",
-        default=None,
-    )
-    args = parser.parse_args()
+    args = parse_args(arg_list)
 
     compute_embeddings(
         args.model_path,
@@ -200,3 +204,7 @@ if __name__ == "__main__":
         disable_cuda=args.disable_cuda,
         no_eval=args.no_eval,
     )
+
+
+if __name__ == "__main__":
+    main()
