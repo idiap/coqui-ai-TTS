@@ -91,7 +91,7 @@ class Synthesizer(nn.Module):
         self.d_vector_dim = 0
         self.seg = self._get_segmenter("en")
         self.use_cuda = use_cuda
-        self.voice_dir = optional_to_str(voice_dir)
+        self.voice_dir = voice_dir
         if self.use_cuda:
             assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
