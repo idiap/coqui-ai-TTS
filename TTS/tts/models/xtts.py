@@ -723,8 +723,8 @@ class Xtts(BaseTTS):
     def load_checkpoint(
         self,
         config: "XttsConfig",
-        checkpoint_dir: Optional[str] = None,
         checkpoint_path: Optional[str] = None,
+        checkpoint_dir: Optional[str] = None,
         vocab_path: Optional[str] = None,
         eval: bool = True,
         strict: bool = True,
@@ -736,8 +736,8 @@ class Xtts(BaseTTS):
 
         Args:
             config (dict): The configuration dictionary for the model.
-            checkpoint_dir (str, optional): The directory where the checkpoint is stored. Defaults to None.
             checkpoint_path (str, optional): The path to the checkpoint file. Defaults to None.
+            checkpoint_dir (str, optional): The directory where the checkpoint is stored. Defaults to None.
             vocab_path (str, optional): The path to the vocabulary file. Defaults to None.
             eval (bool, optional): Whether to set the model to evaluation mode. Defaults to True.
             strict (bool, optional): Whether to strictly enforce that the keys in the checkpoint match the keys in the model. Defaults to True.
@@ -745,6 +745,8 @@ class Xtts(BaseTTS):
         Returns:
             None
         """
+        if checkpoint_dir is None and checkpoint_path:
+            checkpoint_dir = os.path.dirname(checkpoint_path)
         if checkpoint_dir is not None and Path(checkpoint_dir).is_file():
             msg = f"You passed a file to `checkpoint_dir=`. Use `checkpoint_path={checkpoint_dir}` instead."
             raise ValueError(msg)
