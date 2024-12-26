@@ -218,7 +218,7 @@ class Tacotron(BaseTacotron):
         )
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, text_input, aux_input=None):
         aux_input = self._format_aux_input(aux_input)
         inputs = self.embedding(text_input)

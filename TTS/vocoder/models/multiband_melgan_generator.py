@@ -32,7 +32,7 @@ class MultibandMelganGenerator(MelganGenerator):
     def pqmf_synthesis(self, x):
         return self.pqmf_layer.synthesis(x)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, cond_features):
         cond_features = cond_features.to(self.layers[1].weight.device)
         cond_features = torch.nn.functional.pad(

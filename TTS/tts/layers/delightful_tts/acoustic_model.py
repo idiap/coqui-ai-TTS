@@ -421,7 +421,7 @@ class AcousticModel(torch.nn.Module):
             "spk_emb": speaker_embedding,
         }
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         tokens: torch.Tensor,

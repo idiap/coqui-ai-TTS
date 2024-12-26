@@ -927,7 +927,7 @@ class Vits(BaseTTS):
             return aux_input["x_lengths"]
         return torch.tensor(x.shape[1:2]).to(x.device)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x,
@@ -1014,7 +1014,7 @@ class Vits(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference_voice_conversion(
         self, reference_wav, speaker_id=None, d_vector=None, reference_speaker_id=None, reference_d_vector=None
     ):
@@ -1209,7 +1209,7 @@ class Vits(BaseTTS):
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
         return self.train_step(batch, criterion, optimizer_idx)
 
@@ -1266,7 +1266,7 @@ class Vits(BaseTTS):
             "language_name": language_name,
         }
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets) -> Tuple[Dict, Dict]:
         """Generic test run for `tts` models used by `Trainer`.
 

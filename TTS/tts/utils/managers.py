@@ -334,6 +334,7 @@ class EmbeddingManager(BaseIDManager):
         )
         self.encoder_ap = AudioProcessor(**self.encoder_config.audio)
 
+    @torch.inference_mode()
     def compute_embedding_from_clip(
         self, wav_file: Union[Union[str, os.PathLike[Any]], List[Union[str, os.PathLike[Any]]]]
     ) -> list:

@@ -212,7 +212,7 @@ class GAN(BaseVocoder):
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def eval_step(self, batch: Dict, criterion: nn.Module, optimizer_idx: int) -> Tuple[Dict, Dict]:
         """Call `train_step()` with `no_grad()`"""
         self.train_disc = True  # Avoid a bug in the Training with the missing discriminator loss

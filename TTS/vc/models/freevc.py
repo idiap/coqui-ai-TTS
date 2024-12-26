@@ -389,7 +389,7 @@ class FreeVC(BaseVC):
 
         return o, ids_slice, spec_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c, g=None, mel=None, c_lengths=None):
         """
         Inference pass of the model

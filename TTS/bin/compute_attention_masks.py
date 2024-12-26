@@ -113,7 +113,7 @@ Example run:
 
     # compute attentions
     file_paths = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for data in tqdm(loader):
             # setup input data
             text_input = data[0]

@@ -128,7 +128,7 @@ def format_data(data):
     )
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def inference(
     model_name: str,
     model: BaseTTS,

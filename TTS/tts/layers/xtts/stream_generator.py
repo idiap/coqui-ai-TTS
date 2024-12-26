@@ -45,7 +45,7 @@ class StreamGenerationConfig(GenerationConfig):
 
 
 class NewGenerationMixin(GenerationMixin):
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(  # noqa: PLR0911
         self,
         inputs: Optional[torch.Tensor] = None,
@@ -662,7 +662,7 @@ class NewGenerationMixin(GenerationMixin):
                 **model_kwargs,
             )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def sample_stream(
         self,
         input_ids: torch.LongTensor,
