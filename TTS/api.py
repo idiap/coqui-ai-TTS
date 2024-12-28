@@ -283,6 +283,7 @@ class TTS(nn.Module):
             style_text=None,
             reference_speaker_name=None,
             split_sentences=split_sentences,
+            speed=speed,
             **kwargs,
         )
         return wav
@@ -330,13 +331,13 @@ class TTS(nn.Module):
                 Additional arguments for the model.
         """
         self._check_arguments(speaker=speaker, language=language, speaker_wav=speaker_wav, **kwargs)
-
         wav = self.tts(
             text=text,
             speaker=speaker,
             language=language,
             speaker_wav=speaker_wav,
             split_sentences=split_sentences,
+            speed=speed,
             **kwargs,
         )
         self.synthesizer.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)

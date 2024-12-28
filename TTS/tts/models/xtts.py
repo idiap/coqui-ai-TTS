@@ -379,7 +379,7 @@ class Xtts(BaseTTS):
 
         return gpt_cond_latents, speaker_embedding
 
-    def synthesize(self, text, config, speaker_wav, language, speaker_id=None, **kwargs):
+    def synthesize(self, text, config, speaker_wav, language, speaker_id=None, speed: float = 1.0, **kwargs):
         """Synthesize speech with the given input text.
 
         Args:
@@ -409,14 +409,14 @@ class Xtts(BaseTTS):
         settings.update(kwargs)  # allow overriding of preset settings with kwargs
         if speaker_id is not None:
             gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker_id].values()
-            return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
+            return self.inference(text, language, gpt_cond_latent, speaker_embedding, speed=speed, **settings)
         settings.update({
             "gpt_cond_len": config.gpt_cond_len,
             "gpt_cond_chunk_len": config.gpt_cond_chunk_len,
             "max_ref_len": config.max_ref_len,
             "sound_norm_refs": config.sound_norm_refs,
         })
-        return self.full_inference(text, speaker_wav, language, **settings)
+        return self.full_inference(text, speaker_wav, language, speed=speed, **settings)
 
     @torch.inference_mode()
     def full_inference(
@@ -436,6 +436,7 @@ class Xtts(BaseTTS):
         gpt_cond_chunk_len=6,
         max_ref_len=10,
         sound_norm_refs=False,
+        speed: float = 1.0,
         **hf_generate_kwargs,
     ):
         """
@@ -496,6 +497,7 @@ class Xtts(BaseTTS):
             top_k=top_k,
             top_p=top_p,
             do_sample=do_sample,
+            speed=speed,
             **hf_generate_kwargs,
         )
 
@@ -569,10 +571,7 @@ class Xtts(BaseTTS):
                 )
 
                 if length_scale != 1.0:
-                    gpt_latents = F.interpolate(
-                        gpt_latents.transpose(1, 2), scale_factor=length_scale, mode="linear"
-                    ).transpose(1, 2)
-
+                    gpt_latents = self.adjust_speech_rate(gpt_latents, length_scale)
                 gpt_latents_list.append(gpt_latents.cpu())
                 wavs.append(self.hifigan_decoder(gpt_latents, g=speaker_embedding).cpu().squeeze())
 
