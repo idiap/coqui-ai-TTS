@@ -4,6 +4,7 @@ import unittest
 
 import torch
 from torch import nn, optim
+from trainer.generic_utils import count_parameters
 
 from tests import get_tests_input_path
 from TTS.tts.configs.shared_configs import CapacitronVAEConfig, GSTConfig
@@ -22,11 +23,6 @@ config_global = TacotronConfig(num_chars=32, num_speakers=5, out_channels=513, d
 
 ap = AudioProcessor(**config_global.audio)
 WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
-
-
-def count_parameters(model):
-    r"""Count number of trainable parameters in a network"""
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class TacotronTrainTest(unittest.TestCase):
@@ -266,7 +262,7 @@ class TacotronCapacitronTrainTest(unittest.TestCase):
             },
         )
 
-        batch = dict({})
+        batch = {}
         batch["text_input"] = torch.randint(0, 24, (8, 128)).long().to(device)
         batch["text_lengths"] = torch.randint(100, 129, (8,)).long().to(device)
         batch["text_lengths"] = torch.sort(batch["text_lengths"], descending=True)[0]

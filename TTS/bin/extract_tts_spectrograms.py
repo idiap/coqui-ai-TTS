@@ -2,12 +2,15 @@
 """Extract Mel spectrograms with teacher forcing."""
 
 import argparse
+import logging
 import os
+import sys
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from trainer.generic_utils import count_parameters
 
 from TTS.config import load_config
 from TTS.tts.datasets import TTSDataset, load_tts_samples
@@ -16,12 +19,12 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import quantize
-from TTS.utils.generic_utils import count_parameters
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 use_cuda = torch.cuda.is_available()
 
 
-def setup_loader(ap, r, verbose=False):
+def setup_loader(ap, r):
     tokenizer, _ = TTSTokenizer.init_from_config(c)
     dataset = TTSDataset(
         outputs_per_step=r,
@@ -37,7 +40,6 @@ def setup_loader(ap, r, verbose=False):
         phoneme_cache_path=c.phoneme_cache_path,
         precompute_num_workers=0,
         use_noise_augment=False,
-        verbose=verbose,
         speaker_id_mapping=speaker_manager.name_to_id if c.use_speaker_embedding else None,
         d_vector_mapping=speaker_manager.embeddings if c.use_d_vector_file else None,
     )
@@ -257,7 +259,7 @@ def main(args):  # pylint: disable=redefined-outer-name
     print("\n > Model has {} parameters".format(num_params), flush=True)
     # set r
     r = 1 if c.model.lower() == "glow_tts" else model.decoder.r
-    own_loader = setup_loader(ap, r, verbose=True)
+    own_loader = setup_loader(ap, r)
 
     extract_spectrograms(
         own_loader,
@@ -272,6 +274,8 @@ def main(args):  # pylint: disable=redefined-outer-name
 
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", type=str, help="Path to config file for training.", required=True)
     parser.add_argument("--checkpoint_path", type=str, help="Model file to be restored.", required=True)
@@ -279,7 +283,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", default=False, action="store_true", help="Save audio files for debug")
     parser.add_argument("--save_audio", default=False, action="store_true", help="Save audio files")
     parser.add_argument("--quantize_bits", type=int, default=0, help="Save quantized audio files if non-zero")
-    parser.add_argument("--eval", type=bool, help="compute eval.", default=True)
+    parser.add_argument("--eval", action=argparse.BooleanOptionalAction, help="compute eval.", default=True)
     args = parser.parse_args()
 
     c = load_config(args.config_path)

@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 from dataclasses import dataclass, field, replace
@@ -9,42 +10,40 @@ import torch
 import torch.distributed as dist
 import torchaudio
 from coqpit import Coqpit
-from librosa.filters import mel as librosa_mel_fn
+from monotonic_alignment_search import maximum_path
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.configs.shared_configs import CharactersConfig
-from TTS.tts.datasets.dataset import TTSDataset, _parse_sample
+from TTS.tts.datasets.dataset import TTSDataset, _parse_sample, get_attribute_balancer_weights
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.layers.vits.discriminator import VitsDiscriminator
 from TTS.tts.layers.vits.networks import PosteriorEncoder, ResidualCouplingBlocks, TextEncoder
 from TTS.tts.layers.vits.stochastic_duration_predictor import StochasticDurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.fairseq import rehash_fairseq_vits_checkpoint
-from TTS.tts.utils.helpers import generate_path, maximum_path, rand_segments, segment, sequence_mask
+from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequence_mask
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment
-from TTS.utils.io import load_fsspec
+from TTS.utils.audio.torch_transforms import spec_to_mel, wav_to_mel, wav_to_spec
 from TTS.utils.samplers import BucketBatchSampler
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
 
+logger = logging.getLogger(__name__)
+
 ##############################
 # IO / Feature extraction
 ##############################
-
-# pylint: disable=global-statement
-hann_window = {}
-mel_basis = {}
 
 
 @torch.no_grad()
@@ -75,139 +74,6 @@ def load_audio(file_path):
     return x, sr
 
 
-def _amp_to_db(x, C=1, clip_val=1e-5):
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def _db_to_amp(x, C=1):
-    return torch.exp(x) / C
-
-
-def amp_to_db(magnitudes):
-    output = _amp_to_db(magnitudes)
-    return output
-
-
-def db_to_amp(magnitudes):
-    output = _db_to_amp(magnitudes)
-    return output
-
-
-def wav_to_spec(y, n_fft, hop_length, win_length, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T]`
-    """
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        print("min value is ", torch.min(y))
-    if torch.max(y) > 1.0:
-        print("max value is ", torch.max(y))
-
-    global hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_length) + "_" + dtype_device
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.stft(
-        y,
-        n_fft,
-        hop_length=hop_length,
-        win_length=win_length,
-        window=hann_window[wnsize_dtype_device],
-        center=center,
-        pad_mode="reflect",
-        normalized=False,
-        onesided=True,
-        return_complex=False,
-    )
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    return spec
-
-
-def spec_to_mel(spec, n_fft, num_mels, sample_rate, fmin, fmax):
-    """
-    Args Shapes:
-        - spec : :math:`[B,C,T]`
-
-    Return Shapes:
-        - mel : :math:`[B,C,T]`
-    """
-    global mel_basis
-    dtype_device = str(spec.dtype) + "_" + str(spec.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
-    if fmax_dtype_device not in mel_basis:
-        mel = librosa_mel_fn(sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
-        mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(dtype=spec.dtype, device=spec.device)
-    mel = torch.matmul(mel_basis[fmax_dtype_device], spec)
-    mel = amp_to_db(mel)
-    return mel
-
-
-def wav_to_mel(y, n_fft, num_mels, sample_rate, hop_length, win_length, fmin, fmax, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T]`
-    """
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        print("min value is ", torch.min(y))
-    if torch.max(y) > 1.0:
-        print("max value is ", torch.max(y))
-
-    global mel_basis, hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
-    wnsize_dtype_device = str(win_length) + "_" + dtype_device
-    if fmax_dtype_device not in mel_basis:
-        mel = librosa_mel_fn(sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax)
-        mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(dtype=y.dtype, device=y.device)
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.stft(
-        y,
-        n_fft,
-        hop_length=hop_length,
-        win_length=win_length,
-        window=hann_window[wnsize_dtype_device],
-        center=center,
-        pad_mode="reflect",
-        normalized=False,
-        onesided=True,
-        return_complex=False,
-    )
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    spec = torch.matmul(mel_basis[fmax_dtype_device], spec)
-    spec = amp_to_db(spec)
-    return spec
-
-
 #############################
 # CONFIGS
 #############################
@@ -227,30 +93,6 @@ class VitsAudioConfig(Coqpit):
 ##############################
 # DATASET
 ##############################
-
-
-def get_attribute_balancer_weights(items: list, attr_name: str, multi_dict: dict = None):
-    """Create inverse frequency weights for balancing the dataset.
-    Use `multi_dict` to scale relative weights."""
-    attr_names_samples = np.array([item[attr_name] for item in items])
-    unique_attr_names = np.unique(attr_names_samples).tolist()
-    attr_idx = [unique_attr_names.index(l) for l in attr_names_samples]
-    attr_count = np.array([len(np.where(attr_names_samples == l)[0]) for l in unique_attr_names])
-    weight_attr = 1.0 / attr_count
-    dataset_samples_weight = np.array([weight_attr[l] for l in attr_idx])
-    dataset_samples_weight = dataset_samples_weight / np.linalg.norm(dataset_samples_weight)
-    if multi_dict is not None:
-        # check if all keys are in the multi_dict
-        for k in multi_dict:
-            assert k in unique_attr_names, f"{k} not in {unique_attr_names}"
-        # scale weights
-        multiplier_samples = np.array([multi_dict.get(item[attr_name], 1.0) for item in items])
-        dataset_samples_weight *= multiplier_samples
-    return (
-        torch.from_numpy(dataset_samples_weight).float(),
-        unique_attr_names,
-        np.unique(dataset_samples_weight).tolist(),
-    )
 
 
 class VitsDataset(TTSDataset):
@@ -760,7 +602,7 @@ class Vits(BaseTTS):
                 )
 
             self.speaker_manager.encoder.eval()
-            print(" > External Speaker Encoder Loaded !!")
+            logger.info("External Speaker Encoder Loaded !!")
 
             if (
                 hasattr(self.speaker_manager.encoder, "audio_config")
@@ -774,7 +616,7 @@ class Vits(BaseTTS):
     def _init_speaker_embedding(self):
         # pylint: disable=attribute-defined-outside-init
         if self.num_speakers > 0:
-            print(" > initialization of speaker-embedding layers.")
+            logger.info("Initialization of speaker-embedding layers.")
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.emb_g = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
 
@@ -794,7 +636,7 @@ class Vits(BaseTTS):
             self.language_manager = LanguageManager(language_ids_file_path=config.language_ids_file)
 
         if self.args.use_language_embedding and self.language_manager:
-            print(" > initialization of language-embedding layers.")
+            logger.info("Initialization of language-embedding layers.")
             self.num_languages = self.language_manager.num_languages
             self.embedded_language_dim = self.args.embedded_language_dim
             self.emb_l = nn.Embedding(self.num_languages, self.embedded_language_dim)
@@ -829,7 +671,7 @@ class Vits(BaseTTS):
             for key, value in after_dict.items():
                 if value == before_dict[key]:
                     raise RuntimeError(" [!] The weights of Duration Predictor was not reinit check it !")
-            print(" > Duration Predictor was reinit.")
+            logger.info("Duration Predictor was reinit.")
 
         if self.args.reinit_text_encoder:
             before_dict = get_module_weights_sum(self.text_encoder)
@@ -839,7 +681,7 @@ class Vits(BaseTTS):
             for key, value in after_dict.items():
                 if value == before_dict[key]:
                     raise RuntimeError(" [!] The weights of Text Encoder was not reinit check it !")
-            print(" > Text Encoder was reinit.")
+            logger.info("Text Encoder was reinit.")
 
     def get_aux_input(self, aux_input: Dict):
         sid, g, lid, _ = self._set_cond_input(aux_input)
@@ -1233,7 +1075,7 @@ class Vits(BaseTTS):
         Args:
             batch (Dict): Input tensors.
             criterion (nn.Module): Loss layer designed for the model.
-            optimizer_idx (int): Index of optimizer to use. 0 for the generator and 1 for the discriminator networks.
+            optimizer_idx (int): Index of optimizer to use. 0 for the discriminator and 1 for the generator networks.
 
         Returns:
             Tuple[Dict, Dict]: Model ouputs and computed losses.
@@ -1270,7 +1112,7 @@ class Vits(BaseTTS):
             )
 
             # compute loss
-            with autocast(enabled=False):  # use float32 for the criterion
+            with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
                 loss_dict = criterion[optimizer_idx](
                     scores_disc_real,
                     scores_disc_fake,
@@ -1281,7 +1123,7 @@ class Vits(BaseTTS):
             mel = batch["mel"]
 
             # compute melspec segment
-            with autocast(enabled=False):
+            with torch.autocast("cuda", enabled=False):
                 if self.args.encoder_sample_rate:
                     spec_segment_size = self.spec_segment_size * int(self.interpolate_factor)
                 else:
@@ -1308,7 +1150,7 @@ class Vits(BaseTTS):
             )
 
             # compute losses
-            with autocast(enabled=False):  # use float32 for the criterion
+            with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
                 loss_dict = criterion[optimizer_idx](
                     mel_slice_hat=mel_slice.float(),
                     mel_slice=mel_slice_hat.float(),
@@ -1433,7 +1275,7 @@ class Vits(BaseTTS):
         Returns:
             Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
         """
-        print(" | > Synthesizing test sentences.")
+        logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
         test_sentences = self.config.test_sentences
@@ -1550,14 +1392,14 @@ class Vits(BaseTTS):
         data_items = dataset.samples
         if getattr(config, "use_weighted_sampler", False):
             for attr_name, alpha in config.weighted_sampler_attrs.items():
-                print(f" > Using weighted sampler for attribute '{attr_name}' with alpha '{alpha}'")
+                logger.info("Using weighted sampler for attribute '%s' with alpha %.3f", attr_name, alpha)
                 multi_dict = config.weighted_sampler_multipliers.get(attr_name, None)
-                print(multi_dict)
+                logger.info(multi_dict)
                 weights, attr_names, attr_weights = get_attribute_balancer_weights(
                     attr_name=attr_name, items=data_items, multi_dict=multi_dict
                 )
                 weights = weights * alpha
-                print(f" > Attribute weights for '{attr_names}' \n | > {attr_weights}")
+                logger.info("Attribute weights for '%s' \n | > %s", attr_names, attr_weights)
 
         # input_audio_lenghts = [os.path.getsize(x["audio_file"]) for x in data_items]
 
@@ -1605,7 +1447,6 @@ class Vits(BaseTTS):
                 max_audio_len=config.max_audio_len,
                 phoneme_cache_path=config.phoneme_cache_path,
                 precompute_num_workers=config.precompute_num_workers,
-                verbose=verbose,
                 tokenizer=self.tokenizer,
                 start_by_longest=config.start_by_longest,
             )
@@ -1651,13 +1492,16 @@ class Vits(BaseTTS):
 
     def get_optimizer(self) -> List:
         """Initiate and return the GAN optimizers based on the config parameters.
-        It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
+
+        It returns 2 optimizers in a list. First one is for the discriminator
+        and the second one is for the generator.
+
         Returns:
             List: optimizers.
         """
-        # select generator parameters
         optimizer0 = get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr_disc, self.disc)
 
+        # select generator parameters
         gen_parameters = chain(params for k, params in self.named_parameters() if not k.startswith("disc."))
         optimizer1 = get_optimizer(
             self.config.optimizer, self.config.optimizer_params, self.config.lr_gen, parameters=gen_parameters
@@ -1712,7 +1556,7 @@ class Vits(BaseTTS):
         # handle fine-tuning from a checkpoint with additional speakers
         if hasattr(self, "emb_g") and state["model"]["emb_g.weight"].shape != self.emb_g.weight.shape:
             num_new_speakers = self.emb_g.weight.shape[0] - state["model"]["emb_g.weight"].shape[0]
-            print(f" > Loading checkpoint with {num_new_speakers} additional speakers.")
+            logger.info("Loading checkpoint with %d additional speakers.", num_new_speakers)
             emb_g = state["model"]["emb_g.weight"]
             new_row = torch.randn(num_new_speakers, emb_g.shape[1])
             emb_g = torch.cat([emb_g, new_row], axis=0)
@@ -1769,7 +1613,7 @@ class Vits(BaseTTS):
             assert not self.training
 
     @staticmethod
-    def init_from_config(config: "VitsConfig", samples: Union[List[List], List[Dict]] = None, verbose=True):
+    def init_from_config(config: "VitsConfig", samples: Union[List[List], List[Dict]] = None):
         """Initiate model from config
 
         Args:
@@ -1792,7 +1636,7 @@ class Vits(BaseTTS):
                 upsample_rate == effective_hop_length
             ), f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {effective_hop_length}"
 
-        ap = AudioProcessor.init_from_config(config, verbose=verbose)
+        ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
         speaker_manager = SpeakerManager.init_from_config(config, samples)
         language_manager = LanguageManager.init_from_config(config)
@@ -1880,16 +1724,18 @@ class Vits(BaseTTS):
         self.forward = _forward
         if training:
             self.train()
-        if not disc is None:
+        if disc is not None:
             self.disc = disc
 
     def load_onnx(self, model_path: str, cuda=False):
         import onnxruntime as ort
 
         providers = [
-            "CPUExecutionProvider"
-            if cuda is False
-            else ("CUDAExecutionProvider", {"cudnn_conv_algo_search": "DEFAULT"})
+            (
+                "CPUExecutionProvider"
+                if cuda is False
+                else ("CUDAExecutionProvider", {"cudnn_conv_algo_search": "DEFAULT"})
+            )
         ]
         sess_options = ort.SessionOptions()
         self.onnx_sess = ort.InferenceSession(
@@ -1914,9 +1760,9 @@ class Vits(BaseTTS):
             dtype=np.float32,
         )
         input_params = {"input": x, "input_lengths": x_lengths, "scales": scales}
-        if not speaker_id is None:
+        if speaker_id is not None:
             input_params["sid"] = torch.tensor([speaker_id]).cpu().numpy()
-        if not language_id is None:
+        if language_id is not None:
             input_params["langid"] = torch.tensor([language_id]).cpu().numpy()
 
         audio = self.onnx_sess.run(
@@ -1948,8 +1794,7 @@ class VitsCharacters(BaseCharacters):
     def _create_vocab(self):
         self._vocab = [self._pad] + list(self._punctuations) + list(self._characters) + [self._blank]
         self._char_to_id = {char: idx for idx, char in enumerate(self.vocab)}
-        # pylint: disable=unnecessary-comprehension
-        self._id_to_char = {idx: char for idx, char in enumerate(self.vocab)}
+        self._id_to_char = dict(enumerate(self.vocab))
 
     @staticmethod
     def init_from_config(config: Coqpit):
@@ -1996,4 +1841,4 @@ class FairseqVocab(BaseVocabulary):
         self.blank = self._vocab[0]
         self.pad = " "
         self._char_to_id = {s: i for i, s in enumerate(self._vocab)}  # pylint: disable=unnecessary-comprehension
-        self._id_to_char = {i: s for i, s in enumerate(self._vocab)}  # pylint: disable=unnecessary-comprehension
+        self._id_to_char = dict(enumerate(self._vocab))

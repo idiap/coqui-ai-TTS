@@ -1,10 +1,12 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Union
 
 import torch
 from coqpit import Coqpit
+from monotonic_alignment_search import maximum_path
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
+from trainer.io import load_fsspec
 
 from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.encoder import Encoder
@@ -12,11 +14,12 @@ from TTS.tts.layers.generic.aligner import AlignmentNetwork
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.helpers import average_over_durations, generate_path, maximum_path, sequence_mask
+from TTS.tts.utils.helpers import average_over_durations, expand_encoder_outputs, generate_attention, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
-from TTS.utils.io import load_fsspec
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -299,56 +302,13 @@ class ForwardTTS(BaseTTS):
         if config.use_d_vector_file:
             self.embedded_speaker_dim = config.d_vector_dim
             if self.args.d_vector_dim != self.args.hidden_channels:
-                #self.proj_g = nn.Conv1d(self.args.d_vector_dim, self.args.hidden_channels, 1)
+                # self.proj_g = nn.Conv1d(self.args.d_vector_dim, self.args.hidden_channels, 1)
                 self.proj_g = nn.Linear(in_features=self.args.d_vector_dim, out_features=self.args.hidden_channels)
         # init speaker embedding layer
         if config.use_speaker_embedding and not config.use_d_vector_file:
-            print(" > Init speaker_embedding layer.")
+            logger.info("Init speaker_embedding layer.")
             self.emb_g = nn.Embedding(self.num_speakers, self.args.hidden_channels)
             nn.init.uniform_(self.emb_g.weight, -0.1, 0.1)
-
-    @staticmethod
-    def generate_attn(dr, x_mask, y_mask=None):
-        """Generate an attention mask from the durations.
-
-        Shapes
-           - dr: :math:`(B, T_{en})`
-           - x_mask: :math:`(B, T_{en})`
-           - y_mask: :math:`(B, T_{de})`
-        """
-        # compute decode mask from the durations
-        if y_mask is None:
-            y_lengths = dr.sum(1).long()
-            y_lengths[y_lengths < 1] = 1
-            y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(dr.dtype)
-        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        attn = generate_path(dr, attn_mask.squeeze(1)).to(dr.dtype)
-        return attn
-
-    def expand_encoder_outputs(self, en, dr, x_mask, y_mask):
-        """Generate attention alignment map from durations and
-        expand encoder outputs
-
-        Shapes:
-            - en: :math:`(B, D_{en}, T_{en})`
-            - dr: :math:`(B, T_{en})`
-            - x_mask: :math:`(B, T_{en})`
-            - y_mask: :math:`(B, T_{de})`
-
-        Examples::
-
-            encoder output: [a,b,c,d]
-            durations: [1, 3, 2, 1]
-
-            expanded: [a, b, b, b, c, c, d]
-            attention map: [[0, 0, 0, 0, 0, 0, 1],
-                            [0, 0, 0, 0, 1, 1, 0],
-                            [0, 1, 1, 1, 0, 0, 0],
-                            [1, 0, 0, 0, 0, 0, 0]]
-        """
-        attn = self.generate_attn(dr, x_mask, y_mask)
-        o_en_ex = torch.matmul(attn.squeeze(1).transpose(1, 2).to(en.dtype), en.transpose(1, 2)).transpose(1, 2)
-        return o_en_ex, attn
 
     def format_durations(self, o_dr_log, x_mask):
         """Format predicted durations.
@@ -404,13 +364,13 @@ class ForwardTTS(BaseTTS):
         # [B, T, C]
         x_emb = self.emb(x)
         # encoder pass
-	#o_en = self.encoder(torch.transpose(x_emb, 1, -1), x_mask)
+        # o_en = self.encoder(torch.transpose(x_emb, 1, -1), x_mask)
         o_en = self.encoder(torch.transpose(x_emb, 1, -1), x_mask, g)
         # speaker conditioning
         # TODO: try different ways of conditioning
-        if g is not None: 
+        if g is not None:
             if hasattr(self, "proj_g"):
-                g = self.proj_g(g.view(g.shape[0], -1)).unsqueeze(-1)            
+                g = self.proj_g(g.view(g.shape[0], -1)).unsqueeze(-1)
             o_en = o_en + g
         return o_en, x_mask, g, x_emb
 
@@ -440,9 +400,8 @@ class ForwardTTS(BaseTTS):
         Returns:
             Tuple[torch.FloatTensor, torch.FloatTensor]: Decoder output, attention map from durations.
         """
-        y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en.dtype)
         # expand o_en with durations
-        o_en_ex, attn = self.expand_encoder_outputs(o_en, dr, x_mask, y_mask)
+        o_en_ex, attn, y_mask = expand_encoder_outputs(o_en, dr, x_mask, y_lengths)
         # positional encoding
         if hasattr(self, "pos_encoder"):
             o_en_ex = self.pos_encoder(o_en_ex, y_mask)
@@ -621,7 +580,7 @@ class ForwardTTS(BaseTTS):
             o_dr_log = self.duration_predictor(o_en, x_mask)
         o_dr = torch.clamp(torch.exp(o_dr_log) - 1, 0, self.max_duration)
         # generate attn mask from predicted durations
-        o_attn = self.generate_attn(o_dr.squeeze(1), x_mask)
+        o_attn = generate_attention(o_dr.squeeze(1), x_mask)
         # aligner
         o_alignment_dur = None
         alignment_soft = None
@@ -740,7 +699,7 @@ class ForwardTTS(BaseTTS):
         if self.use_aligner:
             durations = outputs["o_alignment_dur"]
         # use float32 in AMP
-        with autocast(enabled=False):
+        with torch.autocast("cuda", enabled=False):
             # compute loss
             loss_dict = criterion(
                 decoder_output=outputs["model_outputs"],

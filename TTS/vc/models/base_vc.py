@@ -1,6 +1,7 @@
+import logging
 import os
 import random
-from typing import Dict, List, Tuple, Union
+from typing import Any, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -9,6 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
+from trainer.trainer import Trainer
 
 from TTS.model import BaseTrainerModel
 from TTS.tts.datasets.dataset import TTSDataset
@@ -17,8 +19,11 @@ from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weigh
 from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
 from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+from TTS.utils.audio.processor import AudioProcessor
 
 # pylint: skip-file
+
+logger = logging.getLogger(__name__)
 
 
 class BaseVC(BaseTrainerModel):
@@ -32,10 +37,10 @@ class BaseVC(BaseTrainerModel):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor",
-        speaker_manager: SpeakerManager = None,
-        language_manager: LanguageManager = None,
-    ):
+        ap: AudioProcessor,
+        speaker_manager: Optional[SpeakerManager] = None,
+        language_manager: Optional[LanguageManager] = None,
+    ) -> None:
         super().__init__()
         self.config = config
         self.ap = ap
@@ -43,7 +48,7 @@ class BaseVC(BaseTrainerModel):
         self.language_manager = language_manager
         self._set_model_args(config)
 
-    def _set_model_args(self, config: Coqpit):
+    def _set_model_args(self, config: Coqpit) -> None:
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
 
         `ModelArgs` has all the fields reuqired to initialize the model architecture.
@@ -64,7 +69,7 @@ class BaseVC(BaseTrainerModel):
         else:
             raise ValueError("config must be either a *Config or *Args")
 
-    def init_multispeaker(self, config: Coqpit, data: List = None):
+    def init_multispeaker(self, config: Coqpit, data: Optional[list[Any]] = None) -> None:
         """Initialize a speaker embedding layer if needen and define expected embedding channel size for defining
         `in_channels` size of the connected layers.
 
@@ -93,15 +98,15 @@ class BaseVC(BaseTrainerModel):
             )
         # init speaker embedding layer
         if config.use_speaker_embedding and not config.use_d_vector_file:
-            print(" > Init speaker_embedding layer.")
+            logger.info("Init speaker_embedding layer.")
             self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
-    def get_aux_input(self, **kwargs) -> Dict:
+    def get_aux_input(self, **kwargs: Any) -> dict[str, Any]:
         """Prepare and return `aux_input` used by `forward()`"""
         return {"speaker_id": None, "style_wav": None, "d_vector": None, "language_id": None}
 
-    def get_aux_input_from_test_sentences(self, sentence_info):
+    def get_aux_input_from_test_sentences(self, sentence_info: Union[str, list[str]]) -> dict[str, Any]:
         if hasattr(self.config, "model_args"):
             config = self.config.model_args
         else:
@@ -129,7 +134,7 @@ class BaseVC(BaseTrainerModel):
                 if speaker_name is None:
                     d_vector = self.speaker_manager.get_random_embedding()
                 else:
-                    d_vector = self.speaker_manager.get_d_vector_by_name(speaker_name)
+                    d_vector = self.speaker_manager.get_mean_embedding(speaker_name)
             elif config.use_speaker_embedding:
                 if speaker_name is None:
                     speaker_id = self.speaker_manager.get_random_id()
@@ -148,16 +153,16 @@ class BaseVC(BaseTrainerModel):
             "language_id": language_id,
         }
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict[str, Any]) -> dict[str, Any]:
         """Generic batch formatting for `VCDataset`.
 
         You must override this if you use a custom dataset.
 
         Args:
-            batch (Dict): [description]
+            batch (dict): [description]
 
         Returns:
-            Dict: [description]
+            dict: [description]
         """
         # setup input batch
         text_input = batch["token_id"]
@@ -227,18 +232,18 @@ class BaseVC(BaseTrainerModel):
             "audio_unique_names": batch["audio_unique_names"],
         }
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus: int = 1):
         weights = None
         data_items = dataset.samples
 
         if getattr(config, "use_language_weighted_sampler", False):
             alpha = getattr(config, "language_weighted_sampler_alpha", 1.0)
-            print(" > Using Language weighted sampler with alpha:", alpha)
+            logger.info("Using Language weighted sampler with alpha: %.2f", alpha)
             weights = get_language_balancer_weights(data_items) * alpha
 
         if getattr(config, "use_speaker_weighted_sampler", False):
             alpha = getattr(config, "speaker_weighted_sampler_alpha", 1.0)
-            print(" > Using Speaker weighted sampler with alpha:", alpha)
+            logger.info("Using Speaker weighted sampler with alpha: %.2f", alpha)
             if weights is not None:
                 weights += get_speaker_balancer_weights(data_items) * alpha
             else:
@@ -246,7 +251,7 @@ class BaseVC(BaseTrainerModel):
 
         if getattr(config, "use_length_weighted_sampler", False):
             alpha = getattr(config, "length_weighted_sampler_alpha", 1.0)
-            print(" > Using Length weighted sampler with alpha:", alpha)
+            logger.info("Using Length weighted sampler with alpha: %.2f", alpha)
             if weights is not None:
                 weights += get_length_balancer_weights(data_items) * alpha
             else:
@@ -268,12 +273,12 @@ class BaseVC(BaseTrainerModel):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: Union[list[dict], list[list]],
         verbose: bool,
         num_gpus: int,
-        rank: int = None,
+        rank: Optional[int] = None,
     ) -> "DataLoader":
         if is_eval and not config.run_eval:
             loader = None
@@ -318,7 +323,6 @@ class BaseVC(BaseTrainerModel):
                 phoneme_cache_path=config.phoneme_cache_path,
                 precompute_num_workers=config.precompute_num_workers,
                 use_noise_augment=False if is_eval else config.use_noise_augment,
-                verbose=verbose,
                 speaker_id_mapping=speaker_id_mapping,
                 d_vector_mapping=d_vector_mapping if config.use_d_vector_file else None,
                 tokenizer=None,
@@ -350,22 +354,24 @@ class BaseVC(BaseTrainerModel):
 
     def _get_test_aux_input(
         self,
-    ) -> Dict:
+    ) -> dict[str, Any]:
         d_vector = None
-        if self.config.use_d_vector_file:
+        if self.speaker_manager is not None and self.config.use_d_vector_file:
             d_vector = [self.speaker_manager.embeddings[name]["embedding"] for name in self.speaker_manager.embeddings]
             d_vector = (random.sample(sorted(d_vector), 1),)
 
         aux_inputs = {
-            "speaker_id": None
-            if not self.config.use_speaker_embedding
-            else random.sample(sorted(self.speaker_manager.name_to_id.values()), 1),
+            "speaker_id": (
+                None
+                if not self.config.use_speaker_embedding
+                else random.sample(sorted(self.speaker_manager.name_to_id.values()), 1)
+            ),
             "d_vector": d_vector,
             "style_wav": None,  # TODO: handle GST style input
         }
         return aux_inputs
 
-    def test_run(self, assets: Dict) -> Tuple[Dict, Dict]:
+    def test_run(self, assets: dict) -> tuple[dict, dict]:
         """Generic test run for `vc` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -374,9 +380,9 @@ class BaseVC(BaseTrainerModel):
             assets (dict): A dict of training assets. For `vc` models, it must include `{'audio_processor': ap}`.
 
         Returns:
-            Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
+            tuple[dict, dict]: Test figures and audios to be projected to Tensorboard.
         """
-        print(" | > Synthesizing test sentences.")
+        logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
         test_sentences = self.config.test_sentences
@@ -405,7 +411,7 @@ class BaseVC(BaseTrainerModel):
             )
         return test_figures, test_audios
 
-    def on_init_start(self, trainer):
+    def on_init_start(self, trainer: Trainer) -> None:
         """Save the speaker.pth and language_ids.json at the beginning of the training. Also update both paths."""
         if self.speaker_manager is not None:
             output_path = os.path.join(trainer.output_path, "speakers.pth")
@@ -415,8 +421,8 @@ class BaseVC(BaseTrainerModel):
             if hasattr(trainer.config, "model_args"):
                 trainer.config.model_args.speakers_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            print(f" > `speakers.pth` is saved to {output_path}.")
-            print(" > `speakers_file` is updated in the config.json.")
+            logger.info("`speakers.pth` is saved to %s", output_path)
+            logger.info("`speakers_file` is updated in the config.json.")
 
         if self.language_manager is not None:
             output_path = os.path.join(trainer.output_path, "language_ids.json")
@@ -425,5 +431,5 @@ class BaseVC(BaseTrainerModel):
             if hasattr(trainer.config, "model_args"):
                 trainer.config.model_args.language_ids_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            print(f" > `language_ids.json` is saved to {output_path}.")
-            print(" > `language_ids_file` is updated in the config.json.")
+            logger.info("`language_ids.json` is saved to %s", output_path)
+            logger.info("`language_ids_file` is updated in the config.json.")

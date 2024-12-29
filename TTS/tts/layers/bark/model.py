@@ -2,6 +2,7 @@
 Much of this code is adapted from Andrej Karpathy's NanoGPT
 (https://github.com/karpathy/nanoGPT)
 """
+
 import math
 from dataclasses import dataclass
 
@@ -9,18 +10,6 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from torch.nn import functional as F
-
-
-class LayerNorm(nn.Module):
-    """LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False"""
-
-    def __init__(self, ndim, bias):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(ndim))
-        self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None
-
-    def forward(self, x):
-        return F.layer_norm(x, self.weight.shape, self.weight, self.bias, 1e-5)
 
 
 class CausalSelfAttention(nn.Module):
@@ -118,9 +107,9 @@ class MLP(nn.Module):
 class Block(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
-        self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
+        self.ln_1 = nn.LayerNorm(config.n_embd, bias=config.bias)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
+        self.ln_2 = nn.LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
         self.layer_idx = layer_idx
 
@@ -157,7 +146,7 @@ class GPT(nn.Module):
                 wpe=nn.Embedding(config.block_size, config.n_embd),
                 drop=nn.Dropout(config.dropout),
                 h=nn.ModuleList([Block(config, idx) for idx in range(config.n_layer)]),
-                ln_f=LayerNorm(config.n_embd, bias=config.bias),
+                ln_f=nn.LayerNorm(config.n_embd, bias=config.bias),
             )
         )
         self.lm_head = nn.Linear(config.n_embd, config.output_vocab_size, bias=False)

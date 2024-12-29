@@ -7,10 +7,10 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer.io import load_fsspec
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.io import load_fsspec
 from TTS.vocoder.datasets.gan_dataset import GANDataset
 from TTS.vocoder.layers.losses import DiscriminatorLoss, GeneratorLoss
 from TTS.vocoder.models import setup_discriminator, setup_generator
@@ -349,7 +349,6 @@ class GAN(BaseVocoder):
             return_segments=not is_eval,
             use_noise_augment=config.use_noise_augment,
             use_cache=config.use_cache,
-            verbose=verbose,
         )
         dataset.shuffle_mapping()
         sampler = DistributedSampler(dataset, shuffle=True) if num_gpus > 1 else None
@@ -369,6 +368,6 @@ class GAN(BaseVocoder):
         return [DiscriminatorLoss(self.config), GeneratorLoss(self.config)]
 
     @staticmethod
-    def init_from_config(config: Coqpit, verbose=True) -> "GAN":
-        ap = AudioProcessor.init_from_config(config, verbose=verbose)
+    def init_from_config(config: Coqpit) -> "GAN":
+        ap = AudioProcessor.init_from_config(config)
         return GAN(config, ap=ap)

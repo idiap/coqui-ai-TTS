@@ -8,10 +8,6 @@ from TTS.tts.layers.tortoise.transformer import Transformer
 from TTS.tts.layers.tortoise.xtransformers import Encoder
 
 
-def exists(val):
-    return val is not None
-
-
 def masked_mean(t, mask, dim=1):
     t = t.masked_fill(~mask[:, :, None], 0.0)
     return t.sum(dim=1) / mask.sum(dim=1)[..., None]
@@ -126,7 +122,7 @@ class CLVP(nn.Module):
         text_latents = self.to_text_latent(text_latents)
         speech_latents = self.to_speech_latent(speech_latents)
 
-        text_latents, speech_latents = map(lambda t: F.normalize(t, p=2, dim=-1), (text_latents, speech_latents))
+        text_latents, speech_latents = (F.normalize(t, p=2, dim=-1) for t in (text_latents, speech_latents))
 
         temp = self.temperature.exp()
 

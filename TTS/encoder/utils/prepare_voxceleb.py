@@ -19,15 +19,19 @@
 # pylint: disable=too-many-locals, too-many-statements, too-many-arguments, too-many-instance-attributes
 """ voxceleb 1 & 2 """
 
+import csv
 import hashlib
+import logging
 import os
 import subprocess
 import sys
 import zipfile
 
-import pandas
 import soundfile as sf
-from absl import logging
+
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+
+logger = logging.getLogger(__name__)
 
 SUBSETS = {
     "vox1_dev_wav": [
@@ -77,14 +81,14 @@ def download_and_extract(directory, subset, urls):
             zip_filepath = os.path.join(directory, url.split("/")[-1])
             if os.path.exists(zip_filepath):
                 continue
-            logging.info("Downloading %s to %s" % (url, zip_filepath))
+            logger.info("Downloading %s to %s" % (url, zip_filepath))
             subprocess.call(
                 "wget %s --user %s --password %s -O %s" % (url, USER["user"], USER["password"], zip_filepath),
                 shell=True,
             )
 
             statinfo = os.stat(zip_filepath)
-            logging.info("Successfully downloaded %s, size(bytes): %d" % (url, statinfo.st_size))
+            logger.info("Successfully downloaded %s, size(bytes): %d" % (url, statinfo.st_size))
 
         # concatenate all parts into zip files
         if ".zip" not in zip_filepath:
@@ -118,9 +122,9 @@ def exec_cmd(cmd):
     try:
         retcode = subprocess.call(cmd, shell=True)
         if retcode < 0:
-            logging.info(f"Child was terminated by signal {retcode}")
+            logger.info(f"Child was terminated by signal {retcode}")
     except OSError as e:
-        logging.info(f"Execution failed: {e}")
+        logger.info(f"Execution failed: {e}")
         retcode = -999
     return retcode
 
@@ -134,11 +138,11 @@ def decode_aac_with_ffmpeg(aac_file, wav_file):
         bool, True if success.
     """
     cmd = f"ffmpeg -i {aac_file} {wav_file}"
-    logging.info(f"Decoding aac file using command line: {cmd}")
+    logger.info(f"Decoding aac file using command line: {cmd}")
     ret = exec_cmd(cmd)
     if ret != 0:
-        logging.error(f"Failed to decode aac file with retcode {ret}")
-        logging.error("Please check your ffmpeg installation.")
+        logger.error(f"Failed to decode aac file with retcode {ret}")
+        logger.error("Please check your ffmpeg installation.")
         return False
     return True
 
@@ -152,7 +156,7 @@ def convert_audio_and_make_label(input_dir, subset, output_dir, output_file):
         output_file: the name of the newly generated csv file. e.g. vox1_dev_wav.csv
     """
 
-    logging.info("Preprocessing audio and label for subset %s" % subset)
+    logger.info("Preprocessing audio and label for subset %s" % subset)
     source_dir = os.path.join(input_dir, subset)
 
     files = []
@@ -185,9 +189,12 @@ def convert_audio_and_make_label(input_dir, subset, output_dir, output_file):
     # Write to CSV file which contains four columns:
     # "wav_filename", "wav_length_ms", "speaker_id", "speaker_name".
     csv_file_path = os.path.join(output_dir, output_file)
-    df = pandas.DataFrame(data=files, columns=["wav_filename", "wav_length_ms", "speaker_id", "speaker_name"])
-    df.to_csv(csv_file_path, index=False, sep="\t")
-    logging.info("Successfully generated csv file {}".format(csv_file_path))
+    with open(csv_file_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter="\t")
+        writer.writerow(["wav_filename", "wav_length_ms", "speaker_id", "speaker_name"])
+        for wav_file in files:
+            writer.writerow(wav_file)
+    logger.info("Successfully generated csv file {}".format(csv_file_path))
 
 
 def processor(directory, subset, force_process):
@@ -200,16 +207,16 @@ def processor(directory, subset, force_process):
     if not force_process and os.path.exists(subset_csv):
         return subset_csv
 
-    logging.info("Downloading and process the voxceleb in %s", directory)
-    logging.info("Preparing subset %s", subset)
+    logger.info("Downloading and process the voxceleb in %s", directory)
+    logger.info("Preparing subset %s", subset)
     download_and_extract(directory, subset, urls[subset])
     convert_audio_and_make_label(directory, subset, directory, subset + ".csv")
-    logging.info("Finished downloading and processing")
+    logger.info("Finished downloading and processing")
     return subset_csv
 
 
 if __name__ == "__main__":
-    logging.set_verbosity(logging.INFO)
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     if len(sys.argv) != 4:
         print("Usage: python prepare_data.py save_directory user password")
         sys.exit()

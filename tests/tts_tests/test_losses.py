@@ -216,7 +216,7 @@ class BCELossTest(unittest.TestCase):
         late_x = -200.0 * sequence_mask(length + 1, 100).float() + 100.0  # simulate logits on late stopping
 
         loss = layer(true_x, target, length)
-        self.assertEqual(loss.item(), 0.0)
+        self.assertAlmostEqual(loss.item(), 0.0)
 
         loss = layer(early_x, target, length)
         self.assertAlmostEqual(loss.item(), 2.1053, places=4)

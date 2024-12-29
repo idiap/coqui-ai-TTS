@@ -4,7 +4,7 @@ import os
 import shutil
 
 import torch
-from trainer import get_last_checkpoint
+from trainer.io import get_last_checkpoint
 
 from tests import get_device_id, get_tests_output_path, run_cli
 from TTS.tts.configs.overflow_config import OverflowConfig

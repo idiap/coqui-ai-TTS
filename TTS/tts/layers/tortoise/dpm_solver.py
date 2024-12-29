@@ -1,6 +1,9 @@
+import logging
 import math
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class NoiseScheduleVP:
@@ -1171,7 +1174,7 @@ class DPM_Solver:
                 lambda_0 - lambda_s,
             )
             nfe += order
-        print("adaptive solver nfe", nfe)
+        logger.debug("adaptive solver nfe %d", nfe)
         return x
 
     def add_noise(self, x, t, noise=None):

@@ -1,7 +1,10 @@
+import logging
 from dataclasses import replace
 from typing import Dict
 
 from TTS.tts.configs.shared_configs import CharactersConfig
+
+logger = logging.getLogger(__name__)
 
 
 def parse_symbols():
@@ -31,8 +34,8 @@ _non_pulmonic_consonants = "ʘɓǀɗǃʄǂɠǁʛ"
 _pulmonic_consonants = "pbtdʈɖcɟkɡqɢʔɴŋɲɳnɱmʙrʀⱱɾɽɸβfvθðszʃʒʂʐçʝxɣχʁħʕhɦɬɮʋɹɻjɰlɭʎʟ"
 _suprasegmentals = "ˈˌːˑ"
 _other_symbols = "ʍwɥʜʢʡɕʑɺɧʲ"
-_diacrilics = "ɚ˞ɫ"
-_phonemes = _vowels + _non_pulmonic_consonants + _pulmonic_consonants + _suprasegmentals + _other_symbols + _diacrilics
+_diacritics = "̃ɚ˞ɫ"
+_phonemes = _vowels + _non_pulmonic_consonants + _pulmonic_consonants + _suprasegmentals + _other_symbols + _diacritics
 
 
 class BaseVocabulary:
@@ -87,9 +90,7 @@ class BaseVocabulary:
         if vocab is not None:
             self._vocab = vocab
             self._char_to_id = {char: idx for idx, char in enumerate(self._vocab)}
-            self._id_to_char = {
-                idx: char for idx, char in enumerate(self._vocab)  # pylint: disable=unnecessary-comprehension
-            }
+            self._id_to_char = dict(enumerate(self._vocab))
 
     @staticmethod
     def init_from_config(config, **kwargs):
@@ -269,9 +270,7 @@ class BaseCharacters:
     def vocab(self, vocab):
         self._vocab = vocab
         self._char_to_id = {char: idx for idx, char in enumerate(self.vocab)}
-        self._id_to_char = {
-            idx: char for idx, char in enumerate(self.vocab)  # pylint: disable=unnecessary-comprehension
-        }
+        self._id_to_char = dict(enumerate(self.vocab))
 
     @property
     def num_chars(self):
@@ -309,14 +308,14 @@ class BaseCharacters:
         Prints the vocabulary in a nice format.
         """
         indent = "\t" * level
-        print(f"{indent}| > Characters: {self._characters}")
-        print(f"{indent}| > Punctuations: {self._punctuations}")
-        print(f"{indent}| > Pad: {self._pad}")
-        print(f"{indent}| > EOS: {self._eos}")
-        print(f"{indent}| > BOS: {self._bos}")
-        print(f"{indent}| > Blank: {self._blank}")
-        print(f"{indent}| > Vocab: {self.vocab}")
-        print(f"{indent}| > Num chars: {self.num_chars}")
+        logger.info("%s| Characters: %s", indent, self._characters)
+        logger.info("%s| Punctuations: %s", indent, self._punctuations)
+        logger.info("%s| Pad: %s", indent, self._pad)
+        logger.info("%s| EOS: %s", indent, self._eos)
+        logger.info("%s| BOS: %s", indent, self._bos)
+        logger.info("%s| Blank: %s", indent, self._blank)
+        logger.info("%s| Vocab: %s", indent, self.vocab)
+        logger.info("%s| Num chars: %d", indent, self.num_chars)
 
     @staticmethod
     def init_from_config(config: "Coqpit"):  # pylint: disable=unused-argument

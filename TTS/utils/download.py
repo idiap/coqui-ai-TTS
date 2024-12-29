@@ -12,6 +12,8 @@ from typing import Any, Iterable, List, Optional
 
 from torch.utils.model_zoo import tqdm
 
+logger = logging.getLogger(__name__)
+
 
 def stream_url(
     url: str, start_byte: Optional[int] = None, block_size: int = 32 * 1024, progress_bar: bool = True
@@ -36,13 +38,16 @@ def stream_url(
     if start_byte:
         req.headers["Range"] = "bytes={}-".format(start_byte)
 
-    with urllib.request.urlopen(req) as upointer, tqdm(
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        total=url_size,
-        disable=not progress_bar,
-    ) as pbar:
+    with (
+        urllib.request.urlopen(req) as upointer,
+        tqdm(
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            total=url_size,
+            disable=not progress_bar,
+        ) as pbar,
+    ):
         num_bytes = 0
         while True:
             chunk = upointer.read(block_size)
@@ -146,20 +151,20 @@ def extract_archive(from_path: str, to_path: Optional[str] = None, overwrite: bo
     Returns:
         list: List of paths to extracted files even if not overwritten.
     """
-
+    logger.info("Extracting archive file...")
     if to_path is None:
         to_path = os.path.dirname(from_path)
 
     try:
         with tarfile.open(from_path, "r") as tar:
-            logging.info("Opened tar file %s.", from_path)
+            logger.info("Opened tar file %s.", from_path)
             files = []
             for file_ in tar:  # type: Any
                 file_path = os.path.join(to_path, file_.name)
                 if file_.isfile():
                     files.append(file_path)
                     if os.path.exists(file_path):
-                        logging.info("%s already extracted.", file_path)
+                        logger.info("%s already extracted.", file_path)
                         if not overwrite:
                             continue
                 tar.extract(file_, to_path)
@@ -169,12 +174,12 @@ def extract_archive(from_path: str, to_path: Optional[str] = None, overwrite: bo
 
     try:
         with zipfile.ZipFile(from_path, "r") as zfile:
-            logging.info("Opened zip file %s.", from_path)
+            logger.info("Opened zip file %s.", from_path)
             files = zfile.namelist()
             for file_ in files:
                 file_path = os.path.join(to_path, file_)
                 if os.path.exists(file_path):
-                    logging.info("%s already extracted.", file_path)
+                    logger.info("%s already extracted.", file_path)
                     if not overwrite:
                         continue
                 zfile.extract(file_, to_path)
@@ -198,9 +203,10 @@ def download_kaggle_dataset(dataset_path: str, dataset_name: str, output_path: s
         import kaggle  # pylint: disable=import-outside-toplevel
 
         kaggle.api.authenticate()
-        print(f"""\nDownloading {dataset_name}...""")
+        logger.info("Downloading %s...", dataset_name)
         kaggle.api.dataset_download_files(dataset_path, path=data_path, unzip=True)
     except OSError:
-        print(
-            f"""[!] in order to download kaggle datasets, you need to have a kaggle api token stored in your {os.path.join(expanduser('~'), '.kaggle/kaggle.json')}"""
+        logger.exception(
+            "In order to download kaggle datasets, you need to have a kaggle api token stored in your %s",
+            os.path.join(expanduser("~"), ".kaggle/kaggle.json"),
         )

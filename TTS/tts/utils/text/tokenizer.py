@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Dict, List, Union
 
 from TTS.tts.utils.text import cleaners
@@ -5,6 +6,8 @@ from TTS.tts.utils.text.characters import Graphemes, IPAPhonemes
 from TTS.tts.utils.text.phonemizers import DEF_LANG_TO_PHONEMIZER, get_phonemizer_by_name
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
 from TTS.utils.generic_utils import get_import_path, import_class
+
+logger = logging.getLogger(__name__)
 
 
 class TTSTokenizer:
@@ -73,8 +76,8 @@ class TTSTokenizer:
                 # discard but store not found characters
                 if char not in self.not_found_characters:
                     self.not_found_characters.append(char)
-                    print(text)
-                    print(f" [!] Character {repr(char)} not found in the vocabulary. Discarding it.")
+                    logger.warning(text)
+                    logger.warning("Character %s not found in the vocabulary. Discarding it.", repr(char))
         return token_ids
 
     def decode(self, token_ids: List[int]) -> str:
@@ -104,10 +107,13 @@ class TTSTokenizer:
         5. Text to token IDs
         """
         # TODO: text cleaner should pick the right routine based on the language
+        logger.debug("Tokenizer input text: %s", text)
         if self.text_cleaner is not None:
             text = self.text_cleaner(text)
+            logger.debug("Cleaned text: %s", text)
         if self.use_phonemes:
             text = self.phonemizer.phonemize(text, separator="", language=language)
+            logger.debug("Phonemes: %s", text)
         text = self.encode(text)
         if self.add_blank:
             text = self.intersperse_blank_char(text, True)
@@ -135,16 +141,16 @@ class TTSTokenizer:
 
     def print_logs(self, level: int = 0):
         indent = "\t" * level
-        print(f"{indent}| > add_blank: {self.add_blank}")
-        print(f"{indent}| > use_eos_bos: {self.use_eos_bos}")
-        print(f"{indent}| > use_phonemes: {self.use_phonemes}")
+        logger.info("%s| add_blank: %s", indent, self.add_blank)
+        logger.info("%s| use_eos_bos: %s", indent, self.use_eos_bos)
+        logger.info("%s| use_phonemes: %s", indent, self.use_phonemes)
         if self.use_phonemes:
-            print(f"{indent}| > phonemizer:")
+            logger.info("%s| phonemizer:", indent)
             self.phonemizer.print_logs(level + 1)
         if len(self.not_found_characters) > 0:
-            print(f"{indent}| > {len(self.not_found_characters)} not found characters:")
+            logger.info("%s| %d characters not found:", indent, len(self.not_found_characters))
             for char in self.not_found_characters:
-                print(f"{indent}| > {char}")
+                logger.info("%s| %s", indent, char)
 
     @staticmethod
     def init_from_config(config: "Coqpit", characters: "BaseCharacters" = None):

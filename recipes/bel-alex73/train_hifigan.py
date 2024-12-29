@@ -1,11 +1,8 @@
-import os
-
-from coqpit import Coqpit
 from trainer import Trainer, TrainerArgs
 
 from TTS.tts.configs.shared_configs import BaseAudioConfig
 from TTS.utils.audio import AudioProcessor
-from TTS.vocoder.configs.hifigan_config import *
+from TTS.vocoder.configs.hifigan_config import HifiganConfig
 from TTS.vocoder.datasets.preprocess import load_wav_data
 from TTS.vocoder.models.gan import GAN
 

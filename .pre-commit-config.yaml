@@ -1,27 +1,19 @@
 repos:
-  - repo: 'https://github.com/pre-commit/pre-commit-hooks'
-    rev: v2.3.0
+  - repo: "https://github.com/pre-commit/pre-commit-hooks"
+    rev: v5.0.0
     hooks:
+      - id: check-json
+        files: "TTS/.models.json"
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: 'https://github.com/psf/black'
-    rev: 22.3.0
+  - repo: "https://github.com/psf/black"
+    rev: 24.2.0
     hooks:
       - id: black
         language_version: python3
-  - repo: https://github.com/pycqa/isort
-    rev: 5.8.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.0
     hooks:
-      - id: isort
-        name: isort (python)
-      - id: isort
-        name: isort (cython)
-        types: [cython]
-      - id: isort
-        name: isort (pyi)
-        types: [pyi]
-  - repo: https://github.com/pycqa/pylint
-    rev: v2.8.2
-    hooks:
-    -   id: pylint
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]

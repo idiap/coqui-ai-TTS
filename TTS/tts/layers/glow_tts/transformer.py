@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from TTS.tts.layers.generic.normalization import LayerNorm, LayerNorm2
+from TTS.tts.utils.helpers import convert_pad_shape
 
 
 class RelativePositionMultiHeadAttention(nn.Module):
@@ -300,7 +301,7 @@ class FeedForwardNetwork(nn.Module):
         pad_l = self.kernel_size - 1
         pad_r = 0
         padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(x, self._pad_shape(padding))
+        x = F.pad(x, convert_pad_shape(padding))
         return x
 
     def _same_padding(self, x):
@@ -309,14 +310,8 @@ class FeedForwardNetwork(nn.Module):
         pad_l = (self.kernel_size - 1) // 2
         pad_r = self.kernel_size // 2
         padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(x, self._pad_shape(padding))
+        x = F.pad(x, convert_pad_shape(padding))
         return x
-
-    @staticmethod
-    def _pad_shape(padding):
-        l = padding[::-1]
-        pad_shape = [item for sublist in l for item in sublist]
-        return pad_shape
 
 
 class RelativePositionTransformer(nn.Module):

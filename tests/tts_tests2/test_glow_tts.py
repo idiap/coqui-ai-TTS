@@ -4,6 +4,7 @@ import unittest
 
 import torch
 from torch import optim
+from trainer.generic_utils import count_parameters
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
 from tests import get_tests_data_path, get_tests_input_path, get_tests_output_path
@@ -24,11 +25,6 @@ c = GlowTTSConfig()
 ap = AudioProcessor(**c.audio)
 WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
 BATCH_SIZE = 3
-
-
-def count_parameters(model):
-    r"""Count number of trainable parameters in a network"""
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class TestGlowTTS(unittest.TestCase):
@@ -136,7 +132,7 @@ class TestGlowTTS(unittest.TestCase):
             d_vector_dim=256,
             d_vector_file=os.path.join(get_tests_data_path(), "dummy_speakers.json"),
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         model.train()
         print(" > Num parameters for GlowTTS model:%s" % (count_parameters(model)))
         # inference encoder and decoder with MAS
@@ -162,7 +158,7 @@ class TestGlowTTS(unittest.TestCase):
             use_speaker_embedding=True,
             num_speakers=24,
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         model.train()
         print(" > Num parameters for GlowTTS model:%s" % (count_parameters(model)))
         # inference encoder and decoder with MAS
@@ -210,7 +206,7 @@ class TestGlowTTS(unittest.TestCase):
             d_vector_dim=256,
             d_vector_file=os.path.join(get_tests_data_path(), "dummy_speakers.json"),
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         model.eval()
         outputs = model.inference(input_dummy, {"x_lengths": input_lengths, "d_vectors": d_vector})
         self._assert_inference_outputs(outputs, input_dummy, mel_spec)
@@ -228,7 +224,7 @@ class TestGlowTTS(unittest.TestCase):
             use_speaker_embedding=True,
             num_speakers=24,
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         outputs = model.inference(input_dummy, {"x_lengths": input_lengths, "speaker_ids": speaker_ids})
         self._assert_inference_outputs(outputs, input_dummy, mel_spec)
 
@@ -303,7 +299,7 @@ class TestGlowTTS(unittest.TestCase):
         batch["d_vectors"] = None
         batch["speaker_ids"] = None
         config = GlowTTSConfig(num_chars=32)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         model.run_data_dep_init = False
         model.train()
         logger = TensorboardLogger(
@@ -317,7 +313,7 @@ class TestGlowTTS(unittest.TestCase):
 
     def test_test_run(self):
         config = GlowTTSConfig(num_chars=32)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         model.run_data_dep_init = False
         model.eval()
         test_figures, test_audios = model.test_run(None)
@@ -327,7 +323,7 @@ class TestGlowTTS(unittest.TestCase):
     def test_load_checkpoint(self):
         chkp_path = os.path.join(get_tests_output_path(), "dummy_glow_tts_checkpoint.pth")
         config = GlowTTSConfig(num_chars=32)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         chkp = {}
         chkp["model"] = model.state_dict()
         torch.save(chkp, chkp_path)
@@ -338,21 +334,21 @@ class TestGlowTTS(unittest.TestCase):
 
     def test_get_criterion(self):
         config = GlowTTSConfig(num_chars=32)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         criterion = model.get_criterion()
         self.assertTrue(criterion is not None)
 
     def test_init_from_config(self):
         config = GlowTTSConfig(num_chars=32)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
 
         config = GlowTTSConfig(num_chars=32, num_speakers=2)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         self.assertTrue(model.num_speakers == 2)
         self.assertTrue(not hasattr(model, "emb_g"))
 
         config = GlowTTSConfig(num_chars=32, num_speakers=2, use_speaker_embedding=True)
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         self.assertTrue(model.num_speakers == 2)
         self.assertTrue(hasattr(model, "emb_g"))
 
@@ -362,7 +358,7 @@ class TestGlowTTS(unittest.TestCase):
             use_speaker_embedding=True,
             speakers_file=os.path.join(get_tests_data_path(), "ljspeech", "speakers.json"),
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         self.assertTrue(model.num_speakers == 10)
         self.assertTrue(hasattr(model, "emb_g"))
 
@@ -372,7 +368,7 @@ class TestGlowTTS(unittest.TestCase):
             d_vector_dim=256,
             d_vector_file=os.path.join(get_tests_data_path(), "dummy_speakers.json"),
         )
-        model = GlowTTS.init_from_config(config, verbose=False).to(device)
+        model = GlowTTS.init_from_config(config).to(device)
         self.assertTrue(model.num_speakers == 1)
         self.assertTrue(not hasattr(model, "emb_g"))
         self.assertTrue(model.c_in_channels == config.d_vector_dim)

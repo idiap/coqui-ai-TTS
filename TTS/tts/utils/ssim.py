@@ -207,6 +207,7 @@ class SSIMLoss(_Loss):
         https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf,
         DOI:`10.1109/TIP.2003.819861`
     """
+
     __constants__ = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]
 
     def __init__(

@@ -10,7 +10,7 @@ from TTS.vocoder.datasets.wavegrad_dataset import WaveGradDataset
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 
 
-def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items: List, verbose: bool) -> Dataset:
+def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items: List) -> Dataset:
     if config.model.lower() in "gan":
         dataset = GANDataset(
             ap=ap,
@@ -24,7 +24,6 @@ def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items:
             return_segments=not is_eval,
             use_noise_augment=config.use_noise_augment,
             use_cache=config.use_cache,
-            verbose=verbose,
         )
         dataset.shuffle_mapping()
     elif config.model.lower() == "wavegrad":
@@ -39,7 +38,6 @@ def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items:
             return_segments=True,
             use_noise_augment=False,
             use_cache=config.use_cache,
-            verbose=verbose,
         )
     elif config.model.lower() == "wavernn":
         dataset = WaveRNNDataset(
@@ -51,7 +49,6 @@ def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items:
             mode=config.model_params.mode,
             mulaw=config.model_params.mulaw,
             is_training=not is_eval,
-            verbose=verbose,
         )
     else:
         raise ValueError(f" [!] Dataset for model {config.model.lower()} cannot be found.")

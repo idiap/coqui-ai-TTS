@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 from typing import Dict, List, Tuple, Union
@@ -15,9 +16,11 @@ from TTS.model import BaseTrainerModel
 from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weights
-from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights, get_speaker_manager
+from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
 from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+
+logger = logging.getLogger(__name__)
 
 # pylint: skip-file
 
@@ -105,15 +108,17 @@ class BaseTTS(BaseTrainerModel):
             return gpt_latents
 
     def init_multispeaker(self, config: Coqpit, data: List = None):
-        """Initialize a speaker embedding layer if needen and define expected embedding channel size for defining
-        `in_channels` size of the connected layers.
+        """Set up for multi-speaker TTS.
+
+        Initialize a speaker embedding layer if needed and define expected embedding
+        channel size for defining `in_channels` size of the connected layers.
 
         This implementation yields 3 possible outcomes:
 
-        1. If `config.use_speaker_embedding` and `config.use_d_vector_file are False, do nothing.
+        1. If `config.use_speaker_embedding` and `config.use_d_vector_file` are False, do nothing.
         2. If `config.use_d_vector_file` is True, set expected embedding channel size to `config.d_vector_dim` or 512.
         3. If `config.use_speaker_embedding`, initialize a speaker embedding layer with channel size of
-        `config.d_vector_dim` or 512.
+           `config.d_vector_dim` or 512.
 
         You can override this function for new models.
 
@@ -133,7 +138,7 @@ class BaseTTS(BaseTrainerModel):
             )
         # init speaker embedding layer
         if config.use_speaker_embedding and not config.use_d_vector_file:
-            print(" > Init speaker_embedding layer.")
+            logger.info("Init speaker_embedding layer.")
             self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
@@ -169,7 +174,7 @@ class BaseTTS(BaseTrainerModel):
                 if speaker_name is None:
                     d_vector = self.speaker_manager.get_random_embedding()
                 else:
-                    d_vector = self.speaker_manager.get_d_vector_by_name(speaker_name)
+                    d_vector = self.speaker_manager.get_mean_embedding(speaker_name)
             elif config.use_speaker_embedding:
                 if speaker_name is None:
                     speaker_id = self.speaker_manager.get_random_id()
@@ -273,12 +278,12 @@ class BaseTTS(BaseTrainerModel):
 
         if getattr(config, "use_language_weighted_sampler", False):
             alpha = getattr(config, "language_weighted_sampler_alpha", 1.0)
-            print(" > Using Language weighted sampler with alpha:", alpha)
+            logger.info("Using Language weighted sampler with alpha: %.2f", alpha)
             weights = get_language_balancer_weights(data_items) * alpha
 
         if getattr(config, "use_speaker_weighted_sampler", False):
             alpha = getattr(config, "speaker_weighted_sampler_alpha", 1.0)
-            print(" > Using Speaker weighted sampler with alpha:", alpha)
+            logger.info("Using Speaker weighted sampler with alpha: %.2f", alpha)
             if weights is not None:
                 weights += get_speaker_balancer_weights(data_items) * alpha
             else:
@@ -286,7 +291,7 @@ class BaseTTS(BaseTrainerModel):
 
         if getattr(config, "use_length_weighted_sampler", False):
             alpha = getattr(config, "length_weighted_sampler_alpha", 1.0)
-            print(" > Using Length weighted sampler with alpha:", alpha)
+            logger.info("Using Length weighted sampler with alpha: %.2f", alpha)
             if weights is not None:
                 weights += get_length_balancer_weights(data_items) * alpha
             else:
@@ -358,7 +363,6 @@ class BaseTTS(BaseTrainerModel):
                 phoneme_cache_path=config.phoneme_cache_path,
                 precompute_num_workers=config.precompute_num_workers,
                 use_noise_augment=False if is_eval else config.use_noise_augment,
-                verbose=verbose,
                 speaker_id_mapping=speaker_id_mapping,
                 d_vector_mapping=d_vector_mapping if config.use_d_vector_file else None,
                 tokenizer=self.tokenizer,
@@ -397,9 +401,11 @@ class BaseTTS(BaseTrainerModel):
             d_vector = (random.sample(sorted(d_vector), 1),)
 
         aux_inputs = {
-            "speaker_id": None
-            if not self.config.use_speaker_embedding
-            else random.sample(sorted(self.speaker_manager.name_to_id.values()), 1),
+            "speaker_id": (
+                None
+                if not self.config.use_speaker_embedding
+                else random.sample(sorted(self.speaker_manager.name_to_id.values()), 1)
+            ),
             "d_vector": d_vector,
             "style_wav": None,  # TODO: handle GST style input
         }
@@ -416,7 +422,7 @@ class BaseTTS(BaseTrainerModel):
         Returns:
             Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
         """
-        print(" | > Synthesizing test sentences.")
+        logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
         test_sentences = self.config.test_sentences
@@ -455,8 +461,8 @@ class BaseTTS(BaseTrainerModel):
             if hasattr(trainer.config, "model_args"):
                 trainer.config.model_args.speakers_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            print(f" > `speakers.pth` is saved to {output_path}.")
-            print(" > `speakers_file` is updated in the config.json.")
+            logger.info("`speakers.pth` is saved to: %s", output_path)
+            logger.info("`speakers_file` is updated in the config.json.")
 
         if self.language_manager is not None:
             output_path = os.path.join(trainer.output_path, "language_ids.json")
@@ -465,8 +471,8 @@ class BaseTTS(BaseTrainerModel):
             if hasattr(trainer.config, "model_args"):
                 trainer.config.model_args.language_ids_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            print(f" > `language_ids.json` is saved to {output_path}.")
-            print(" > `language_ids_file` is updated in the config.json.")
+            logger.info("`language_ids.json` is saved to: %s", output_path)
+            logger.info("`language_ids_file` is updated in the config.json.")
 
 
 class BaseTTSE2E(BaseTTS):

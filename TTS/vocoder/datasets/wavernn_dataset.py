@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 from TTS.utils.audio.numpy_transforms import mulaw_encode, quantize
+
+logger = logging.getLogger(__name__)
 
 
 class WaveRNNDataset(Dataset):
@@ -11,9 +15,7 @@ class WaveRNNDataset(Dataset):
     and converts them to acoustic features on the fly.
     """
 
-    def __init__(
-        self, ap, items, seq_len, hop_len, pad, mode, mulaw, is_training=True, verbose=False, return_segments=True
-    ):
+    def __init__(self, ap, items, seq_len, hop_len, pad, mode, mulaw, is_training=True, return_segments=True):
         super().__init__()
         self.ap = ap
         self.compute_feat = not isinstance(items[0], (tuple, list))
@@ -25,7 +27,6 @@ class WaveRNNDataset(Dataset):
         self.mode = mode
         self.mulaw = mulaw
         self.is_training = is_training
-        self.verbose = verbose
         self.return_segments = return_segments
 
         assert self.seq_len % self.hop_len == 0
@@ -60,7 +61,7 @@ class WaveRNNDataset(Dataset):
             else:
                 min_audio_len = audio.shape[0] + (2 * self.pad * self.hop_len)
             if audio.shape[0] < min_audio_len:
-                print(" [!] Instance is too short! : {}".format(wavpath))
+                logger.warning("Instance is too short: %s", wavpath)
                 audio = np.pad(audio, [0, min_audio_len - audio.shape[0] + self.hop_len])
             mel = self.ap.melspectrogram(audio)
 
@@ -80,7 +81,7 @@ class WaveRNNDataset(Dataset):
             mel = np.load(feat_path.replace("/quant/", "/mel/"))
 
             if mel.shape[-1] < self.mel_len + 2 * self.pad:
-                print(" [!] Instance is too short! : {}".format(wavpath))
+                logger.warning("Instance is too short: %s", wavpath)
                 self.item_list[index] = self.item_list[index + 1]
                 feat_path = self.item_list[index]
                 mel = np.load(feat_path.replace("/quant/", "/mel/"))

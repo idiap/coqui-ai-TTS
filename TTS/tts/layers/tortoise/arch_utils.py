@@ -1,6 +1,5 @@
 import functools
 import math
-import os
 
 import fsspec
 import torch
@@ -10,6 +9,7 @@ import torchaudio
 from transformers import LogitsWarper
 
 from TTS.tts.layers.tortoise.xtransformers import ContinuousTransformerWrapper, RelativePositionBias
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 
 def zero_module(module):
@@ -70,11 +70,10 @@ class QKVAttentionLegacy(nn.Module):
             weight = rel_pos(weight.reshape(bs, self.n_heads, weight.shape[-2], weight.shape[-1])).reshape(
                 bs * self.n_heads, weight.shape[-2], weight.shape[-1]
             )
-        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
         if mask is not None:
-            # The proper way to do this is to mask before the softmax using -inf, but that doesn't work properly on CPUs.
-            mask = mask.repeat(self.n_heads, 1).unsqueeze(1)
-            weight = weight * mask
+            mask = mask.repeat(self.n_heads, 1, 1)
+            weight[mask.logical_not()] = -torch.inf
+        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
         a = torch.einsum("bts,bcs->bct", weight, v)
 
         return a.reshape(bs, -1, length)
@@ -93,12 +92,12 @@ class AttentionBlock(nn.Module):
         channels,
         num_heads=1,
         num_head_channels=-1,
-        do_checkpoint=True,
+        *,
         relative_pos_embeddings=False,
+        tortoise_norm=False,
     ):
         super().__init__()
         self.channels = channels
-        self.do_checkpoint = do_checkpoint
         if num_head_channels == -1:
             self.num_heads = num_heads
         else:
@@ -110,6 +109,7 @@ class AttentionBlock(nn.Module):
         self.qkv = nn.Conv1d(channels, channels * 3, 1)
         # split heads before split qkv
         self.attention = QKVAttentionLegacy(self.num_heads)
+        self.tortoise_norm = tortoise_norm
 
         self.proj_out = zero_module(nn.Conv1d(channels, channels, 1))
         if relative_pos_embeddings:
@@ -126,10 +126,13 @@ class AttentionBlock(nn.Module):
     def forward(self, x, mask=None):
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
-        qkv = self.qkv(self.norm(x))
+        x_norm = self.norm(x)
+        qkv = self.qkv(x_norm)
         h = self.attention(qkv, mask, self.relative_pos_embeddings)
         h = self.proj_out(h)
-        return (x + h).reshape(b, c, *spatial)
+        if self.tortoise_norm:
+            return (x + h).reshape(b, c, *spatial)
+        return (x_norm + h).reshape(b, c, *spatial)
 
 
 class Upsample(nn.Module):
@@ -185,115 +188,7 @@ class Downsample(nn.Module):
         return self.op(x)
 
 
-class ResBlock(nn.Module):
-    def __init__(
-        self,
-        channels,
-        dropout,
-        out_channels=None,
-        use_conv=False,
-        use_scale_shift_norm=False,
-        up=False,
-        down=False,
-        kernel_size=3,
-    ):
-        super().__init__()
-        self.channels = channels
-        self.dropout = dropout
-        self.out_channels = out_channels or channels
-        self.use_conv = use_conv
-        self.use_scale_shift_norm = use_scale_shift_norm
-        padding = 1 if kernel_size == 3 else 2
-
-        self.in_layers = nn.Sequential(
-            normalization(channels),
-            nn.SiLU(),
-            nn.Conv1d(channels, self.out_channels, kernel_size, padding=padding),
-        )
-
-        self.updown = up or down
-
-        if up:
-            self.h_upd = Upsample(channels, False)
-            self.x_upd = Upsample(channels, False)
-        elif down:
-            self.h_upd = Downsample(channels, False)
-            self.x_upd = Downsample(channels, False)
-        else:
-            self.h_upd = self.x_upd = nn.Identity()
-
-        self.out_layers = nn.Sequential(
-            normalization(self.out_channels),
-            nn.SiLU(),
-            nn.Dropout(p=dropout),
-            zero_module(nn.Conv1d(self.out_channels, self.out_channels, kernel_size, padding=padding)),
-        )
-
-        if self.out_channels == channels:
-            self.skip_connection = nn.Identity()
-        elif use_conv:
-            self.skip_connection = nn.Conv1d(channels, self.out_channels, kernel_size, padding=padding)
-        else:
-            self.skip_connection = nn.Conv1d(channels, self.out_channels, 1)
-
-    def forward(self, x):
-        if self.updown:
-            in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
-            h = in_rest(x)
-            h = self.h_upd(h)
-            x = self.x_upd(x)
-            h = in_conv(h)
-        else:
-            h = self.in_layers(x)
-        h = self.out_layers(h)
-        return self.skip_connection(x) + h
-
-
-class AudioMiniEncoder(nn.Module):
-    def __init__(
-        self,
-        spec_dim,
-        embedding_dim,
-        base_channels=128,
-        depth=2,
-        resnet_blocks=2,
-        attn_blocks=4,
-        num_attn_heads=4,
-        dropout=0,
-        downsample_factor=2,
-        kernel_size=3,
-    ):
-        super().__init__()
-        self.init = nn.Sequential(nn.Conv1d(spec_dim, base_channels, 3, padding=1))
-        ch = base_channels
-        res = []
-        for l in range(depth):
-            for r in range(resnet_blocks):
-                res.append(ResBlock(ch, dropout, kernel_size=kernel_size))
-            res.append(Downsample(ch, use_conv=True, out_channels=ch * 2, factor=downsample_factor))
-            ch *= 2
-        self.res = nn.Sequential(*res)
-        self.final = nn.Sequential(normalization(ch), nn.SiLU(), nn.Conv1d(ch, embedding_dim, 1))
-        attn = []
-        for a in range(attn_blocks):
-            attn.append(
-                AttentionBlock(
-                    embedding_dim,
-                    num_attn_heads,
-                )
-            )
-        self.attn = nn.Sequential(*attn)
-        self.dim = embedding_dim
-
-    def forward(self, x):
-        h = self.init(x)
-        h = self.res(h)
-        h = self.final(h)
-        h = self.attn(h)
-        return h[:, :, 0]
-
-
-DEFAULT_MEL_NORM_FILE = "https://coqui.gateway.scarf.sh/v0.14.1_models/mel_norms.pth"
+DEFAULT_MEL_NORM_FILE = "https://github.com/coqui-ai/TTS/releases/download/v0.14.1_models/mel_norms.pth"
 
 
 class TorchMelSpectrogram(nn.Module):
@@ -333,7 +228,7 @@ class TorchMelSpectrogram(nn.Module):
         self.mel_norm_file = mel_norm_file
         if self.mel_norm_file is not None:
             with fsspec.open(self.mel_norm_file) as f:
-                self.mel_norms = torch.load(f)
+                self.mel_norms = torch.load(f, weights_only=is_pytorch_at_least_2_4())
         else:
             self.mel_norms = None
 

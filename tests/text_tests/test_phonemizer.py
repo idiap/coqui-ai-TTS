@@ -116,6 +116,12 @@ class TestEspeakNgPhonemizer(unittest.TestCase):
         output = self.phonemizer.phonemize(text, separator="")
         self.assertEqual(output, gt)
 
+        # UTF8 characters
+        text = "źrebię"
+        gt = "ʑrˈɛbjɛ"
+        output = ESpeak("pl").phonemize(text, separator="")
+        self.assertEqual(output, gt)
+
     def test_name(self):
         self.assertEqual(self.phonemizer.name(), "espeak")
 
@@ -234,8 +240,12 @@ class TestZH_CN_Phonemizer(unittest.TestCase):
 class TestBN_Phonemizer(unittest.TestCase):
     def setUp(self):
         self.phonemizer = BN_Phonemizer()
-        self._TEST_CASES = "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে, কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয়, তখনও যেন"
-        self._EXPECTED = "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয় তখনও যেন।"
+        self._TEST_CASES = (
+            "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে, কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয়, তখনও যেন"
+        )
+        self._EXPECTED = (
+            "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয় তখনও যেন।"
+        )
 
     def test_phonemize(self):
         self.assertEqual(self.phonemizer.phonemize(self._TEST_CASES, separator=""), self._EXPECTED)

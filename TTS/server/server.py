@@ -1,7 +1,11 @@
 #!flask/bin/python
+
+"""TTS demo server."""
+
 import argparse
 import io
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,24 +13,26 @@ from threading import Lock
 from typing import Union
 from urllib.parse import parse_qs
 
-from flask import Flask, render_template, render_template_string, request, send_file
+try:
+    from flask import Flask, render_template, render_template_string, request, send_file
+except ImportError as e:
+    msg = "Server requires requires flask, use `pip install coqui-tts[server]`"
+    raise ImportError(msg) from e
 
 from TTS.config import load_config
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
+logger = logging.getLogger(__name__)
+setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
-def create_argparser():
-    def convert_boolean(x):
-        return x.lower() in ["true", "1", "yes"]
 
+def create_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--list_models",
-        type=convert_boolean,
-        nargs="?",
-        const=True,
-        default=False,
+        action="store_true",
         help="list available pre-trained tts and vocoder models.",
     )
     parser.add_argument(
@@ -54,9 +60,13 @@ def create_argparser():
     parser.add_argument("--vocoder_config_path", type=str, help="Path to vocoder model config file.", default=None)
     parser.add_argument("--speakers_file_path", type=str, help="JSON file for multi-speaker model.", default=None)
     parser.add_argument("--port", type=int, default=5002, help="port to listen on.")
-    parser.add_argument("--use_cuda", type=convert_boolean, default=False, help="true to use CUDA.")
-    parser.add_argument("--debug", type=convert_boolean, default=False, help="true to enable Flask debug mode.")
-    parser.add_argument("--show_details", type=convert_boolean, default=False, help="Generate model detail page.")
+    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="true to use CUDA.")
+    parser.add_argument(
+        "--debug", action=argparse.BooleanOptionalAction, default=False, help="true to enable Flask debug mode."
+    )
+    parser.add_argument(
+        "--show_details", action=argparse.BooleanOptionalAction, default=False, help="Generate model detail page."
+    )
     return parser
 
 
@@ -65,10 +75,6 @@ args = create_argparser().parse_args()
 
 path = Path(__file__).parent / "../.models.json"
 manager = ModelManager(path)
-
-if args.list_models:
-    manager.list_models()
-    sys.exit()
 
 # update in-use models to the specified released models.
 model_path = None
@@ -164,17 +170,15 @@ def index():
 def details():
     if args.config_path is not None and os.path.isfile(args.config_path):
         model_config = load_config(args.config_path)
-    else:
-        if args.model_name is not None:
-            model_config = load_config(config_path)
+    elif args.model_name is not None:
+        model_config = load_config(config_path)
 
     if args.vocoder_config_path is not None and os.path.isfile(args.vocoder_config_path):
         vocoder_config = load_config(args.vocoder_config_path)
+    elif args.vocoder_name is not None:
+        vocoder_config = load_config(vocoder_config_path)
     else:
-        if args.vocoder_name is not None:
-            vocoder_config = load_config(vocoder_config_path)
-        else:
-            vocoder_config = None
+        vocoder_config = None
 
     return render_template(
         "details.html",
@@ -197,9 +201,9 @@ def tts():
         style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
         style_wav = style_wav_uri_to_dict(style_wav)
 
-        print(f" > Model input: {text}")
-        print(f" > Speaker Idx: {speaker_idx}")
-        print(f" > Language Idx: {language_idx}")
+        logger.info("Model input: %s", text)
+        logger.info("Speaker idx: %s", speaker_idx)
+        logger.info("Language idx: %s", language_idx)
         wavs = synthesizer.tts(text, speaker_name=speaker_idx, language_name=language_idx, style_wav=style_wav)
         out = io.BytesIO()
         synthesizer.save_wav(wavs, out)
@@ -243,7 +247,7 @@ def mary_tts_api_process():
             text = data.get("INPUT_TEXT", [""])[0]
         else:
             text = request.args.get("INPUT_TEXT", "")
-        print(f" > Model input: {text}")
+        logger.info("Model input: %s", text)
         wavs = synthesizer.tts(text)
         out = io.BytesIO()
         synthesizer.save_wav(wavs, out)

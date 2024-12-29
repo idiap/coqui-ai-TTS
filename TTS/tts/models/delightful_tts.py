@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass, field
 from itertools import chain
@@ -7,314 +8,55 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import torch
 import torch.distributed as dist
-import torchaudio
 from coqpit import Coqpit
-from librosa.filters import mel as librosa_mel_fn
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
-from TTS.tts.datasets.dataset import F0Dataset, TTSDataset, _parse_sample
+from TTS.tts.datasets.dataset import F0Dataset, TTSDataset, _parse_sample, get_attribute_balancer_weights
 from TTS.tts.layers.delightful_tts.acoustic_model import AcousticModel
-from TTS.tts.layers.losses import ForwardSumLoss, VitsDiscriminatorLoss
+from TTS.tts.layers.losses import (
+    ForwardSumLoss,
+    VitsDiscriminatorLoss,
+    _binary_alignment_loss,
+    feature_loss,
+    generator_loss,
+)
 from TTS.tts.layers.vits.discriminator import VitsDiscriminator
 from TTS.tts.models.base_tts import BaseTTSE2E
+from TTS.tts.models.vits import load_audio
 from TTS.tts.utils.helpers import average_over_durations, compute_attn_prior, rand_segments, segment, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.tts.utils.synthesis import embedding_to_torch, id_to_torch, numpy_to_torch
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
 from TTS.utils.audio.numpy_transforms import build_mel_basis, compute_f0
 from TTS.utils.audio.numpy_transforms import db_to_amp as db_to_amp_numpy
 from TTS.utils.audio.numpy_transforms import mel_to_wav as mel_to_wav_numpy
 from TTS.utils.audio.processor import AudioProcessor
-from TTS.utils.io import load_fsspec
+from TTS.utils.audio.torch_transforms import wav_to_mel, wav_to_spec
 from TTS.vocoder.layers.losses import MultiScaleSTFTLoss
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
 
-
-def id_to_torch(aux_id, cuda=False):
-    if aux_id is not None:
-        aux_id = np.asarray(aux_id)
-        aux_id = torch.from_numpy(aux_id)
-    if cuda:
-        return aux_id.cuda()
-    return aux_id
-
-
-def embedding_to_torch(d_vector, cuda=False):
-    if d_vector is not None:
-        d_vector = np.asarray(d_vector)
-        d_vector = torch.from_numpy(d_vector).float()
-        d_vector = d_vector.squeeze().unsqueeze(0)
-    if cuda:
-        return d_vector.cuda()
-    return d_vector
-
-
-def numpy_to_torch(np_array, dtype, cuda=False):
-    if np_array is None:
-        return None
-    tensor = torch.as_tensor(np_array, dtype=dtype)
-    if cuda:
-        return tensor.cuda()
-    return tensor
-
-
-def get_mask_from_lengths(lengths: torch.Tensor) -> torch.Tensor:
-    batch_size = lengths.shape[0]
-    max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len, device=lengths.device).unsqueeze(0).expand(batch_size, -1)
-    mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
-    return mask
-
-
-def pad(input_ele: List[torch.Tensor], max_len: int) -> torch.Tensor:
-    out_list = torch.jit.annotate(List[torch.Tensor], [])
-    for batch in input_ele:
-        if len(batch.shape) == 1:
-            one_batch_padded = F.pad(batch, (0, max_len - batch.size(0)), "constant", 0.0)
-        else:
-            one_batch_padded = F.pad(batch, (0, 0, 0, max_len - batch.size(0)), "constant", 0.0)
-        out_list.append(one_batch_padded)
-    out_padded = torch.stack(out_list)
-    return out_padded
-
-
-def init_weights(m: nn.Module, mean: float = 0.0, std: float = 0.01):
-    classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
-        m.weight.data.normal_(mean, std)
-
-
-def stride_lens(lens: torch.Tensor, stride: int = 2) -> torch.Tensor:
-    return torch.ceil(lens / stride).int()
-
-
-def initialize_embeddings(shape: Tuple[int]) -> torch.Tensor:
-    assert len(shape) == 2, "Can only initialize 2-D embedding matrices ..."
-    return torch.randn(shape) * np.sqrt(2 / shape[1])
-
-
-# pylint: disable=redefined-outer-name
-def calc_same_padding(kernel_size: int) -> Tuple[int, int]:
-    pad = kernel_size // 2
-    return (pad, pad - (kernel_size + 1) % 2)
+logger = logging.getLogger(__name__)
 
 
 hann_window = {}
 mel_basis = {}
 
 
-@torch.no_grad()
-def weights_reset(m: nn.Module):
-    # check if the current module has reset_parameters and if it is reset the weight
-    reset_parameters = getattr(m, "reset_parameters", None)
-    if callable(reset_parameters):
-        m.reset_parameters()
-
-
-def get_module_weights_sum(mdl: nn.Module):
-    dict_sums = {}
-    for name, w in mdl.named_parameters():
-        if "weight" in name:
-            value = w.data.sum().item()
-            dict_sums[name] = value
-    return dict_sums
-
-
-def load_audio(file_path: str):
-    """Load the audio file normalized in [-1, 1]
-
-    Return Shapes:
-        - x: :math:`[1, T]`
-    """
-    x, sr = torchaudio.load(
-        file_path,
-    )
-    assert (x > 1).sum() + (x < -1).sum() == 0
-    return x, sr
-
-
-def _amp_to_db(x, C=1, clip_val=1e-5):
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def _db_to_amp(x, C=1):
-    return torch.exp(x) / C
-
-
-def amp_to_db(magnitudes):
-    output = _amp_to_db(magnitudes)
-    return output
-
-
-def db_to_amp(magnitudes):
-    output = _db_to_amp(magnitudes)
-    return output
-
-
-def _wav_to_spec(y, n_fft, hop_length, win_length, center=False):
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        print("min value is ", torch.min(y))
-    if torch.max(y) > 1.0:
-        print("max value is ", torch.max(y))
-
-    global hann_window  # pylint: disable=global-statement
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_length) + "_" + dtype_device
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.stft(
-        y,
-        n_fft,
-        hop_length=hop_length,
-        win_length=win_length,
-        window=hann_window[wnsize_dtype_device],
-        center=center,
-        pad_mode="reflect",
-        normalized=False,
-        onesided=True,
-        return_complex=False,
-    )
-
-    return spec
-
-
-def wav_to_spec(y, n_fft, hop_length, win_length, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T]`
-    """
-    spec = _wav_to_spec(y, n_fft, hop_length, win_length, center=center)
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    return spec
-
-
 def wav_to_energy(y, n_fft, hop_length, win_length, center=False):
-    spec = _wav_to_spec(y, n_fft, hop_length, win_length, center=center)
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+    spec = wav_to_spec(y, n_fft, hop_length, win_length, center=center)
     return torch.norm(spec, dim=1, keepdim=True)
-
-
-def name_mel_basis(spec, n_fft, fmax):
-    n_fft_len = f"{n_fft}_{fmax}_{spec.dtype}_{spec.device}"
-    return n_fft_len
-
-
-def spec_to_mel(spec, n_fft, num_mels, sample_rate, fmin, fmax):
-    """
-    Args Shapes:
-        - spec : :math:`[B,C,T]`
-
-    Return Shapes:
-        - mel : :math:`[B,C,T]`
-    """
-    global mel_basis  # pylint: disable=global-statement
-    mel_basis_key = name_mel_basis(spec, n_fft, fmax)
-    # pylint: disable=too-many-function-args
-    if mel_basis_key not in mel_basis:
-        # pylint: disable=missing-kwoa
-        mel = librosa_mel_fn(sample_rate, n_fft, num_mels, fmin, fmax)
-        mel_basis[mel_basis_key] = torch.from_numpy(mel).to(dtype=spec.dtype, device=spec.device)
-    mel = torch.matmul(mel_basis[mel_basis_key], spec)
-    mel = amp_to_db(mel)
-    return mel
-
-
-def wav_to_mel(y, n_fft, num_mels, sample_rate, hop_length, win_length, fmin, fmax, center=False):
-    """
-    Args Shapes:
-        - y : :math:`[B, 1, T_y]`
-
-    Return Shapes:
-        - spec : :math:`[B,C,T_spec]`
-    """
-    y = y.squeeze(1)
-
-    if torch.min(y) < -1.0:
-        print("min value is ", torch.min(y))
-    if torch.max(y) > 1.0:
-        print("max value is ", torch.max(y))
-
-    global mel_basis, hann_window  # pylint: disable=global-statement
-    mel_basis_key = name_mel_basis(y, n_fft, fmax)
-    wnsize_dtype_device = str(win_length) + "_" + str(y.dtype) + "_" + str(y.device)
-    if mel_basis_key not in mel_basis:
-        # pylint: disable=missing-kwoa
-        mel = librosa_mel_fn(
-            sr=sample_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax
-        )  # pylint: disable=too-many-function-args
-        mel_basis[mel_basis_key] = torch.from_numpy(mel).to(dtype=y.dtype, device=y.device)
-    if wnsize_dtype_device not in hann_window:
-        hann_window[wnsize_dtype_device] = torch.hann_window(win_length).to(dtype=y.dtype, device=y.device)
-
-    y = torch.nn.functional.pad(
-        y.unsqueeze(1),
-        (int((n_fft - hop_length) / 2), int((n_fft - hop_length) / 2)),
-        mode="reflect",
-    )
-    y = y.squeeze(1)
-
-    spec = torch.stft(
-        y,
-        n_fft,
-        hop_length=hop_length,
-        win_length=win_length,
-        window=hann_window[wnsize_dtype_device],
-        center=center,
-        pad_mode="reflect",
-        normalized=False,
-        onesided=True,
-        return_complex=False,
-    )
-
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
-    spec = torch.matmul(mel_basis[mel_basis_key], spec)
-    spec = amp_to_db(spec)
-    return spec
 
 
 ##############################
 # DATASET
 ##############################
-
-
-def get_attribute_balancer_weights(items: list, attr_name: str, multi_dict: dict = None):
-    """Create balancer weight for torch WeightedSampler"""
-    attr_names_samples = np.array([item[attr_name] for item in items])
-    unique_attr_names = np.unique(attr_names_samples).tolist()
-    attr_idx = [unique_attr_names.index(l) for l in attr_names_samples]
-    attr_count = np.array([len(np.where(attr_names_samples == l)[0]) for l in unique_attr_names])
-    weight_attr = 1.0 / attr_count
-    dataset_samples_weight = np.array([weight_attr[l] for l in attr_idx])
-    dataset_samples_weight = dataset_samples_weight / np.linalg.norm(dataset_samples_weight)
-    if multi_dict is not None:
-        multiplier_samples = np.array([multi_dict.get(item[attr_name], 1.0) for item in items])
-        dataset_samples_weight *= multiplier_samples
-    return (
-        torch.from_numpy(dataset_samples_weight).float(),
-        unique_attr_names,
-        np.unique(dataset_samples_weight).tolist(),
-    )
 
 
 class ForwardTTSE2eF0Dataset(F0Dataset):
@@ -324,7 +66,6 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         self,
         ap,
         samples: Union[List[List], List[Dict]],
-        verbose=False,
         cache_path: str = None,
         precompute_num_workers=0,
         normalize_f0=True,
@@ -332,7 +73,6 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         super().__init__(
             samples=samples,
             ap=ap,
-            verbose=verbose,
             cache_path=cache_path,
             precompute_num_workers=precompute_num_workers,
             normalize_f0=normalize_f0,
@@ -404,7 +144,7 @@ class ForwardTTSE2eDataset(TTSDataset):
         try:
             token_ids = self.get_token_ids(idx, item["text"])
         except:
-            print(idx, item)
+            logger.exception("%s %s", idx, item)
             # pylint: disable=raise-missing-from
             raise OSError
         f0 = None
@@ -769,7 +509,7 @@ class DelightfulTTS(BaseTTSE2E):
     def _init_speaker_embedding(self):
         # pylint: disable=attribute-defined-outside-init
         if self.num_speakers > 0:
-            print(" > initialization of speaker-embedding layers.")
+            logger.info("Initialization of speaker-embedding layers.")
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.args.embedded_speaker_dim = self.args.speaker_embedding_channels
 
@@ -953,7 +693,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
                 # compute loss
-                with autocast(enabled=False):  # use float32 for the criterion
+                with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
                     loss_dict = criterion[optimizer_idx](
                         scores_disc_fake=scores_d_fake,
                         scores_disc_real=scores_d_real,
@@ -964,7 +704,7 @@ class DelightfulTTS(BaseTTSE2E):
         if optimizer_idx == 1:
             mel = batch["mel_input"]
             # compute melspec segment
-            with autocast(enabled=False):
+            with torch.autocast("cuda", enabled=False):
                 mel_slice = segment(
                     mel.float(), self.model_outputs_cache["slice_ids"], self.args.spec_segment_size, pad_short=True
                 )
@@ -992,7 +732,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
             # compute losses
-            with autocast(enabled=True):  # use float32 for the criterion
+            with torch.autocast("cuda", enabled=True):  # use float32 for the criterion
                 loss_dict = criterion[optimizer_idx](
                     mel_output=self.model_outputs_cache["acoustic_model_outputs"].transpose(1, 2),
                     mel_target=batch["mel_input"],
@@ -1198,7 +938,7 @@ class DelightfulTTS(BaseTTSE2E):
         **kwargs,
     ):  # pylint: disable=unused-argument
         # TODO: add cloning support with ref_waveform
-        is_cuda = next(self.parameters()).is_cuda
+        device = next(self.parameters()).device
 
         # convert text to sequence of token IDs
         text_inputs = np.asarray(
@@ -1212,14 +952,14 @@ class DelightfulTTS(BaseTTSE2E):
             if isinstance(speaker_id, str) and self.args.use_speaker_embedding:
                 # get the speaker id for the speaker embedding layer
                 _speaker_id = self.speaker_manager.name_to_id[speaker_id]
-                _speaker_id = id_to_torch(_speaker_id, cuda=is_cuda)
+                _speaker_id = id_to_torch(_speaker_id, device=device)
 
         if speaker_id is not None and self.args.use_d_vector_file:
             # get the average d_vector for the speaker
             d_vector = self.speaker_manager.get_mean_embedding(speaker_id, num_samples=None, randomize=False)
-        d_vector = embedding_to_torch(d_vector, cuda=is_cuda)
+        d_vector = embedding_to_torch(d_vector, device=device)
 
-        text_inputs = numpy_to_torch(text_inputs, torch.long, cuda=is_cuda)
+        text_inputs = numpy_to_torch(text_inputs, torch.long, device=device)
         text_inputs = text_inputs.unsqueeze(0)
 
         # synthesize voice
@@ -1242,7 +982,7 @@ class DelightfulTTS(BaseTTSE2E):
         return return_dict
 
     def synthesize_with_gl(self, text: str, speaker_id, d_vector):
-        is_cuda = next(self.parameters()).is_cuda
+        device = next(self.parameters()).device
 
         # convert text to sequence of token IDs
         text_inputs = np.asarray(
@@ -1251,12 +991,12 @@ class DelightfulTTS(BaseTTSE2E):
         )
         # pass tensors to backend
         if speaker_id is not None:
-            speaker_id = id_to_torch(speaker_id, cuda=is_cuda)
+            speaker_id = id_to_torch(speaker_id, device=device)
 
         if d_vector is not None:
-            d_vector = embedding_to_torch(d_vector, cuda=is_cuda)
+            d_vector = embedding_to_torch(d_vector, device=device)
 
-        text_inputs = numpy_to_torch(text_inputs, torch.long, cuda=is_cuda)
+        text_inputs = numpy_to_torch(text_inputs, torch.long, device=device)
         text_inputs = text_inputs.unsqueeze(0)
 
         # synthesize voice
@@ -1287,7 +1027,7 @@ class DelightfulTTS(BaseTTSE2E):
         Returns:
             Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
         """
-        print(" | > Synthesizing test sentences.")
+        logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
         test_sentences = self.config.test_sentences
@@ -1401,14 +1141,14 @@ class DelightfulTTS(BaseTTSE2E):
         data_items = dataset.samples
         if getattr(config, "use_weighted_sampler", False):
             for attr_name, alpha in config.weighted_sampler_attrs.items():
-                print(f" > Using weighted sampler for attribute '{attr_name}' with alpha '{alpha}'")
+                logger.info("Using weighted sampler for attribute '%s' with alpha %.2f", attr_name, alpha)
                 multi_dict = config.weighted_sampler_multipliers.get(attr_name, None)
-                print(multi_dict)
+                logger.info(multi_dict)
                 weights, attr_names, attr_weights = get_attribute_balancer_weights(
                     attr_name=attr_name, items=data_items, multi_dict=multi_dict
                 )
                 weights = weights * alpha
-                print(f" > Attribute weights for '{attr_names}' \n | > {attr_weights}")
+                logger.info("Attribute weights for '%s' \n | > %s", attr_names, attr_weights)
 
         if weights is not None:
             sampler = WeightedRandomSampler(weights, len(weights))
@@ -1448,7 +1188,6 @@ class DelightfulTTS(BaseTTSE2E):
                 compute_f0=config.compute_f0,
                 f0_cache_path=config.f0_cache_path,
                 attn_prior_cache_path=config.attn_prior_cache_path if config.use_attn_priors else None,
-                verbose=verbose,
                 tokenizer=self.tokenizer,
                 start_by_longest=config.start_by_longest,
             )
@@ -1525,7 +1264,7 @@ class DelightfulTTS(BaseTTSE2E):
 
     @staticmethod
     def init_from_config(
-        config: "DelightfulTTSConfig", samples: Union[List[List], List[Dict]] = None, verbose=False
+        config: "DelightfulTTSConfig", samples: Union[List[List], List[Dict]] = None
     ):  # pylint: disable=unused-argument
         """Initiate model from config
 
@@ -1603,36 +1342,6 @@ class DelightfulTTSLoss(nn.Module):
         self.feat_loss_alpha = config.feat_loss_alpha
         self.gen_loss_alpha = config.gen_loss_alpha
         self.multi_scale_stft_loss_alpha = config.multi_scale_stft_loss_alpha
-
-    @staticmethod
-    def _binary_alignment_loss(alignment_hard, alignment_soft):
-        """Binary loss that forces soft alignments to match the hard alignments as
-        explained in `https://arxiv.org/pdf/2108.10447.pdf`.
-        """
-        log_sum = torch.log(torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)).sum()
-        return -log_sum / alignment_hard.sum()
-
-    @staticmethod
-    def feature_loss(feats_real, feats_generated):
-        loss = 0
-        for dr, dg in zip(feats_real, feats_generated):
-            for rl, gl in zip(dr, dg):
-                rl = rl.float().detach()
-                gl = gl.float()
-                loss += torch.mean(torch.abs(rl - gl))
-        return loss * 2
-
-    @staticmethod
-    def generator_loss(scores_fake):
-        loss = 0
-        gen_losses = []
-        for dg in scores_fake:
-            dg = dg.float()
-            l = torch.mean((1 - dg) ** 2)
-            gen_losses.append(l)
-            loss += l
-
-        return loss, gen_losses
 
     def forward(
         self,
@@ -1731,7 +1440,7 @@ class DelightfulTTSLoss(nn.Module):
         )
 
         if self.binary_alignment_loss_alpha > 0 and aligner_hard is not None:
-            binary_alignment_loss = self._binary_alignment_loss(aligner_hard, aligner_soft)
+            binary_alignment_loss = _binary_alignment_loss(aligner_hard, aligner_soft)
             total_loss = total_loss + self.binary_alignment_loss_alpha * binary_alignment_loss * binary_loss_weight
             if binary_loss_weight:
                 loss_dict["loss_binary_alignment"] = (
@@ -1751,8 +1460,8 @@ class DelightfulTTSLoss(nn.Module):
 
         # vocoder losses
         if not skip_disc:
-            loss_feat = self.feature_loss(feats_real=feats_real, feats_generated=feats_fake) * self.feat_loss_alpha
-            loss_gen = self.generator_loss(scores_fake=scores_fake)[0] * self.gen_loss_alpha
+            loss_feat = feature_loss(feats_real=feats_real, feats_generated=feats_fake) * self.feat_loss_alpha
+            loss_gen = generator_loss(scores_fake=scores_fake)[0] * self.gen_loss_alpha
             loss_dict["vocoder_loss_feat"] = loss_feat
             loss_dict["vocoder_loss_gen"] = loss_gen
             loss_dict["loss"] = loss_dict["loss"] + loss_feat + loss_gen

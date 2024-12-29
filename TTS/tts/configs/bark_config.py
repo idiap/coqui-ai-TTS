@@ -2,11 +2,12 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict
 
+from trainer.io import get_user_data_dir
+
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.layers.bark.model import GPTConfig
 from TTS.tts.layers.bark.model_fine import FineGPTConfig
 from TTS.tts.models.bark import BarkAudioConfig
-from TTS.utils.generic_utils import get_user_data_dir
 
 
 @dataclass
@@ -95,7 +96,6 @@ class BarkConfig(BaseTTSConfig):
             "coarse": os.path.join(self.CACHE_DIR, "coarse_2.pt"),
             "fine": os.path.join(self.CACHE_DIR, "fine_2.pt"),
             "hubert_tokenizer": os.path.join(self.CACHE_DIR, "tokenizer.pth"),
-            "hubert": os.path.join(self.CACHE_DIR, "hubert.pt"),
         }
         self.SMALL_REMOTE_MODEL_PATHS = {
             "text": {"path": os.path.join(self.REMOTE_BASE_URL, "text.pt")},

@@ -1,5 +1,8 @@
 """Search a good noise schedule for WaveGrad for a given number of inference iterations"""
+
 import argparse
+import logging
+import sys
 from itertools import product as cartesian_product
 
 import numpy as np
@@ -9,11 +12,14 @@ from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.utils.audio import AudioProcessor
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 from TTS.vocoder.datasets.preprocess import load_wav_data
 from TTS.vocoder.datasets.wavegrad_dataset import WaveGradDataset
 from TTS.vocoder.models import setup_model
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, help="Path to model checkpoint.")
     parser.add_argument("--config_path", type=str, help="Path to model config file.")
@@ -54,7 +60,6 @@ if __name__ == "__main__":
         return_segments=False,
         use_noise_augment=False,
         use_cache=False,
-        verbose=True,
     )
     loader = DataLoader(
         dataset,

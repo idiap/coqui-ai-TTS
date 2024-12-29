@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 from contextlib import contextmanager
@@ -22,6 +23,9 @@ from TTS.tts.layers.tortoise.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.tortoise.vocoder import VocConf, VocType
 from TTS.tts.layers.tortoise.wav2vec_alignment import Wav2VecAlignment
 from TTS.tts.models.base_tts import BaseTTS
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+
+logger = logging.getLogger(__name__)
 
 
 def pad_or_truncate(t, length):
@@ -100,7 +104,7 @@ def fix_autoregressive_output(codes, stop_token, complain=True):
     stop_token_indices = (codes == stop_token).nonzero()
     if len(stop_token_indices) == 0:
         if complain:
-            print(
+            logger.warning(
                 "No stop tokens found in one of the generated voice clips. This typically means the spoken audio is "
                 "too long. In some cases, the output will still be good, though. Listen to it and if it is missing words, "
                 "try breaking up your input text."
@@ -167,7 +171,13 @@ def classify_audio_clip(clip, model_dir):
         kernel_size=5,
         distribute_zero_label=False,
     )
-    classifier.load_state_dict(torch.load(os.path.join(model_dir, "classifier.pth"), map_location=torch.device("cpu")))
+    classifier.load_state_dict(
+        torch.load(
+            os.path.join(model_dir, "classifier.pth"),
+            map_location=torch.device("cpu"),
+            weights_only=is_pytorch_at_least_2_4(),
+        )
+    )
     clip = clip.cpu().unsqueeze(0)
     results = F.softmax(classifier(clip), dim=-1)
     return results[0][0]
@@ -413,7 +423,9 @@ class Tortoise(BaseTTS):
         Transforms one or more voice_samples into a tuple (autoregressive_conditioning_latent, diffusion_conditioning_latent).
         These are expressive learned latents that encode aspects of the provided clips like voice, intonation, and acoustic
         properties.
-        :param voice_samples: List of arbitrary reference clips, which should be *pairs* of torch tensors containing arbitrary kHz waveform data.
+
+        :param voice_samples: List of arbitrary reference clips, which should be *pairs*
+                              of torch tensors containing arbitrary kHz waveform data.
         :param latent_averaging_mode: 0/1/2 for following modes:
             0 - latents will be generated as in original tortoise, using ~4.27s from each voice sample, averaging latent across all samples
             1 - latents will be generated using (almost) entire voice samples, averaged across all the ~4.27s chunks
@@ -485,6 +497,7 @@ class Tortoise(BaseTTS):
                 torch.load(
                     os.path.join(self.models_dir, "rlg_auto.pth"),
                     map_location=torch.device("cpu"),
+                    weights_only=is_pytorch_at_least_2_4(),
                 )
             )
             self.rlg_diffusion = RandomLatentConverter(2048).eval()
@@ -492,6 +505,7 @@ class Tortoise(BaseTTS):
                 torch.load(
                     os.path.join(self.models_dir, "rlg_diffuser.pth"),
                     map_location=torch.device("cpu"),
+                    weights_only=is_pytorch_at_least_2_4(),
                 )
             )
         with torch.no_grad():
@@ -659,7 +673,7 @@ class Tortoise(BaseTTS):
                 As cond_free_k increases, the output becomes dominated by the conditioning-free signal.
             diffusion_temperature: (float) Controls the variance of the noise fed into the diffusion model. [0,1]. Values at 0
                                       are the "mean" prediction of the diffusion network and will sound bland and smeared.
-            hf_generate_kwargs: (**kwargs) The huggingface Transformers generate API is used for the autoregressive transformer.
+            hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive transformer.
                                     Extra keyword args fed to this function get forwarded directly to that API. Documentation
                                     here: https://huggingface.co/docs/transformers/internal/generation_utils
 
@@ -713,10 +727,10 @@ class Tortoise(BaseTTS):
                 83  # This is the token for coding silence, which is fixed in place with "fix_autoregressive_output"
             )
             self.autoregressive = self.autoregressive.to(self.device)
-            if verbose:
-                print("Generating autoregressive samples..")
-            with self.temporary_cuda(self.autoregressive) as autoregressive, torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=half
+            logger.info("Generating autoregressive samples..")
+            with (
+                self.temporary_cuda(self.autoregressive) as autoregressive,
+                torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half),
             ):
                 for b in tqdm(range(num_batches), disable=not verbose):
                     codes = autoregressive.inference_speech(
@@ -737,8 +751,9 @@ class Tortoise(BaseTTS):
             self.autoregressive_batch_size = orig_batch_size  # in the case of single_sample
 
             clip_results = []
-            with self.temporary_cuda(self.clvp) as clvp, torch.autocast(
-                device_type="cuda", dtype=torch.float16, enabled=half
+            with (
+                self.temporary_cuda(self.clvp) as clvp,
+                torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half),
             ):
                 for batch in tqdm(samples, disable=not verbose):
                     for i in range(batch.shape[0]):
@@ -773,8 +788,7 @@ class Tortoise(BaseTTS):
                 )
             del auto_conditioning
 
-            if verbose:
-                print("Transforming autoregressive outputs into audio..")
+            logger.info("Transforming autoregressive outputs into audio..")
             wav_candidates = []
             for b in range(best_results.shape[0]):
                 codes = best_results[b].unsqueeze(0)
@@ -878,17 +892,17 @@ class Tortoise(BaseTTS):
 
         if os.path.exists(ar_path):
             # remove keys from the checkpoint that are not in the model
-            checkpoint = torch.load(ar_path, map_location=torch.device("cpu"))
+            checkpoint = torch.load(ar_path, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4())
 
             # strict set False
             # due to removed `bias` and `masked_bias` changes in Transformers
             self.autoregressive.load_state_dict(checkpoint, strict=False)
 
         if os.path.exists(diff_path):
-            self.diffusion.load_state_dict(torch.load(diff_path), strict=strict)
+            self.diffusion.load_state_dict(torch.load(diff_path, weights_only=is_pytorch_at_least_2_4()), strict=strict)
 
         if os.path.exists(clvp_path):
-            self.clvp.load_state_dict(torch.load(clvp_path), strict=strict)
+            self.clvp.load_state_dict(torch.load(clvp_path, weights_only=is_pytorch_at_least_2_4()), strict=strict)
 
         if os.path.exists(vocoder_checkpoint_path):
             self.vocoder.load_state_dict(
@@ -896,6 +910,7 @@ class Tortoise(BaseTTS):
                     torch.load(
                         vocoder_checkpoint_path,
                         map_location=torch.device("cpu"),
+                        weights_only=is_pytorch_at_least_2_4(),
                     )
                 )
             )

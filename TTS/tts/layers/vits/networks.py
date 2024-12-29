@@ -10,22 +10,6 @@ from TTS.tts.utils.helpers import sequence_mask
 LRELU_SLOPE = 0.1
 
 
-def convert_pad_shape(pad_shape):
-    l = pad_shape[::-1]
-    pad_shape = [item for sublist in l for item in sublist]
-    return pad_shape
-
-
-def init_weights(m, mean=0.0, std=0.01):
-    classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
-        m.weight.data.normal_(mean, std)
-
-
-def get_padding(kernel_size, dilation=1):
-    return int((kernel_size * dilation - dilation) / 2)
-
-
 class TextEncoder(nn.Module):
     def __init__(
         self,
@@ -272,7 +256,7 @@ class PosteriorEncoder(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, x, x_lengths, g=None):
+    def forward(self, x, x_lengths, g=None, tau=1.0):
         """
         Shapes:
             - x: :math:`[B, C, T]`
@@ -284,5 +268,5 @@ class PosteriorEncoder(nn.Module):
         x = self.enc(x, x_mask, g=g)
         stats = self.proj(x) * x_mask
         mean, log_scale = torch.split(stats, self.out_channels, dim=1)
-        z = (mean + torch.randn_like(mean) * torch.exp(log_scale)) * x_mask
+        z = (mean + torch.randn_like(mean) * tau * torch.exp(log_scale)) * x_mask
         return z, mean, log_scale, x_mask

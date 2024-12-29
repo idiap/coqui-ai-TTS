@@ -1,7 +1,10 @@
+import logging
 import os
 from typing import Optional
 
 from TTS.utils.download import download_kaggle_dataset, download_url, extract_archive
+
+logger = logging.getLogger(__name__)
 
 
 def download_ljspeech(path: str):
@@ -15,7 +18,6 @@ def download_ljspeech(path: str):
     download_url(url, path)
     basename = os.path.basename(url)
     archive = os.path.join(path, basename)
-    print(" > Extracting archive file...")
     extract_archive(archive)
 
 
@@ -35,7 +37,6 @@ def download_vctk(path: str, use_kaggle: Optional[bool] = False):
         download_url(url, path)
         basename = os.path.basename(url)
         archive = os.path.join(path, basename)
-        print(" > Extracting archive file...")
         extract_archive(archive)
 
 
@@ -71,19 +72,17 @@ def download_libri_tts(path: str, subset: Optional[str] = "all"):
     os.makedirs(path, exist_ok=True)
     if subset == "all":
         for sub, val in subset_dict.items():
-            print(f" > Downloading {sub}...")
+            logger.info("Downloading %s...", sub)
             download_url(val, path)
             basename = os.path.basename(val)
             archive = os.path.join(path, basename)
-            print(" > Extracting archive file...")
             extract_archive(archive)
-        print(" > All subsets downloaded")
+        logger.info("All subsets downloaded")
     else:
         url = subset_dict[subset]
         download_url(url, path)
         basename = os.path.basename(url)
         archive = os.path.join(path, basename)
-        print(" > Extracting archive file...")
         extract_archive(archive)
 
 
@@ -98,7 +97,6 @@ def download_thorsten_de(path: str):
     download_url(url, path)
     basename = os.path.basename(url)
     archive = os.path.join(path, basename)
-    print(" > Extracting archive file...")
     extract_archive(archive)
 
 
@@ -122,5 +120,4 @@ def download_mailabs(path: str, language: str = "english"):
     download_url(url, path)
     basename = os.path.basename(url)
     archive = os.path.join(path, basename)
-    print(" > Extracting archive file...")
     extract_archive(archive)

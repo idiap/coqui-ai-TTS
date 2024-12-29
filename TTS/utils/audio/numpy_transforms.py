@@ -1,5 +1,7 @@
+import logging
+import os
 from io import BytesIO
-from typing import Tuple
+from typing import Any, Optional, Union
 
 import librosa
 import numpy as np
@@ -7,17 +9,19 @@ import scipy
 import soundfile as sf
 from librosa import magphase, pyin
 
+logger = logging.getLogger(__name__)
+
 # For using kwargs
 # pylint: disable=unused-argument
 
 
 def build_mel_basis(
     *,
-    sample_rate: int = None,
-    fft_size: int = None,
-    num_mels: int = None,
-    mel_fmax: int = None,
-    mel_fmin: int = None,
+    sample_rate: int,
+    fft_size: int,
+    num_mels: int,
+    mel_fmin: int,
+    mel_fmax: Optional[int] = None,
     **kwargs,
 ) -> np.ndarray:
     """Build melspectrogram basis.
@@ -31,9 +35,7 @@ def build_mel_basis(
     return librosa.filters.mel(sr=sample_rate, n_fft=fft_size, n_mels=num_mels, fmin=mel_fmin, fmax=mel_fmax)
 
 
-def millisec_to_length(
-    *, frame_length_ms: int = None, frame_shift_ms: int = None, sample_rate: int = None, **kwargs
-) -> Tuple[int, int]:
+def millisec_to_length(*, frame_length_ms: float, frame_shift_ms: float, sample_rate: int, **kwargs) -> tuple[int, int]:
     """Compute hop and window length from milliseconds.
 
     Returns:
@@ -58,7 +60,7 @@ def _exp(x, base):
     return np.exp(x)
 
 
-def amp_to_db(*, x: np.ndarray = None, gain: float = 1, base: int = 10, **kwargs) -> np.ndarray:
+def amp_to_db(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> np.ndarray:
     """Convert amplitude values to decibels.
 
     Args:
@@ -74,7 +76,7 @@ def amp_to_db(*, x: np.ndarray = None, gain: float = 1, base: int = 10, **kwargs
 
 
 # pylint: disable=no-self-use
-def db_to_amp(*, x: np.ndarray = None, gain: float = 1, base: int = 10, **kwargs) -> np.ndarray:
+def db_to_amp(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> np.ndarray:
     """Convert decibels spectrogram to amplitude spectrogram.
 
     Args:
@@ -101,18 +103,20 @@ def preemphasis(*, x: np.ndarray, coef: float = 0.97, **kwargs) -> np.ndarray:
         np.ndarray: Decorrelated audio signal.
     """
     if coef == 0:
-        raise RuntimeError(" [!] Preemphasis is set 0.0.")
+        msg = " [!] Preemphasis is set 0.0."
+        raise RuntimeError(msg)
     return scipy.signal.lfilter([1, -coef], [1], x)
 
 
-def deemphasis(*, x: np.ndarray = None, coef: float = 0.97, **kwargs) -> np.ndarray:
+def deemphasis(*, x: np.ndarray, coef: float = 0.97, **kwargs) -> np.ndarray:
     """Reverse pre-emphasis."""
     if coef == 0:
-        raise RuntimeError(" [!] Preemphasis is set 0.0.")
+        msg = " [!] Preemphasis is set 0.0."
+        raise ValueError(msg)
     return scipy.signal.lfilter([1], [1, -coef], x)
 
 
-def spec_to_mel(*, spec: np.ndarray, mel_basis: np.ndarray = None, **kwargs) -> np.ndarray:
+def spec_to_mel(*, spec: np.ndarray, mel_basis: np.ndarray, **kwargs) -> np.ndarray:
     """Convert a full scale linear spectrogram output of a network to a melspectrogram.
 
     Args:
@@ -127,14 +131,14 @@ def spec_to_mel(*, spec: np.ndarray, mel_basis: np.ndarray = None, **kwargs) -> 
     return np.dot(mel_basis, spec)
 
 
-def mel_to_spec(*, mel: np.ndarray = None, mel_basis: np.ndarray = None, **kwargs) -> np.ndarray:
+def mel_to_spec(*, mel: np.ndarray, mel_basis: np.ndarray, **kwargs) -> np.ndarray:
     """Convert a melspectrogram to full scale spectrogram."""
     assert (mel < 0).sum() == 0, " [!] Input values must be non-negative."
     inv_mel_basis = np.linalg.pinv(mel_basis)
     return np.maximum(1e-10, np.dot(inv_mel_basis, mel))
 
 
-def wav_to_spec(*, wav: np.ndarray = None, **kwargs) -> np.ndarray:
+def wav_to_spec(*, wav: np.ndarray, **kwargs) -> np.ndarray:
     """Compute a spectrogram from a waveform.
 
     Args:
@@ -148,7 +152,7 @@ def wav_to_spec(*, wav: np.ndarray = None, **kwargs) -> np.ndarray:
     return S.astype(np.float32)
 
 
-def wav_to_mel(*, wav: np.ndarray = None, mel_basis=None, **kwargs) -> np.ndarray:
+def wav_to_mel(*, wav: np.ndarray, mel_basis: np.ndarray, **kwargs) -> np.ndarray:
     """Compute a melspectrogram from a waveform."""
     D = stft(y=wav, **kwargs)
     S = spec_to_mel(spec=np.abs(D), mel_basis=mel_basis, **kwargs)
@@ -161,20 +165,20 @@ def spec_to_wav(*, spec: np.ndarray, power: float = 1.5, **kwargs) -> np.ndarray
     return griffin_lim(spec=S**power, **kwargs)
 
 
-def mel_to_wav(*, mel: np.ndarray = None, power: float = 1.5, **kwargs) -> np.ndarray:
+def mel_to_wav(*, mel: np.ndarray, mel_basis: np.ndarray, power: float = 1.5, **kwargs) -> np.ndarray:
     """Convert a melspectrogram to a waveform using Griffi-Lim vocoder."""
     S = mel.copy()
-    S = mel_to_spec(mel=S, mel_basis=kwargs["mel_basis"])  # Convert back to linear
+    S = mel_to_spec(mel=S, mel_basis=mel_basis)  # Convert back to linear
     return griffin_lim(spec=S**power, **kwargs)
 
 
 ### STFT and ISTFT ###
 def stft(
     *,
-    y: np.ndarray = None,
-    fft_size: int = None,
-    hop_length: int = None,
-    win_length: int = None,
+    y: np.ndarray,
+    fft_size: int,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
     pad_mode: str = "reflect",
     window: str = "hann",
     center: bool = True,
@@ -200,9 +204,9 @@ def stft(
 
 def istft(
     *,
-    y: np.ndarray = None,
-    hop_length: int = None,
-    win_length: int = None,
+    y: np.ndarray,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
     window: str = "hann",
     center: bool = True,
     **kwargs,
@@ -217,12 +221,12 @@ def istft(
     return librosa.istft(y, hop_length=hop_length, win_length=win_length, center=center, window=window)
 
 
-def griffin_lim(*, spec: np.ndarray = None, num_iter=60, **kwargs) -> np.ndarray:
+def griffin_lim(*, spec: np.ndarray, num_iter=60, **kwargs) -> np.ndarray:
     angles = np.exp(2j * np.pi * np.random.rand(*spec.shape))
     S_complex = np.abs(spec).astype(complex)
     y = istft(y=S_complex * angles, **kwargs)
     if not np.isfinite(y).all():
-        print(" [!] Waveform is not finite everywhere. Skipping the GL.")
+        logger.warning("Waveform is not finite everywhere. Skipping the GL.")
         return np.array([0.0])
     for _ in range(num_iter):
         angles = np.exp(1j * np.angle(stft(y=y, **kwargs)))
@@ -230,11 +234,11 @@ def griffin_lim(*, spec: np.ndarray = None, num_iter=60, **kwargs) -> np.ndarray
     return y
 
 
-def compute_stft_paddings(
-    *, x: np.ndarray = None, hop_length: int = None, pad_two_sides: bool = False, **kwargs
-) -> Tuple[int, int]:
-    """Compute paddings used by Librosa's STFT. Compute right padding (final frame) or both sides padding
-    (first and final frames)"""
+def compute_stft_paddings(*, x: np.ndarray, hop_length: int, pad_two_sides: bool = False, **kwargs) -> tuple[int, int]:
+    """Compute paddings used by Librosa's STFT.
+
+    Compute right padding (final frame) or both sides padding (first and final frames).
+    """
     pad = (x.shape[0] // hop_length + 1) * hop_length - x.shape[0]
     if not pad_two_sides:
         return 0, pad
@@ -243,12 +247,12 @@ def compute_stft_paddings(
 
 def compute_f0(
     *,
-    x: np.ndarray = None,
-    pitch_fmax: float = None,
-    pitch_fmin: float = None,
-    hop_length: int = None,
-    win_length: int = None,
-    sample_rate: int = None,
+    x: np.ndarray,
+    pitch_fmax: Optional[float] = None,
+    pitch_fmin: Optional[float] = None,
+    hop_length: int,
+    win_length: int,
+    sample_rate: int,
     stft_pad_mode: str = "reflect",
     center: bool = True,
     **kwargs,
@@ -320,19 +324,18 @@ def compute_energy(y: np.ndarray, **kwargs) -> np.ndarray:
     """
     x = stft(y=y, **kwargs)
     mag, _ = magphase(x)
-    energy = np.sqrt(np.sum(mag**2, axis=0))
-    return energy
+    return np.sqrt(np.sum(mag**2, axis=0))
 
 
 ### Audio Processing ###
 def find_endpoint(
     *,
-    wav: np.ndarray = None,
+    wav: np.ndarray,
     trim_db: float = -40,
-    sample_rate: int = None,
-    min_silence_sec=0.8,
-    gain: float = None,
-    base: int = None,
+    sample_rate: int,
+    min_silence_sec: float = 0.8,
+    gain: float = 1,
+    base: float = 10,
     **kwargs,
 ) -> int:
     """Find the last point without silence at the end of a audio signal.
@@ -341,8 +344,8 @@ def find_endpoint(
         wav (np.ndarray): Audio signal.
         threshold_db (int, optional): Silence threshold in decibels. Defaults to -40.
         min_silence_sec (float, optional): Ignore silences that are shorter then this in secs. Defaults to 0.8.
-        gian (float, optional): Gain to be used to convert trim_db to trim_amp. Defaults to None.
-        base (int, optional): Base of the logarithm used to convert trim_db to trim_amp. Defaults to 10.
+        gain (float, optional): Gain factor to be used to convert trim_db to trim_amp. Defaults to 1.
+        base (float, optional): Base of the logarithm used to convert trim_db to trim_amp. Defaults to 10.
 
     Returns:
         int: Last point without silence.
@@ -358,20 +361,20 @@ def find_endpoint(
 
 def trim_silence(
     *,
-    wav: np.ndarray = None,
-    sample_rate: int = None,
-    trim_db: float = None,
-    win_length: int = None,
-    hop_length: int = None,
+    wav: np.ndarray,
+    sample_rate: int,
+    trim_db: float = 60,
+    win_length: int,
+    hop_length: int,
     **kwargs,
 ) -> np.ndarray:
-    """Trim silent parts with a threshold and 0.01 sec margin"""
+    """Trim silent parts with a threshold and 0.01 sec margin."""
     margin = int(sample_rate * 0.01)
     wav = wav[margin:-margin]
     return librosa.effects.trim(wav, top_db=trim_db, frame_length=win_length, hop_length=hop_length)[0]
 
 
-def volume_norm(*, x: np.ndarray = None, coef: float = 0.95, **kwargs) -> np.ndarray:
+def volume_norm(*, x: np.ndarray, coef: float = 0.95, **kwargs) -> np.ndarray:
     """Normalize the volume of an audio signal.
 
     Args:
@@ -384,7 +387,7 @@ def volume_norm(*, x: np.ndarray = None, coef: float = 0.95, **kwargs) -> np.nda
     return x / abs(x).max() * coef
 
 
-def rms_norm(*, wav: np.ndarray = None, db_level: float = -27.0, **kwargs) -> np.ndarray:
+def rms_norm(*, wav: np.ndarray, db_level: float = -27.0, **kwargs) -> np.ndarray:
     r = 10 ** (db_level / 20)
     a = np.sqrt((len(wav) * (r**2)) / np.sum(wav**2))
     return wav * a
@@ -401,11 +404,12 @@ def rms_volume_norm(*, x: np.ndarray, db_level: float = -27.0, **kwargs) -> np.n
         np.ndarray: RMS normalized waveform.
     """
     assert -99 <= db_level <= 0, " [!] db_level should be between -99 and 0"
-    wav = rms_norm(wav=x, db_level=db_level)
-    return wav
+    return rms_norm(wav=x, db_level=db_level)
 
 
-def load_wav(*, filename: str, sample_rate: int = None, resample: bool = False, **kwargs) -> np.ndarray:
+def load_wav(
+    *, filename: Union[str, os.PathLike[Any]], sample_rate: Optional[int] = None, resample: bool = False, **kwargs
+) -> np.ndarray:
     """Read a wav file using Librosa and optionally resample, silence trim, volume normalize.
 
     Resampling slows down loading the file significantly. Therefore it is recommended to resample the file before.
@@ -424,19 +428,39 @@ def load_wav(*, filename: str, sample_rate: int = None, resample: bool = False, 
     else:
         # SF is faster than librosa for loading files
         x, _ = sf.read(filename)
+    if x.ndim != 1:
+        logger.warning("Found multi-channel audio. Converting to mono: %s", filename)
+        x = librosa.to_mono(x)
     return x
 
 
-def save_wav(*, wav: np.ndarray, path: str, sample_rate: int = None, pipe_out=None, **kwargs) -> None:
+def save_wav(
+    *,
+    wav: np.ndarray,
+    path: Union[str, os.PathLike[Any]],
+    sample_rate: int,
+    pipe_out=None,
+    do_rms_norm: bool = False,
+    db_level: float = -27.0,
+    **kwargs,
+) -> None:
     """Save float waveform to a file using Scipy.
 
     Args:
         wav (np.ndarray): Waveform with float values in range [-1, 1] to save.
         path (str): Path to a output file.
-        sr (int, optional): Sampling rate used for saving to the file. Defaults to None.
+        sr (int): Sampling rate used for saving to the file. Defaults to None.
         pipe_out (BytesIO, optional): Flag to stdout the generated TTS wav file for shell pipe.
+        do_rms_norm (bool): Whether to apply RMS normalization
+        db_level (float): Target dB level in RMS.
     """
-    wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))
+    if do_rms_norm:
+        if db_level is None:
+            msg = "`db_level` cannot be None with `do_rms_norm=True`"
+            raise ValueError(msg)
+        wav_norm = rms_volume_norm(x=wav, db_level=db_level)
+    else:
+        wav_norm = wav * (32767 / max(0.01, np.max(np.abs(wav))))
 
     wav_norm = wav_norm.astype(np.int16)
     if pipe_out:
@@ -459,8 +483,7 @@ def mulaw_encode(*, wav: np.ndarray, mulaw_qc: int, **kwargs) -> np.ndarray:
 def mulaw_decode(*, wav, mulaw_qc: int, **kwargs) -> np.ndarray:
     """Recovers waveform from quantized values."""
     mu = 2**mulaw_qc - 1
-    x = np.sign(wav) / mu * ((1 + mu) ** np.abs(wav) - 1)
-    return x
+    return np.sign(wav) / mu * ((1 + mu) ** np.abs(wav) - 1)
 
 
 def encode_16bits(*, x: np.ndarray, **kwargs) -> np.ndarray:

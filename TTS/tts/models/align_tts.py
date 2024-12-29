@@ -3,7 +3,9 @@ from typing import Dict, List, Union
 
 import torch
 from coqpit import Coqpit
+from monotonic_alignment_search import maximum_path
 from torch import nn
+from trainer.io import load_fsspec
 
 from TTS.tts.layers.align_tts.mdn import MDNBlock
 from TTS.tts.layers.feed_forward.decoder import Decoder
@@ -11,11 +13,10 @@ from TTS.tts.layers.feed_forward.duration_predictor import DurationPredictor
 from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.helpers import generate_path, maximum_path, sequence_mask
+from TTS.tts.utils.helpers import expand_encoder_outputs, generate_attention, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
-from TTS.utils.io import load_fsspec
 
 
 @dataclass
@@ -168,35 +169,6 @@ class AlignTTS(BaseTTS):
         dr_mas = torch.sum(attn, -1)
         return dr_mas.squeeze(1), log_p
 
-    @staticmethod
-    def generate_attn(dr, x_mask, y_mask=None):
-        # compute decode mask from the durations
-        if y_mask is None:
-            y_lengths = dr.sum(1).long()
-            y_lengths[y_lengths < 1] = 1
-            y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(dr.dtype)
-        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        attn = generate_path(dr, attn_mask.squeeze(1)).to(dr.dtype)
-        return attn
-
-    def expand_encoder_outputs(self, en, dr, x_mask, y_mask):
-        """Generate attention alignment map from durations and
-        expand encoder outputs
-
-        Examples::
-            - encoder output: [a,b,c,d]
-            - durations: [1, 3, 2, 1]
-
-            - expanded: [a, b, b, b, c, c, d]
-            - attention map: [[0, 0, 0, 0, 0, 0, 1],
-                             [0, 0, 0, 0, 1, 1, 0],
-                             [0, 1, 1, 1, 0, 0, 0],
-                             [1, 0, 0, 0, 0, 0, 0]]
-        """
-        attn = self.generate_attn(dr, x_mask, y_mask)
-        o_en_ex = torch.matmul(attn.squeeze(1).transpose(1, 2), en.transpose(1, 2)).transpose(1, 2)
-        return o_en_ex, attn
-
     def format_durations(self, o_dr_log, x_mask):
         o_dr = (torch.exp(o_dr_log) - 1) * x_mask * self.length_scale
         o_dr[o_dr < 1] = 1.0
@@ -242,9 +214,8 @@ class AlignTTS(BaseTTS):
         return o_en, o_en_dp, x_mask, g
 
     def _forward_decoder(self, o_en, o_en_dp, dr, x_mask, y_lengths, g):
-        y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en_dp.dtype)
         # expand o_en with durations
-        o_en_ex, attn = self.expand_encoder_outputs(o_en, dr, x_mask, y_mask)
+        o_en_ex, attn, y_mask = expand_encoder_outputs(o_en, dr, x_mask, y_lengths)
         # positional encoding
         if hasattr(self, "pos_encoder"):
             o_en_ex = self.pos_encoder(o_en_ex, y_mask)
@@ -281,7 +252,7 @@ class AlignTTS(BaseTTS):
             o_en, o_en_dp, x_mask, g = self._forward_encoder(x, x_lengths, g)
             dr_mas, mu, log_sigma, logp = self._forward_mdn(o_en, y, y_lengths, x_mask)
             y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en_dp.dtype)
-            attn = self.generate_attn(dr_mas, x_mask, y_mask)
+            attn = generate_attention(dr_mas, x_mask, y_mask)
         elif phase == 1:
             # train decoder
             o_en, o_en_dp, x_mask, g = self._forward_encoder(x, x_lengths, g)
@@ -415,7 +386,7 @@ class AlignTTS(BaseTTS):
         """Decide AlignTTS training phase"""
         if isinstance(config.phase_start_steps, list):
             vals = [i < global_step for i in config.phase_start_steps]
-            if not True in vals:
+            if True not in vals:
                 phase = 0
             else:
                 phase = (

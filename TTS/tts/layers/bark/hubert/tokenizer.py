@@ -5,12 +5,15 @@ License: MIT
 """
 
 import json
+import logging
 import os.path
 from zipfile import ZipFile
 
 import numpy
 import torch
 from torch import nn, optim
+
+logger = logging.getLogger(__name__)
 
 
 class HubertTokenizer(nn.Module):
@@ -85,7 +88,7 @@ class HubertTokenizer(nn.Module):
 
         # Print loss
         if log_loss:
-            print("Loss", loss.item())
+            logger.info("Loss %.3f", loss.item())
 
         # Backward pass
         loss.backward()
@@ -157,10 +160,10 @@ def auto_train(data_path, save_path="model.pth", load_model: str = None, save_ep
     data_x, data_y = [], []
 
     if load_model and os.path.isfile(load_model):
-        print("Loading model from", load_model)
+        logger.info("Loading model from %s", load_model)
         model_training = HubertTokenizer.load_from_checkpoint(load_model, "cuda")
     else:
-        print("Creating new model.")
+        logger.info("Creating new model.")
         model_training = HubertTokenizer(version=1).to("cuda")  # Settings for the model to run without lstm
     save_path = os.path.join(data_path, save_path)
     base_save_path = ".".join(save_path.split(".")[:-1])
@@ -191,5 +194,5 @@ def auto_train(data_path, save_path="model.pth", load_model: str = None, save_ep
         save_p_2 = f"{base_save_path}_epoch_{epoch}.pth"
         model_training.save(save_p)
         model_training.save(save_p_2)
-        print(f"Epoch {epoch} completed")
+        logger.info("Epoch %d completed", epoch)
         epoch += 1

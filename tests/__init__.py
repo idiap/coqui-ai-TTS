@@ -1,7 +1,8 @@
 import os
 
+from trainer.generic_utils import get_cuda
+
 from TTS.config import BaseDatasetConfig
-from TTS.utils.generic_utils import get_cuda
 
 
 def get_device_id():

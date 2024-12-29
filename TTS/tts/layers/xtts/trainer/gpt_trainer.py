@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Union
 
@@ -5,8 +6,8 @@ import torch
 import torch.nn as nn
 import torchaudio
 from coqpit import Coqpit
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
+from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
@@ -17,8 +18,10 @@ from TTS.tts.layers.xtts.dvae import DiscreteVAE
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
-from TTS.utils.io import load_fsspec
+from TTS.tts.models.xtts import Xtts, XttsArgs
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,11 +35,6 @@ class GPTTrainerConfig(XttsConfig):
 
 
 @dataclass
-class XttsAudioConfig(XttsAudioConfig):
-    dvae_sample_rate: int = 22050
-
-
-@dataclass
 class GPTArgs(XttsArgs):
     min_conditioning_length: int = 66150
     max_conditioning_length: int = 132300
@@ -47,7 +45,7 @@ class GPTArgs(XttsArgs):
     max_wav_length: int = 255995  # ~11.6 seconds
     max_text_length: int = 200
     tokenizer_file: str = ""
-    mel_norm_file: str = "https://coqui.gateway.scarf.sh/v0.14.0_models/mel_norms.pth"
+    mel_norm_file: str = "https://github.com/coqui-ai/TTS/releases/download/v0.14.0_models/mel_norms.pth"
     dvae_checkpoint: str = ""
     xtts_checkpoint: str = ""
     gpt_checkpoint: str = ""  # if defined it will replace the gpt weights on xtts model
@@ -58,7 +56,7 @@ def callback_clearml_load_save(operation_type, model_info):
     # return None means skip the file upload/log, returning model_info will continue with the log/upload
     # you can also change the upload destination file name model_info.upload_filename or check the local file size with Path(model_info.local_model_path).stat().st_size
     assert operation_type in ("load", "save")
-    # print(operation_type, model_info.__dict__)
+    logger.debug("%s %s", operation_type, model_info.__dict__)
 
     if "similarities.pth" in model_info.__dict__["local_model_path"]:
         return None
@@ -89,10 +87,12 @@ class GPTTrainer(BaseTTS):
 
         # load GPT if available
         if self.args.gpt_checkpoint:
-            gpt_checkpoint = torch.load(self.args.gpt_checkpoint, map_location=torch.device("cpu"))
+            gpt_checkpoint = torch.load(
+                self.args.gpt_checkpoint, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
+            )
             # deal with coqui Trainer exported model
             if "model" in gpt_checkpoint.keys() and "config" in gpt_checkpoint.keys():
-                print("Coqui Trainer checkpoint detected! Converting it!")
+                logger.info("Coqui Trainer checkpoint detected! Converting it!")
                 gpt_checkpoint = gpt_checkpoint["model"]
                 states_keys = list(gpt_checkpoint.keys())
                 for key in states_keys:
@@ -111,7 +111,7 @@ class GPTTrainer(BaseTTS):
                 num_new_tokens = (
                     self.xtts.gpt.text_embedding.weight.shape[0] - gpt_checkpoint["text_embedding.weight"].shape[0]
                 )
-                print(f" > Loading checkpoint with {num_new_tokens} additional tokens.")
+                logger.info("Loading checkpoint with %d additional tokens.", num_new_tokens)
 
                 # add new tokens to a linear layer (text_head)
                 emb_g = gpt_checkpoint["text_embedding.weight"]
@@ -138,7 +138,7 @@ class GPTTrainer(BaseTTS):
                 gpt_checkpoint["text_head.bias"] = text_head_bias
 
             self.xtts.gpt.load_state_dict(gpt_checkpoint, strict=True)
-            print(">> GPT weights restored from:", self.args.gpt_checkpoint)
+            logger.info("GPT weights restored from: %s", self.args.gpt_checkpoint)
 
         # Mel spectrogram extractor for conditioning
         if self.args.gpt_use_perceiver_resampler:
@@ -182,9 +182,11 @@ class GPTTrainer(BaseTTS):
 
         self.dvae.eval()
         if self.args.dvae_checkpoint:
-            dvae_checkpoint = torch.load(self.args.dvae_checkpoint, map_location=torch.device("cpu"))
+            dvae_checkpoint = torch.load(
+                self.args.dvae_checkpoint, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
+            )
             self.dvae.load_state_dict(dvae_checkpoint, strict=False)
-            print(">> DVAE weights restored from:", self.args.dvae_checkpoint)
+            logger.info("DVAE weights restored from: %s", self.args.dvae_checkpoint)
         else:
             raise RuntimeError(
                 "You need to specify config.model_args.dvae_checkpoint path to be able to train the GPT decoder!!"
@@ -230,7 +232,7 @@ class GPTTrainer(BaseTTS):
             # init gpt for inference mode
             self.xtts.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=False)
             self.xtts.gpt.eval()
-            print(" | > Synthesizing test sentences.")
+            logger.info("Synthesizing test sentences.")
             for idx, s_info in enumerate(self.config.test_sentences):
                 wav = self.xtts.synthesize(
                     s_info["text"],
@@ -391,7 +393,7 @@ class GPTTrainer(BaseTTS):
                 loader = DataLoader(
                     dataset,
                     sampler=sampler,
-                    batch_size = config.eval_batch_size if is_eval else config.batch_size,
+                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
                     collate_fn=dataset.collate_fn,
                     num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
                     pin_memory=False,

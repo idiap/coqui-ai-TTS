@@ -1,59 +1,70 @@
-# ⓍTTS
-ⓍTTS is a super cool Text-to-Speech model that lets you clone voices in different languages by using just a quick 3-second audio clip. Built on the 🐢Tortoise,
-ⓍTTS has important model changes that make cross-language voice cloning and multi-lingual speech generation super easy.
+# XTTS
+XTTS is a super cool Text-to-Speech model that lets you clone voices in different languages by using just a quick 3-second audio clip. Built on the 🐢Tortoise,
+XTTS has important model changes that make cross-language voice cloning and multi-lingual speech generation super easy.
 There is no need for an excessive amount of training data that spans countless hours.
 
-This is the same model that powers [Coqui Studio](https://coqui.ai/), and [Coqui API](https://docs.coqui.ai/docs), however we apply
-a few tricks to make it faster and support streaming inference.
-
-### Features
+## Features
 - Voice cloning.
 - Cross-language voice cloning.
 - Multi-lingual speech generation.
 - 24khz sampling rate.
-- Streaming inference with < 200ms latency. (See [Streaming inference](#streaming-inference))
+- Streaming inference with < 200ms latency. (See [Streaming inference](#streaming-manually))
 - Fine-tuning support. (See [Training](#training))
 
-### Updates with v2
+## Updates with v2
 - Improved voice cloning.
 - Voices can be cloned with a single audio file or multiple audio files, without any effect on the runtime.
-- 2 new languages: Hungarian and Korean.
 - Across the board quality improvements.
 
-### Code
+## Code
 Current implementation only supports inference and GPT encoder training.
 
-### Languages
-As of now, XTTS-v2 supports 16 languages: English (en), Spanish (es), French (fr), German (de), Italian (it), Portuguese (pt), Polish (pl), Turkish (tr), Russian (ru), Dutch (nl), Czech (cs), Arabic (ar), Chinese (zh-cn), Japanese (ja), Hungarian (hu) and Korean (ko).
+## Languages
+XTTS-v2 supports 17 languages:
 
-Stay tuned as we continue to add support for more languages. If you have any language requests, please feel free to reach out.
+- Arabic (ar)
+- Chinese (zh-cn)
+- Czech (cs)
+- Dutch (nl)
+- English (en)
+- French (fr)
+- German (de)
+- Hindi (hi)
+- Hungarian (hu)
+- Italian (it)
+- Japanese (ja)
+- Korean (ko)
+- Polish (pl)
+- Portuguese (pt)
+- Russian (ru)
+- Spanish (es)
+- Turkish (tr)
 
-### License
+## License
 This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
 
-### Contact
-Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Twitter](https://twitter.com/coqui_ai).
-You can also mail us at info@coqui.ai.
+## Contact
+Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Github](https://github.com/idiap/coqui-ai-TTS/discussions).
 
-### Inference
+## Inference
 
-#### 🐸TTS Command line
+### 🐸TTS Command line
 
-You can check all supported languages with the following command: 
+You can check all supported languages with the following command:
 
 ```console
  tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
     --list_language_idx
 ```
 
-You can check all Coqui available speakers with the following command: 
+You can check all Coqui available speakers with the following command:
 
 ```console
  tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
     --list_speaker_idx
 ```
 
-##### Coqui speakers
+#### Coqui speakers
 You can do inference using one of the available speakers using the following command:
 
 ```console
@@ -61,29 +72,29 @@ You can do inference using one of the available speakers using the following com
      --text "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent." \
      --speaker_idx "Ana Florence" \
      --language_idx en \
-     --use_cuda true
+     --use_cuda
 ```
 
-##### Clone a voice
+#### Clone a voice
 You can clone a speaker voice using a single or multiple references:
 
-###### Single reference
+##### Single reference
 
 ```console
  tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/speaker.wav \
      --language_idx tr \
-     --use_cuda true
+     --use_cuda
 ```
 
-###### Multiple references
+##### Multiple references
 ```console
  tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/speaker.wav /path/to/target/speaker_2.wav /path/to/target/speaker_3.wav \
      --language_idx tr \
-     --use_cuda true
+     --use_cuda
 ```
 or for all wav files in a directory you can use:
 
@@ -92,22 +103,22 @@ or for all wav files in a directory you can use:
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/*.wav \
      --language_idx tr \
-     --use_cuda true
+     --use_cuda
 ```
 
-#### 🐸TTS API
+### 🐸TTS API
 
-##### Clone a voice
+#### Clone a voice
 You can clone a speaker voice using a single or multiple references:
 
-###### Single reference
+##### Single reference
 
 Splits the text into sentences and generates audio for each sentence. The audio files are then concatenated to produce the final audio.
 You can optionally disable sentence splitting for better coherence but more VRAM and possibly hitting models context length limit.
 
 ```python
 from TTS.api import TTS
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 
 # generate speech by cloning a voice using default settings
 tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
@@ -118,7 +129,7 @@ tts.tts_to_file(text="It took me quite a long time to develop a voice, and now t
                 )
 ```
 
-###### Multiple references
+##### Multiple references
 
 You can pass multiple audio files to the `speaker_wav` argument for better voice cloning.
 
@@ -126,15 +137,15 @@ You can pass multiple audio files to the `speaker_wav` argument for better voice
 from TTS.api import TTS
 
 # using the default version set in 🐸TTS
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 
 # using a specific version
 # 👀 see the branch names for versions on https://huggingface.co/coqui/XTTS-v2/tree/main
 # ❗some versions might be incompatible with the API
-tts = TTS("xtts_v2.0.2", gpu=True)
+tts = TTS("xtts_v2.0.2").to("cuda")
 
 # getting the latest XTTS_v2
-tts = TTS("xtts", gpu=True)
+tts = TTS("xtts").to("cuda")
 
 # generate speech by cloning a voice using default settings
 tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
@@ -143,29 +154,30 @@ tts.tts_to_file(text="It took me quite a long time to develop a voice, and now t
                 language="en")
 ```
 
-##### Coqui speakers
+#### Coqui speakers
 
 You can do inference using one of the available speakers using the following code:
 
 ```python
 from TTS.api import TTS
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 
 # generate speech by cloning a voice using default settings
-tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-                file_path="output.wav",
-                speaker="Ana Florence",
-                language="en",
-                split_sentences=True
-                )
+tts.tts_to_file(
+  text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+  file_path="output.wav",
+  speaker="Ana Florence",
+  language="en",
+  split_sentences=True
+)
 ```
 
 
-#### 🐸TTS Model API
+### 🐸TTS Model API
 
 To use the model API, you need to download the model files and pass config and model file paths manually.
 
-#### Manual Inference
+### Manual Inference
 
 If you want to be able to `load_checkpoint` with `use_deepspeed=True` and **enjoy the speedup**, you need to install deepspeed first.
 
@@ -173,7 +185,7 @@ If you want to be able to `load_checkpoint` with `use_deepspeed=True` and **enjo
 pip install deepspeed==0.10.3
 ```
 
-##### inference parameters
+#### Inference parameters
 
 - `text`: The text to be synthesized.
 - `language`: The language of the text to be synthesized.
@@ -188,7 +200,7 @@ pip install deepspeed==0.10.3
 - `enable_text_splitting`: Whether to split the text into sentences and generate audio for each sentence. It allows you to have infinite input length but might loose important context between sentences. Defaults to True.
 
 
-##### Inference
+#### Inference
 
 
 ```python
@@ -219,8 +231,13 @@ out = model.inference(
 torchaudio.save("xtts.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
 ```
 
+You can also use the Coqui speakers:
 
-##### Streaming manually
+```python
+gpt_cond_latent, speaker_embedding = model.speaker_manager.speakers["Ana Florence"].values()
+```
+
+#### Streaming manually
 
 Here the goal is to stream the audio as it is being generated. This is useful for real-time applications.
 Streaming inference is typically slower than regular inference, but it allows to get a first chunk of audio faster.
@@ -264,9 +281,9 @@ torchaudio.save("xtts_streaming.wav", wav.squeeze().unsqueeze(0).cpu(), 24000)
 ```
 
 
-### Training
+## Training
 
-#### Easy training
+### Easy training
 To make `XTTS_v2` GPT encoder training easier for beginner users we did a gradio demo that implements the whole fine-tuning pipeline. The gradio demo enables the user to easily do the following steps:
 
 - Preprocessing of the uploaded audio or audio files in 🐸 TTS coqui formatter
@@ -275,12 +292,12 @@ To make `XTTS_v2` GPT encoder training easier for beginner users we did a gradio
 
 The user can run this gradio demo locally or remotely using a Colab Notebook.
 
-##### Run demo on Colab
+#### Run demo on Colab
 To make the `XTTS_v2` fine-tuning more accessible for users that do not have good GPUs available we did a Google Colab Notebook.
 
 The Colab Notebook is available [here](https://colab.research.google.com/drive/1GiI4_X724M8q2W-zZ-jXo7cWTV7RfaH-?usp=sharing).
 
-To learn how to use this Colab Notebook please check the [XTTS fine-tuning video]().
+To learn how to use this Colab Notebook please check the [XTTS fine-tuning video](https://www.youtube.com/watch?v=8tpDiiouGxc).
 
 If you are not able to acess the video you need to follow the steps:
 
@@ -291,10 +308,10 @@ If you are not able to acess the video you need to follow the steps:
 5. Soon the training is done you can go to the third Tab (3 - Inference) and then click on the button "Step 3 - Load Fine-tuned XTTS model" and wait until the fine-tuned model is loaded. Then you can do the inference on the model by clicking on the button "Step 4 - Inference".
 
 
-##### Run demo locally
+#### Run demo locally
 
 To run the demo locally you need to do the following steps:
-1. Install   🐸 TTS following the instructions available [here](https://tts.readthedocs.io/en/dev/installation.html#installation).
+1. Install   🐸 TTS following the instructions available [here](https://coqui-tts.readthedocs.io/en/latest/installation.html).
 2. Install the Gradio demo requirements with the command `python3 -m pip install -r TTS/demos/xtts_ft_demo/requirements.txt`
 3. Run the Gradio demo using the command `python3 TTS/demos/xtts_ft_demo/xtts_demo.py`
 4. Follow the steps presented in the [tutorial video](https://www.youtube.com/watch?v=8tpDiiouGxc&feature=youtu.be) to be able to fine-tune and test the fine-tuned model.
@@ -308,7 +325,7 @@ If you are not able to access the video, here is what you need to do:
 4. Go to the third Tab (3 - Inference) and then click on the button "Step 3 - Load Fine-tuned XTTS model" and wait until the fine-tuned model is loaded.
 5. Now you can run inference with the model by clicking on the button "Step 4 - Inference".
 
-#### Advanced training
+### Advanced training
 
 A recipe for `XTTS_v2` GPT encoder training using `LJSpeech` dataset is available at https://github.com/coqui-ai/TTS/tree/dev/recipes/ljspeech/xtts_v1/train_gpt_xtts.py
 
@@ -382,6 +399,6 @@ torchaudio.save(OUTPUT_WAV_PATH, torch.tensor(out["wav"]).unsqueeze(0), 24000)
 
 ## XTTS Model
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.xtts.XTTS
+.. autoclass:: TTS.tts.models.xtts.Xtts
     :members:
 ```

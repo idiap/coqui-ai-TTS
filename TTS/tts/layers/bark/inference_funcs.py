@@ -2,10 +2,11 @@ import logging
 import os
 import re
 from glob import glob
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import librosa
 import numpy as np
+import numpy.typing as npt
 import torch
 import torchaudio
 import tqdm
@@ -48,7 +49,7 @@ def get_voices(extra_voice_dirs: List[str] = []):  # pylint: disable=dangerous-d
     return voices
 
 
-def load_npz(npz_file):
+def load_npz(npz_file: str) -> Tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.int64]]:
     x_history = np.load(npz_file)
     semantic = x_history["semantic_prompt"]
     coarse = x_history["coarse_prompt"]
@@ -56,7 +57,11 @@ def load_npz(npz_file):
     return semantic, coarse, fine
 
 
-def load_voice(model, voice: str, extra_voice_dirs: List[str] = []):  # pylint: disable=dangerous-default-value
+def load_voice(
+    model, voice: str, extra_voice_dirs: List[str] = []
+) -> Tuple[
+    Optional[npt.NDArray[np.int64]], Optional[npt.NDArray[np.int64]], Optional[npt.NDArray[np.int64]]
+]:  # pylint: disable=dangerous-default-value
     if voice == "random":
         return None, None, None
 
@@ -107,11 +112,10 @@ def generate_voice(
     model,
     output_path,
 ):
-    """Generate a new voice from a given audio and text prompt.
+    """Generate a new voice from a given audio.
 
     Args:
         audio (np.ndarray): The audio to use as a base for the new voice.
-        text (str): Transcription of the audio you are clonning.
         model (BarkModel): The BarkModel to use for generating the new voice.
         output_path (str): The path to save the generated voice to.
     """
@@ -130,10 +134,9 @@ def generate_voice(
     # generate semantic tokens
     # Load the HuBERT model
     hubert_manager = HubertManager()
-    # hubert_manager.make_sure_hubert_installed(model_path=model.config.LOCAL_MODEL_PATHS["hubert"])
     hubert_manager.make_sure_tokenizer_installed(model_path=model.config.LOCAL_MODEL_PATHS["hubert_tokenizer"])
 
-    hubert_model = CustomHubert(checkpoint_path=model.config.LOCAL_MODEL_PATHS["hubert"]).to(model.device)
+    hubert_model = CustomHubert().to(model.device)
 
     # Load the CustomTokenizer model
     tokenizer = HubertTokenizer.load_from_checkpoint(

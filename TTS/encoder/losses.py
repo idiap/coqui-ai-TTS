@@ -1,6 +1,10 @@
+import logging
+
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+logger = logging.getLogger(__name__)
 
 
 # adapted from https://github.com/cvqluu/GE2E-Loss
@@ -23,7 +27,7 @@ class GE2ELoss(nn.Module):
         self.b = nn.Parameter(torch.tensor(init_b))
         self.loss_method = loss_method
 
-        print(" > Initialized Generalized End-to-End loss")
+        logger.info("Initialized Generalized End-to-End loss")
 
         assert self.loss_method in ["softmax", "contrast"]
 
@@ -139,7 +143,7 @@ class AngleProtoLoss(nn.Module):
         self.b = nn.Parameter(torch.tensor(init_b))
         self.criterion = torch.nn.CrossEntropyLoss()
 
-        print(" > Initialized Angular Prototypical loss")
+        logger.info("Initialized Angular Prototypical loss")
 
     def forward(self, x, _label=None):
         """
@@ -177,7 +181,7 @@ class SoftmaxLoss(nn.Module):
         self.criterion = torch.nn.CrossEntropyLoss()
         self.fc = nn.Linear(embedding_dim, n_speakers)
 
-        print("Initialised Softmax Loss")
+        logger.info("Initialised Softmax Loss")
 
     def forward(self, x, label=None):
         # reshape for compatibility
@@ -212,7 +216,7 @@ class SoftmaxAngleProtoLoss(nn.Module):
         self.softmax = SoftmaxLoss(embedding_dim, n_speakers)
         self.angleproto = AngleProtoLoss(init_w, init_b)
 
-        print("Initialised SoftmaxAnglePrototypical Loss")
+        logger.info("Initialised SoftmaxAnglePrototypical Loss")
 
     def forward(self, x, label=None):
         """

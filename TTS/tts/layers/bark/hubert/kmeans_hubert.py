@@ -7,14 +7,14 @@ License: MIT
 
 # Modified code from https://github.com/lucidrains/audiolm-pytorch/blob/main/audiolm_pytorch/hubert_kmeans.py
 
-import logging
-from pathlib import Path
 
 import torch
 from einops import pack, unpack
 from torch import nn
 from torchaudio.functional import resample
 from transformers import HubertModel
+
+from TTS.utils.generic_utils import exists
 
 
 def round_down_nearest_multiple(num, divisor):
@@ -28,21 +28,13 @@ def curtail_to_multiple(t, mult, from_left=False):
     return t[..., seq_slice]
 
 
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    return val if exists(val) else d
-
-
 class CustomHubert(nn.Module):
     """
     checkpoint and kmeans can be downloaded at https://github.com/facebookresearch/fairseq/tree/main/examples/hubert
     or you can train your own
     """
 
-    def __init__(self, checkpoint_path, target_sample_hz=16000, seq_len_multiple_of=None, output_layer=9, device=None):
+    def __init__(self, target_sample_hz=16000, seq_len_multiple_of=None, output_layer=9, device=None):
         super().__init__()
         self.target_sample_hz = target_sample_hz
         self.seq_len_multiple_of = seq_len_multiple_of

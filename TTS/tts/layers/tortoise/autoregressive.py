@@ -1,13 +1,22 @@
 # AGPL: a notification must be added stating that changes have been made to that file.
 import functools
+import random
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import transformers
+from packaging.version import Version
 from transformers import GPT2Config, GPT2PreTrainedModel, LogitsProcessorList
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, TypicalLogitsWarper
+
+if Version(transformers.__version__) >= Version("4.45"):
+    isin = transformers.pytorch_utils.isin_mps_friendly
+else:
+    isin = torch.isin
 
 
 def null_position_embeddings(range, dim):
@@ -115,7 +124,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         else:
             emb = self.embeddings(input_ids)
             emb = emb + self.text_pos_embedding.get_fixed_embedding(
-                attention_mask.shape[1] - mel_len, attention_mask.device
+                attention_mask.shape[1] - (mel_len + 1), attention_mask.device
             )
 
         transformer_outputs = self.transformer(
@@ -167,44 +176,56 @@ class ConditioningEncoder(nn.Module):
         embedding_dim,
         attn_blocks=6,
         num_attn_heads=4,
-        do_checkpointing=False,
-        mean=False,
+        *,
+        tortoise_norm=False,
     ):
         super().__init__()
         attn = []
         self.init = nn.Conv1d(spec_dim, embedding_dim, kernel_size=1)
         for a in range(attn_blocks):
-            attn.append(AttentionBlock(embedding_dim, num_attn_heads))
+            attn.append(AttentionBlock(embedding_dim, num_attn_heads, tortoise_norm=tortoise_norm))
         self.attn = nn.Sequential(*attn)
         self.dim = embedding_dim
-        self.do_checkpointing = do_checkpointing
-        self.mean = mean
 
     def forward(self, x):
+        """
+        x: (b, 80, s)
+        """
         h = self.init(x)
         h = self.attn(h)
-        if self.mean:
-            return h.mean(dim=2)
-        else:
-            return h[:, :, 0]
+        return h
 
 
 class LearnedPositionEmbeddings(nn.Module):
-    def __init__(self, seq_len, model_dim, init=0.02):
+    def __init__(self, seq_len, model_dim, init=0.02, relative=False):
         super().__init__()
         self.emb = nn.Embedding(seq_len, model_dim)
         # Initializing this way is standard for GPT-2
         self.emb.weight.data.normal_(mean=0.0, std=init)
+        self.relative = relative
+        self.seq_len = seq_len
 
     def forward(self, x):
         sl = x.shape[1]
-        return self.emb(torch.arange(0, sl, device=x.device))
+        if self.relative:
+            start = random.randint(sl, self.seq_len) - sl
+            return self.emb(torch.arange(start, start + sl, device=x.device))
+        else:
+            return self.emb(torch.arange(0, sl, device=x.device))
 
     def get_fixed_embedding(self, ind, dev):
-        return self.emb(torch.arange(0, ind, device=dev))[ind - 1 : ind]
+        return self.emb(torch.tensor([ind], device=dev)).unsqueeze(0)
 
 
-def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text_seq_len, checkpointing):
+def build_hf_gpt_transformer(
+    layers: int,
+    model_dim: int,
+    heads: int,
+    max_mel_seq_len: int,
+    max_text_seq_len: int,
+    checkpointing: bool,
+    max_prompt_len: int = 0,
+):
     """
     GPT-2 implemented by the HuggingFace library.
     """
@@ -212,8 +233,8 @@ def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text
 
     gpt_config = GPT2Config(
         vocab_size=256,  # Unused.
-        n_positions=max_mel_seq_len + max_text_seq_len,
-        n_ctx=max_mel_seq_len + max_text_seq_len,
+        n_positions=max_mel_seq_len + max_text_seq_len + max_prompt_len,
+        n_ctx=max_mel_seq_len + max_text_seq_len + max_prompt_len,
         n_embd=model_dim,
         n_layer=layers,
         n_head=heads,
@@ -226,13 +247,18 @@ def build_hf_gpt_transformer(layers, model_dim, heads, max_mel_seq_len, max_text
     gpt.wpe = functools.partial(null_position_embeddings, dim=model_dim)
     # Built-in token embeddings are unused.
     del gpt.wte
-    return (
-        gpt,
-        LearnedPositionEmbeddings(max_mel_seq_len, model_dim),
-        LearnedPositionEmbeddings(max_text_seq_len, model_dim),
-        None,
-        None,
+
+    mel_pos_emb = (
+        LearnedPositionEmbeddings(max_mel_seq_len, model_dim)
+        if max_mel_seq_len != -1
+        else functools.partial(null_position_embeddings, dim=model_dim)
     )
+    text_pos_emb = (
+        LearnedPositionEmbeddings(max_text_seq_len, model_dim)
+        if max_mel_seq_len != -1
+        else functools.partial(null_position_embeddings, dim=model_dim)
+    )
+    return gpt, mel_pos_emb, text_pos_emb, None, None
 
 
 class MelEncoder(nn.Module):
@@ -326,12 +352,12 @@ class UnifiedVoice(nn.Module):
             self.mel_layer_pos_embedding,
             self.text_layer_pos_embedding,
         ) = build_hf_gpt_transformer(
-            layers,
-            model_dim,
-            heads,
-            self.max_mel_tokens + 2 + self.max_conditioning_inputs,
-            self.max_text_tokens + 2,
-            checkpointing,
+            layers=layers,
+            model_dim=model_dim,
+            heads=heads,
+            max_mel_seq_len=self.max_mel_tokens + 2 + self.max_conditioning_inputs,
+            max_text_seq_len=self.max_text_tokens + 2,
+            checkpointing=checkpointing,
         )
         if train_solo_embeddings:
             self.mel_solo_embedding = nn.Parameter(torch.randn(1, 1, model_dim) * 0.02, requires_grad=True)
@@ -447,7 +473,7 @@ class UnifiedVoice(nn.Module):
         )
         conds = []
         for j in range(speech_conditioning_input.shape[1]):
-            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j]))
+            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j])[:, :, 0])
         conds = torch.stack(conds, dim=1)
         conds = conds.mean(dim=1)
         return conds
@@ -596,6 +622,8 @@ class UnifiedVoice(nn.Module):
         max_length = (
             trunc_index + self.max_mel_tokens - 1 if max_generate_length is None else trunc_index + max_generate_length
         )
+        stop_token_tensor = torch.tensor(self.stop_mel_token, device=inputs.device, dtype=torch.long)
+        attention_mask = _prepare_attention_mask_for_generation(inputs, stop_token_tensor, stop_token_tensor)
         gen = self.inference_model.generate(
             inputs,
             bos_token_id=self.start_mel_token,
@@ -604,9 +632,37 @@ class UnifiedVoice(nn.Module):
             max_length=max_length,
             logits_processor=logits_processor,
             num_return_sequences=num_return_sequences,
+            attention_mask=attention_mask,
             **hf_generate_kwargs,
         )
         return gen[:, trunc_index:]
+
+
+def _prepare_attention_mask_for_generation(
+    inputs: torch.Tensor,
+    pad_token_id: Optional[torch.Tensor],
+    eos_token_id: Optional[torch.Tensor],
+) -> torch.LongTensor:
+    # No information for attention mask inference -> return default attention mask
+    default_attention_mask = torch.ones(inputs.shape[:2], dtype=torch.long, device=inputs.device)
+    if pad_token_id is None:
+        return default_attention_mask
+
+    is_input_ids = len(inputs.shape) == 2 and inputs.dtype in [torch.int, torch.long]
+    if not is_input_ids:
+        return default_attention_mask
+
+    is_pad_token_in_inputs = (pad_token_id is not None) and (isin(elements=inputs, test_elements=pad_token_id).any())
+    is_pad_token_not_equal_to_eos_token_id = (eos_token_id is None) or ~(
+        isin(elements=eos_token_id, test_elements=pad_token_id).any()
+    )
+    can_infer_attention_mask = is_pad_token_in_inputs * is_pad_token_not_equal_to_eos_token_id
+    attention_mask_from_padding = inputs.ne(pad_token_id).long()
+
+    attention_mask = (
+        attention_mask_from_padding * can_infer_attention_mask + default_attention_mask * ~can_infer_attention_mask
+    )
+    return attention_mask
 
 
 if __name__ == "__main__":

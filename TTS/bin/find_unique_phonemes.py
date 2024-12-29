@@ -1,6 +1,9 @@
 """Find all the unique characters in a dataset"""
+
 import argparse
+import logging
 import multiprocessing
+import sys
 from argparse import RawTextHelpFormatter
 
 from tqdm.contrib.concurrent import process_map
@@ -8,15 +11,18 @@ from tqdm.contrib.concurrent import process_map
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.text.phonemizers import Gruut
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
 def compute_phonemes(item):
     text = item["text"]
     ph = phonemizer.phonemize(text).replace("|", "")
-    return set(list(ph))
+    return set(ph)
 
 
 def main():
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     # pylint: disable=W0601
     global c, phonemizer
     # pylint: disable=bad-option-value

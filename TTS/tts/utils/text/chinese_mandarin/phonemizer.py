@@ -1,7 +1,10 @@
 from typing import List
 
-import jieba
-import pypinyin
+try:
+    import jieba
+    import pypinyin
+except ImportError as e:
+    raise ImportError("Chinese requires: jieba, pypinyin") from e
 
 from .pinyinToPhonemes import PINYIN_DICT
 

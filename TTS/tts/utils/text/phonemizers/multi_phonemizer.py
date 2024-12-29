@@ -1,6 +1,9 @@
+import logging
 from typing import Dict, List
 
 from TTS.tts.utils.text.phonemizers import DEF_LANG_TO_PHONEMIZER, get_phonemizer_by_name
+
+logger = logging.getLogger(__name__)
 
 
 class MultiPhonemizer:
@@ -46,8 +49,8 @@ class MultiPhonemizer:
 
     def print_logs(self, level: int = 0):
         indent = "\t" * level
-        print(f"{indent}| > phoneme language: {self.supported_languages()}")
-        print(f"{indent}| > phoneme backend: {self.name()}")
+        logger.info("%s| phoneme language: %s", indent, self.supported_languages())
+        logger.info("%s| phoneme backend: %s", indent, self.name())
 
 
 # if __name__ == "__main__":

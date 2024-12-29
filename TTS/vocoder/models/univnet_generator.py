@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 import numpy as np
@@ -6,6 +7,9 @@ import torch.nn.functional as F
 from torch.nn.utils import parametrize
 
 from TTS.vocoder.layers.lvc_block import LVCBlock
+from TTS.vocoder.models.parallel_wavegan_generator import _get_receptive_field_size
+
+logger = logging.getLogger(__name__)
 
 LRELU_SLOPE = 0.1
 
@@ -113,7 +117,7 @@ class UnivnetGenerator(torch.nn.Module):
 
         def _remove_weight_norm(m):
             try:
-                # print(f"Weight norm is removed from {m}.")
+                logger.info("Weight norm is removed from %s", m)
                 parametrize.remove_parametrizations(m, "weight")
             except ValueError:  # this module didn't have weight norm
                 return
@@ -126,21 +130,14 @@ class UnivnetGenerator(torch.nn.Module):
         def _apply_weight_norm(m):
             if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
                 torch.nn.utils.parametrizations.weight_norm(m)
-                # print(f"Weight norm is applied to {m}.")
+                logger.info("Weight norm is applied to %s", m)
 
         self.apply(_apply_weight_norm)
-
-    @staticmethod
-    def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
-        assert layers % stacks == 0
-        layers_per_cycle = layers // stacks
-        dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
-        return (kernel_size - 1) * sum(dilations) + 1
 
     @property
     def receptive_field_size(self):
         """Return receptive field size."""
-        return self._get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
+        return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
     @torch.no_grad()
     def inference(self, c):

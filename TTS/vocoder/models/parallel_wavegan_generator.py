@@ -1,12 +1,22 @@
+import logging
 import math
 
 import numpy as np
 import torch
 from torch.nn.utils.parametrize import remove_parametrizations
+from trainer.io import load_fsspec
 
-from TTS.utils.io import load_fsspec
 from TTS.vocoder.layers.parallel_wavegan import ResidualBlock
 from TTS.vocoder.layers.upsample import ConvUpsample
+
+logger = logging.getLogger(__name__)
+
+
+def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
+    assert layers % stacks == 0
+    layers_per_cycle = layers // stacks
+    dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
+    return (kernel_size - 1) * sum(dilations) + 1
 
 
 class ParallelWaveganGenerator(torch.nn.Module):
@@ -126,7 +136,7 @@ class ParallelWaveganGenerator(torch.nn.Module):
     def remove_weight_norm(self):
         def _remove_weight_norm(m):
             try:
-                # print(f"Weight norm is removed from {m}.")
+                logger.info("Weight norm is removed from %s", m)
                 remove_parametrizations(m, "weight")
             except ValueError:  # this module didn't have weight norm
                 return
@@ -137,20 +147,13 @@ class ParallelWaveganGenerator(torch.nn.Module):
         def _apply_weight_norm(m):
             if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
                 torch.nn.utils.parametrizations.weight_norm(m)
-                # print(f"Weight norm is applied to {m}.")
+                logger.info("Weight norm is applied to %s", m)
 
         self.apply(_apply_weight_norm)
 
-    @staticmethod
-    def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
-        assert layers % stacks == 0
-        layers_per_cycle = layers // stacks
-        dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
-        return (kernel_size - 1) * sum(dilations) + 1
-
     @property
     def receptive_field_size(self):
-        return self._get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
+        return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
     def load_checkpoint(
         self, config, checkpoint_path, eval=False, cache=False

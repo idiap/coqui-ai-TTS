@@ -229,7 +229,7 @@ class FreeVCConfig(BaseVCConfig):
             If true, language embedding is used. Defaults to `False`.
 
     Note:
-        Check :class:`TTS.tts.configs.shared_configs.BaseTTSConfig` for the inherited parameters.
+        Check :class:`TTS.tts.configs.shared_configs.BaseVCConfig` for the inherited parameters.
 
     Example:
 

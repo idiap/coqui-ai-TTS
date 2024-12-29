@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from TTS.vocoder.models.hifigan_generator import get_padding
+
 LRELU_SLOPE = 0.1
 
 
@@ -29,7 +31,6 @@ class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
         super().__init__()
         self.period = period
-        get_padding = lambda k, d: int((k * d - d) / 2)
         norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.parametrizations.weight_norm
         self.convs = nn.ModuleList(
             [

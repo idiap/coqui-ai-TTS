@@ -1,21 +1,26 @@
 import argparse
 import importlib
+import logging
 import os
+import sys
 from argparse import RawTextHelpFormatter
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from trainer.io import load_checkpoint
 
 from TTS.config import load_config
 from TTS.tts.datasets.TTSDataset import TTSDataset
 from TTS.tts.models import setup_model
 from TTS.tts.utils.text.characters import make_symbols, phonemes, symbols
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.io import load_checkpoint
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     # pylint: disable=bad-option-value
     parser = argparse.ArgumentParser(
         description="""Extract attention masks from trained Tacotron/Tacotron2 models.
@@ -31,7 +36,7 @@ Example run:
         --data_path /root/LJSpeech-1.1/
         --batch_size 32
         --dataset ljspeech
-        --use_cuda True
+        --use_cuda
 """,
         formatter_class=RawTextHelpFormatter,
     )
@@ -58,7 +63,7 @@ Example run:
         help="Dataset metafile inclusing file paths with transcripts.",
     )
     parser.add_argument("--data_path", type=str, default="", help="Defines the data path. It overwrites config.json.")
-    parser.add_argument("--use_cuda", type=bool, default=False, help="enable/disable cuda.")
+    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="enable/disable cuda.")
 
     parser.add_argument(
         "--batch_size", default=16, type=int, help="Batch size for the model. Use batch_size=1 if you have no CUDA."
@@ -70,13 +75,13 @@ Example run:
 
     # if the vocabulary was passed, replace the default
     if "characters" in C.keys():
-        symbols, phonemes = make_symbols(**C.characters)
+        symbols, phonemes = make_symbols(**C.characters)  # noqa: F811
 
     # load the model
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
     # TODO: handle multi-speaker
     model = setup_model(C)
-    model, _ = load_checkpoint(model, args.model_path, args.use_cuda, True)
+    model, _ = load_checkpoint(model, args.model_path, use_cuda=args.use_cuda, eval=True)
 
     # data loader
     preprocessor = importlib.import_module("TTS.tts.datasets.formatters")

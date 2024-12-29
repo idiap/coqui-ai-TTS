@@ -1,3 +1,4 @@
+import logging
 from typing import List, Tuple
 
 import torch
@@ -7,6 +8,8 @@ from tqdm.auto import tqdm
 
 from TTS.tts.layers.tacotron.common_layers import Linear
 from TTS.tts.layers.tacotron.tacotron2 import ConvBNBlock
+
+logger = logging.getLogger(__name__)
 
 
 class Encoder(nn.Module):
@@ -213,8 +216,8 @@ class Outputnet(nn.Module):
         original_tensor = std.clone().detach()
         std = torch.clamp(std, min=self.std_floor)
         if torch.any(original_tensor != std):
-            print(
-                "[*] Standard deviation was floored! The model is preventing overfitting, nothing serious to worry about"
+            logger.info(
+                "Standard deviation was floored! The model is preventing overfitting, nothing serious to worry about"
             )
         return std
 

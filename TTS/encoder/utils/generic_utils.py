@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import random
 
@@ -7,6 +8,8 @@ from scipy import signal
 
 from TTS.encoder.models.lstm import LSTMSpeakerEncoder
 from TTS.encoder.models.resnet import ResNetSpeakerEncoder
+
+logger = logging.getLogger(__name__)
 
 
 class AugmentWAV(object):
@@ -34,12 +37,14 @@ class AugmentWAV(object):
                     # ignore not listed directories
                     if noise_dir not in self.additive_noise_types:
                         continue
-                    if not noise_dir in self.noise_list:
+                    if noise_dir not in self.noise_list:
                         self.noise_list[noise_dir] = []
                     self.noise_list[noise_dir].append(wav_file)
 
-                print(
-                    f" | > Using Additive Noise Augmentation: with {len(additive_files)} audios instances from {self.additive_noise_types}"
+                logger.info(
+                    "Using Additive Noise Augmentation: with %d audios instances from %s",
+                    len(additive_files),
+                    self.additive_noise_types,
                 )
 
         self.use_rir = False
@@ -50,7 +55,7 @@ class AugmentWAV(object):
                 self.rir_files = glob.glob(os.path.join(self.rir_config["rir_path"], "**/*.wav"), recursive=True)
                 self.use_rir = True
 
-            print(f" | > Using RIR Noise Augmentation: with {len(self.rir_files)} audios instances")
+            logger.info("Using RIR Noise Augmentation: with %d audios instances", len(self.rir_files))
 
         self.create_augmentation_global_list()
 

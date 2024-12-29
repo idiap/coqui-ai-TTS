@@ -1,14 +1,9 @@
+from typing import Optional
+
 import numpy as np
 import torch
 from scipy.stats import betabinom
 from torch.nn import functional as F
-
-try:
-    from TTS.tts.utils.monotonic_align.core import maximum_path_c
-
-    CYTHON = True
-except ModuleNotFoundError:
-    CYTHON = False
 
 
 class StandardScaler:
@@ -40,7 +35,7 @@ class StandardScaler:
 
 
 # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
-def sequence_mask(sequence_length, max_len=None):
+def sequence_mask(sequence_length: torch.Tensor, max_len: Optional[int] = None) -> torch.Tensor:
     """Create a sequence mask for filtering padding in a sequence tensor.
 
     Args:
@@ -51,7 +46,7 @@ def sequence_mask(sequence_length, max_len=None):
         - mask: :math:`[B, T_max]`
     """
     if max_len is None:
-        max_len = sequence_length.max()
+        max_len = int(sequence_length.max())
     seq_range = torch.arange(max_len, dtype=sequence_length.dtype, device=sequence_length.device)
     # B x T_max
     return seq_range.unsqueeze(0) < sequence_length.unsqueeze(1)
@@ -145,95 +140,80 @@ def average_over_durations(values, durs):
     return avg
 
 
-def convert_pad_shape(pad_shape):
+def convert_pad_shape(pad_shape: list[list]) -> list:
     l = pad_shape[::-1]
-    pad_shape = [item for sublist in l for item in sublist]
-    return pad_shape
+    return [item for sublist in l for item in sublist]
 
 
-def generate_path(duration, mask):
-    """
+def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Generate alignment path based on the given segment durations.
+
     Shapes:
         - duration: :math:`[B, T_en]`
         - mask: :math:'[B, T_en, T_de]`
         - path: :math:`[B, T_en, T_de]`
     """
     b, t_x, t_y = mask.shape
-    cum_duration = torch.cumsum(duration, 1)
+    cum_duration = torch.cumsum(duration, dim=1)
 
     cum_duration_flat = cum_duration.view(b * t_x)
     path = sequence_mask(cum_duration_flat, t_y).to(mask.dtype)
     path = path.view(b, t_x, t_y)
     path = path - F.pad(path, convert_pad_shape([[0, 0], [1, 0], [0, 0]]))[:, :-1]
-    path = path * mask
-    return path
+    return path * mask
 
 
-def maximum_path(value, mask):
-    if CYTHON:
-        return maximum_path_cython(value, mask)
-    return maximum_path_numpy(value, mask)
+def generate_attention(
+    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: Optional[torch.Tensor] = None
+) -> torch.Tensor:
+    """Generate an attention map from the linear scale durations.
+
+    Args:
+        duration (Tensor): Linear scale durations.
+        x_mask (Tensor): Mask for the input (character) sequence.
+        y_mask (Tensor): Mask for the output (spectrogram) sequence. Compute it from the predicted durations
+            if None. Defaults to None.
+
+    Shapes
+       - duration: :math:`(B, T_{en})`
+       - x_mask: :math:`(B, T_{en})`
+       - y_mask: :math:`(B, T_{de})`
+    """
+    # compute decode mask from the durations
+    if y_mask is None:
+        y_lengths = duration.sum(dim=1).long()
+        y_lengths[y_lengths < 1] = 1
+        y_mask = sequence_mask(y_lengths).unsqueeze(1).to(duration.dtype)
+    attn_mask = x_mask.unsqueeze(-1) * y_mask.unsqueeze(2)
+    return generate_path(duration, attn_mask.squeeze(1)).to(duration.dtype)
 
 
-def maximum_path_cython(value, mask):
-    """Cython optimised version.
+def expand_encoder_outputs(
+    x: torch.Tensor, duration: torch.Tensor, x_mask: torch.Tensor, y_lengths: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Generate attention alignment map from durations and expand encoder outputs.
+
     Shapes:
-        - value: :math:`[B, T_en, T_de]`
-        - mask: :math:`[B, T_en, T_de]`
+        - x: Encoder output :math:`(B, D_{en}, T_{en})`
+        - duration: :math:`(B, T_{en})`
+        - x_mask: :math:`(B, T_{en})`
+        - y_lengths: :math:`(B)`
+
+    Examples::
+
+        encoder output: [a,b,c,d]
+        durations: [1, 3, 2, 1]
+
+        expanded: [a, b, b, b, c, c, d]
+        attention map: [[0, 0, 0, 0, 0, 0, 1],
+                        [0, 0, 0, 0, 1, 1, 0],
+                        [0, 1, 1, 1, 0, 0, 0],
+                        [1, 0, 0, 0, 0, 0, 0]]
     """
-    value = value * mask
-    device = value.device
-    dtype = value.dtype
-    value = value.data.cpu().numpy().astype(np.float32)
-    path = np.zeros_like(value).astype(np.int32)
-    mask = mask.data.cpu().numpy()
-
-    t_x_max = mask.sum(1)[:, 0].astype(np.int32)
-    t_y_max = mask.sum(2)[:, 0].astype(np.int32)
-    maximum_path_c(path, value, t_x_max, t_y_max)
-    return torch.from_numpy(path).to(device=device, dtype=dtype)
-
-
-def maximum_path_numpy(value, mask, max_neg_val=None):
-    """
-    Monotonic alignment search algorithm
-    Numpy-friendly version. It's about 4 times faster than torch version.
-    value: [b, t_x, t_y]
-    mask: [b, t_x, t_y]
-    """
-    if max_neg_val is None:
-        max_neg_val = -np.inf  # Patch for Sphinx complaint
-    value = value * mask
-
-    device = value.device
-    dtype = value.dtype
-    value = value.cpu().detach().numpy()
-    mask = mask.cpu().detach().numpy().astype(bool)
-
-    b, t_x, t_y = value.shape
-    direction = np.zeros(value.shape, dtype=np.int64)
-    v = np.zeros((b, t_x), dtype=np.float32)
-    x_range = np.arange(t_x, dtype=np.float32).reshape(1, -1)
-    for j in range(t_y):
-        v0 = np.pad(v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val)[:, :-1]
-        v1 = v
-        max_mask = v1 >= v0
-        v_max = np.where(max_mask, v1, v0)
-        direction[:, :, j] = max_mask
-
-        index_mask = x_range <= j
-        v = np.where(index_mask, v_max + value[:, :, j], max_neg_val)
-    direction = np.where(mask, direction, 1)
-
-    path = np.zeros(value.shape, dtype=np.float32)
-    index = mask[:, :, 0].sum(1).astype(np.int64) - 1
-    index_range = np.arange(b)
-    for j in reversed(range(t_y)):
-        path[index_range, index, j] = 1
-        index = index + direction[index_range, index, j] - 1
-    path = path * mask.astype(np.float32)
-    path = torch.from_numpy(path).to(device=device, dtype=dtype)
-    return path
+    y_mask = sequence_mask(y_lengths).unsqueeze(1).to(x.dtype)
+    attn = generate_attention(duration, x_mask, y_mask)
+    x_expanded = torch.einsum("kmn, kjm -> kjn", [attn.float(), x])
+    return x_expanded, attn, y_mask
 
 
 def beta_binomial_prior_distribution(phoneme_count, mel_count, scaling_factor=1.0):

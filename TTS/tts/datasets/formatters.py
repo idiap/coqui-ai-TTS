@@ -1,3 +1,5 @@
+import csv
+import logging
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -5,8 +7,9 @@ from glob import glob
 from pathlib import Path
 from typing import List
 
-import pandas as pd
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 ########################
 # DATASETS
@@ -23,32 +26,34 @@ def cml_tts(root_path, meta_file, ignored_speakers=None):
     num_cols = len(lines[0].split("|"))  # take the first row as reference
     for idx, line in enumerate(lines[1:]):
         if len(line.split("|")) != num_cols:
-            print(f" > Missing column in line {idx + 1} -> {line.strip()}")
+            logger.warning("Missing column in line %d -> %s", idx + 1, line.strip())
     # load metadata
-    metadata = pd.read_csv(os.path.join(root_path, meta_file), sep="|")
-    assert all(x in metadata.columns for x in ["wav_filename", "transcript"])
-    client_id = None if "client_id" in metadata.columns else "default"
-    emotion_name = None if "emotion_name" in metadata.columns else "neutral"
+    with open(Path(root_path) / meta_file, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="|")
+        metadata = list(reader)
+    assert all(x in metadata[0] for x in ["wav_filename", "transcript"])
+    client_id = None if "client_id" in metadata[0] else "default"
+    emotion_name = None if "emotion_name" in metadata[0] else "neutral"
     items = []
     not_found_counter = 0
-    for row in metadata.itertuples():
-        if client_id is None and ignored_speakers is not None and row.client_id in ignored_speakers:
+    for row in metadata:
+        if client_id is None and ignored_speakers is not None and row["client_id"] in ignored_speakers:
             continue
-        audio_path = os.path.join(root_path, row.wav_filename)
+        audio_path = os.path.join(root_path, row["wav_filename"])
         if not os.path.exists(audio_path):
             not_found_counter += 1
             continue
         items.append(
             {
-                "text": row.transcript,
+                "text": row["transcript"],
                 "audio_file": audio_path,
-                "speaker_name": client_id if client_id is not None else row.client_id,
-                "emotion_name": emotion_name if emotion_name is not None else row.emotion_name,
+                "speaker_name": client_id if client_id is not None else row["client_id"],
+                "emotion_name": emotion_name if emotion_name is not None else row["emotion_name"],
                 "root_path": root_path,
             }
         )
     if not_found_counter > 0:
-        print(f" | > [!] {not_found_counter} files not found")
+        logger.warning("%d files not found", not_found_counter)
     return items
 
 
@@ -61,32 +66,34 @@ def coqui(root_path, meta_file, ignored_speakers=None):
     num_cols = len(lines[0].split("|"))  # take the first row as reference
     for idx, line in enumerate(lines[1:]):
         if len(line.split("|")) != num_cols:
-            print(f" > Missing column in line {idx + 1} -> {line.strip()}")
+            logger.warning("Missing column in line %d -> %s", idx + 1, line.strip())
     # load metadata
-    metadata = pd.read_csv(os.path.join(root_path, meta_file), sep="|")
-    assert all(x in metadata.columns for x in ["audio_file", "text"])
-    speaker_name = None if "speaker_name" in metadata.columns else "coqui"
-    emotion_name = None if "emotion_name" in metadata.columns else "neutral"
+    with open(Path(root_path) / meta_file, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="|")
+        metadata = list(reader)
+    assert all(x in metadata[0] for x in ["audio_file", "text"])
+    speaker_name = None if "speaker_name" in metadata[0] else "coqui"
+    emotion_name = None if "emotion_name" in metadata[0] else "neutral"
     items = []
     not_found_counter = 0
-    for row in metadata.itertuples():
-        if speaker_name is None and ignored_speakers is not None and row.speaker_name in ignored_speakers:
+    for row in metadata:
+        if speaker_name is None and ignored_speakers is not None and row["speaker_name"] in ignored_speakers:
             continue
-        audio_path = os.path.join(root_path, row.audio_file)
+        audio_path = os.path.join(root_path, row["audio_file"])
         if not os.path.exists(audio_path):
             not_found_counter += 1
             continue
         items.append(
             {
-                "text": row.text,
+                "text": row["text"],
                 "audio_file": audio_path,
-                "speaker_name": speaker_name if speaker_name is not None else row.speaker_name,
-                "emotion_name": emotion_name if emotion_name is not None else row.emotion_name,
+                "speaker_name": speaker_name if speaker_name is not None else row["speaker_name"],
+                "emotion_name": emotion_name if emotion_name is not None else row["emotion_name"],
                 "root_path": root_path,
             }
         )
     if not_found_counter > 0:
-        print(f" | > [!] {not_found_counter} files not found")
+        logger.warning("%d files not found", not_found_counter)
     return items
 
 
@@ -169,7 +176,7 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
         if isinstance(ignored_speakers, list):
             if speaker_name in ignored_speakers:
                 continue
-        print(" | > {}".format(csv_file))
+        logger.info(csv_file)
         with open(txt_file, "r", encoding="utf-8") as ttf:
             for line in ttf:
                 cols = line.split("|")
@@ -184,7 +191,7 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
                     )
                 else:
                     # M-AI-Labs have some missing samples, so just print the warning
-                    print("> File %s does not exist!" % (wav_file))
+                    logger.warning("File %s does not exist!", wav_file)
     return items
 
 
@@ -249,7 +256,7 @@ def sam_accenture(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
         text = item.text
         wav_file = os.path.join(root_path, "vo_voice_quality_transformation", item.get("id") + ".wav")
         if not os.path.exists(wav_file):
-            print(f" [!] {wav_file} in metafile does not exist. Skipping...")
+            logger.warning("%s in metafile does not exist. Skipping...", wav_file)
             continue
         items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
     return items
@@ -370,7 +377,7 @@ def custom_turkish(root_path, meta_file, **kwargs):  # pylint: disable=unused-ar
                 continue
             text = cols[1].strip()
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
-    print(f" [!] {len(skipped_files)} files skipped. They don't exist...")
+    logger.warning("%d files skipped. They don't exist...")
     return items
 
 
@@ -438,7 +445,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
                 {"text": text, "audio_file": wav_file, "speaker_name": "VCTK_" + speaker_id, "root_path": root_path}
             )
         else:
-            print(f" [!] wav files don't exist - {wav_file}")
+            logger.warning("Wav file doesn't exist - %s", wav_file)
     return items
 
 

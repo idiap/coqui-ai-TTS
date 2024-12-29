@@ -1,5 +1,7 @@
 import argparse
+import logging
 import os
+import sys
 from argparse import RawTextHelpFormatter
 
 import torch
@@ -10,6 +12,7 @@ from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.managers import save_file
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
 def compute_embeddings(
@@ -100,6 +103,8 @@ def compute_embeddings(
 
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     parser = argparse.ArgumentParser(
         description="""Compute embedding vectors for each audio file in a dataset and store them keyed by `{dataset_name}#{file_path}` in a .pth file\n\n"""
         """
@@ -146,7 +151,7 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
     )
-    parser.add_argument("--disable_cuda", type=bool, help="Flag to disable cuda.", default=False)
+    parser.add_argument("--disable_cuda", action="store_true", help="Flag to disable cuda.", default=False)
     parser.add_argument("--no_eval", help="Do not compute eval?. Default False", default=False, action="store_true")
     parser.add_argument(
         "--formatter_name",

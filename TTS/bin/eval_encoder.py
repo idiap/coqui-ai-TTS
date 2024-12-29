@@ -1,4 +1,6 @@
 import argparse
+import logging
+import sys
 from argparse import RawTextHelpFormatter
 
 import torch
@@ -7,6 +9,7 @@ from tqdm import tqdm
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
 def compute_encoder_accuracy(dataset_items, encoder_manager):
@@ -51,6 +54,8 @@ def compute_encoder_accuracy(dataset_items, encoder_manager):
 
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     parser = argparse.ArgumentParser(
         description="""Compute the accuracy of the encoder.\n\n"""
         """
@@ -71,8 +76,8 @@ if __name__ == "__main__":
         type=str,
         help="Path to dataset config file.",
     )
-    parser.add_argument("--use_cuda", type=bool, help="flag to set cuda.", default=True)
-    parser.add_argument("--eval", type=bool, help="compute eval.", default=True)
+    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, help="flag to set cuda.", default=True)
+    parser.add_argument("--eval", action=argparse.BooleanOptionalAction, help="compute eval.", default=True)
 
     args = parser.parse_args()
 

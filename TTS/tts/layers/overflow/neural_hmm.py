@@ -128,7 +128,8 @@ class NeuralHMM(nn.Module):
             # Get mean, std and transition vector from decoder for this timestep
             # Note: Gradient checkpointing currently doesn't works with multiple gpus inside a loop
             if self.use_grad_checkpointing and self.training:
-                mean, std, transition_vector = checkpoint(self.output_net, h_memory, inputs)
+                # TODO: use_reentrant=False is recommended
+                mean, std, transition_vector = checkpoint(self.output_net, h_memory, inputs, use_reentrant=True)
             else:
                 mean, std, transition_vector = self.output_net(h_memory, inputs)
 

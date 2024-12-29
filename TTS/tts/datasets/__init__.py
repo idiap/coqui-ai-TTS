@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from collections import Counter
@@ -8,6 +9,8 @@ import numpy as np
 
 from TTS.tts.datasets.dataset import *
 from TTS.tts.datasets.formatters import *
+
+logger = logging.getLogger(__name__)
 
 
 def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
@@ -122,7 +125,7 @@ def load_tts_samples(
 
         meta_data_train = add_extra_keys(meta_data_train, language, dataset_name)
 
-        print(f" | > Found {len(meta_data_train)} files in {Path(root_path).resolve()}")
+        logger.info("Found %d files in %s", len(meta_data_train), Path(root_path).resolve())
         # load evaluation split if set
         if eval_split:
             if meta_file_val:
@@ -163,19 +166,23 @@ def load_attention_mask_meta_data(metafile_path):
 def _get_formatter_by_name(name):
     """Returns the respective preprocessing function."""
     thismodule = sys.modules[__name__]
+    if not hasattr(thismodule, name.lower()):
+        msg = (
+            f"{name} formatter not found. If it is a custom formatter, pass the function to load_tts_samples() instead."
+        )
+        raise ValueError(msg)
     return getattr(thismodule, name.lower())
 
 
-def find_unique_chars(data_samples, verbose=True):
-    texts = "".join(item[0] for item in data_samples)
+def find_unique_chars(data_samples):
+    texts = "".join(item["text"] for item in data_samples)
     chars = set(texts)
     lower_chars = filter(lambda c: c.islower(), chars)
     chars_force_lower = [c.lower() for c in chars]
     chars_force_lower = set(chars_force_lower)
 
-    if verbose:
-        print(f" > Number of unique characters: {len(chars)}")
-        print(f" > Unique characters: {''.join(sorted(chars))}")
-        print(f" > Unique lower characters: {''.join(sorted(lower_chars))}")
-        print(f" > Unique all forced to lower characters: {''.join(sorted(chars_force_lower))}")
+    logger.info("Number of unique characters: %d", len(chars))
+    logger.info("Unique characters: %s", "".join(sorted(chars)))
+    logger.info("Unique lower characters: %s", "".join(sorted(lower_chars)))
+    logger.info("Unique all forced to lower characters: %s", "".join(sorted(chars_force_lower)))
     return chars_force_lower

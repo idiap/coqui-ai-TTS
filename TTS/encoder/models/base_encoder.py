@@ -1,12 +1,16 @@
+import logging
+
 import numpy as np
 import torch
 import torchaudio
 from coqpit import Coqpit
 from torch import nn
+from trainer.generic_utils import set_partial_state_dict
+from trainer.io import load_fsspec
 
 from TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
-from TTS.utils.generic_utils import set_init_dict
-from TTS.utils.io import load_fsspec
+
+logger = logging.getLogger(__name__)
 
 
 class PreEmphasis(nn.Module):
@@ -118,15 +122,15 @@ class BaseEncoder(nn.Module):
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         try:
             self.load_state_dict(state["model"])
-            print(" > Model fully restored. ")
+            logger.info("Model fully restored. ")
         except (KeyError, RuntimeError) as error:
             # If eval raise the error
             if eval:
                 raise error
 
-            print(" > Partial model initialization.")
+            logger.info("Partial model initialization.")
             model_dict = self.state_dict()
-            model_dict = set_init_dict(model_dict, state["model"], c)
+            model_dict = set_partial_state_dict(model_dict, state["model"], config)
             self.load_state_dict(model_dict)
             del model_dict
 
@@ -135,7 +139,7 @@ class BaseEncoder(nn.Module):
             try:
                 criterion.load_state_dict(state["criterion"])
             except (KeyError, RuntimeError) as error:
-                print(" > Criterion load ignored because of:", error)
+                logger.exception("Criterion load ignored because of: %s", error)
 
         # instance and load the criterion for the encoder classifier in inference time
         if (

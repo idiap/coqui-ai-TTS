@@ -1,12 +1,12 @@
-import math
-
 import torch
 from torch import nn
-from transformers import GPT2PreTrainedModel
+from transformers import GenerationMixin, GPT2PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
+from TTS.tts.layers.xtts.stream_generator import StreamGenerationConfig
 
-class GPT2InferenceModel(GPT2PreTrainedModel):
+
+class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
     """Override GPT2LMHeadModel to allow for prefix conditioning."""
 
     def __init__(self, config, gpt, pos_emb, embeddings, norm, linear, kv_cache):
@@ -17,6 +17,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         self.final_norm = norm
         self.lm_head = nn.Sequential(norm, linear)
         self.kv_cache = kv_cache
+        self.generation_config = StreamGenerationConfig.from_model_config(config) if self.can_generate() else None
 
     def store_prefix_emb(self, prefix_emb):
         self.cached_prefix_emb = prefix_emb

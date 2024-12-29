@@ -4,7 +4,6 @@ from typing import Dict, List, Union
 
 import torch
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
@@ -113,12 +112,14 @@ class Tacotron2(BaseTacotron):
                 num_mel=self.decoder_output_dim,
                 encoder_output_dim=self.encoder_in_features,
                 capacitron_VAE_embedding_dim=self.capacitron_vae.capacitron_VAE_embedding_dim,
-                speaker_embedding_dim=self.embedded_speaker_dim
-                if self.capacitron_vae.capacitron_use_speaker_embedding
-                else None,
-                text_summary_embedding_dim=self.capacitron_vae.capacitron_text_summary_embedding_dim
-                if self.capacitron_vae.capacitron_use_text_summary_embeddings
-                else None,
+                speaker_embedding_dim=(
+                    self.embedded_speaker_dim if self.capacitron_vae.capacitron_use_speaker_embedding else None
+                ),
+                text_summary_embedding_dim=(
+                    self.capacitron_vae.capacitron_text_summary_embedding_dim
+                    if self.capacitron_vae.capacitron_use_text_summary_embeddings
+                    else None
+                ),
             )
 
         # backward pass decoder
@@ -191,9 +192,11 @@ class Tacotron2(BaseTacotron):
             encoder_outputs, *capacitron_vae_outputs = self.compute_capacitron_VAE_embedding(
                 encoder_outputs,
                 reference_mel_info=[mel_specs, mel_lengths],
-                text_info=[embedded_inputs.transpose(1, 2), text_lengths]
-                if self.capacitron_vae.capacitron_use_text_summary_embeddings
-                else None,
+                text_info=(
+                    [embedded_inputs.transpose(1, 2), text_lengths]
+                    if self.capacitron_vae.capacitron_use_text_summary_embeddings
+                    else None
+                ),
                 speaker_embedding=embedded_speakers if self.capacitron_vae.capacitron_use_speaker_embedding else None,
             )
         else:
@@ -265,13 +268,13 @@ class Tacotron2(BaseTacotron):
             # B x capacitron_VAE_embedding_dim
             encoder_outputs, *_ = self.compute_capacitron_VAE_embedding(
                 encoder_outputs,
-                reference_mel_info=[aux_input["style_mel"], reference_mel_length]
-                if aux_input["style_mel"] is not None
-                else None,
+                reference_mel_info=(
+                    [aux_input["style_mel"], reference_mel_length] if aux_input["style_mel"] is not None else None
+                ),
                 text_info=[style_text_embedding, style_text_length] if aux_input["style_text"] is not None else None,
-                speaker_embedding=aux_input["d_vectors"]
-                if self.capacitron_vae.capacitron_use_speaker_embedding
-                else None,
+                speaker_embedding=(
+                    aux_input["d_vectors"] if self.capacitron_vae.capacitron_use_speaker_embedding else None
+                ),
             )
 
         if self.num_speakers > 1:
@@ -334,7 +337,7 @@ class Tacotron2(BaseTacotron):
             alignment_lengths = mel_lengths // self.decoder.r
 
         # compute loss
-        with autocast(enabled=False):  # use float32 for the criterion
+        with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
             loss_dict = criterion(
                 outputs["model_outputs"].float(),
                 outputs["decoder_outputs"].float(),

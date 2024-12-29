@@ -20,8 +20,8 @@ If you have a limited VRAM, then you can try using the Guided Attention Loss or 
 
 
 ## Important resources & papers
-- Tacotron: https://arxiv.org/abs/2006.06873
-- Tacotron2: https://arxiv.org/abs/2008.03802
+- Tacotron: [Tacotron: Towards End-to-End Speech Synthesis](https://arxiv.org/abs/1703.10135)
+- Tacotron2: [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884)
 - Double Decoder Consistency: https://coqui.ai/blog/tts/solving-attention-problems-of-tts-models-with-double-decoder-consistency
 - Guided Attention Loss: https://arxiv.org/abs/1710.08969
 - Forward & Backward Decoder: https://arxiv.org/abs/1907.09006
@@ -59,5 +59,3 @@ If you have a limited VRAM, then you can try using the Guided Attention Loss or 
 .. autoclass:: TTS.tts.configs.tacotron2_config.Tacotron2Config
     :members:
 ```
-
-

@@ -1,12 +1,15 @@
 import argparse
 import glob
+import logging
 import multiprocessing
 import os
 import pathlib
+import sys
 
 import torch
 from tqdm import tqdm
 
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 from TTS.utils.vad import get_vad_model_and_utils, remove_silence
 
 torch.set_num_threads(1)
@@ -75,8 +78,10 @@ def preprocess_audios():
 
 
 if __name__ == "__main__":
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
     parser = argparse.ArgumentParser(
-        description="python TTS/bin/remove_silence_using_vad.py -i=VCTK-Corpus/ -o=VCTK-Corpus-removed-silence/ -g=wav48_silence_trimmed/*/*_mic1.flac --trim_just_beginning_and_end True"
+        description="python TTS/bin/remove_silence_using_vad.py -i=VCTK-Corpus/ -o=VCTK-Corpus-removed-silence/ -g=wav48_silence_trimmed/*/*_mic1.flac --trim_just_beginning_and_end"
     )
     parser.add_argument("-i", "--input_dir", type=str, help="Dataset root dir", required=True)
     parser.add_argument("-o", "--output_dir", type=str, help="Output Dataset dir", default="")
@@ -91,20 +96,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--trim_just_beginning_and_end",
-        type=bool,
+        action=argparse.BooleanOptionalAction,
         default=True,
-        help="If True this script will trim just the beginning and end nonspeech parts. If False all nonspeech parts will be trim. Default True",
+        help="If True this script will trim just the beginning and end nonspeech parts. If False all nonspeech parts will be trimmed.",
     )
     parser.add_argument(
         "-c",
         "--use_cuda",
-        type=bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
         help="If True use cuda",
     )
     parser.add_argument(
         "--use_onnx",
-        type=bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
         help="If True use onnx",
     )

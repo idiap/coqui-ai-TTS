@@ -1,3 +1,4 @@
+import logging
 from typing import Dict
 
 import numpy as np
@@ -6,6 +7,8 @@ from matplotlib import pyplot as plt
 
 from TTS.tts.utils.visual import plot_spectrogram
 from TTS.utils.audio import AudioProcessor
+
+logger = logging.getLogger(__name__)
 
 
 def interpolate_vocoder_input(scale_factor, spec):
@@ -20,12 +23,12 @@ def interpolate_vocoder_input(scale_factor, spec):
     Returns:
         torch.tensor: interpolated spectrogram.
     """
-    print(" > before interpolation :", spec.shape)
+    logger.info("Before interpolation: %s", spec.shape)
     spec = torch.tensor(spec).unsqueeze(0).unsqueeze(0)  # pylint: disable=not-callable
     spec = torch.nn.functional.interpolate(
         spec, scale_factor=scale_factor, recompute_scale_factor=True, mode="bilinear", align_corners=False
     ).squeeze(0)
-    print(" > after interpolation :", spec.shape)
+    logger.info("After interpolation: %s", spec.shape)
     return spec
 
 
@@ -40,7 +43,7 @@ def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_
 
     Returns:
         Dict: output figures keyed by the name of the figures.
-    """ """Plot vocoder model results"""
+    """
     if name_prefix is None:
         name_prefix = ""
 

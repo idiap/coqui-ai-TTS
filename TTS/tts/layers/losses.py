@@ -1,3 +1,4 @@
+import logging
 import math
 
 import numpy as np
@@ -9,6 +10,8 @@ from torch.nn import functional
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.ssim import SSIMLoss as _SSIMLoss
 from TTS.utils.audio.torch_transforms import TorchSTFT
+
+logger = logging.getLogger(__name__)
 
 
 # pylint: disable=abstract-method
@@ -132,11 +135,11 @@ class SSIMLoss(torch.nn.Module):
         ssim_loss = self.loss_func((y_norm * mask).unsqueeze(1), (y_hat_norm * mask).unsqueeze(1))
 
         if ssim_loss.item() > 1.0:
-            print(f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 1.0")
+            logger.info("SSIM loss is out-of-range (%.2f), setting it to 1.0", ssim_loss.item())
             ssim_loss = torch.tensor(1.0, device=ssim_loss.device)
 
         if ssim_loss.item() < 0.0:
-            print(f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 0.0")
+            logger.info("SSIM loss is out-of-range (%.2f), setting it to 0.0", ssim_loss.item())
             ssim_loss = torch.tensor(0.0, device=ssim_loss.device)
 
         return ssim_loss
@@ -252,7 +255,7 @@ class GuidedAttentionLoss(torch.nn.Module):
 
     @staticmethod
     def _make_ga_mask(ilen, olen, sigma):
-        grid_x, grid_y = torch.meshgrid(torch.arange(olen).to(olen), torch.arange(ilen).to(ilen))
+        grid_x, grid_y = torch.meshgrid(torch.arange(olen).to(olen), torch.arange(ilen).to(ilen), indexing="ij")
         grid_x, grid_y = grid_x.float(), grid_y.float()
         return 1.0 - torch.exp(-((grid_y / ilen - grid_x / olen) ** 2) / (2 * (sigma**2)))
 
@@ -304,6 +307,24 @@ class ForwardSumLoss(nn.Module):
 
         total_loss = total_loss / attn_logprob.shape[0]
         return total_loss
+
+
+class NLLLoss(nn.Module):
+    """Negative log likelihood loss."""
+
+    def forward(self, log_prob: torch.Tensor) -> dict:  # pylint: disable=no-self-use
+        """Compute the loss.
+
+        Args:
+            logits (Tensor): [B, T, D]
+
+        Returns:
+            Tensor: [1]
+
+        """
+        return_dict = {}
+        return_dict["loss"] = -log_prob.mean()
+        return return_dict
 
 
 ########################
@@ -616,6 +637,28 @@ class AlignTTSLoss(nn.Module):
         return {"loss": loss, "loss_l1": spec_loss, "loss_ssim": ssim_loss, "loss_dur": dur_loss, "mdn_loss": mdn_loss}
 
 
+def feature_loss(feats_real, feats_generated):
+    loss = 0
+    for dr, dg in zip(feats_real, feats_generated):
+        for rl, gl in zip(dr, dg):
+            rl = rl.float().detach()
+            gl = gl.float()
+            loss += torch.mean(torch.abs(rl - gl))
+    return loss * 2
+
+
+def generator_loss(scores_fake):
+    loss = 0
+    gen_losses = []
+    for dg in scores_fake:
+        dg = dg.float()
+        l = torch.mean((1 - dg) ** 2)
+        gen_losses.append(l)
+        loss += l
+
+    return loss, gen_losses
+
+
 class VitsGeneratorLoss(nn.Module):
     def __init__(self, c: Coqpit):
         super().__init__()
@@ -636,28 +679,6 @@ class VitsGeneratorLoss(nn.Module):
             use_mel=True,
             do_amp_to_db=True,
         )
-
-    @staticmethod
-    def feature_loss(feats_real, feats_generated):
-        loss = 0
-        for dr, dg in zip(feats_real, feats_generated):
-            for rl, gl in zip(dr, dg):
-                rl = rl.float().detach()
-                gl = gl.float()
-                loss += torch.mean(torch.abs(rl - gl))
-        return loss * 2
-
-    @staticmethod
-    def generator_loss(scores_fake):
-        loss = 0
-        gen_losses = []
-        for dg in scores_fake:
-            dg = dg.float()
-            l = torch.mean((1 - dg) ** 2)
-            gen_losses.append(l)
-            loss += l
-
-        return loss, gen_losses
 
     @staticmethod
     def kl_loss(z_p, logs_q, m_p, logs_p, z_mask):
@@ -719,10 +740,8 @@ class VitsGeneratorLoss(nn.Module):
             self.kl_loss(z_p=z_p, logs_q=logs_q, m_p=m_p, logs_p=logs_p, z_mask=z_mask.unsqueeze(1))
             * self.kl_loss_alpha
         )
-        loss_feat = (
-            self.feature_loss(feats_real=feats_disc_real, feats_generated=feats_disc_fake) * self.feat_loss_alpha
-        )
-        loss_gen = self.generator_loss(scores_fake=scores_disc_fake)[0] * self.gen_loss_alpha
+        loss_feat = feature_loss(feats_real=feats_disc_real, feats_generated=feats_disc_fake) * self.feat_loss_alpha
+        loss_gen = generator_loss(scores_fake=scores_disc_fake)[0] * self.gen_loss_alpha
         loss_mel = torch.nn.functional.l1_loss(mel_slice, mel_slice_hat) * self.mel_loss_alpha
         loss_duration = torch.sum(loss_duration.float()) * self.dur_loss_alpha
         loss = loss_kl + loss_feat + loss_mel + loss_gen + loss_duration
@@ -776,6 +795,15 @@ class VitsDiscriminatorLoss(nn.Module):
         return return_dict
 
 
+def _binary_alignment_loss(alignment_hard, alignment_soft):
+    """Binary loss that forces soft alignments to match the hard alignments.
+
+    Explained in `https://arxiv.org/pdf/2108.10447.pdf`.
+    """
+    log_sum = torch.log(torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)).sum()
+    return -log_sum / alignment_hard.sum()
+
+
 class ForwardTTSLoss(nn.Module):
     """Generic configurable ForwardTTS loss."""
 
@@ -816,14 +844,6 @@ class ForwardTTSLoss(nn.Module):
         self.spec_loss_alpha = c.spec_loss_alpha
         self.dur_loss_alpha = c.dur_loss_alpha
         self.binary_alignment_loss_alpha = c.binary_align_loss_alpha
-
-    @staticmethod
-    def _binary_alignment_loss(alignment_hard, alignment_soft):
-        """Binary loss that forces soft alignments to match the hard alignments as
-        explained in `https://arxiv.org/pdf/2108.10447.pdf`.
-        """
-        log_sum = torch.log(torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)).sum()
-        return -log_sum / alignment_hard.sum()
 
     def forward(
         self,
@@ -876,7 +896,7 @@ class ForwardTTSLoss(nn.Module):
             return_dict["loss_aligner"] = self.aligner_loss_alpha * aligner_loss
 
         if self.binary_alignment_loss_alpha > 0 and alignment_hard is not None:
-            binary_alignment_loss = self._binary_alignment_loss(alignment_hard, alignment_soft)
+            binary_alignment_loss = _binary_alignment_loss(alignment_hard, alignment_soft)
             loss = loss + self.binary_alignment_loss_alpha * binary_alignment_loss
             if binary_loss_weight:
                 return_dict["loss_binary_alignment"] = (

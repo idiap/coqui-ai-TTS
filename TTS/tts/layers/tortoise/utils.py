@@ -1,7 +1,10 @@
+import logging
 import os
 from urllib import request
 
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODELS_DIR = os.path.join(os.path.expanduser("~"), ".cache", "tortoise", "models")
 MODELS_DIR = os.environ.get("TORTOISE_MODELS_DIR", DEFAULT_MODELS_DIR)
@@ -28,10 +31,10 @@ def download_models(specific_models=None):
         model_path = os.path.join(MODELS_DIR, model_name)
         if os.path.exists(model_path):
             continue
-        print(f"Downloading {model_name} from {url}...")
+        logger.info("Downloading %s from %s...", model_name, url)
         with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1) as t:
             request.urlretrieve(url, model_path, lambda nb, bs, fs, t=t: t.update(nb * bs - t.n))
-        print("Done.")
+        logger.info("Done.")
 
 
 def get_model_path(model_name, models_dir=MODELS_DIR):

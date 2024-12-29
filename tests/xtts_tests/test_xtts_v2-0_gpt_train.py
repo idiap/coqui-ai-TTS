@@ -8,7 +8,8 @@ from tests import get_tests_output_path
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.layers.xtts.dvae import DiscreteVAE
-from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig, XttsAudioConfig
+from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
+from TTS.tts.models.xtts import XttsAudioConfig
 
 config_dataset = BaseDatasetConfig(
     formatter="ljspeech",

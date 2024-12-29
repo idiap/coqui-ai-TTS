@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Tuple, Union
 
 import librosa
@@ -5,22 +6,25 @@ import numpy as np
 import torch
 from coqpit import Coqpit
 from torch import nn
-from torch.nn import Conv1d, Conv2d, ConvTranspose1d
+from torch.nn import Conv1d, ConvTranspose1d
 from torch.nn import functional as F
-from torch.nn.utils import spectral_norm
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
+from trainer.io import load_fsspec
 
-import TTS.vc.modules.freevc.commons as commons
-import TTS.vc.modules.freevc.modules as modules
+import TTS.vc.layers.freevc.modules as modules
+from TTS.tts.layers.vits.discriminator import DiscriminatorS
+from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.utils.io import load_fsspec
 from TTS.vc.configs.freevc_config import FreeVCConfig
+from TTS.vc.layers.freevc.commons import init_weights, rand_slice_segments
+from TTS.vc.layers.freevc.mel_processing import mel_spectrogram_torch
+from TTS.vc.layers.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx
+from TTS.vc.layers.freevc.wavlm import get_wavlm
 from TTS.vc.models.base_vc import BaseVC
-from TTS.vc.modules.freevc.commons import get_padding, init_weights
-from TTS.vc.modules.freevc.mel_processing import mel_spectrogram_torch
-from TTS.vc.modules.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx
-from TTS.vc.modules.freevc.wavlm import get_wavlm
+from TTS.vocoder.models.hifigan_discriminator import DiscriminatorP
+
+logger = logging.getLogger(__name__)
 
 
 class ResidualCouplingBlock(nn.Module):
@@ -77,7 +81,7 @@ class Encoder(nn.Module):
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
     def forward(self, x, x_lengths, g=None):
-        x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
+        x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
         x = self.pre(x) * x_mask
         x = self.enc(x, x_mask, g=g)
         stats = self.proj(x) * x_mask
@@ -152,80 +156,11 @@ class Generator(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        print("Removing weight norm...")
+        logger.info("Removing weight norm...")
         for l in self.ups:
             remove_parametrizations(l, "weight")
         for l in self.resblocks:
             remove_parametrizations(l, "weight")
-
-
-class DiscriminatorP(torch.nn.Module):
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
-        super(DiscriminatorP, self).__init__()
-        self.period = period
-        self.use_spectral_norm = use_spectral_norm
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
-        self.convs = nn.ModuleList(
-            [
-                norm_f(Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(get_padding(kernel_size, 1), 0))),
-            ]
-        )
-        self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
-
-    def forward(self, x):
-        fmap = []
-
-        # 1d to 2d
-        b, c, t = x.shape
-        if t % self.period != 0:  # pad first
-            n_pad = self.period - (t % self.period)
-            x = F.pad(x, (0, n_pad), "reflect")
-            t = t + n_pad
-        x = x.view(b, c, t // self.period, self.period)
-
-        for l in self.convs:
-            x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
-            fmap.append(x)
-        x = self.conv_post(x)
-        fmap.append(x)
-        x = torch.flatten(x, 1, -1)
-
-        return x, fmap
-
-
-class DiscriminatorS(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
-        super(DiscriminatorS, self).__init__()
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
-        self.convs = nn.ModuleList(
-            [
-                norm_f(Conv1d(1, 16, 15, 1, padding=7)),
-                norm_f(Conv1d(16, 64, 41, 4, groups=4, padding=20)),
-                norm_f(Conv1d(64, 256, 41, 4, groups=16, padding=20)),
-                norm_f(Conv1d(256, 1024, 41, 4, groups=64, padding=20)),
-                norm_f(Conv1d(1024, 1024, 41, 4, groups=256, padding=20)),
-                norm_f(Conv1d(1024, 1024, 5, 1, padding=2)),
-            ]
-        )
-        self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
-
-    def forward(self, x):
-        fmap = []
-
-        for l in self.convs:
-            x = l(x)
-            x = F.leaky_relu(x, modules.LRELU_SLOPE)
-            fmap.append(x)
-        x = self.conv_post(x)
-        fmap.append(x)
-        x = torch.flatten(x, 1, -1)
-
-        return x, fmap
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
@@ -377,9 +312,9 @@ class FreeVC(BaseVC):
 
     def load_pretrained_speaker_encoder(self):
         """Load pretrained speaker encoder model as mentioned in the paper."""
-        print(" > Loading pretrained speaker encoder model ...")
+        logger.info("Loading pretrained speaker encoder model ...")
         self.enc_spk_ex = SpeakerEncoderEx(
-            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt"
+            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt", device=self.device
         )
 
     def init_multispeaker(self, config: Coqpit):
@@ -449,7 +384,7 @@ class FreeVC(BaseVC):
         z_p = self.flow(z, spec_mask, g=g)
 
         # Randomly slice z and compute o using dec
-        z_slice, ids_slice = commons.rand_slice_segments(z, spec_lengths, self.segment_size)
+        z_slice, ids_slice = rand_slice_segments(z, spec_lengths, self.segment_size)
         o = self.dec(z_slice, g=g)
 
         return o, ids_slice, spec_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
@@ -468,7 +403,7 @@ class FreeVC(BaseVC):
         Returns:
             torch.Tensor: Output tensor.
         """
-        if c_lengths == None:
+        if c_lengths is None:
             c_lengths = (torch.ones(c.size(0)) * c.size(-1)).to(c.device)
         if not self.use_spk:
             g = self.enc_spk.embed_utterance(mel)
@@ -544,11 +479,10 @@ class FreeVC(BaseVC):
         audio = audio[0][0].data.cpu().float().numpy()
         return audio
 
-    def eval_step():
-        ...
+    def eval_step(): ...
 
     @staticmethod
-    def init_from_config(config: FreeVCConfig, samples: Union[List[List], List[Dict]] = None, verbose=True):
+    def init_from_config(config: FreeVCConfig, samples: Union[List[List], List[Dict]] = None):
         model = FreeVC(config)
         return model
 
@@ -558,5 +492,4 @@ class FreeVC(BaseVC):
         if eval:
             self.eval()
 
-    def train_step():
-        ...
+    def train_step(): ...

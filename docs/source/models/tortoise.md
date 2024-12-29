@@ -57,14 +57,12 @@ tts --model_name  tts_models/en/multi-dataset/tortoise-v2 \
 --text "This is an example." \
 --out_path "output.wav" \
 --voice_dir path/to/tortoise/voices/dir/ \
---speaker_idx "lj" \
---progress_bar True
+--speaker_idx "lj"
 
 # Random voice generation
 tts --model_name  tts_models/en/multi-dataset/tortoise-v2 \
 --text "This is an example." \
---out_path "output.wav" \
---progress_bar True
+--out_path "output.wav"
 ```
 
 

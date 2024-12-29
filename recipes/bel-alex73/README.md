@@ -39,7 +39,7 @@ Docker container was created for simplify local running. You can run `docker-pre
 
 ## Training - with GPU
 
-You need to upload Coqui-TTS(/mycomputer/TTS/) and storage/ directory(/mycomputer/storage/) to some computer with GPU. We don't need cv-corpus/ and fanetyka/ directories for training. Install gcc, then run `pip install -e .[all,dev,notebooks]` to prepare modules. GlowTTS and HifiGan models should be learned separately based on /storage/filtered_dataset only, i.e. they are not dependent from each other. <devices> below means list of GPU ids from zero("0,1,2,3" for systems with 4 GPU). See details on the https://tts.readthedocs.io/en/latest/tutorial_for_nervous_beginners.html(multi-gpu training).
+You need to upload Coqui-TTS(/mycomputer/TTS/) and storage/ directory(/mycomputer/storage/) to some computer with GPU. We don't need cv-corpus/ and fanetyka/ directories for training. Install gcc, then run `pip install -e .[all,dev,notebooks]` to prepare modules. GlowTTS and HifiGan models should be learned separately based on /storage/filtered_dataset only, i.e. they are not dependent from each other. <devices> below means list of GPU ids from zero("0,1,2,3" for systems with 4 GPU). See details on the https://coqui-tts.readthedocs.io/en/latest/tutorial_for_nervous_beginners.html (multi-gpu training).
 
 Current setup created for 24GiB GPU. You need to change batch_size if you have more or less GPU memory. Also, you can try to set lr(learning rate) to lower value in the end of training GlowTTS.
 

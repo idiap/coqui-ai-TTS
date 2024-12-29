@@ -9,9 +9,9 @@ from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer.io import load_fsspec
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
-from TTS.utils.io import load_fsspec
 from TTS.vocoder.datasets import WaveGradDataset
 from TTS.vocoder.layers.wavegrad import Conv1d, DBlock, FiLM, UBlock
 from TTS.vocoder.models.base_vocoder import BaseVocoder
@@ -321,7 +321,6 @@ class Wavegrad(BaseVocoder):
             return_segments=True,
             use_noise_augment=False,
             use_cache=config.use_cache,
-            verbose=verbose,
         )
         sampler = DistributedSampler(dataset) if num_gpus > 1 else None
         loader = DataLoader(

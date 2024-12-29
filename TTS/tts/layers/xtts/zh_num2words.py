@@ -4,13 +4,14 @@
 
 import argparse
 import csv
-import os
+import logging
 import re
 import string
 import sys
 
-# fmt: off
+logger = logging.getLogger(__name__)
 
+# fmt: off
 # ================================================================================ #
 #                                    basic constant
 # ================================================================================ #
@@ -491,8 +492,6 @@ class NumberSystem(object):
     中文数字系统
     """
 
-    pass
-
 
 class MathSymbol(object):
     """
@@ -927,12 +926,13 @@ class Percentage:
 
 def normalize_nsw(raw_text):
     text = "^" + raw_text + "$"
+    logger.debug(text)
 
     # 规范化日期
     pattern = re.compile(r"\D+((([089]\d|(19|20)\d{2})年)?(\d{1,2}月(\d{1,2}[日号])?)?)")
     matchers = pattern.findall(text)
     if matchers:
-        # print('date')
+        logger.debug("date")
         for matcher in matchers:
             text = text.replace(matcher[0], Date(date=matcher[0]).date2chntext(), 1)
 
@@ -940,7 +940,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"\D+((\d+(\.\d+)?)[多余几]?" + CURRENCY_UNITS + r"(\d" + CURRENCY_UNITS + r"?)?)")
     matchers = pattern.findall(text)
     if matchers:
-        # print('money')
+        logger.debug("money")
         for matcher in matchers:
             text = text.replace(matcher[0], Money(money=matcher[0]).money2chntext(), 1)
 
@@ -953,14 +953,14 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"\D((\+?86 ?)?1([38]\d|5[0-35-9]|7[678]|9[89])\d{8})\D")
     matchers = pattern.findall(text)
     if matchers:
-        # print('telephone')
+        logger.debug("telephone")
         for matcher in matchers:
             text = text.replace(matcher[0], TelePhone(telephone=matcher[0]).telephone2chntext(), 1)
     # 固话
     pattern = re.compile(r"\D((0(10|2[1-3]|[3-9]\d{2})-?)?[1-9]\d{6,7})\D")
     matchers = pattern.findall(text)
     if matchers:
-        # print('fixed telephone')
+        logger.debug("fixed telephone")
         for matcher in matchers:
             text = text.replace(matcher[0], TelePhone(telephone=matcher[0]).telephone2chntext(fixed=True), 1)
 
@@ -968,7 +968,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(\d+/\d+)")
     matchers = pattern.findall(text)
     if matchers:
-        # print('fraction')
+        logger.debug("fraction")
         for matcher in matchers:
             text = text.replace(matcher, Fraction(fraction=matcher).fraction2chntext(), 1)
 
@@ -977,7 +977,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(\d+(\.\d+)?%)")
     matchers = pattern.findall(text)
     if matchers:
-        # print('percentage')
+        logger.debug("percentage")
         for matcher in matchers:
             text = text.replace(matcher[0], Percentage(percentage=matcher[0]).percentage2chntext(), 1)
 
@@ -985,7 +985,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(\d+(\.\d+)?)[多余几]?" + COM_QUANTIFIERS)
     matchers = pattern.findall(text)
     if matchers:
-        # print('cardinal+quantifier')
+        logger.debug("cardinal+quantifier")
         for matcher in matchers:
             text = text.replace(matcher[0], Cardinal(cardinal=matcher[0]).cardinal2chntext(), 1)
 
@@ -993,7 +993,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(\d{4,32})")
     matchers = pattern.findall(text)
     if matchers:
-        # print('digit')
+        logger.debug("digit")
         for matcher in matchers:
             text = text.replace(matcher, Digit(digit=matcher).digit2chntext(), 1)
 
@@ -1001,7 +1001,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(\d+(\.\d+)?)")
     matchers = pattern.findall(text)
     if matchers:
-        # print('cardinal')
+        logger.debug("cardinal")
         for matcher in matchers:
             text = text.replace(matcher[0], Cardinal(cardinal=matcher[0]).cardinal2chntext(), 1)
 
@@ -1009,7 +1009,7 @@ def normalize_nsw(raw_text):
     pattern = re.compile(r"(([a-zA-Z]+)二([a-zA-Z]+))")
     matchers = pattern.findall(text)
     if matchers:
-        # print('particular')
+        logger.debug("particular")
         for matcher in matchers:
             text = text.replace(matcher[0], matcher[1] + "2" + matcher[2], 1)
 
@@ -1107,7 +1107,7 @@ class TextNorm:
         if self.check_chars:
             for c in text:
                 if not IN_VALID_CHARS.get(c):
-                    print(f"WARNING: illegal char {c} in: {text}", file=sys.stderr)
+                    logger.warning("Illegal char %s in: %s", c, text)
                     return ""
 
         if self.remove_space:

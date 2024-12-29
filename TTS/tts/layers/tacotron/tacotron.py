@@ -1,11 +1,15 @@
 # coding: utf-8
 # adapted from https://github.com/r9y9/tacotron_pytorch
 
+import logging
+
 import torch
 from torch import nn
 
 from .attentions import init_attn
 from .common_layers import Prenet
+
+logger = logging.getLogger(__name__)
 
 
 class BatchNormConv1d(nn.Module):
@@ -480,7 +484,7 @@ class Decoder(nn.Module):
             if t > inputs.shape[1] / 4 and (stop_token > 0.6 or attention[:, -1].item() > 0.6):
                 break
             if t > self.max_decoder_steps:
-                print("   | > Decoder stopped with 'max_decoder_steps")
+                logger.info("Decoder stopped with `max_decoder_steps` %d", self.max_decoder_steps)
                 break
         return self._parse_outputs(outputs, attentions, stop_tokens)
 

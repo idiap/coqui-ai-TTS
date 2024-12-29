@@ -1,9 +1,13 @@
+import logging
+
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 from .attentions import init_attn
 from .common_layers import Linear, Prenet
+
+logger = logging.getLogger(__name__)
 
 
 # pylint: disable=no-value-for-parameter
@@ -356,7 +360,7 @@ class Decoder(nn.Module):
             if stop_token > self.stop_threshold and t > inputs.shape[0] // 2:
                 break
             if len(outputs) == self.max_decoder_steps:
-                print(f"   > Decoder stopped with `max_decoder_steps` {self.max_decoder_steps}")
+                logger.info("Decoder stopped with `max_decoder_steps` %d", self.max_decoder_steps)
                 break
 
             memory = self._update_memory(decoder_output)
@@ -389,7 +393,7 @@ class Decoder(nn.Module):
             if stop_token > 0.7:
                 break
             if len(outputs) == self.max_decoder_steps:
-                print("   | > Decoder stopped with 'max_decoder_steps")
+                logger.info("Decoder stopped with `max_decoder_steps` %d", self.max_decoder_steps)
                 break
 
             self.memory_truncated = decoder_output

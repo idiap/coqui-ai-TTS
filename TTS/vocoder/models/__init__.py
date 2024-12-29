@@ -1,12 +1,12 @@
 import importlib
+import logging
 import re
 
 from coqpit import Coqpit
 
+from TTS.utils.generic_utils import to_camel
 
-def to_camel(text):
-    text = text.capitalize()
-    return re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
+logger = logging.getLogger(__name__)
 
 
 def setup_model(config: Coqpit):
@@ -27,13 +27,13 @@ def setup_model(config: Coqpit):
                 MyModel = getattr(MyModel, to_camel(config.model))
             except ModuleNotFoundError as e:
                 raise ValueError(f"Model {config.model} not exist!") from e
-    print(" > Vocoder Model: {}".format(config.model))
+    logger.info("Vocoder model: %s", config.model)
     return MyModel.init_from_config(config)
 
 
 def setup_generator(c):
     """TODO: use config object as arguments"""
-    print(" > Generator Model: {}".format(c.generator_model))
+    logger.info("Generator model: %s", c.generator_model)
     MyModel = importlib.import_module("TTS.vocoder.models." + c.generator_model.lower())
     MyModel = getattr(MyModel, to_camel(c.generator_model))
     # this is to preserve the Wavernn class name (instead of Wavernn)
@@ -96,7 +96,7 @@ def setup_generator(c):
 
 def setup_discriminator(c):
     """TODO: use config objekt as arguments"""
-    print(" > Discriminator Model: {}".format(c.discriminator_model))
+    logger.info("Discriminator model: %s", c.discriminator_model)
     if "parallel_wavegan" in c.discriminator_model:
         MyModel = importlib.import_module("TTS.vocoder.models.parallel_wavegan_discriminator")
     else:

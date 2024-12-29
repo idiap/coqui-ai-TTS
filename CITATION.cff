@@ -10,8 +10,8 @@ authors:
 version: 1.4
 doi: 10.5281/zenodo.6334862
 license: "MPL-2.0"
-url: "https://www.coqui.ai"
-repository-code: "https://github.com/coqui-ai/TTS"
+url: "https://github.com/idiap/coqui-ai-TTS"
+repository-code: "https://github.com/idiap/coqui-ai-TTS"
 keywords:
   - machine learning
   - deep learning

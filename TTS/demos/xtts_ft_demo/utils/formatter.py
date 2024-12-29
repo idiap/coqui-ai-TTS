@@ -1,22 +1,16 @@
-import os
 import gc
-import torchaudio
+import os
+
 import pandas
-from faster_whisper import WhisperModel
-from glob import glob
-
-from tqdm import tqdm
-
 import torch
 import torchaudio
-# torch.set_num_threads(1)
+from faster_whisper import WhisperModel
+from tqdm import tqdm
 
+# torch.set_num_threads(1)
 from TTS.tts.layers.xtts.tokenizer import multilingual_cleaners
 
 torch.set_num_threads(16)
-
-
-import os
 
 audio_types = (".wav", ".mp3", ".flac")
 
@@ -25,9 +19,10 @@ def list_audios(basePath, contains=None):
     # return the set of files that are valid
     return list_files(basePath, validExts=audio_types, contains=contains)
 
+
 def list_files(basePath, validExts=None, contains=None):
     # loop over the directory structure
-    for (rootDir, dirNames, filenames) in os.walk(basePath):
+    for rootDir, dirNames, filenames in os.walk(basePath):
         # loop over the filenames in the current directory
         for filename in filenames:
             # if the contains string is not none and the filename does not contain
@@ -36,7 +31,7 @@ def list_files(basePath, validExts=None, contains=None):
                 continue
 
             # determine the file extension of the current file
-            ext = filename[filename.rfind("."):].lower()
+            ext = filename[filename.rfind(".") :].lower()
 
             # check to see if the file is an audio and should be processed
             if validExts is None or ext.endswith(validExts):
@@ -44,13 +39,22 @@ def list_files(basePath, validExts=None, contains=None):
                 audioPath = os.path.join(rootDir, filename)
                 yield audioPath
 
-def format_audio_list(audio_files, target_language="en", out_path=None, buffer=0.2, eval_percentage=0.15, speaker_name="coqui", gradio_progress=None):
+
+def format_audio_list(
+    audio_files,
+    target_language="en",
+    out_path=None,
+    buffer=0.2,
+    eval_percentage=0.15,
+    speaker_name="coqui",
+    gradio_progress=None,
+):
     audio_total_size = 0
     # make sure that ooutput file exists
     os.makedirs(out_path, exist_ok=True)
 
     # Loading Whisper
-    device = "cuda" if torch.cuda.is_available() else "cpu" 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print("Loading Whisper Model!")
     asr_model = WhisperModel("large-v2", device=device, compute_type="float16")
@@ -69,7 +73,7 @@ def format_audio_list(audio_files, target_language="en", out_path=None, buffer=0
             wav = torch.mean(wav, dim=0, keepdim=True)
 
         wav = wav.squeeze()
-        audio_total_size += (wav.size(-1) / sr)
+        audio_total_size += wav.size(-1) / sr
 
         segments, _ = asr_model.transcribe(audio_path, word_timestamps=True, language=target_language)
         segments = list(segments)
@@ -94,7 +98,7 @@ def format_audio_list(audio_files, target_language="en", out_path=None, buffer=0
                     # get previous sentence end
                     previous_word_end = words_list[word_idx - 1].end
                     # add buffer or get the silence midle between the previous sentence and the current one
-                    sentence_start = max(sentence_start - buffer, (previous_word_end + sentence_start)/2)
+                    sentence_start = max(sentence_start - buffer, (previous_word_end + sentence_start) / 2)
 
                 sentence = word.word
                 first_word = False
@@ -118,19 +122,16 @@ def format_audio_list(audio_files, target_language="en", out_path=None, buffer=0
 
                 # Average the current word end and next word start
                 word_end = min((word.end + next_word_start) / 2, word.end + buffer)
-                
+
                 absoulte_path = os.path.join(out_path, audio_file)
                 os.makedirs(os.path.dirname(absoulte_path), exist_ok=True)
                 i += 1
                 first_word = True
 
-                audio = wav[int(sr*sentence_start):int(sr*word_end)].unsqueeze(0)
+                audio = wav[int(sr * sentence_start) : int(sr * word_end)].unsqueeze(0)
                 # if the audio is too short ignore it (i.e < 0.33 seconds)
-                if audio.size(-1) >= sr/3:
-                    torchaudio.save(absoulte_path,
-                        audio,
-                        sr
-                    )
+                if audio.size(-1) >= sr / 3:
+                    torchaudio.save(absoulte_path, audio, sr)
                 else:
                     continue
 
@@ -140,17 +141,17 @@ def format_audio_list(audio_files, target_language="en", out_path=None, buffer=0
 
     df = pandas.DataFrame(metadata)
     df = df.sample(frac=1)
-    num_val_samples = int(len(df)*eval_percentage)
+    num_val_samples = int(len(df) * eval_percentage)
 
     df_eval = df[:num_val_samples]
     df_train = df[num_val_samples:]
 
-    df_train = df_train.sort_values('audio_file')
+    df_train = df_train.sort_values("audio_file")
     train_metadata_path = os.path.join(out_path, "metadata_train.csv")
     df_train.to_csv(train_metadata_path, sep="|", index=False)
 
     eval_metadata_path = os.path.join(out_path, "metadata_eval.csv")
-    df_eval = df_eval.sort_values('audio_file')
+    df_eval = df_eval.sort_values("audio_file")
     df_eval.to_csv(eval_metadata_path, sep="|", index=False)
 
     # deallocate VRAM and RAM
