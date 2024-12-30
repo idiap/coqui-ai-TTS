@@ -85,7 +85,11 @@ def _expand_number(m):
         if num % 100 == 0:
             return _inflect.number_to_words(num // 100) + " hundred"
         return _inflect.number_to_words(num, andword="", zero="oh", group=2).replace(", ", " ")
-    return _inflect.number_to_words(num, andword="")
+    try:
+        text = _inflect.number_to_words(num, andword="")
+    except inflect.NumOutOfRangeError:
+        text = _inflect.number_to_words(num, group=1).replace(", ", " ")
+    return text
 
 
 def normalize_numbers(text):
