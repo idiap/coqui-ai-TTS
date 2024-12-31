@@ -323,37 +323,8 @@ class ModelManager(object):
         model_item = self.set_model_url(model_item)
         return model_item, model_full_name, model, md5hash
 
-    @staticmethod
-    def ask_tos(model_full_path: Path) -> bool:
-        """Ask the user to agree to the terms of service"""
-        tos_path = model_full_path / "tos_agreed.txt"
-        print(" > You must confirm the following:")
-        print(' | > "I have purchased a commercial license from Coqui: licensing@coqui.ai"')
-        print(' | > "Otherwise, I agree to the terms of the non-commercial CPML: https://coqui.ai/cpml" - [y/n]')
-        answer = input(" | | > ")
-        if answer.lower() == "y":
-            with open(tos_path, "w", encoding="utf-8") as f:
-                f.write("I have read, understood and agreed to the Terms and Conditions.")
-            return True
-        return False
-
-    @staticmethod
-    def tos_agreed(model_item: ModelItem, model_full_path: Path) -> bool:
-        """Check if the user has agreed to the terms of service"""
-        if "tos_required" in model_item and model_item["tos_required"]:
-            tos_path = os.path.join(model_full_path, "tos_agreed.txt")
-            if os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1":
-                return True
-            return False
-        return True
-
     def create_dir_and_download_model(self, model_name: str, model_item: ModelItem, output_path: Path) -> None:
         output_path.mkdir(exist_ok=True, parents=True)
-        # handle TOS
-        if not self.tos_agreed(model_item, output_path):
-            if not self.ask_tos(output_path):
-                output_path.rmdir()
-                raise Exception(" [!] You must agree to the terms of service to use this model.")
         logger.info("Downloading model to %s", output_path)
         try:
             if "fairseq" in model_name:
