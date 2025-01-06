@@ -7,11 +7,11 @@ You can use premade images built automatically from the latest TTS version.
 
 ### CPU version
 ```bash
-docker pull ghcr.io/idiap/coqui-tts
+docker pull ghcr.io/idiap/coqui-tts-cpu
 ```
 ### GPU version
 ```bash
-docker pull ghcr.io/idiap/coqui-tts-cpu
+docker pull ghcr.io/idiap/coqui-tts
 ```
 
 ## Building your own image
