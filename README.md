@@ -170,7 +170,7 @@ You can also try out Coqui TTS without installation with the docker image.
 Simply run the following command and you will be able to run TTS:
 
 ```bash
-docker run --rm -it -p 5002:5002 --entrypoint /bin/bash ghcr.io/coqui-ai/tts-cpu
+docker run --rm -it -p 5002:5002 --entrypoint /bin/bash ghcr.io/idiap/coqui-tts-cpu
 python3 TTS/server/server.py --list_models #To get the list of available models
 python3 TTS/server/server.py --model_name tts_models/en/vctk/vits # To start a server
 ```
