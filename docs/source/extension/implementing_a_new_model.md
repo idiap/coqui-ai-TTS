@@ -37,7 +37,7 @@
     an infinite flexibility to add custom behaviours for your model and training routines.
 
     For more details, see [BaseTTS](../main_classes/model_api.md#base-tts-model)
-    and `TTS.utils.callbacks`.
+    and [`trainer.callbacks`](https://github.com/idiap/coqui-ai-Trainer/blob/main/trainer/callbacks.py).
 
 6. Optionally, define `MyModelArgs`.
 
