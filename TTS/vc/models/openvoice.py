@@ -284,8 +284,7 @@ class OpenVoice(BaseVC):
         return out.to(self.device).float()
 
     def extract_se(self, audio: Union[str, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
-        audio_ref = self.load_audio(audio)
-        y = torch.FloatTensor(audio_ref)
+        y = self.load_audio(audio)
         y = y.to(self.device)
         y = y.unsqueeze(0)
         spec = wav_to_spec(
