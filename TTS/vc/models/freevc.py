@@ -314,7 +314,7 @@ class FreeVC(BaseVC):
         """Load pretrained speaker encoder model as mentioned in the paper."""
         logger.info("Loading pretrained speaker encoder model ...")
         self.enc_spk_ex = SpeakerEncoderEx(
-            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt", device=self.device
+            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt"
         )
 
     def init_multispeaker(self, config: Coqpit):
@@ -454,8 +454,7 @@ class FreeVC(BaseVC):
         wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
 
         if self.config.model_args.use_spk:
-            g_tgt = self.enc_spk_ex.embed_utterance(wav_tgt)
-            g_tgt = torch.from_numpy(g_tgt)[None, :, None].to(self.device)
+            g_tgt = self.enc_spk_ex.embed_utterance(wav_tgt)[None, :, None]
         else:
             wav_tgt = torch.from_numpy(wav_tgt).unsqueeze(0).to(self.device)
             mel_tgt = mel_spectrogram_torch(
