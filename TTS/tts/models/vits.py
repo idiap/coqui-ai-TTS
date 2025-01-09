@@ -1294,7 +1294,7 @@ class Vits(BaseTTS):
                 do_trim_silence=False,
             ).values()
             test_audios["{}-audio".format(idx)] = wav
-            test_figures["{}-alignment".format(idx)] = plot_alignment(alignment.T, output_fig=False)
+            test_figures["{}-alignment".format(idx)] = plot_alignment(alignment.permute(2, 1, 0), output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
