@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -269,10 +270,12 @@ class Bark(BaseTTS):
         fine_model_path = fine_model_path or os.path.join(checkpoint_dir, "fine_2.pt")
         hubert_tokenizer_path = hubert_tokenizer_path or os.path.join(checkpoint_dir, "tokenizer.pth")
 
+        # The paths in the default config start with /root/.local/share/tts and need to be fixed
         self.config.LOCAL_MODEL_PATHS["text"] = text_model_path
         self.config.LOCAL_MODEL_PATHS["coarse"] = coarse_model_path
         self.config.LOCAL_MODEL_PATHS["fine"] = fine_model_path
         self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"] = hubert_tokenizer_path
+        self.config.CACHE_DIR = str(Path(text_model_path).parent)
 
         self.load_bark_models()
 
