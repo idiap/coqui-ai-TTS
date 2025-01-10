@@ -74,7 +74,7 @@ class KNNVC(BaseVC):
             x, sr = torchaudio.load(audio, normalize=True)
 
         if not sr == self.config.audio.sample_rate:
-            logger.info(f"Resampling {sr} to {self.config.audio.sample_rate} in {audio}")
+            logger.info("Resampling %d to %d in %s", sr, self.config.audio.sample_rate, audio)
             x = torchaudio.functional.resample(x, orig_freq=sr, new_freq=self.config.audio.sample_rate)
             sr = self.config.audio.sample_rate
 

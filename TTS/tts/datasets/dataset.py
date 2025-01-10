@@ -231,7 +231,7 @@ class TTSDataset(Dataset):
             try:
                 audio_len = get_audio_size(wav_file)
             except RuntimeError:
-                logger.warning(f"Failed to compute length for {item['audio_file']}")
+                logger.warning("Failed to compute length for %s", item["audio_file"])
                 audio_len = 0
             lens.append(audio_len)
         return lens
@@ -352,7 +352,7 @@ class TTSDataset(Dataset):
             try:
                 audio_length = get_audio_size(item["audio_file"])
             except RuntimeError:
-                logger.warning(f"Failed to compute length, skipping {item['audio_file']}")
+                logger.warning("Failed to compute length, skipping %s", item["audio_file"])
                 continue
             text_lenght = len(item["text"])
             item["audio_length"] = audio_length
@@ -437,14 +437,14 @@ class TTSDataset(Dataset):
         self.samples = samples
 
         logger.info("Preprocessing samples")
-        logger.info(f"Max text length: {np.max(text_lengths)}")
-        logger.info(f"Min text length: {np.min(text_lengths)}")
-        logger.info(f"Avg text length: {np.mean(text_lengths)}")
-        logger.info(f"Max audio length: {np.max(audio_lengths)}")
-        logger.info(f"Min audio length: {np.min(audio_lengths)}")
-        logger.info(f"Avg audio length: {np.mean(audio_lengths)}")
+        logger.info("Max text length: %d", np.max(text_lengths))
+        logger.info("Min text length: %d", np.min(text_lengths))
+        logger.info("Avg text length: %.2f", np.mean(text_lengths))
+        logger.info("Max audio length: %.2f", np.max(audio_lengths))
+        logger.info("Min audio length: %.2f", np.min(audio_lengths))
+        logger.info("Avg audio length: %.2f", np.mean(audio_lengths))
         logger.info("Num. instances discarded samples: %d", len(ignore_idx))
-        logger.info(f"Batch group size: {self.batch_group_size}.")
+        logger.info("Batch group size: %d", self.batch_group_size)
 
     @staticmethod
     def _sort_batch(batch, text_lengths):

@@ -81,7 +81,7 @@ def download_and_extract(directory, subset, urls):
             zip_filepath = os.path.join(directory, url.split("/")[-1])
             if os.path.exists(zip_filepath):
                 continue
-            logger.info("Downloading %s to %s" % (url, zip_filepath))
+            logger.info("Downloading %s to %s", url, zip_filepath)
             subprocess.call(
                 "wget %s --user %s --password %s -O %s" % (url, USER["user"], USER["password"], zip_filepath),
                 shell=True,
@@ -122,9 +122,9 @@ def exec_cmd(cmd):
     try:
         retcode = subprocess.call(cmd, shell=True)
         if retcode < 0:
-            logger.info(f"Child was terminated by signal {retcode}")
+            logger.info("Child was terminated by signal %d", retcode)
     except OSError as e:
-        logger.info(f"Execution failed: {e}")
+        logger.info("Execution failed: %s", e)
         retcode = -999
     return retcode
 
@@ -138,10 +138,10 @@ def decode_aac_with_ffmpeg(aac_file, wav_file):
         bool, True if success.
     """
     cmd = f"ffmpeg -i {aac_file} {wav_file}"
-    logger.info(f"Decoding aac file using command line: {cmd}")
+    logger.info("Decoding aac file using command line: %s", cmd)
     ret = exec_cmd(cmd)
     if ret != 0:
-        logger.error(f"Failed to decode aac file with retcode {ret}")
+        logger.error("Failed to decode aac file with retcode %s", ret)
         logger.error("Please check your ffmpeg installation.")
         return False
     return True
@@ -156,7 +156,7 @@ def convert_audio_and_make_label(input_dir, subset, output_dir, output_file):
         output_file: the name of the newly generated csv file. e.g. vox1_dev_wav.csv
     """
 
-    logger.info("Preprocessing audio and label for subset %s" % subset)
+    logger.info("Preprocessing audio and label for subset %s", subset)
     source_dir = os.path.join(input_dir, subset)
 
     files = []

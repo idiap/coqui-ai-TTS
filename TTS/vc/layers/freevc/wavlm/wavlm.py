@@ -225,7 +225,7 @@ class WavLM(nn.Module):
         cfg: WavLMConfig,
     ) -> None:
         super().__init__()
-        logger.info(f"WavLM Config: {cfg.__dict__}")
+        logger.info("WavLM Config: %s", cfg.__dict__)
 
         self.cfg = cfg
         feature_enc_layers = eval(cfg.conv_feature_layers)

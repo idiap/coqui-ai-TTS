@@ -206,8 +206,8 @@ def generate_text_semantic(
         semantic_history = None
     encoded_text = np.array(_tokenize(model.tokenizer, text)) + model.config.TEXT_ENCODING_OFFSET
     if len(encoded_text) > 256:
-        p = round((len(encoded_text) - 256) / len(encoded_text) * 100, 1)
-        logger.warning(f"warning, text too long, lopping of last {p}%")
+        p = (len(encoded_text) - 256) / len(encoded_text) * 100
+        logger.warning("warning, text too long, lopping of last %.1f%%", p)
         encoded_text = encoded_text[:256]
     encoded_text = np.pad(
         encoded_text,
