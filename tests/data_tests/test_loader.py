@@ -51,7 +51,7 @@ DATA_EXIST = True
 if not os.path.exists(c.data_path):
     DATA_EXIST = False
 
-print(" > Dynamic data loader test: {}".format(DATA_EXIST))
+print(f" > Dynamic data loader test: {DATA_EXIST}")
 
 
 def _create_dataloader(batch_size, r, bgs, dataset_config, start_by_longest=False, preprocess_samples=False):

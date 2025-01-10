@@ -505,7 +505,7 @@ def _expand_decimal_point(m, lang="en"):
 
 
 def _expand_currency(m, lang="en", currency="USD"):
-    amount = float((re.sub(r"[^\d.]", "", m.group(0).replace(",", "."))))
+    amount = float(re.sub(r"[^\d.]", "", m.group(0).replace(",", ".")))
     full_amount = num2words(amount, to="currency", currency=currency, lang=lang)
 
     and_equivalents = {

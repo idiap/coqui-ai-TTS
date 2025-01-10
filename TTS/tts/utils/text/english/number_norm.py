@@ -1,7 +1,6 @@
 """ from https://github.com/keithito/tacotron """
 
 import re
-from typing import Dict
 
 import inflect
 
@@ -21,7 +20,7 @@ def _expand_decimal_point(m):
     return m.group(1).replace(".", " point ")
 
 
-def __expand_currency(value: str, inflection: Dict[float, str]) -> str:
+def __expand_currency(value: str, inflection: dict[float, str]) -> str:
     parts = value.replace(",", "").split(".")
     if len(parts) > 2:
         return f"{value} {inflection[2]}"  # Unexpected format

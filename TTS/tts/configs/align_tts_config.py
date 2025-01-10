@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.models.align_tts import AlignTTSArgs
@@ -70,7 +69,7 @@ class AlignTTSConfig(BaseTTSConfig):
     model: str = "align_tts"
     # model specific params
     model_args: AlignTTSArgs = field(default_factory=AlignTTSArgs)
-    phase_start_steps: List[int] = None
+    phase_start_steps: list[int] = None
 
     ssim_alpha: float = 1.0
     spec_loss_alpha: float = 1.0
@@ -96,7 +95,7 @@ class AlignTTSConfig(BaseTTSConfig):
     r: int = 1
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

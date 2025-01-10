@@ -1,4 +1,4 @@
-from typing import TypeVar, Union
+from typing import TypeVar
 
 import torch
 import torch.nn.functional as F
@@ -11,7 +11,7 @@ from TTS.utils.generic_utils import exists
 _T = TypeVar("_T")
 
 
-def cast_tuple(val: Union[tuple[_T], list[_T], _T], depth: int = 1) -> tuple[_T]:
+def cast_tuple(val: tuple[_T] | list[_T] | _T, depth: int = 1) -> tuple[_T]:
     if isinstance(val, list):
         return tuple(val)
     return val if isinstance(val, tuple) else (val,) * depth

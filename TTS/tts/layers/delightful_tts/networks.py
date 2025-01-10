@@ -1,5 +1,4 @@
 import math
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -9,7 +8,7 @@ import torch.nn.functional as F
 from TTS.tts.layers.delightful_tts.conv_layers import ConvNorm
 
 
-def initialize_embeddings(shape: Tuple[int]) -> torch.Tensor:
+def initialize_embeddings(shape: tuple[int]) -> torch.Tensor:
     assert len(shape) == 2, "Can only initialize 2-D embedding matrices ..."
     # Kaiming initialization
     return torch.randn(shape) * np.sqrt(2 / shape[1])

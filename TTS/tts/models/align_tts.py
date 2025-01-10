@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
 
 import torch
 from coqpit import Coqpit
@@ -403,7 +402,7 @@ class AlignTTS(BaseTTS):
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)
 
     @staticmethod
-    def init_from_config(config: "AlignTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "AlignTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

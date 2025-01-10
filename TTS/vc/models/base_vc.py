@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.distributed as dist
@@ -37,9 +37,9 @@ class BaseVC(BaseTrainerModel):
     def __init__(
         self,
         config: Coqpit,
-        ap: Optional[AudioProcessor] = None,
-        speaker_manager: Optional[SpeakerManager] = None,
-        language_manager: Optional[LanguageManager] = None,
+        ap: AudioProcessor | None = None,
+        speaker_manager: SpeakerManager | None = None,
+        language_manager: LanguageManager | None = None,
     ) -> None:
         super().__init__()
         self.config = config
@@ -69,7 +69,7 @@ class BaseVC(BaseTrainerModel):
         else:
             raise ValueError("config must be either a *Config or *Args")
 
-    def init_multispeaker(self, config: Coqpit, data: Optional[list[Any]] = None) -> None:
+    def init_multispeaker(self, config: Coqpit, data: list[Any] | None = None) -> None:
         """Initialize a speaker embedding layer if needen and define expected embedding channel size for defining
         `in_channels` size of the connected layers.
 
@@ -106,7 +106,7 @@ class BaseVC(BaseTrainerModel):
         """Prepare and return `aux_input` used by `forward()`"""
         return {"speaker_id": None, "style_wav": None, "d_vector": None, "language_id": None}
 
-    def get_aux_input_from_test_sentences(self, sentence_info: Union[str, list[str]]) -> dict[str, Any]:
+    def get_aux_input_from_test_sentences(self, sentence_info: str | list[str]) -> dict[str, Any]:
         if hasattr(self.config, "model_args"):
             config = self.config.model_args
         else:
@@ -275,10 +275,10 @@ class BaseVC(BaseTrainerModel):
         config: Coqpit,
         assets: dict,
         is_eval: bool,
-        samples: Union[list[dict], list[list]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
-        rank: Optional[int] = None,
+        rank: int | None = None,
     ) -> "DataLoader":
         if is_eval and not config.run_eval:
             loader = None
@@ -402,13 +402,11 @@ class BaseVC(BaseTrainerModel):
                 use_griffin_lim=True,
                 do_trim_silence=False,
             )
-            test_audios["{}-audio".format(idx)] = outputs_dict["wav"]
-            test_figures["{}-prediction".format(idx)] = plot_spectrogram(
+            test_audios[f"{idx}-audio"] = outputs_dict["wav"]
+            test_figures[f"{idx}-prediction"] = plot_spectrogram(
                 outputs_dict["outputs"]["model_outputs"], self.ap, output_fig=False
             )
-            test_figures["{}-alignment".format(idx)] = plot_alignment(
-                outputs_dict["outputs"]["alignments"], output_fig=False
-            )
+            test_figures[f"{idx}-alignment"] = plot_alignment(outputs_dict["outputs"]["alignments"], output_fig=False)
         return test_figures, test_audios
 
     def on_init_start(self, trainer: Trainer) -> None:

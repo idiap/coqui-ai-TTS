@@ -1,13 +1,9 @@
-from typing import Dict, Optional, Union
-
 import numpy as np
 import torch
 from torch import nn
 
 
-def numpy_to_torch(
-    np_array: np.ndarray, dtype: torch.dtype, device: Union[str, torch.device] = "cpu"
-) -> Optional[torch.Tensor]:
+def numpy_to_torch(np_array: np.ndarray, dtype: torch.dtype, device: str | torch.device = "cpu") -> torch.Tensor | None:
     if np_array is None:
         return None
     return torch.as_tensor(np_array, dtype=dtype, device=device)
@@ -31,7 +27,7 @@ def run_model_torch(
     style_text: str = None,
     d_vector: torch.Tensor = None,
     language_id: torch.Tensor = None,
-) -> Dict:
+) -> dict:
     """Run a torch model for inference. It does not support batch inference.
 
     Args:
@@ -75,14 +71,14 @@ def inv_spectrogram(postnet_output, ap, CONFIG):
     return wav
 
 
-def id_to_torch(aux_id, device: Union[str, torch.device] = "cpu") -> Optional[torch.Tensor]:
+def id_to_torch(aux_id, device: str | torch.device = "cpu") -> torch.Tensor | None:
     if aux_id is not None:
         aux_id = np.asarray(aux_id)
         aux_id = torch.from_numpy(aux_id).to(device)
     return aux_id
 
 
-def embedding_to_torch(d_vector, device: Union[str, torch.device] = "cpu") -> Optional[torch.Tensor]:
+def embedding_to_torch(d_vector, device: str | torch.device = "cpu") -> torch.Tensor | None:
     if d_vector is not None:
         d_vector = np.asarray(d_vector)
         d_vector = torch.from_numpy(d_vector).type(torch.FloatTensor)

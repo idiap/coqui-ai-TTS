@@ -10,7 +10,7 @@ from TTS.vocoder.datasets.wavegrad_dataset import WaveGradDataset
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 
 
-def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items: List) -> Dataset:
+def setup_dataset(config: Coqpit, ap: AudioProcessor, is_eval: bool, data_items: list) -> Dataset:
     if config.model.lower() in "gan":
         dataset = GANDataset(
             ap=ap,

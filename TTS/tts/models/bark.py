@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from coqpit import Coqpit
@@ -65,7 +64,7 @@ class Bark(BaseTTS):
     def text_to_semantic(
         self,
         text: str,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         temp: float = 0.7,
         base=None,
         allow_early_stop=True,
@@ -95,7 +94,7 @@ class Bark(BaseTTS):
     def semantic_to_waveform(
         self,
         semantic_tokens: np.ndarray,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         temp: float = 0.7,
         base=None,
     ):
@@ -129,7 +128,7 @@ class Bark(BaseTTS):
     def generate_audio(
         self,
         text: str,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         text_temp: float = 0.7,
         waveform_temp: float = 0.7,
         base=None,

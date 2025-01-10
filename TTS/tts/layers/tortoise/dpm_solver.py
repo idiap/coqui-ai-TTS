@@ -98,9 +98,7 @@ class NoiseScheduleVP:
 
         if schedule not in ["discrete", "linear", "cosine"]:
             raise ValueError(
-                "Unsupported noise schedule {}. The schedule needs to be 'discrete' or 'linear' or 'cosine'".format(
-                    schedule
-                )
+                f"Unsupported noise schedule {schedule}. The schedule needs to be 'discrete' or 'linear' or 'cosine'"
             )
 
         self.schedule = schedule
@@ -150,7 +148,7 @@ class NoiseScheduleVP:
                 t.reshape((-1, 1)),
                 self.t_array.to(t.device),
                 self.log_alpha_array.to(t.device),
-            ).reshape((-1))
+            ).reshape(-1)
         elif self.schedule == "linear":
             return -0.25 * t**2 * (self.beta_1 - self.beta_0) - 0.5 * t * self.beta_0
         elif self.schedule == "cosine":
@@ -447,7 +445,7 @@ class DPM_Solver:
             Burcu Karagol Ayan, S Sara Mahdavi, Rapha Gontijo Lopes, et al. Photorealistic text-to-image diffusion models
             with deep language understanding. arXiv preprint arXiv:2205.11487, 2022b.
         """
-        self.model = lambda x, t: model_fn(x, t.expand((x.shape[0])))
+        self.model = lambda x, t: model_fn(x, t.expand(x.shape[0]))
         self.noise_schedule = noise_schedule
         assert algorithm_type in ["dpmsolver", "dpmsolver++"]
         self.algorithm_type = algorithm_type
@@ -527,7 +525,7 @@ class DPM_Solver:
             return t
         else:
             raise ValueError(
-                "Unsupported skip_type {}, need to be 'logSNR' or 'time_uniform' or 'time_quadratic'".format(skip_type)
+                f"Unsupported skip_type {skip_type}, need to be 'logSNR' or 'time_uniform' or 'time_quadratic'"
             )
 
     def get_orders_and_timesteps_for_singlestep_solver(self, steps, order, skip_type, t_T, t_0, device):
@@ -693,7 +691,7 @@ class DPM_Solver:
             x_t: A pytorch tensor. The approximated solution at time `t`.
         """
         if solver_type not in ["dpmsolver", "taylor"]:
-            raise ValueError("'solver_type' must be either 'dpmsolver' or 'taylor', got {}".format(solver_type))
+            raise ValueError(f"'solver_type' must be either 'dpmsolver' or 'taylor', got {solver_type}")
         if r1 is None:
             r1 = 0.5
         ns = self.noise_schedule
@@ -790,7 +788,7 @@ class DPM_Solver:
             x_t: A pytorch tensor. The approximated solution at time `t`.
         """
         if solver_type not in ["dpmsolver", "taylor"]:
-            raise ValueError("'solver_type' must be either 'dpmsolver' or 'taylor', got {}".format(solver_type))
+            raise ValueError(f"'solver_type' must be either 'dpmsolver' or 'taylor', got {solver_type}")
         if r1 is None:
             r1 = 1.0 / 3.0
         if r2 is None:
@@ -913,7 +911,7 @@ class DPM_Solver:
             x_t: A pytorch tensor. The approximated solution at time `t`.
         """
         if solver_type not in ["dpmsolver", "taylor"]:
-            raise ValueError("'solver_type' must be either 'dpmsolver' or 'taylor', got {}".format(solver_type))
+            raise ValueError(f"'solver_type' must be either 'dpmsolver' or 'taylor', got {solver_type}")
         ns = self.noise_schedule
         model_prev_1, model_prev_0 = model_prev_list[-2], model_prev_list[-1]
         t_prev_1, t_prev_0 = t_prev_list[-2], t_prev_list[-1]
@@ -1062,7 +1060,7 @@ class DPM_Solver:
                 r2=r2,
             )
         else:
-            raise ValueError("Solver order must be 1 or 2 or 3, got {}".format(order))
+            raise ValueError(f"Solver order must be 1 or 2 or 3, got {order}")
 
     def multistep_dpm_solver_update(self, x, model_prev_list, t_prev_list, t, order, solver_type="dpmsolver"):
         """
@@ -1086,7 +1084,7 @@ class DPM_Solver:
         elif order == 3:
             return self.multistep_dpm_solver_third_update(x, model_prev_list, t_prev_list, t, solver_type=solver_type)
         else:
-            raise ValueError("Solver order must be 1 or 2 or 3, got {}".format(order))
+            raise ValueError(f"Solver order must be 1 or 2 or 3, got {order}")
 
     def dpm_solver_adaptive(
         self,
@@ -1150,8 +1148,8 @@ class DPM_Solver:
                 return self.singlestep_dpm_solver_third_update(x, s, t, r1=r1, r2=r2, solver_type=solver_type, **kwargs)
 
         else:
-            raise ValueError("For adaptive step size solver, order must be 2 or 3, got {}".format(order))
-        while torch.abs((s - t_0)).mean() > t_err:
+            raise ValueError(f"For adaptive step size solver, order must be 2 or 3, got {order}")
+        while torch.abs(s - t_0).mean() > t_err:
             t = ns.inverse_lambda(lambda_s + h)
             x_lower, lower_noise_kwargs = lower_update(x, s, t)
             x_higher = higher_update(x, s, t, **lower_noise_kwargs)
@@ -1487,7 +1485,7 @@ class DPM_Solver:
                     if return_intermediate:
                         intermediates.append(x)
             else:
-                raise ValueError("Got wrong method {}".format(method))
+                raise ValueError(f"Got wrong method {method}")
             if denoise_to_zero:
                 t = torch.ones((1,)).to(device) * t_0
                 x = self.denoise_to_zero_fn(x, t)

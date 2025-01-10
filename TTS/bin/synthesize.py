@@ -7,7 +7,6 @@ import contextlib
 import logging
 import sys
 from argparse import RawTextHelpFormatter
-from typing import Optional
 
 # pylint: disable=redefined-outer-name, unused-argument
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
@@ -135,7 +134,7 @@ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<model_
 """
 
 
-def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
+def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     """Parse arguments."""
     parser = argparse.ArgumentParser(
         description=description.replace("    ```\n", ""),
@@ -311,7 +310,7 @@ def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
     return args
 
 
-def main(arg_list: Optional[list[str]] = None) -> None:
+def main(arg_list: list[str] | None = None) -> None:
     """Entry point for `tts` command line interface."""
     args = parse_args(arg_list)
     stream = sys.stderr if args.pipe_out else sys.stdout

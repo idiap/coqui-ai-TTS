@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List
 
 from coqpit import Coqpit, check_argument
 
@@ -138,7 +137,7 @@ class CharactersConfig(Coqpit):
     characters_class: str = None
 
     # using BaseVocabulary
-    vocab_dict: Dict = None
+    vocab_dict: dict = None
 
     # using on BaseCharacters
     pad: str = None
@@ -323,7 +322,7 @@ class BaseTTSConfig(BaseTrainingConfig):
     shuffle: bool = False
     drop_last: bool = False
     # dataset
-    datasets: List[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
+    datasets: list[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
     # optimizer
     optimizer: str = "radam"
     optimizer_params: dict = None
@@ -331,7 +330,7 @@ class BaseTTSConfig(BaseTrainingConfig):
     lr_scheduler: str = None
     lr_scheduler_params: dict = field(default_factory=lambda: {})
     # testing
-    test_sentences: List[str] = field(default_factory=lambda: [])
+    test_sentences: list[str] = field(default_factory=lambda: [])
     # evaluation
     eval_split_max_size: int = None
     eval_split_size: float = 0.01

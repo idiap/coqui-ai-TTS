@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (C) 2020 ATHENA AUTHORS; Yiping Peng; Ne Luo
 # All rights reserved.
 #
@@ -194,7 +193,7 @@ def convert_audio_and_make_label(input_dir, subset, output_dir, output_file):
         writer.writerow(["wav_filename", "wav_length_ms", "speaker_id", "speaker_name"])
         for wav_file in files:
             writer.writerow(wav_file)
-    logger.info("Successfully generated csv file {}".format(csv_file_path))
+    logger.info(f"Successfully generated csv file {csv_file_path}")
 
 
 def processor(directory, subset, force_process):

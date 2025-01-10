@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Tuple, Union
 
 import librosa
 import numpy as np
@@ -331,15 +330,15 @@ class FreeVC(BaseVC):
         self,
         c: torch.Tensor,
         spec: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
-        mel: Optional[torch.Tensor] = None,
-        c_lengths: Optional[torch.Tensor] = None,
-        spec_lengths: Optional[torch.Tensor] = None,
-    ) -> Tuple[
+        g: torch.Tensor | None = None,
+        mel: torch.Tensor | None = None,
+        c_lengths: torch.Tensor | None = None,
+        spec_lengths: torch.Tensor | None = None,
+    ) -> tuple[
         torch.Tensor,
         torch.Tensor,
         torch.Tensor,
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ]:
         """
         Forward pass of the model.
@@ -431,7 +430,7 @@ class FreeVC(BaseVC):
         return wav.float()
 
     @torch.inference_mode()
-    def voice_conversion(self, src: Union[str, torch.Tensor], tgt: list[Union[str, torch.Tensor]]):
+    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]):
         """
         Voice conversion pass of the model.
 

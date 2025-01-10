@@ -1,6 +1,5 @@
 import logging
 import math
-from typing import Dict, List, Tuple, Union
 
 import torch
 from coqpit import Coqpit
@@ -162,7 +161,7 @@ class GlowTTS(BaseTTS):
             if getattr(f, "set_ddi", False):
                 f.set_ddi(False)
 
-    def _set_speaker_input(self, aux_input: Dict):
+    def _set_speaker_input(self, aux_input: dict):
         if aux_input is None:
             d_vectors = None
             speaker_ids = None
@@ -179,7 +178,7 @@ class GlowTTS(BaseTTS):
         g = speaker_ids if speaker_ids is not None else d_vectors
         return g
 
-    def _speaker_embedding(self, aux_input: Dict) -> Union[torch.tensor, None]:
+    def _speaker_embedding(self, aux_input: dict) -> torch.Tensor | None:
         g = self._set_speaker_input(aux_input)
         # speaker embedding
         if g is not None:
@@ -474,7 +473,7 @@ class GlowTTS(BaseTTS):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
-    def test_run(self, assets: Dict) -> Tuple[Dict, Dict]:
+    def test_run(self, assets: dict) -> tuple[dict, dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -503,11 +502,11 @@ class GlowTTS(BaseTTS):
                     do_trim_silence=False,
                 )
 
-                test_audios["{}-audio".format(idx)] = outputs["wav"]
-                test_figures["{}-prediction".format(idx)] = plot_spectrogram(
+                test_audios[f"{idx}-audio"] = outputs["wav"]
+                test_figures[f"{idx}-prediction"] = plot_spectrogram(
                     outputs["outputs"]["model_outputs"], self.ap, output_fig=False
                 )
-                test_figures["{}-alignment".format(idx)] = plot_alignment(outputs["alignments"], output_fig=False)
+                test_figures[f"{idx}-alignment"] = plot_alignment(outputs["alignments"], output_fig=False)
         return test_figures, test_audios
 
     def preprocess(self, y, y_lengths, y_max_length, attn=None):
@@ -543,7 +542,7 @@ class GlowTTS(BaseTTS):
         self.run_data_dep_init = trainer.total_steps_done < self.data_dep_init_steps
 
     @staticmethod
-    def init_from_config(config: "GlowTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "GlowTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

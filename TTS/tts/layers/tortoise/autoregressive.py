@@ -1,7 +1,6 @@
 # AGPL: a notification must be added stating that changes have been made to that file.
 import functools
 import random
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -640,8 +639,8 @@ class UnifiedVoice(nn.Module):
 
 def _prepare_attention_mask_for_generation(
     inputs: torch.Tensor,
-    pad_token_id: Optional[torch.Tensor],
-    eos_token_id: Optional[torch.Tensor],
+    pad_token_id: torch.Tensor | None,
+    eos_token_id: torch.Tensor | None,
 ) -> torch.LongTensor:
     # No information for attention mask inference -> return default attention mask
     default_attention_mask = torch.ones(inputs.shape[:2], dtype=torch.long, device=inputs.device)

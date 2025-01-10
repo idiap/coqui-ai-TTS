@@ -5,7 +5,6 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from packaging.version import Version
 
@@ -104,7 +103,7 @@ class ESpeak(BasePhonemizer):
     def __init__(
         self,
         language: str,
-        backend: Optional[str] = None,
+        backend: str | None = None,
         punctuations: str = Punctuation.default_puncs(),
         keep_puncs: bool = True,
     ):

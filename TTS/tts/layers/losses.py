@@ -814,7 +814,7 @@ class ForwardTTSLoss(nn.Module):
         elif c.spec_loss_type == "l1":
             self.spec_loss = L1LossMasked(False)
         else:
-            raise ValueError(" [!] Unknown spec_loss_type {}".format(c.spec_loss_type))
+            raise ValueError(f" [!] Unknown spec_loss_type {c.spec_loss_type}")
 
         if c.duration_loss_type == "mse":
             self.dur_loss = MSELossMasked(False)
@@ -823,7 +823,7 @@ class ForwardTTSLoss(nn.Module):
         elif c.duration_loss_type == "huber":
             self.dur_loss = Huber()
         else:
-            raise ValueError(" [!] Unknown duration_loss_type {}".format(c.duration_loss_type))
+            raise ValueError(f" [!] Unknown duration_loss_type {c.duration_loss_type}")
 
         if c.model_args.use_aligner:
             self.aligner_loss = ForwardSumLoss()

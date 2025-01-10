@@ -12,7 +12,7 @@ from TTS.encoder.models.resnet import ResNetSpeakerEncoder
 logger = logging.getLogger(__name__)
 
 
-class AugmentWAV(object):
+class AugmentWAV:
     def __init__(self, ap, augmentation_config):
         self.ap = ap
         self.use_additive_noise = False

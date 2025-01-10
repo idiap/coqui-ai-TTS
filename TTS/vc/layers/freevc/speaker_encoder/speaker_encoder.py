@@ -1,6 +1,5 @@
 import logging
 from time import perf_counter as timer
-from typing import List
 
 import numpy as np
 import torch
@@ -89,7 +88,7 @@ class SpeakerEncoder(nn.Module):
         assert 0 < min_coverage <= 1
 
         # Compute how many frames separate two partial utterances
-        samples_per_frame = int((sampling_rate * mel_window_step / 1000))
+        samples_per_frame = int(sampling_rate * mel_window_step / 1000)
         n_frames = int(np.ceil((n_samples + 1) / samples_per_frame))
         frame_step = int(np.round((sampling_rate / rate) / samples_per_frame))
         assert 0 < frame_step, "The rate is too high"
@@ -162,7 +161,7 @@ class SpeakerEncoder(nn.Module):
             return embed, partial_embeds, wav_slices
         return embed
 
-    def embed_speaker(self, wavs: List[np.ndarray], **kwargs):
+    def embed_speaker(self, wavs: list[np.ndarray], **kwargs):
         """
         Compute the embedding of a collection of wavs (presumably from the same speaker) by
         averaging their embedding and L2-normalizing it.

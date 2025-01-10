@@ -42,9 +42,9 @@ class TestGlowTTS(unittest.TestCase):
     def _check_parameter_changes(model, model_ref):
         count = 0
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
-            )
+            assert (
+                param != param_ref
+            ).any(), f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             count += 1
 
     def test_init_multispeaker(self):

@@ -47,6 +47,4 @@ def test_train_step():
     for i, (param, param_ref) in enumerate(zip(model.parameters(), model_ref.parameters())):
         # ignore pre-higway layer since it works conditional
         # if count not in [145, 59]:
-        assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-            i, param.shape, param, param_ref
-        )
+        assert (param != param_ref).any(), f"param {i} with shape {param.shape} not updated!! \n{param}\n{param_ref}"

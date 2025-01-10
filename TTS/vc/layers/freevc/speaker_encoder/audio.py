@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional, Union
 
 # import webrtcvad
 import librosa
@@ -16,7 +15,7 @@ from TTS.vc.layers.freevc.speaker_encoder.hparams import (
 int16_max = (2**15) - 1
 
 
-def preprocess_wav(fpath_or_wav: Union[str, Path, np.ndarray], source_sr: Optional[int] = None):
+def preprocess_wav(fpath_or_wav: str | Path | np.ndarray, source_sr: int | None = None):
     """
     Applies the preprocessing operations used in training the Speaker Encoder to a waveform
     either on disk or in memory. The waveform will be resampled to match the data hyperparameters.

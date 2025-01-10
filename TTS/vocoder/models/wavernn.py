@@ -1,7 +1,6 @@
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -171,7 +170,7 @@ class WavernnArgs(Coqpit):
     num_res_blocks: int = 10
     use_aux_net: bool = True
     use_upsample_net: bool = True
-    upsample_factors: List[int] = field(default_factory=lambda: [4, 8, 8])
+    upsample_factors: list[int] = field(default_factory=lambda: [4, 8, 8])
     mode: str = "mold"  # mold [string], gauss [string], bits [int]
     mulaw: bool = True  # apply mulaw if mode is bits
     pad: int = 2
@@ -537,7 +536,7 @@ class Wavernn(BaseVocoder):
             self.eval()
             assert not self.training
 
-    def train_step(self, batch: Dict, criterion: Dict) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         mels = batch["input"]
         waveform = batch["waveform"]
         waveform_coarse = batch["waveform_coarse"]
@@ -552,13 +551,13 @@ class Wavernn(BaseVocoder):
         loss_dict = criterion(y_hat, waveform_coarse)
         return {"model_output": y_hat}, loss_dict
 
-    def eval_step(self, batch: Dict, criterion: Dict) -> Tuple[Dict, Dict]:
+    def eval_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         return self.train_step(batch, criterion)
 
     @torch.no_grad()
     def test(
-        self, assets: Dict, test_loader: "DataLoader", output: Dict  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, Dict]:
+        self, assets: dict, test_loader: "DataLoader", output: dict  # pylint: disable=unused-argument
+    ) -> tuple[dict, dict]:
         ap = self.ap
         figures = {}
         audios = {}
@@ -579,14 +578,14 @@ class Wavernn(BaseVocoder):
         return figures, audios
 
     def test_log(
-        self, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, np.ndarray]:
+        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+    ) -> tuple[dict, np.ndarray]:
         figures, audios = outputs
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @staticmethod
-    def format_batch(batch: Dict) -> Dict:
+    def format_batch(batch: dict) -> dict:
         waveform = batch[0]
         mels = batch[1]
         waveform_coarse = batch[2]
@@ -595,9 +594,9 @@ class Wavernn(BaseVocoder):
     def get_data_loader(  # pylint: disable=no-self-use
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: True,
-        samples: List,
+        samples: list,
         verbose: bool,
         num_gpus: int,
     ):

@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -31,7 +30,7 @@ class GPTTrainerConfig(XttsConfig):
     optimizer_wd_only_on_weights: bool = False
     weighted_loss_attrs: dict = field(default_factory=lambda: {})
     weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: List[dict] = field(default_factory=lambda: [])
+    test_sentences: list[dict] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -222,7 +221,7 @@ class GPTTrainer(BaseTTS):
         return losses
 
     @torch.inference_mode()
-    def test_run(self, assets) -> Tuple[Dict, Dict]:  # pylint: disable=W0613
+    def test_run(self, assets) -> tuple[dict, dict]:  # pylint: disable=W0613
         test_audios = {}
         if self.config.test_sentences:
             # init gpt for inference mode
@@ -237,7 +236,7 @@ class GPTTrainer(BaseTTS):
                     s_info["language"],
                     gpt_cond_len=3,
                 )["wav"]
-                test_audios["{}-audio".format(idx)] = wav
+                test_audios[f"{idx}-audio"] = wav
 
             # delete inference layers
             del self.xtts.gpt.gpt_inference
@@ -249,7 +248,7 @@ class GPTTrainer(BaseTTS):
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.args.output_sample_rate)
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict) -> dict:
         return batch
 
     @torch.no_grad()  # torch no grad to avoid gradients from the pre-processing and DVAE codes extraction
@@ -351,9 +350,9 @@ class GPTTrainer(BaseTTS):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
         rank: int = None,
@@ -396,7 +395,7 @@ class GPTTrainer(BaseTTS):
                 )
         return loader
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         """Initiate and return the optimizer based on the config parameters."""
         # ToDo: deal with multi GPU training
         if self.config.optimizer_wd_only_on_weights:
@@ -460,7 +459,7 @@ class GPTTrainer(BaseTTS):
             parameters=self.xtts.gpt.parameters(),
         )
 
-    def get_scheduler(self, optimizer) -> List:
+    def get_scheduler(self, optimizer) -> list:
         """Set the scheduler for the optimizer.
 
         Args:
@@ -491,7 +490,7 @@ class GPTTrainer(BaseTTS):
             assert not self.training
 
     @staticmethod
-    def init_from_config(config: "GPTTrainerConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "GPTTrainerConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

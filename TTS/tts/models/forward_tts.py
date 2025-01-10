@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Union
 
 import torch
 from coqpit import Coqpit
@@ -333,7 +332,7 @@ class ForwardTTS(BaseTTS):
 
     def _forward_encoder(
         self, x: torch.LongTensor, x_mask: torch.FloatTensor, g: torch.FloatTensor = None
-    ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Encoding forward pass.
 
         1. Embed speaker IDs if multi-speaker mode.
@@ -381,7 +380,7 @@ class ForwardTTS(BaseTTS):
         x_mask: torch.FloatTensor,
         y_lengths: torch.IntTensor,
         g: torch.FloatTensor,
-    ) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
         """Decoding forward pass.
 
         1. Compute the decoder output mask
@@ -415,7 +414,7 @@ class ForwardTTS(BaseTTS):
         x_mask: torch.IntTensor,
         pitch: torch.FloatTensor = None,
         dr: torch.IntTensor = None,
-    ) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
         """Pitch predictor forward pass.
 
         1. Predict pitch from encoder outputs.
@@ -451,7 +450,7 @@ class ForwardTTS(BaseTTS):
         x_mask: torch.IntTensor,
         energy: torch.FloatTensor = None,
         dr: torch.IntTensor = None,
-    ) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
         """Energy predictor forward pass.
 
         1. Predict energy from encoder outputs.
@@ -483,7 +482,7 @@ class ForwardTTS(BaseTTS):
 
     def _forward_aligner(
         self, x: torch.FloatTensor, y: torch.FloatTensor, x_mask: torch.IntTensor, y_mask: torch.IntTensor
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Aligner forward pass.
 
         1. Compute a mask to apply to the attention map.
@@ -522,7 +521,7 @@ class ForwardTTS(BaseTTS):
         alignment_soft = alignment_soft.squeeze(1).transpose(1, 2)
         return o_alignment_dur, alignment_soft, alignment_logprob, alignment_mas
 
-    def _set_speaker_input(self, aux_input: Dict):
+    def _set_speaker_input(self, aux_input: dict):
         d_vectors = aux_input.get("d_vectors", None)
         speaker_ids = aux_input.get("speaker_ids", None)
 
@@ -544,8 +543,8 @@ class ForwardTTS(BaseTTS):
         dr: torch.IntTensor = None,
         pitch: torch.FloatTensor = None,
         energy: torch.FloatTensor = None,
-        aux_input: Dict = {"d_vectors": None, "speaker_ids": None},  # pylint: disable=unused-argument
-    ) -> Dict:
+        aux_input: dict = {"d_vectors": None, "speaker_ids": None},  # pylint: disable=unused-argument
+    ) -> dict:
         """Model's forward pass.
 
         Args:
@@ -805,7 +804,7 @@ class ForwardTTS(BaseTTS):
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
 
     @staticmethod
-    def init_from_config(config: "ForwardTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "ForwardTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

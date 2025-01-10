@@ -1,7 +1,6 @@
 import logging
 import os
 from glob import glob
-from typing import Dict, List
 
 import librosa
 import numpy as np
@@ -88,9 +87,9 @@ def normalize_tacotron_mel(mel):
     return 2 * ((mel - TACOTRON_MEL_MIN) / (TACOTRON_MEL_MAX - TACOTRON_MEL_MIN)) - 1
 
 
-def get_voices(extra_voice_dirs: List[str] = []):
+def get_voices(extra_voice_dirs: list[str] = []):
     dirs = extra_voice_dirs
-    voices: Dict[str, List[str]] = {}
+    voices: dict[str, list[str]] = {}
     for d in dirs:
         subs = os.listdir(d)
         for sub in subs:
@@ -100,7 +99,7 @@ def get_voices(extra_voice_dirs: List[str] = []):
     return voices
 
 
-def load_voice(voice: str, extra_voice_dirs: List[str] = []):
+def load_voice(voice: str, extra_voice_dirs: list[str] = []):
     if voice == "random":
         return None, None
 
@@ -116,7 +115,7 @@ def load_voice(voice: str, extra_voice_dirs: List[str] = []):
         return conds, None
 
 
-def load_voices(voices: List[str], extra_voice_dirs: List[str] = []):
+def load_voices(voices: list[str], extra_voice_dirs: list[str] = []):
     latents = []
     clips = []
     for voice in voices:

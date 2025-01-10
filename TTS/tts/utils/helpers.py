@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import torch
 from scipy.stats import betabinom
@@ -35,7 +33,7 @@ class StandardScaler:
 
 
 # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
-def sequence_mask(sequence_length: torch.Tensor, max_len: Optional[int] = None) -> torch.Tensor:
+def sequence_mask(sequence_length: torch.Tensor, max_len: int | None = None) -> torch.Tensor:
     """Create a sequence mask for filtering padding in a sequence tensor.
 
     Args:
@@ -164,7 +162,7 @@ def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
 
 def generate_attention(
-    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: Optional[torch.Tensor] = None
+    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: torch.Tensor | None = None
 ) -> torch.Tensor:
     """Generate an attention map from the linear scale durations.
 

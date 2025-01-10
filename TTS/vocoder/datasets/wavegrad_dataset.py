@@ -2,7 +2,6 @@ import glob
 import os
 import random
 from multiprocessing import Manager
-from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -65,7 +64,7 @@ class WaveGradDataset(Dataset):
         item = self.load_item(idx)
         return item
 
-    def load_test_samples(self, num_samples: int) -> List[Tuple]:
+    def load_test_samples(self, num_samples: int) -> list[tuple]:
         """Return test samples.
 
         Args:

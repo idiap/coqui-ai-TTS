@@ -1,6 +1,5 @@
 import logging
 from dataclasses import replace
-from typing import Dict
 
 from TTS.tts.configs.shared_configs import CharactersConfig
 
@@ -47,7 +46,7 @@ class BaseVocabulary:
         vocab (Dict): A dictionary of characters and their corresponding indices.
     """
 
-    def __init__(self, vocab: Dict, pad: str = None, blank: str = None, bos: str = None, eos: str = None):
+    def __init__(self, vocab: dict, pad: str = None, blank: str = None, bos: str = None, eos: str = None):
         self.vocab = vocab
         self.pad = pad
         self.blank = blank

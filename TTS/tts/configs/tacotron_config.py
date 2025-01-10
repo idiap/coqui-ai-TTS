@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig, CapacitronVAEConfig, GSTConfig
 
@@ -154,7 +153,7 @@ class TacotronConfig(BaseTTSConfig):
     num_speakers: int = 1
     num_chars: int = 0
     r: int = 2
-    gradual_training: List[List[int]] = None
+    gradual_training: list[list[int]] = None
     memory_size: int = -1
     prenet_type: str = "original"
     prenet_dropout: bool = True
@@ -212,7 +211,7 @@ class TacotronConfig(BaseTTSConfig):
     ga_alpha: float = 5.0
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

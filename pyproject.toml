@@ -201,6 +201,7 @@ lint.extend-select = [
     "PLR0911", # too-many-return-statements
     "PLR1711", # useless-return
     "PLW",
+    "UP", # pyupgrade
     "W291", # trailing-whitespace
     "NPY201",  # NumPy 2.0 deprecation
 ]

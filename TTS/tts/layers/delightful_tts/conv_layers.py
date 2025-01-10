@@ -1,11 +1,9 @@
-from typing import Tuple
-
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
 import torch.nn.functional as F
 
 
-def calc_same_padding(kernel_size: int) -> Tuple[int, int]:
+def calc_same_padding(kernel_size: int) -> tuple[int, int]:
     pad = kernel_size // 2
     return (pad, pad - (kernel_size + 1) % 2)
 

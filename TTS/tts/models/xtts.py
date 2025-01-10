@@ -2,7 +2,6 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import librosa
 import torch
@@ -719,13 +718,13 @@ class Xtts(BaseTTS):
     def load_checkpoint(
         self,
         config: "XttsConfig",
-        checkpoint_dir: Optional[str] = None,
-        checkpoint_path: Optional[str] = None,
-        vocab_path: Optional[str] = None,
+        checkpoint_dir: str | None = None,
+        checkpoint_path: str | None = None,
+        vocab_path: str | None = None,
         eval: bool = True,
         strict: bool = True,
         use_deepspeed: bool = False,
-        speaker_file_path: Optional[str] = None,
+        speaker_file_path: str | None = None,
     ):
         """
         Loads a checkpoint from disk and initializes the model's state and tokenizer.

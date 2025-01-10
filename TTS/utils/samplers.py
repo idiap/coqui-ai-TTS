@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Callable, List, Union
+from collections.abc import Callable
 
 from torch.utils.data.sampler import BatchSampler, Sampler, SubsetRandomSampler
 
@@ -176,7 +176,7 @@ class BucketBatchSampler(BatchSampler):
         data,
         batch_size,
         drop_last,
-        sort_key: Union[Callable, List] = identity,
+        sort_key: Callable | list = identity,
         bucket_size_multiplier=100,
     ):
         super().__init__(sampler, batch_size, drop_last)

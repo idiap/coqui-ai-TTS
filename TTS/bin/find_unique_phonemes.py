@@ -5,7 +5,6 @@ import logging
 import multiprocessing
 import sys
 from argparse import RawTextHelpFormatter
-from typing import Optional
 
 from tqdm.contrib.concurrent import process_map
 
@@ -21,7 +20,7 @@ def compute_phonemes(item: dict) -> set[str]:
     return set(ph)
 
 
-def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
+def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""Find all the unique characters or phonemes in a dataset.\n\n"""
         """
@@ -35,7 +34,7 @@ def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
     return parser.parse_args(arg_list)
 
 
-def main(arg_list: Optional[list[str]] = None) -> None:
+def main(arg_list: list[str] | None = None) -> None:
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     global phonemizer
     args = parse_args(arg_list)

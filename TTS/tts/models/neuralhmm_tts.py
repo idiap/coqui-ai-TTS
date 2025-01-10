@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Dict, List, Union
 
 import torch
 from coqpit import Coqpit
@@ -102,7 +101,7 @@ class NeuralhmmTTS(BaseTTS):
         self.register_buffer("mean", torch.tensor(0))
         self.register_buffer("std", torch.tensor(1))
 
-    def update_mean_std(self, statistics_dict: Dict):
+    def update_mean_std(self, statistics_dict: dict):
         self.mean.data = torch.tensor(statistics_dict["mean"])
         self.std.data = torch.tensor(statistics_dict["std"])
 
@@ -174,10 +173,10 @@ class NeuralhmmTTS(BaseTTS):
         loss_dict.update(self._training_stats(batch))
         return outputs, loss_dict
 
-    def eval_step(self, batch: Dict, criterion: nn.Module):
+    def eval_step(self, batch: dict, criterion: nn.Module):
         return self.train_step(batch, criterion)
 
-    def _format_aux_input(self, aux_input: Dict, default_input_dict):
+    def _format_aux_input(self, aux_input: dict, default_input_dict):
         """Set missing fields to their default value.
 
         Args:
@@ -239,7 +238,7 @@ class NeuralhmmTTS(BaseTTS):
         return NLLLoss()
 
     @staticmethod
-    def init_from_config(config: "NeuralhmmTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "NeuralhmmTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:
@@ -355,7 +354,7 @@ class NeuralhmmTTS(BaseTTS):
         logger.train_audios(steps, audios, self.ap.sample_rate)
 
     def eval_log(
-        self, batch: Dict, outputs: Dict, logger: "Logger", assets: Dict, steps: int
+        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
     ):  # pylint: disable=unused-argument
         """Compute and log evaluation metrics."""
         # Plot model parameters histograms

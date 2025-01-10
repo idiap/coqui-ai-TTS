@@ -63,7 +63,7 @@ def test_train(tmp_path):
     continue_speakers_path = config.d_vector_file
 
     # Check integrity of the config
-    with open(continue_config_path, "r", encoding="utf-8") as f:
+    with open(continue_config_path, encoding="utf-8") as f:
         config_loaded = json.load(f)
     assert config_loaded["characters"] is not None
     assert config_loaded["output_path"] in str(continue_path)

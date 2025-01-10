@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import fsspec
 import numpy as np
@@ -56,11 +56,11 @@ class SpeakerManager(EmbeddingManager):
 
     def __init__(
         self,
-        data_items: Optional[list[list[Any]]] = None,
+        data_items: list[list[Any]] | None = None,
         d_vectors_file_path: str = "",
-        speaker_id_file_path: Union[str, os.PathLike[Any]] = "",
-        encoder_model_path: Union[str, os.PathLike[Any]] = "",
-        encoder_config_path: Union[str, os.PathLike[Any]] = "",
+        speaker_id_file_path: str | os.PathLike[Any] = "",
+        encoder_model_path: str | os.PathLike[Any] = "",
+        encoder_config_path: str | os.PathLike[Any] = "",
         use_cuda: bool = False,
     ):
         super().__init__(
@@ -82,11 +82,11 @@ class SpeakerManager(EmbeddingManager):
     def speaker_names(self):
         return list(self.name_to_id.keys())
 
-    def get_speakers(self) -> List:
+    def get_speakers(self) -> list:
         return self.name_to_id
 
     @staticmethod
-    def init_from_config(config: "Coqpit", samples: Union[List[List], List[Dict]] = None) -> "SpeakerManager":
+    def init_from_config(config: "Coqpit", samples: list[list] | list[dict] = None) -> "SpeakerManager":
         """Initialize a speaker manager from config
 
         Args:
@@ -150,7 +150,7 @@ def save_speaker_mapping(out_path, speaker_mapping):
             json.dump(speaker_mapping, f, indent=4)
 
 
-def get_speaker_manager(c: Coqpit, data: List = None, restore_path: str = None, out_path: str = None) -> SpeakerManager:
+def get_speaker_manager(c: Coqpit, data: list = None, restore_path: str = None, out_path: str = None) -> SpeakerManager:
     """Initiate a `SpeakerManager` instance by the provided config.
 
     Args:

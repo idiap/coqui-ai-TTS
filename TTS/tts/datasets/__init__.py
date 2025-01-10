@@ -2,8 +2,9 @@ import logging
 import os
 import sys
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -39,9 +40,7 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
 
     assert (
         eval_split_size > 0
-    ), " [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {}".format(
-        1 / len(items)
-    )
+    ), f" [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {1 / len(items)}"
     np.random.seed(0)
     np.random.shuffle(items)
     if is_multi_speaker:
@@ -71,12 +70,12 @@ def add_extra_keys(metadata, language, dataset_name):
 
 
 def load_tts_samples(
-    datasets: Union[List[Dict], Dict],
+    datasets: list[dict] | dict,
     eval_split=True,
     formatter: Callable = None,
     eval_split_max_size=None,
     eval_split_size=0.01,
-) -> Tuple[List[List], List[List]]:
+) -> tuple[list[list], list[list]]:
     """Parse the dataset from the datasets config, load the samples as a List and load the attention alignments if provided.
     If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
     on the dataset name.
@@ -153,7 +152,7 @@ def load_tts_samples(
 
 def load_attention_mask_meta_data(metafile_path):
     """Load meta data file created by compute_attention_masks.py"""
-    with open(metafile_path, "r", encoding="utf-8") as f:
+    with open(metafile_path, encoding="utf-8") as f:
         lines = f.readlines()
 
     meta_data = []

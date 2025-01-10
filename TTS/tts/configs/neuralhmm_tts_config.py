@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 
@@ -126,7 +125,7 @@ class NeuralhmmTTSConfig(BaseTTSConfig):
     memory_rnn_dim: int = 1024
 
     ## Outputnet parameters
-    outputnet_size: List[int] = field(default_factory=lambda: [1024])
+    outputnet_size: list[int] = field(default_factory=lambda: [1024])
     flat_start_params: dict = field(default_factory=lambda: {"mean": 0.0, "std": 1.0, "transition_p": 0.14})
     std_floor: float = 0.001
 
@@ -143,7 +142,7 @@ class NeuralhmmTTSConfig(BaseTTSConfig):
     min_audio_len: int = 512
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] = field(
         default_factory=lambda: [
             "Be a voice, not an echo.",
         ]

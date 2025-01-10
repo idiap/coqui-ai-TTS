@@ -18,9 +18,7 @@ class PositionalEncoding(nn.Module):
     def __init__(self, channels, dropout_p=0.0, max_len=5000, use_scale=False):
         super().__init__()
         if channels % 2 != 0:
-            raise ValueError(
-                "Cannot use sin/cos positional encoding with " "odd channels (got channels={:d})".format(channels)
-            )
+            raise ValueError("Cannot use sin/cos positional encoding with " f"odd channels (got channels={channels:d})")
         self.use_scale = use_scale
         if use_scale:
             self.scale = torch.nn.Parameter(torch.ones(1))

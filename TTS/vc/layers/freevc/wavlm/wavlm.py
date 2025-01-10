@@ -9,7 +9,7 @@
 
 import logging
 import math
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 def compute_mask_indices(
-    shape: Tuple[int, int],
-    padding_mask: Optional[torch.Tensor],
+    shape: tuple[int, int],
+    padding_mask: torch.Tensor | None,
     mask_prob: float,
     mask_length: int,
     mask_type: str = "static",
@@ -317,10 +317,10 @@ class WavLM(nn.Module):
     def extract_features(
         self,
         source: torch.Tensor,
-        padding_mask: Optional[torch.Tensor] = None,
+        padding_mask: torch.Tensor | None = None,
         mask: bool = False,
         ret_conv: bool = False,
-        output_layer: Optional[int] = None,
+        output_layer: int | None = None,
         ret_layer_results: bool = False,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
         if self.feature_grad_mult > 0:
@@ -367,7 +367,7 @@ class WavLM(nn.Module):
 class ConvFeatureExtractionModel(nn.Module):
     def __init__(
         self,
-        conv_layers: List[Tuple[int, int, int]],
+        conv_layers: list[tuple[int, int, int]],
         dropout: float = 0.0,
         mode: str = "default",
         conv_bias: bool = False,

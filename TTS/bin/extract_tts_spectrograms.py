@@ -5,7 +5,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -27,7 +26,7 @@ from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 use_cuda = torch.cuda.is_available()
 
 
-def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
+def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", type=str, help="Path to config file for training.", required=True)
     parser.add_argument("--checkpoint_path", type=str, help="Model file to be restored.", required=True)
@@ -244,7 +243,7 @@ def extract_spectrograms(
             f.write(f"{data[0] / data[1]}.npy\n")
 
 
-def main(arg_list: Optional[list[str]] = None) -> None:
+def main(arg_list: list[str] | None = None) -> None:
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     args = parse_args(arg_list)
     config = load_config(args.config_path)

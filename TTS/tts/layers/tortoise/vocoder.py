@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -378,7 +378,7 @@ class UnivNetGenerator(nn.Module):
 class VocType:
     constructor: Callable[[], nn.Module]
     model_path: str
-    subkey: Optional[str] = None
+    subkey: str | None = None
 
     def optionally_index(self, model_dict):
         if self.subkey is not None:
