@@ -173,7 +173,6 @@ exclude = [
     "/.readthedocs.yml",
     "/Makefile",
     "/dockerfiles",
-    "/run_bash_tests.sh",
     "/scripts",
     "/tests",
 ]
