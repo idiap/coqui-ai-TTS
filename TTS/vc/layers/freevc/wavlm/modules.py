@@ -88,7 +88,7 @@ class Swish(nn.Module):
 
     def __init__(self):
         """Construct an MultiHeadedAttention object."""
-        super(Swish, self).__init__()
+        super().__init__()
         self.act = torch.nn.Sigmoid()
 
     def forward(self, x):
@@ -97,7 +97,7 @@ class Swish(nn.Module):
 
 class GLU_Linear(nn.Module):
     def __init__(self, input_dim, output_dim, glu_type="sigmoid", bias_in_glu=True):
-        super(GLU_Linear, self).__init__()
+        super().__init__()
 
         self.glu_type = glu_type
         self.output_dim = output_dim
@@ -218,7 +218,7 @@ def quant_noise(module, p, block_size):
         return module
 
     # supported modules
-    assert isinstance(module, (nn.Linear, nn.Embedding, nn.Conv2d))
+    assert isinstance(module, nn.Linear | nn.Embedding | nn.Conv2d)
 
     # test whether module.weight has the right sizes wrt block_size
     is_conv = module.weight.ndim == 4

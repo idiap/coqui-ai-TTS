@@ -18,7 +18,7 @@ class RAdam(Optimizer):
             raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
 
         self.degenerated_to_sgd = degenerated_to_sgd
-        if isinstance(params, (list, tuple)) and len(params) > 0 and isinstance(params[0], dict):
+        if isinstance(params, list | tuple) and len(params) > 0 and isinstance(params[0], dict):
             for param in params:
                 if "betas" in param and (param["betas"][0] != betas[0] or param["betas"][1] != betas[1]):
                     param["buffer"] = [[None, None, None] for _ in range(10)]

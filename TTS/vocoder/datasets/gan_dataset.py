@@ -32,7 +32,7 @@ class GANDataset(Dataset):
         super().__init__()
         self.ap = ap
         self.item_list = items
-        self.compute_feat = not isinstance(items[0], (tuple, list))
+        self.compute_feat = not isinstance(items[0], tuple | list)
         self.seq_len = seq_len
         self.hop_len = hop_len
         self.pad_short = pad_short

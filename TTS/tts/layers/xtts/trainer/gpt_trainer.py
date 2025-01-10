@@ -426,7 +426,7 @@ class GPTTrainer(BaseTTS):
                     v.is_norm = isinstance(m, norm_modules)
                     v.is_emb = isinstance(m, emb_modules)
 
-                    fpn = "%s.%s" % (mn, k) if mn else k  # full param name
+                    fpn = f"{mn}.{k}" if mn else k  # full param name
                     all_param_names.add(fpn)
                     param_map[fpn] = v
                     if v.is_bias or v.is_norm or v.is_emb:

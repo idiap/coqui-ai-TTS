@@ -127,7 +127,7 @@ class UnivnetGenerator(torch.nn.Module):
         """Apply weight normalization module from all of the layers."""
 
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
                 logger.info("Weight norm is applied to %s", m)
 

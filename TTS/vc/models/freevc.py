@@ -101,7 +101,7 @@ class Generator(torch.nn.Module):
         upsample_kernel_sizes,
         gin_channels=0,
     ):
-        super(Generator, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
@@ -164,7 +164,7 @@ class Generator(torch.nn.Module):
 
 class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminator, self).__init__()
+        super().__init__()
         periods = [2, 3, 5, 7, 11]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -189,7 +189,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 class SpeakerEncoder(torch.nn.Module):
     def __init__(self, mel_n_channels=80, model_num_layers=3, model_hidden_size=256, model_embedding_size=256):
-        super(SpeakerEncoder, self).__init__()
+        super().__init__()
         self.lstm = nn.LSTM(mel_n_channels, model_hidden_size, model_num_layers, batch_first=True)
         self.linear = nn.Linear(model_hidden_size, model_embedding_size)
         self.relu = nn.ReLU()

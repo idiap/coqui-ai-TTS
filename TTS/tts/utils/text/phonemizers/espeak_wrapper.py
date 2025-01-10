@@ -183,7 +183,7 @@ class ESpeak(BasePhonemizer):
             else:
                 args.append("--ipa=1")
         if tie:
-            args.append("--tie=%s" % tie)
+            args.append(f"--tie={tie}")
 
         tmp = tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8")
         tmp.write(text)

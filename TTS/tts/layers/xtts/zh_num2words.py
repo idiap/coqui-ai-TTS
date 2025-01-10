@@ -420,7 +420,7 @@ class ChineseNumberUnit(ChineseChar):
     """
 
     def __init__(self, power, simplified, traditional, big_s, big_t):
-        super(ChineseNumberUnit, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.power = power
         self.big_s = big_s
         self.big_t = big_t
@@ -456,7 +456,7 @@ class ChineseNumberDigit(ChineseChar):
     """
 
     def __init__(self, value, simplified, traditional, big_s, big_t, alt_s=None, alt_t=None):
-        super(ChineseNumberDigit, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.value = value
         self.big_s = big_s
         self.big_t = big_t
@@ -477,7 +477,7 @@ class ChineseMath(ChineseChar):
     """
 
     def __init__(self, simplified, traditional, symbol, expression=None):
-        super(ChineseMath, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.symbol = symbol
         self.expression = expression
         self.big_s = simplified
@@ -507,8 +507,7 @@ class MathSymbol:
         self.point = point
 
     def __iter__(self):
-        for v in self.__dict__.values():
-            yield v
+        yield from self.__dict__.values()
 
 
 # class OtherSymbol(object):
@@ -702,7 +701,7 @@ def num2chn(
             if isinstance(v, CND) and v.value == 2:
                 next_symbol = result_symbols[i + 1] if i < len(result_symbols) - 1 else None
                 previous_symbol = result_symbols[i - 1] if i > 0 else None
-                if isinstance(next_symbol, CNU) and isinstance(previous_symbol, (CNU, type(None))):
+                if isinstance(next_symbol, CNU) and isinstance(previous_symbol, CNU | type(None)):
                     if next_symbol.power != 1 and ((previous_symbol is None) or (previous_symbol.power != 1)):
                         result_symbols[i] = liang
 

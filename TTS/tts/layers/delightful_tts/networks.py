@@ -51,7 +51,7 @@ class BottleneckLayer(nn.Module):
         kernel_size=3,
         use_partial_padding=False,  # pylint: disable=unused-argument
     ):
-        super(BottleneckLayer, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
 
         self.reduction_factor = reduction_factor
         reduced_dim = int(in_dim / reduction_factor)
@@ -194,7 +194,7 @@ class STL(nn.Module):
     """
 
     def __init__(self, n_hidden: int, token_num: int):
-        super(STL, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
 
         num_heads = 1
         E = n_hidden

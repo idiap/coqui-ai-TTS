@@ -1,5 +1,3 @@
-from typing import List
-
 from coqpit import Coqpit
 from torch.utils.data import Dataset
 

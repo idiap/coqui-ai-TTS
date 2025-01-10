@@ -55,7 +55,7 @@ class TestFreeVC(unittest.TestCase):
         config = FreeVCConfig()
         model = FreeVC(config).to(device)
         model.train()
-        print(" > Num parameters for FreeVC model:%s" % (count_parameters(model)))
+        print(f" > Num parameters for FreeVC model:{count_parameters(model)}")
 
         mel, spec, spec_lengths, waveform = self._create_inputs(config, batch_size)
 

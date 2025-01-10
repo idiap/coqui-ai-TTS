@@ -293,7 +293,7 @@ class UnivNetGenerator(nn.Module):
         hop_length=256,
         n_mel_channels=100,
     ):
-        super(UnivNetGenerator, self).__init__()
+        super().__init__()
         self.mel_channel = n_mel_channels
         self.noise_dim = noise_dim
         self.hop_length = hop_length
@@ -344,7 +344,7 @@ class UnivNetGenerator(nn.Module):
         return z
 
     def eval(self, inference=False):
-        super(UnivNetGenerator, self).eval()
+        super().eval()
         # don't remove weight norm while validation in training loop
         if inference:
             self.remove_weight_norm()

@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import fsspec
 import yaml
@@ -58,7 +58,7 @@ def _process_model_name(config_dict: dict) -> str:
     """Format the model name as expected. It is a band-aid for the old `vocoder` model names.
 
     Args:
-        config_dict (Dict): A dictionary including the config fields.
+        config_dict (dict): A dictionary including the config fields.
 
     Returns:
         str: Formatted modelname.

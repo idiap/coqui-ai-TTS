@@ -296,7 +296,7 @@ def main(args):  # pylint: disable=redefined-outer-name
         criterion, args.restore_step = model.load_checkpoint(
             c, args.restore_path, eval=False, use_cuda=use_cuda, criterion=criterion
         )
-        print(" > Model restored from step %d" % args.restore_step, flush=True)
+        print(f" > Model restored from step {args.restore_step}", flush=True)
     else:
         args.restore_step = 0
 

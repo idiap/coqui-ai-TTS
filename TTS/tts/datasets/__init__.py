@@ -4,7 +4,6 @@ import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -18,7 +17,7 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
     """Split a dataset into train and eval. Consider speaker distribution in multi-speaker training.
 
     Args:
-        items (List[List]):
+        items (list[list]):
             A list of samples. Each sample is a list of `[audio_path, text, speaker_id]`.
 
         eval_split_max_size (int):
@@ -76,12 +75,12 @@ def load_tts_samples(
     eval_split_max_size=None,
     eval_split_size=0.01,
 ) -> tuple[list[list], list[list]]:
-    """Parse the dataset from the datasets config, load the samples as a List and load the attention alignments if provided.
+    """Parse the dataset from the datasets config, load the samples as a list and load the attention alignments if provided.
     If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
     on the dataset name.
 
     Args:
-        datasets (List[Dict], Dict): A list of datasets or a single dataset dictionary. If multiple datasets are
+        datasets (list[dict], dict): A list of datasets or a single dataset dictionary. If multiple datasets are
             in the list, they are all merged.
 
         eval_split (bool, optional): If true, create a evaluation split. If an eval split provided explicitly, generate
@@ -100,7 +99,7 @@ def load_tts_samples(
             If > 1, represents the absolute number of evaluation samples. Defaults to 0.01 (1%).
 
     Returns:
-        Tuple[List[List], List[List]: training and evaluation splits of the dataset.
+        tuple[list[list], list[list]: training and evaluation splits of the dataset.
     """
     meta_data_train_all = []
     meta_data_eval_all = [] if eval_split else None
