@@ -136,11 +136,11 @@ all = [
 
 [dependency-groups]
 dev = [
-    "black==24.2.0",
+    "black==24.10.0",
     "coverage[toml]>=7",
-    "pre-commit>=3",
+    "pre-commit>=4",
     "pytest>=8",
-    "ruff==0.7.0",
+    "ruff==0.9.1",
 ]
 # Dependencies for building the documentation
 docs = [
