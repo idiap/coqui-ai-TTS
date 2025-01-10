@@ -273,11 +273,11 @@ class TTS(nn.Module):
     def tts(
         self,
         text: str,
-        speaker: str = None,
-        language: str = None,
-        speaker_wav: str = None,
-        emotion: str = None,
-        speed: float = None,
+        speaker: Optional[str] = None,
+        language: Optional[str] = None,
+        speaker_wav: Optional[str] = None,
+        emotion: Optional[str] = None,
+        speed: Optional[float] = None,
         split_sentences: bool = True,
         **kwargs,
     ):
@@ -322,10 +322,10 @@ class TTS(nn.Module):
     def tts_to_file(
         self,
         text: str,
-        speaker: str = None,
-        language: str = None,
-        speaker_wav: str = None,
-        emotion: str = None,
+        speaker: Optional[str] = None,
+        language: Optional[str] = None,
+        speaker_wav: Optional[str] = None,
+        emotion: Optional[str] = None,
         speed: float = 1.0,
         pipe_out=None,
         file_path: str = "output.wav",
@@ -418,9 +418,9 @@ class TTS(nn.Module):
     def tts_with_vc(
         self,
         text: str,
-        language: str = None,
-        speaker_wav: str = None,
-        speaker: str = None,
+        language: Optional[str] = None,
+        speaker_wav: Optional[str] = None,
+        speaker: Optional[str] = None,
         split_sentences: bool = True,
     ):
         """Convert text to speech with voice conversion.
@@ -460,10 +460,10 @@ class TTS(nn.Module):
     def tts_with_vc_to_file(
         self,
         text: str,
-        language: str = None,
-        speaker_wav: str = None,
+        language: Optional[str] = None,
+        speaker_wav: Optional[str] = None,
         file_path: str = "output.wav",
-        speaker: str = None,
+        speaker: Optional[str] = None,
         split_sentences: bool = True,
         pipe_out=None,
     ) -> str:
