@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9, "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text"]
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
       - name: Unit tests
         run: |
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
           uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.10", "3.12"]
         subset: ["test_tts", "test_tts2", "test_vocoder", "test_xtts"]
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
       - name: Integration tests
         run: |
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
           uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
