@@ -123,7 +123,7 @@ class Wavegrad(BaseVocoder):
         beta = np.load(path, allow_pickle=True).item()["beta"]  # pylint: disable=unexpected-keyword-arg
         self.compute_noise_level(beta)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, y_n=None):
         """
         Shapes:
@@ -262,7 +262,7 @@ class Wavegrad(BaseVocoder):
     ) -> Tuple[Dict, np.ndarray]:
         pass
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def eval_step(self, batch: Dict, criterion: nn.Module) -> Tuple[Dict, Dict]:
         return self.train_step(batch, criterion)
 

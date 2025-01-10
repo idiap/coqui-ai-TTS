@@ -139,7 +139,7 @@ class UnivnetGenerator(torch.nn.Module):
         """Return receptive field size."""
         return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c):
         """Perform inference.
         Args:

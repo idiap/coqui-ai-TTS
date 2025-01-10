@@ -225,7 +225,7 @@ class GPTTrainer(BaseTTS):
         )
         return losses
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets) -> Tuple[Dict, Dict]:  # pylint: disable=W0613
         test_audios = {}
         if self.config.test_sentences:
@@ -335,7 +335,7 @@ class GPTTrainer(BaseTTS):
 
             WeightsFileHandler.add_pre_callback(callback_clearml_load_save)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x,

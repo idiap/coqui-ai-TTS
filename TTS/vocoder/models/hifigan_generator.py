@@ -280,7 +280,7 @@ class HifiganGenerator(torch.nn.Module):
         o = torch.tanh(o)
         return o
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c):
         """
         Args:

@@ -228,7 +228,7 @@ class OpenVoice(BaseVC):
             return aux_input["x_lengths"]
         return torch.tensor(x.shape[1:2]).to(x.device)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x: torch.Tensor,

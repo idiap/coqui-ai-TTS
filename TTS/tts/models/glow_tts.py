@@ -262,7 +262,7 @@ class GlowTTS(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference_with_MAS(
         self, x, x_lengths, y=None, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}
     ):  # pylint: disable=dangerous-default-value
@@ -318,7 +318,7 @@ class GlowTTS(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def decoder_inference(
         self, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}
     ):  # pylint: disable=dangerous-default-value
@@ -341,7 +341,7 @@ class GlowTTS(BaseTTS):
         outputs["logdet"] = logdet
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self, x, aux_input={"x_lengths": None, "d_vectors": None, "speaker_ids": None}
     ):  # pylint: disable=dangerous-default-value
@@ -464,7 +464,7 @@ class GlowTTS(BaseTTS):
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def eval_step(self, batch: dict, criterion: nn.Module):
         return self.train_step(batch, criterion)
 
@@ -473,7 +473,7 @@ class GlowTTS(BaseTTS):
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets: Dict) -> Tuple[Dict, Dict]:
         """Generic test run for `tts` models used by `Trainer`.
 

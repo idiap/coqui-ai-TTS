@@ -209,7 +209,7 @@ class Overflow(BaseTTS):
             return format_aux_input(default_input_dict, aux_input)
         return default_input_dict
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         text: torch.Tensor,

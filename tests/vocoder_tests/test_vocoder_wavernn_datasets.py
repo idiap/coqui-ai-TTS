@@ -1,29 +1,38 @@
 import os
-import shutil
 
 import numpy as np
+import pytest
 from torch.utils.data import DataLoader
 
-from tests import get_tests_output_path, get_tests_path
+from tests import get_tests_path
 from TTS.utils.audio import AudioProcessor
 from TTS.vocoder.configs import WavernnConfig
 from TTS.vocoder.datasets.preprocess import load_wav_feat_data, preprocess_wav_files
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 
-file_path = os.path.dirname(os.path.realpath(__file__))
-OUTPATH = os.path.join(get_tests_output_path(), "loader_tests/")
-os.makedirs(OUTPATH, exist_ok=True)
-
 C = WavernnConfig()
 
 test_data_path = os.path.join(get_tests_path(), "data/ljspeech/")
-test_mel_feat_path = os.path.join(test_data_path, "mel")
-test_quant_feat_path = os.path.join(test_data_path, "quant")
-ok_ljspeech = os.path.exists(test_data_path)
+
+params = [
+    [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 10, True, 0],
+    [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, "mold", False, 4],
+    [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 9, False, 0],
+    [1, C.audio["hop_length"], C.audio["hop_length"], 2, 10, True, 0],
+    [1, C.audio["hop_length"], C.audio["hop_length"], 2, "mold", False, 0],
+    [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 4, 10, False, 2],
+    [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 2, "mold", False, 0],
+]
 
 
-def wavernn_dataset_case(batch_size, seq_len, hop_len, pad, mode, mulaw, num_workers):
-    """run dataloader with given parameters and check conditions"""
+@pytest.mark.parametrize("params", params)
+def test_parametrized_wavernn_dataset(tmp_path, params):
+    """Run dataloader with given parameters and check conditions"""
+    print(params)
+    batch_size, seq_len, hop_len, pad, mode, mulaw, num_workers = params
+    test_mel_feat_path = tmp_path / "mel"
+    test_quant_feat_path = tmp_path / "quant"
+
     ap = AudioProcessor(**C.audio)
 
     C.batch_size = batch_size
@@ -31,7 +40,7 @@ def wavernn_dataset_case(batch_size, seq_len, hop_len, pad, mode, mulaw, num_wor
     C.seq_len = seq_len
     C.data_path = test_data_path
 
-    preprocess_wav_files(test_data_path, C, ap)
+    preprocess_wav_files(tmp_path, C, ap)
     _, train_items = load_wav_feat_data(test_data_path, test_mel_feat_path, 5)
 
     dataset = WaveRNNDataset(
@@ -50,35 +59,12 @@ def wavernn_dataset_case(batch_size, seq_len, hop_len, pad, mode, mulaw, num_wor
     max_iter = 10
     count_iter = 0
 
-    try:
-        for data in loader:
-            x_input, mels, _ = data
-            expected_feat_shape = (ap.num_mels, (x_input.shape[-1] // hop_len) + (pad * 2))
-            assert np.all(mels.shape[1:] == expected_feat_shape), f" [!] {mels.shape} vs {expected_feat_shape}"
+    for data in loader:
+        x_input, mels, _ = data
+        expected_feat_shape = (ap.num_mels, (x_input.shape[-1] // hop_len) + (pad * 2))
+        assert np.all(mels.shape[1:] == expected_feat_shape), f" [!] {mels.shape} vs {expected_feat_shape}"
 
-            assert (mels.shape[2] - pad * 2) * hop_len == x_input.shape[1]
-            count_iter += 1
-            if count_iter == max_iter:
-                break
-    # except AssertionError:
-    #     shutil.rmtree(test_mel_feat_path)
-    #     shutil.rmtree(test_quant_feat_path)
-    finally:
-        shutil.rmtree(test_mel_feat_path)
-        shutil.rmtree(test_quant_feat_path)
-
-
-def test_parametrized_wavernn_dataset():
-    """test dataloader with different parameters"""
-    params = [
-        [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 10, True, 0],
-        [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, "mold", False, 4],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 9, False, 0],
-        [1, C.audio["hop_length"], C.audio["hop_length"], 2, 10, True, 0],
-        [1, C.audio["hop_length"], C.audio["hop_length"], 2, "mold", False, 0],
-        [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 4, 10, False, 2],
-        [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 2, "mold", False, 0],
-    ]
-    for param in params:
-        print(param)
-        wavernn_dataset_case(*param)
+        assert (mels.shape[2] - pad * 2) * hop_len == x_input.shape[1]
+        count_iter += 1
+        if count_iter == max_iter:
+            break
