@@ -4,8 +4,7 @@
 
 You can boot up a demo 🐸TTS server to run an inference with your models (make
 sure to install the additional dependencies with `pip install coqui-tts[server]`).
-Note that the server is not optimized for performance and does not support all
-Coqui models yet.
+Note that the server is not optimized for performance.
 
 The demo server provides pretty much the same interface as the CLI command.
 
@@ -15,7 +14,8 @@ tts-server --list_models  # list the available models.
 ```
 
 Run a TTS model, from the release models list, with its default vocoder.
-If the model you choose is a multi-speaker TTS model, you can select different speakers on the Web interface and synthesize
+If the model you choose is a multi-speaker or multilingual TTS model, you can
+select different speakers and languages on the Web interface and synthesize
 speech.
 
 ```bash
