@@ -100,7 +100,7 @@ class GlowTTSConfig(BaseTTSConfig):
     model: str = "glow_tts"
 
     # model params
-    num_chars: int = None
+    num_chars: int | None = None
     encoder_type: str = "rel_pos_transformer"
     encoder_params: dict = field(
         default_factory=lambda: {
@@ -146,15 +146,15 @@ class GlowTTSConfig(BaseTTSConfig):
     data_dep_init_steps: int = 10
 
     # inference params
-    style_wav_for_test: str = None
+    style_wav_for_test: str | None = None
     inference_noise_scale: float = 0.0
     length_scale: float = 1.0
 
     # multi-speaker settings
     use_speaker_embedding: bool = False
-    speakers_file: str = None
+    speakers_file: str | None = None
     use_d_vector_file: bool = False
-    d_vector_file: str = False
+    d_vector_file: str | None = None
 
     # optimizer parameters
     optimizer: str = "RAdam"
@@ -170,7 +170,7 @@ class GlowTTSConfig(BaseTTSConfig):
     r: int = 1  # DO NOT CHANGE - TODO: make this immutable once coqpit implements it.
 
     # testing
-    test_sentences: list[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

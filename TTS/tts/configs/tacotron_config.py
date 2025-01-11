@@ -169,7 +169,7 @@ class TacotronConfig(BaseTTSConfig):
 
     # attention layers
     attention_type: str = "original"
-    attention_heads: int = None
+    attention_heads: int | None = None
     attention_norm: str = "sigmoid"
     attention_win: bool = False
     windowing: bool = False
@@ -188,8 +188,8 @@ class TacotronConfig(BaseTTSConfig):
     use_speaker_embedding: bool = False
     speaker_embedding_dim: int = 512
     use_d_vector_file: bool = False
-    d_vector_file: str = False
-    d_vector_dim: int = None
+    d_vector_file: str | None = None
+    d_vector_dim: int | None = None
 
     # optimizer parameters
     optimizer: str = "RAdam"
@@ -211,7 +211,7 @@ class TacotronConfig(BaseTTSConfig):
     ga_alpha: float = 5.0
 
     # testing
-    test_sentences: list[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

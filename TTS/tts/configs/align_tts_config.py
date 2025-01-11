@@ -69,7 +69,7 @@ class AlignTTSConfig(BaseTTSConfig):
     model: str = "align_tts"
     # model specific params
     model_args: AlignTTSArgs = field(default_factory=AlignTTSArgs)
-    phase_start_steps: list[int] = None
+    phase_start_steps: list[int] | None = None
 
     ssim_alpha: float = 1.0
     spec_loss_alpha: float = 1.0
@@ -79,13 +79,13 @@ class AlignTTSConfig(BaseTTSConfig):
     # multi-speaker settings
     use_speaker_embedding: bool = False
     use_d_vector_file: bool = False
-    d_vector_file: str = False
+    d_vector_file: str | None = None
 
     # optimizer parameters
     optimizer: str = "Adam"
     optimizer_params: dict = field(default_factory=lambda: {"betas": [0.9, 0.998], "weight_decay": 1e-6})
-    lr_scheduler: str = None
-    lr_scheduler_params: dict = None
+    lr_scheduler: str | None = None
+    lr_scheduler_params: dict | None = None
     lr: float = 1e-4
     grad_clip: float = 5.0
 
@@ -95,7 +95,7 @@ class AlignTTSConfig(BaseTTSConfig):
     r: int = 1
 
     # testing
-    test_sentences: list[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",
