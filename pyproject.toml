@@ -135,7 +135,6 @@ all = [
 
 [dependency-groups]
 dev = [
-    "black==24.10.0",
     "coverage[toml]>=7",
     "pre-commit>=4",
     "pytest>=8",
@@ -231,10 +230,6 @@ max-returns = 7
 "hubconf.py" = [
     "E402", # module level import not at top of file
 ]
-
-[tool.black]
-line-length = 120
-target-version = ['py310']
 
 [tool.coverage.report]
 skip_covered = true

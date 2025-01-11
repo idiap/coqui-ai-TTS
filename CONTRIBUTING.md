@@ -88,7 +88,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
     uv run make test_all  # run all the tests, report all the errors
     ```
 
-9. Format your code. We use ```black``` for code formatting.
+9. Format your code. We use ```ruff``` for code formatting.
 
     ```bash
     make style
