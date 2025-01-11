@@ -222,9 +222,9 @@ class AudioProcessor:
             self.hop_length = hop_length
             self.win_length = win_length
         assert min_level_db != 0.0, " [!] min_level_db is 0"
-        assert (
-            self.win_length <= self.fft_size
-        ), f" [!] win_length cannot be larger than fft_size - {self.win_length} vs {self.fft_size}"
+        assert self.win_length <= self.fft_size, (
+            f" [!] win_length cannot be larger than fft_size - {self.win_length} vs {self.fft_size}"
+        )
         members = vars(self)
         logger.info("Setting up Audio Processor...")
         for key, value in members.items():
@@ -283,7 +283,9 @@ class AudioProcessor:
                 S_norm = ((2 * self.max_norm) * S_norm) - self.max_norm
                 if self.clip_norm:
                     S_norm = np.clip(
-                        S_norm, -self.max_norm, self.max_norm  # pylint: disable=invalid-unary-operand-type
+                        S_norm,
+                        -self.max_norm,  # pylint: disable=invalid-unary-operand-type
+                        self.max_norm,
                     )
                 return S_norm
             S_norm = self.max_norm * S_norm
@@ -318,7 +320,9 @@ class AudioProcessor:
             if self.symmetric_norm:
                 if self.clip_norm:
                     S_denorm = np.clip(
-                        S_denorm, -self.max_norm, self.max_norm  # pylint: disable=invalid-unary-operand-type
+                        S_denorm,
+                        -self.max_norm,  # pylint: disable=invalid-unary-operand-type
+                        self.max_norm,
                     )
                 S_denorm = ((S_denorm + self.max_norm) * -self.min_level_db / (2 * self.max_norm)) + self.min_level_db
                 return S_denorm + self.ref_level_db
@@ -351,9 +355,9 @@ class AudioProcessor:
             if key in skip_parameters:
                 continue
             if key not in ["sample_rate", "trim_db"]:
-                assert (
-                    stats_config[key] == self.__dict__[key]
-                ), f" [!] Audio param {key} does not match the value used for computing mean-var stats. {stats_config[key]} vs {self.__dict__[key]}"
+                assert stats_config[key] == self.__dict__[key], (
+                    f" [!] Audio param {key} does not match the value used for computing mean-var stats. {stats_config[key]} vs {self.__dict__[key]}"
+                )
         return mel_mean, mel_std, linear_mean, linear_std, stats_config
 
     # pylint: disable=attribute-defined-outside-init

@@ -161,9 +161,9 @@ class NeuralhmmTTSConfig(BaseTTSConfig):
             AssertionError: transition probability is not between 0 and 1
         """
         assert self.ar_order > 0, "AR order must be greater than 0 it is an autoregressive model."
-        assert (
-            len(self.outputnet_size) >= 1
-        ), f"Parameter Network must have atleast one layer check the config file for parameter network. Provided: {self.parameternetwork}"
-        assert (
-            0 < self.flat_start_params["transition_p"] < 1
-        ), f"Transition probability must be between 0 and 1. Provided: {self.flat_start_params['transition_p']}"
+        assert len(self.outputnet_size) >= 1, (
+            f"Parameter Network must have atleast one layer check the config file for parameter network. Provided: {self.parameternetwork}"
+        )
+        assert 0 < self.flat_start_params["transition_p"] < 1, (
+            f"Transition probability must be between 0 and 1. Provided: {self.flat_start_params['transition_p']}"
+        )

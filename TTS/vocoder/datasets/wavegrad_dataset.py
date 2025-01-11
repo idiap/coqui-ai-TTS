@@ -102,9 +102,9 @@ class WaveGradDataset(Dataset):
                     audio = np.pad(
                         audio, (0, self.seq_len + self.pad_short - len(audio)), mode="constant", constant_values=0.0
                     )
-                assert (
-                    audio.shape[-1] >= self.seq_len + self.pad_short
-                ), f"{audio.shape[-1]} vs {self.seq_len + self.pad_short}"
+                assert audio.shape[-1] >= self.seq_len + self.pad_short, (
+                    f"{audio.shape[-1]} vs {self.seq_len + self.pad_short}"
+                )
 
             # correct the audio length wrt hop length
             p = (audio.shape[-1] // self.hop_len + 1) * self.hop_len - audio.shape[-1]

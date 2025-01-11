@@ -210,9 +210,9 @@ class BaseTTS(BaseTrainerModel):
                 extra_frames = dur.sum() - mel_lengths[idx]
                 largest_idxs = torch.argsort(-dur)[:extra_frames]
                 dur[largest_idxs] -= 1
-                assert (
-                    dur.sum() == mel_lengths[idx]
-                ), f" [!] total duration {dur.sum()} vs spectrogram length {mel_lengths[idx]}"
+                assert dur.sum() == mel_lengths[idx], (
+                    f" [!] total duration {dur.sum()} vs spectrogram length {mel_lengths[idx]}"
+                )
                 durations[idx, : text_lengths[idx]] = dur
 
         # set stop targets wrt reduction factor

@@ -424,7 +424,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
     """
     file_ext = "flac"
     items = []
-    meta_files = glob(f"{os.path.join(root_path,'txt')}/**/*.txt", recursive=True)
+    meta_files = glob(f"{os.path.join(root_path, 'txt')}/**/*.txt", recursive=True)
     for meta_file in meta_files:
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
@@ -451,7 +451,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
 def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=None):
     """homepages.inf.ed.ac.uk/jyamagis/release/VCTK-Corpus.tar.gz"""
     items = []
-    meta_files = glob(f"{os.path.join(root_path,'txt')}/**/*.txt", recursive=True)
+    meta_files = glob(f"{os.path.join(root_path, 'txt')}/**/*.txt", recursive=True)
     for meta_file in meta_files:
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]

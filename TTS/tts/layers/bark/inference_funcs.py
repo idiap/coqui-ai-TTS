@@ -58,9 +58,7 @@ def load_npz(npz_file: str) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64
 
 def load_voice(
     model, voice: str, extra_voice_dirs: list[str] = []
-) -> tuple[
-    npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None
-]:  # pylint: disable=dangerous-default-value
+) -> tuple[npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None]:  # pylint: disable=dangerous-default-value
     if voice == "random":
         return None, None, None
 

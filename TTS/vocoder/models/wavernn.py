@@ -225,9 +225,9 @@ class Wavernn(BaseVocoder):
         self.aux_dims = self.args.res_out_dims // 4
 
         if self.args.use_upsample_net:
-            assert (
-                np.cumprod(self.args.upsample_factors)[-1] == config.audio.hop_length
-            ), " [!] upsample scales needs to be equal to hop_length"
+            assert np.cumprod(self.args.upsample_factors)[-1] == config.audio.hop_length, (
+                " [!] upsample scales needs to be equal to hop_length"
+            )
             self.upsample = UpsampleNetwork(
                 self.args.feat_dims,
                 self.args.upsample_factors,
@@ -527,9 +527,7 @@ class Wavernn(BaseVocoder):
 
         return unfolded
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:
@@ -556,7 +554,10 @@ class Wavernn(BaseVocoder):
 
     @torch.no_grad()
     def test(
-        self, assets: dict, test_loader: "DataLoader", output: dict  # pylint: disable=unused-argument
+        self,
+        assets: dict,
+        test_loader: "DataLoader",
+        output: dict,  # pylint: disable=unused-argument
     ) -> tuple[dict, dict]:
         ap = self.ap
         figures = {}
@@ -578,7 +579,11 @@ class Wavernn(BaseVocoder):
         return figures, audios
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> tuple[dict, np.ndarray]:
         figures, audios = outputs
         logger.eval_figures(steps, figures)

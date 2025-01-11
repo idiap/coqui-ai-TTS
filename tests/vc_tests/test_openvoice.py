@@ -16,7 +16,6 @@ WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
 
 
 class TestOpenVoice(unittest.TestCase):
-
     @staticmethod
     def _create_inputs_inference():
         source_wav = torch.rand(16100)
@@ -37,6 +36,6 @@ class TestOpenVoice(unittest.TestCase):
 
         source_wav, target_wav = self._create_inputs_inference()
         output_wav = model.voice_conversion(source_wav, target_wav)
-        assert (
-            output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length
-        ), f"{output_wav.shape} != {source_wav.shape}"
+        assert output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length, (
+            f"{output_wav.shape} != {source_wav.shape}"
+        )

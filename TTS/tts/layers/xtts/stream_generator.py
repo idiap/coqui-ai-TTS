@@ -953,7 +953,6 @@ if __name__ == "__main__":
 
 
 def _get_logits_warper(generation_config: GenerationConfig) -> LogitsProcessorList:
-
     warpers = LogitsProcessorList()
 
     if generation_config.temperature is not None and generation_config.temperature != 1.0:

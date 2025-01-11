@@ -560,9 +560,9 @@ class Attention(nn.Module):
 
         self.rel_pos_bias = rel_pos_bias
         if rel_pos_bias:
-            assert (
-                rel_pos_num_buckets <= rel_pos_max_distance
-            ), "number of relative position buckets must be less than the relative position max distance"
+            assert rel_pos_num_buckets <= rel_pos_max_distance, (
+                "number of relative position buckets must be less than the relative position max distance"
+            )
             self.rel_pos = RelativePositionBias(
                 scale=dim_head**0.5,
                 causal=causal,
@@ -680,9 +680,9 @@ class Attention(nn.Module):
             del input_mask
 
         if exists(attn_mask):
-            assert (
-                2 <= attn_mask.ndim <= 4
-            ), "attention mask must have greater than 2 dimensions but less than or equal to 4"
+            assert 2 <= attn_mask.ndim <= 4, (
+                "attention mask must have greater than 2 dimensions but less than or equal to 4"
+            )
             if attn_mask.ndim == 2:
                 attn_mask = rearrange(attn_mask, "i j -> () () i j")
             elif attn_mask.ndim == 3:
@@ -790,9 +790,9 @@ class AttentionLayers(nn.Module):
         rotary_emb_dim = max(default(rotary_emb_dim, dim_head // 2), 32)
         self.rotary_pos_emb = RotaryEmbedding(rotary_emb_dim) if rotary_pos_emb else None
 
-        assert not (
-            alibi_pos_bias and rel_pos_bias
-        ), "you can only choose Alibi positional bias or T5 relative positional bias, not both"
+        assert not (alibi_pos_bias and rel_pos_bias), (
+            "you can only choose Alibi positional bias or T5 relative positional bias, not both"
+        )
 
         if alibi_pos_bias:
             alibi_num_heads = default(alibi_num_heads, heads)
@@ -922,9 +922,9 @@ class AttentionLayers(nn.Module):
         past_key_values=None,
         expected_seq_len=None,
     ):
-        assert not (
-            self.cross_attend ^ (exists(context) or exists(full_context))
-        ), "context must be passed in if cross_attend is set to True"
+        assert not (self.cross_attend ^ (exists(context) or exists(full_context))), (
+            "context must be passed in if cross_attend is set to True"
+        )
         assert context is None or full_context is None, "only one of full_context or context can be provided"
 
         hiddens = []
@@ -940,9 +940,9 @@ class AttentionLayers(nn.Module):
         rotary_pos_emb = None
         if exists(self.rotary_pos_emb):
             if not self.training and self.causal:
-                assert (
-                    expected_seq_len is not None
-                ), "To decode a transformer with rotary embeddings, you must specify an `expected_seq_len`"
+                assert expected_seq_len is not None, (
+                    "To decode a transformer with rotary embeddings, you must specify an `expected_seq_len`"
+                )
             elif expected_seq_len is None:
                 expected_seq_len = 0
             seq_len = x.shape[1]

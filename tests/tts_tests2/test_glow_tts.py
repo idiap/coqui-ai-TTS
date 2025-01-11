@@ -42,9 +42,9 @@ class TestGlowTTS(unittest.TestCase):
     def _check_parameter_changes(model, model_ref):
         count = 0
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-            assert (
-                param != param_ref
-            ).any(), f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
+            assert (param != param_ref).any(), (
+                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
+            )
             count += 1
 
     def test_init_multispeaker(self):
@@ -241,10 +241,10 @@ class TestGlowTTS(unittest.TestCase):
         # inference encoder and decoder with MAS
         y = model.inference_with_MAS(input_dummy, input_lengths, mel_spec, mel_lengths)
         y2 = model.decoder_inference(mel_spec, mel_lengths)
-        assert (
-            y2["model_outputs"].shape == y["model_outputs"].shape
-        ), "Difference between the shapes of the glowTTS inference with MAS ({}) and the inference using only the decoder ({}) !!".format(
-            y["model_outputs"].shape, y2["model_outputs"].shape
+        assert y2["model_outputs"].shape == y["model_outputs"].shape, (
+            "Difference between the shapes of the glowTTS inference with MAS ({}) and the inference using only the decoder ({}) !!".format(
+                y["model_outputs"].shape, y2["model_outputs"].shape
+            )
         )
 
     def test_inference_with_MAS(self):

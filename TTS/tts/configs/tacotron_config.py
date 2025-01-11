@@ -223,12 +223,12 @@ class TacotronConfig(BaseTTSConfig):
 
     def check_values(self):
         if self.gradual_training:
-            assert (
-                self.gradual_training[0][1] == self.r
-            ), f"[!] the first scheduled gradual training `r` must be equal to the model's `r` value. {self.gradual_training[0][1]} vs {self.r}"
+            assert self.gradual_training[0][1] == self.r, (
+                f"[!] the first scheduled gradual training `r` must be equal to the model's `r` value. {self.gradual_training[0][1]} vs {self.r}"
+            )
         if self.model == "tacotron" and self.audio is not None:
-            assert self.out_channels == (
-                self.audio.fft_size // 2 + 1
-            ), f"{self.out_channels} vs {self.audio.fft_size // 2 + 1}"
+            assert self.out_channels == (self.audio.fft_size // 2 + 1), (
+                f"{self.out_channels} vs {self.audio.fft_size // 2 + 1}"
+            )
         if self.model == "tacotron2" and self.audio is not None:
             assert self.out_channels == self.audio.num_mels

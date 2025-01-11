@@ -399,9 +399,7 @@ class Tacotron2(BaseTacotron):
         audio = ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
         """Log training progress."""
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)

@@ -217,9 +217,7 @@ class Wavegrad(BaseVocoder):
         self.out_conv = weight_norm(self.out_conv)
         self.y_conv = weight_norm(self.y_conv)
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:
@@ -257,7 +255,12 @@ class Wavegrad(BaseVocoder):
         return {"model_output": noise_hat}, {"loss": loss}
 
     def train_log(  # pylint: disable=no-self-use
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> tuple[dict, np.ndarray]:
         pass
 
@@ -266,7 +269,12 @@ class Wavegrad(BaseVocoder):
         return self.train_step(batch, criterion)
 
     def eval_log(  # pylint: disable=no-self-use
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         pass
 

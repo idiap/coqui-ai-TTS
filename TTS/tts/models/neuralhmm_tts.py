@@ -345,17 +345,13 @@ class NeuralhmmTTS(BaseTTS):
         audio = ap.inv_melspectrogram(inference_output["model_outputs"][0].T.cpu().numpy())
         return figures, {"audios": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ):  # pylint: disable=unused-argument
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
         """Log training progress."""
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
 
-    def eval_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ):  # pylint: disable=unused-argument
+    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
         """Compute and log evaluation metrics."""
         # Plot model parameters histograms
         if isinstance(logger, TensorboardLogger):
@@ -369,7 +365,11 @@ class NeuralhmmTTS(BaseTTS):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs[1], self.ap.sample_rate)
         logger.test_figures(steps, outputs[0])

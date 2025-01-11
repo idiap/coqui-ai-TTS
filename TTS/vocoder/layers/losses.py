@@ -224,9 +224,9 @@ class GeneratorLoss(nn.Module):
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_stft_loss = C.use_stft_loss if "use_stft_loss" in C else False
         self.use_subband_stft_loss = C.use_subband_stft_loss if "use_subband_stft_loss" in C else False
@@ -311,9 +311,9 @@ class DiscriminatorLoss(nn.Module):
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_mse_gan_loss = C.use_mse_gan_loss
         self.use_hinge_gan_loss = C.use_hinge_gan_loss

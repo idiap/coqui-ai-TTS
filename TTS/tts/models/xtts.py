@@ -379,9 +379,9 @@ class Xtts(BaseTTS):
             as latents used at inference.
 
         """
-        assert (
-            "zh-cn" if language == "zh" else language in self.config.languages
-        ), f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        assert "zh-cn" if language == "zh" else language in self.config.languages, (
+            f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        )
         # Use generally found best tuning knobs for generation.
         settings = {
             "temperature": config.temperature,
@@ -519,9 +519,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             with torch.no_grad():
                 gpt_codes = self.gpt.generate(
@@ -627,9 +627,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             fake_inputs = self.gpt.compute_embeddings(
                 gpt_cond_latent.to(self.device),

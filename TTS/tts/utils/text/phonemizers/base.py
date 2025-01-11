@@ -52,7 +52,7 @@ class BasePhonemizer(abc.ABC):
 
         """
         if not self.is_supported_language(language):
-            raise RuntimeError(f'language "{language}" is not supported by the ' f"{self.name()} backend")
+            raise RuntimeError(f'language "{language}" is not supported by the {self.name()} backend')
         return language
 
     @property

@@ -55,6 +55,6 @@ class BaseEncoderConfig(BaseTrainingConfig):
     def check_values(self):
         super().check_values()
         c = asdict(self)
-        assert (
-            c["model_params"]["input_dim"] == self.audio.num_mels
-        ), " [!] model input dimendion must be equal to melspectrogram dimension."
+        assert c["model_params"]["input_dim"] == self.audio.num_mels, (
+            " [!] model input dimendion must be equal to melspectrogram dimension."
+        )

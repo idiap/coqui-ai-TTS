@@ -124,9 +124,9 @@ class GlowTTS(BaseTTS):
                 config.d_vector_dim if "d_vector_dim" in config and config.d_vector_dim is not None else 512
             )
             if self.speaker_manager is not None:
-                assert (
-                    config.d_vector_dim == self.speaker_manager.embedding_dim
-                ), " [!] d-vector dimension mismatch b/w config and speaker manager."
+                assert config.d_vector_dim == self.speaker_manager.embedding_dim, (
+                    " [!] d-vector dimension mismatch b/w config and speaker manager."
+                )
         # init speaker embedding layer
         if config.use_speaker_embedding and not config.use_d_vector_file:
             logger.info("Init speaker_embedding layer.")
@@ -192,9 +192,7 @@ class GlowTTS(BaseTTS):
                 g = F.normalize(g).unsqueeze(-1)  # [b, h, 1]
         return g
 
-    def forward(
-        self, x, x_lengths, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}
-    ):  # pylint: disable=dangerous-default-value
+    def forward(self, x, x_lengths, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
         """
         Args:
             x (torch.Tensor):
@@ -318,9 +316,7 @@ class GlowTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def decoder_inference(
-        self, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}
-    ):  # pylint: disable=dangerous-default-value
+    def decoder_inference(self, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
         """
         Shapes:
             - y: :math:`[B, T, C]`
@@ -341,9 +337,7 @@ class GlowTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(
-        self, x, aux_input={"x_lengths": None, "d_vectors": None, "speaker_ids": None}
-    ):  # pylint: disable=dangerous-default-value
+    def inference(self, x, aux_input={"x_lengths": None, "d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
         x_lengths = aux_input["x_lengths"]
         g = self._speaker_embedding(aux_input)
         # embedding pass
@@ -456,9 +450,7 @@ class GlowTTS(BaseTTS):
         train_audio = ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
@@ -521,9 +513,7 @@ class GlowTTS(BaseTTS):
     def store_inverse(self):
         self.decoder.store_inverse()
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
         self.load_state_dict(state["model"])
         if eval:

@@ -93,9 +93,7 @@ class BaseTacotron(BaseTTS):
     def inference(self):
         pass
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         """Load model checkpoint and set up internals.
 
         Args:
@@ -176,7 +174,11 @@ class BaseTacotron(BaseTTS):
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
         logger.test_figures(steps, outputs["figures"])

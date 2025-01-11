@@ -190,9 +190,7 @@ class Bark(BaseTTS):
         return _voice_dirs
 
     # TODO: remove config from synthesize
-    def synthesize(
-        self, text, config, speaker_id="random", voice_dirs=None, **kwargs
-    ):  # pylint: disable=unused-argument
+    def synthesize(self, text, config, speaker_id="random", voice_dirs=None, **kwargs):  # pylint: disable=unused-argument
         """Synthesize speech with the given input text.
 
         Args:

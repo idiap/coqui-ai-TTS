@@ -37,9 +37,9 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
         else:
             eval_split_size = int(len(items) * eval_split_size)
 
-    assert (
-        eval_split_size > 0
-    ), f" [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {1 / len(items)}"
+    assert eval_split_size > 0, (
+        f" [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {1 / len(items)}"
+    )
     np.random.seed(0)
     np.random.shuffle(items)
     if is_multi_speaker:

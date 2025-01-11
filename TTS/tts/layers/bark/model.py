@@ -175,9 +175,9 @@ class GPT(nn.Module):
                 assert idx.shape[1] >= 256 + 256 + 1
                 t = idx.shape[1] - 256
             else:
-                assert (
-                    t <= self.config.block_size
-                ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
+                assert t <= self.config.block_size, (
+                    f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
+                )
 
             # forward the GPT model itself
             if merge_context:

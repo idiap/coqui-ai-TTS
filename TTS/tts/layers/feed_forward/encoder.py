@@ -143,9 +143,9 @@ class Encoder(nn.Module):
         elif encoder_type.lower() == "residual_conv_bn":
             self.encoder = ResidualConv1dBNEncoder(in_hidden_channels, out_channels, in_hidden_channels, encoder_params)
         elif encoder_type.lower() == "fftransformer":
-            assert (
-                in_hidden_channels == out_channels
-            ), "[!] must be `in_channels` == `out_channels` when encoder type is 'fftransformer'"
+            assert in_hidden_channels == out_channels, (
+                "[!] must be `in_channels` == `out_channels` when encoder type is 'fftransformer'"
+            )
             # pylint: disable=unexpected-keyword-arg
             self.encoder = FFTransformerBlock(in_hidden_channels, **encoder_params)
         else:

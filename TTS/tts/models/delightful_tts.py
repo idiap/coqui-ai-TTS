@@ -831,9 +831,7 @@ class DelightfulTTS(BaseTTSE2E):
         audios[f"{name_prefix}/vocoder_audio"] = sample_voice
         return figures, audios
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ):  # pylint: disable=no-self-use, unused-argument
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use, unused-argument
         """Create visualizations and waveform examples.
 
         For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
@@ -1046,7 +1044,11 @@ class DelightfulTTS(BaseTTSE2E):
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.config.audio.sample_rate)
         logger.test_figures(steps, outputs["figures"])
@@ -1258,9 +1260,7 @@ class DelightfulTTS(BaseTTSE2E):
         self.energy_scaler.eval()
 
     @staticmethod
-    def init_from_config(
-        config: "DelightfulTTSConfig", samples: list[list] | list[dict] = None
-    ):  # pylint: disable=unused-argument
+    def init_from_config(config: "DelightfulTTSConfig", samples: list[list] | list[dict] = None):  # pylint: disable=unused-argument
         """Initiate model from config
 
         Args:

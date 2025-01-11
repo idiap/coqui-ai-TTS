@@ -108,9 +108,9 @@ class ParallelWaveganGenerator(torch.nn.Module):
         # perform upsampling
         if c is not None and self.upsample_net is not None:
             c = self.upsample_net(c)
-            assert (
-                c.shape[-1] == x.shape[-1]
-            ), f" [!] Upsampling scale does not match the expected output. {c.shape} vs {x.shape}"
+            assert c.shape[-1] == x.shape[-1], (
+                f" [!] Upsampling scale does not match the expected output. {c.shape} vs {x.shape}"
+            )
 
         # encode to hidden representation
         x = self.first_conv(x)
@@ -155,9 +155,7 @@ class ParallelWaveganGenerator(torch.nn.Module):
     def receptive_field_size(self):
         return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:

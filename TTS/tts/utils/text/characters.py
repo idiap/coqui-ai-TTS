@@ -289,9 +289,9 @@ class BaseCharacters:
         self.vocab = _vocab + list(self._punctuations)
         if self.is_unique:
             duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
-            assert (
-                len(self.vocab) == len(self._char_to_id) == len(self._id_to_char)
-            ), f" [!] There are duplicate characters in the character set. {duplicates}"
+            assert len(self.vocab) == len(self._char_to_id) == len(self._id_to_char), (
+                f" [!] There are duplicate characters in the character set. {duplicates}"
+            )
 
     def char_to_id(self, char: str) -> int:
         try:
