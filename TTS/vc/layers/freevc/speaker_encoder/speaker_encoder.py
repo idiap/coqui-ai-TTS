@@ -115,7 +115,7 @@ class SpeakerEncoder(nn.Module):
 
         return wav_slices, mel_slices
 
-    def embed_utterance(self, wav: np.ndarray, return_partials=False, rate=1.3, min_coverage=0.75):
+    def embed_utterance(self, wav: np.ndarray, return_partials=False, rate=1.3, min_coverage=0.75) -> torch.Tensor:
         """
         Computes an embedding for a single utterance. The utterance is divided in partial
         utterances and an embedding is computed for each. The complete utterance embedding is the

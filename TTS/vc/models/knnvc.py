@@ -172,7 +172,7 @@ class KNNVC(BaseVC):
     def voice_conversion(
         self,
         source: PathOrTensor,
-        target: Union[PathOrTensor, list[PathOrTensor]],
+        target: list[PathOrTensor],
         topk: Optional[int] = None,
     ) -> torch.Tensor:
         if not isinstance(target, list):

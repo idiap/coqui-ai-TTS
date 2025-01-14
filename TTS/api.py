@@ -4,7 +4,7 @@ import logging
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from torch import nn
 
@@ -388,7 +388,7 @@ class TTS(nn.Module):
     def voice_conversion(
         self,
         source_wav: str,
-        target_wav: str,
+        target_wav: Union[str, list[str]],
     ):
         """Voice conversion with FreeVC. Convert source wav to target speaker.
 
@@ -406,7 +406,7 @@ class TTS(nn.Module):
     def voice_conversion_to_file(
         self,
         source_wav: str,
-        target_wav: str,
+        target_wav: Union[str, list[str]],
         file_path: str = "output.wav",
         pipe_out=None,
     ) -> str:
@@ -429,8 +429,9 @@ class TTS(nn.Module):
     def tts_with_vc(
         self,
         text: str,
+        *,
         language: Optional[str] = None,
-        speaker_wav: Optional[str] = None,
+        speaker_wav: Union[str, list[str]],
         speaker: Optional[str] = None,
         split_sentences: bool = True,
     ):
@@ -471,8 +472,9 @@ class TTS(nn.Module):
     def tts_with_vc_to_file(
         self,
         text: str,
+        *,
         language: Optional[str] = None,
-        speaker_wav: Optional[str] = None,
+        speaker_wav: Union[str, list[str]],
         file_path: str = "output.wav",
         speaker: Optional[str] = None,
         split_sentences: bool = True,

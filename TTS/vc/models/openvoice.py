@@ -296,19 +296,25 @@ class OpenVoice(BaseVC):
         return g, spec
 
     @torch.inference_mode()
-    def voice_conversion(self, src: Union[str, torch.Tensor], tgt: Union[str, torch.Tensor]) -> npt.NDArray[np.float32]:
+    def voice_conversion(
+        self, src: Union[str, torch.Tensor], tgt: list[Union[str, torch.Tensor]]
+    ) -> npt.NDArray[np.float32]:
         """
         Voice conversion pass of the model.
 
         Args:
             src (str or torch.Tensor): Source utterance.
-            tgt (str or torch.Tensor): Target utterance.
+            tgt (list of str or torch.Tensor): Target utterance.
 
         Returns:
             Output numpy array.
         """
         src_se, src_spec = self.extract_se(src)
-        tgt_se, _ = self.extract_se(tgt)
+        tgt_ses = []
+        for tg in tgt:
+            tgt_se, _ = self.extract_se(tg)
+            tgt_ses.append(tgt_se)
+        tgt_se = torch.stack(tgt_ses).mean(dim=0)
 
         aux_input = {"g_src": src_se, "g_tgt": tgt_se}
         audio = self.inference(src_spec, aux_input)

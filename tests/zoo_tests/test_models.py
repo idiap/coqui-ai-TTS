@@ -71,8 +71,9 @@ def test_models(tmp_path, model_name, manager):
         run_main(main, [*args, "--text", "This is an example.", *speaker_arg, *language_arg])
     elif "voice_conversion_models" in model_name:
         speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
-        reference_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
-        run_main(main, [*args, "--source_wav", speaker_wav, "--target_wav", reference_wav])
+        reference_wav1 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0028.wav")
+        reference_wav2 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
+        run_main(main, [*args, "--source_wav", speaker_wav, "--target_wav", reference_wav1, reference_wav2])
     else:
         # only download the model
         manager.download_model(model_name)
