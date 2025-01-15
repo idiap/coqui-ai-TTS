@@ -98,6 +98,7 @@ repository are also still a useful source of information.
 
 ### Voice Conversion
 - [FreeVC](https://arxiv.org/abs/2210.15418)
+- [kNN-VC](https://doi.org/10.21437/Interspeech.2023-419)
 - [OpenVoice](https://arxiv.org/abs/2312.01479)
 
 ### Others
@@ -234,7 +235,7 @@ tts.tts_to_file(text="Ich bin eine Testnachricht.", file_path=OUTPUT_PATH)
 
 #### Voice conversion (VC)
 
-Converting the voice in `source_wav` to the voice of `target_wav`
+Converting the voice in `source_wav` to the voice of `target_wav`:
 
 ```python
 tts = TTS("voice_conversion_models/multilingual/vctk/freevc24").to("cuda")
@@ -246,8 +247,12 @@ tts.voice_conversion_to_file(
 ```
 
 Other available voice conversion models:
+- `voice_conversion_models/multilingual/multi-dataset/knnvc`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
+
+For more details, see the
+[documentation](https://coqui-tts.readthedocs.io/en/latest/vc.html).
 
 #### Voice cloning by combining single speaker TTS model with the default VC model
 

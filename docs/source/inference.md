@@ -16,6 +16,7 @@ Coqui TTS provides three main methods for inference:
 
 ```{toctree}
 :hidden:
+vc
 server
 marytts
 ```

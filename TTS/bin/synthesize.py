@@ -275,13 +275,14 @@ def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
         "--source_wav",
         type=str,
         default=None,
-        help="Original audio file to convert in the voice of the target_wav",
+        help="Original audio file to convert into the voice of the target_wav",
     )
     parser.add_argument(
         "--target_wav",
         type=str,
+        nargs="*",
         default=None,
-        help="Target audio file to convert in the voice of the source_wav",
+        help="Audio file(s) of the target voice into which to convert the source_wav",
     )
 
     parser.add_argument(

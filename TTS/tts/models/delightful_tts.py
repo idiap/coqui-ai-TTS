@@ -439,10 +439,6 @@ class DelightfulTTS(BaseTTSE2E):
             )
 
     @property
-    def device(self):
-        return next(self.parameters()).device
-
-    @property
     def energy_scaler(self):
         return self.acoustic_model.energy_scaler
 

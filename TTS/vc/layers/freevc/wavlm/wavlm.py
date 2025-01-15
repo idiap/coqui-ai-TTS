@@ -9,7 +9,7 @@
 
 import logging
 import math
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -322,7 +322,7 @@ class WavLM(nn.Module):
         ret_conv: bool = False,
         output_layer: Optional[int] = None,
         ret_layer_results: bool = False,
-    ):
+    ) -> tuple[torch.Tensor, dict[str, Any]]:
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:

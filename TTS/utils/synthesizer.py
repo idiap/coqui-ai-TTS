@@ -98,11 +98,11 @@ class Synthesizer(nn.Module):
         if tts_checkpoint:
             self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
 
-        if vocoder_checkpoint:
-            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
-
         if vc_checkpoint and model_dir == "":
             self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
+
+        if vocoder_checkpoint:
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
 
         if model_dir:
             if "fairseq" in model_dir:
@@ -139,7 +139,9 @@ class Synthesizer(nn.Module):
         """
         # pylint: disable=global-statement
         self.vc_config = load_config(vc_config_path)
-        self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
+        self.output_sample_rate = self.vc_config.audio.get(
+            "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
+        )
         self.vc_model = setup_vc_model(config=self.vc_config)
         self.vc_model.load_checkpoint(self.vc_config, vc_checkpoint)
         if use_cuda:
@@ -272,9 +274,21 @@ class Synthesizer(nn.Module):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str) -> List[int]:
-        output_wav = self.vc_model.voice_conversion(source_wav, target_wav)
-        return output_wav
+    def voice_conversion(self, source_wav: str, target_wav: Union[str, list[str]], **kwargs) -> List[int]:
+        start_time = time.time()
+
+        if not isinstance(target_wav, list):
+            target_wav = [target_wav]
+        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
+        if self.vocoder_model is not None:
+            output = self.vocoder_model.inference(output)
+
+        output = output.squeeze()
+        process_time = time.time() - start_time
+        audio_time = len(output) / self.output_sample_rate
+        logger.info("Processing time: %.3f", process_time)
+        logger.info("Real-time factor: %.3f", process_time / audio_time)
+        return output
 
     def tts(
         self,

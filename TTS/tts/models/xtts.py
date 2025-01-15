@@ -239,10 +239,6 @@ class Xtts(BaseTTS):
             cond_d_vector_in_each_upsampling_layer=self.args.cond_d_vector_in_each_upsampling_layer,
         )
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     @torch.inference_mode()
     def get_gpt_cond_latents(self, audio, sr, length: int = 30, chunk_length: int = 6):
         """Compute the conditioning latents for the GPT model from the given audio.

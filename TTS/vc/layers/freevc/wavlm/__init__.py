@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 model_uri = "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/WavLM-Large.pt"
 
 
-def get_wavlm(device="cpu"):
+def get_wavlm(device="cpu") -> WavLM:
     """Download the model and return the model object."""
 
     output_path = get_user_data_dir("tts")
