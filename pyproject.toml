@@ -93,7 +93,7 @@ dependencies = [
 [project.optional-dependencies]
 # Only used in notebooks
 notebooks = [
-    "bokeh==1.4.0",
+    "bokeh>=3.0.3",
     "pandas>=1.4,<2.0",
     "umap-learn>=0.5.1",
 ]
