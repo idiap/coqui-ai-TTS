@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import fsspec
 import numpy as np
@@ -27,8 +27,8 @@ class LanguageManager(BaseIDManager):
 
     def __init__(
         self,
-        language_ids_file_path: str = "",
-        config: Coqpit = None,
+        language_ids_file_path: Union[str, os.PathLike[Any]] = "",
+        config: Optional[Coqpit] = None,
     ):
         super().__init__(id_file_path=language_ids_file_path)
 
@@ -76,7 +76,7 @@ class LanguageManager(BaseIDManager):
     def set_ids_from_data(self, items: List, parse_key: str) -> Any:
         raise NotImplementedError
 
-    def save_ids_to_file(self, file_path: str) -> None:
+    def save_ids_to_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
         """Save language IDs to a json file.
 
         Args:

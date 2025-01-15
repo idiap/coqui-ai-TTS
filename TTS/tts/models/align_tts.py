@@ -288,7 +288,7 @@ class AlignTTS(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, aux_input={"d_vectors": None}):  # pylint: disable=unused-argument
         """
         Shapes:

@@ -1,7 +1,9 @@
 (formatting_your_dataset)=
-# Formatting Your Dataset
+# Formatting your dataset
 
-For training a TTS model, you need a dataset with speech recordings and transcriptions. The speech must be divided into audio clips and each clip needs transcription.
+For training a TTS model, you need a dataset with speech recordings and
+transcriptions. The speech must be divided into audio clips and each clip needs
+a transcription.
 
 If you have a single audio file and you need to split it into clips, there are different open-source tools for you. We recommend Audacity. It is an open-source and free audio editing software.
 
@@ -49,7 +51,7 @@ The format above is taken from widely-used the [LJSpeech](https://keithito.com/L
 
 Your dataset should have good coverage of the target language. It should cover the phonemic variety, exceptional sounds and syllables. This is extremely important for especially non-phonemic languages like English.
 
-For more info about dataset qualities and properties check our [post](https://github.com/coqui-ai/TTS/wiki/What-makes-a-good-TTS-dataset).
+For more info about dataset qualities and properties check [this page](what_makes_a_good_dataset.md).
 
 ## Using Your Dataset in 🐸TTS
 

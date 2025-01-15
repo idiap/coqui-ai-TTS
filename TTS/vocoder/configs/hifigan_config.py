@@ -5,7 +5,7 @@ from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig
 
 @dataclass
 class HifiganConfig(BaseGANVocoderConfig):
-    """Defines parameters for FullBand MelGAN vocoder.
+    """Defines parameters for HifiGAN vocoder.
 
     Example:
 

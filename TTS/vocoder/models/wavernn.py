@@ -307,7 +307,7 @@ class Wavernn(BaseVocoder):
         rnn1 = self.get_gru_cell(self.rnn1)
         rnn2 = self.get_gru_cell(self.rnn2)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             if isinstance(mels, np.ndarray):
                 mels = torch.FloatTensor(mels).to(str(next(self.parameters()).device))
 

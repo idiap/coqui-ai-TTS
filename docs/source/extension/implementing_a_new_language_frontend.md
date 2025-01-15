@@ -1,6 +1,6 @@
-# Implementing a New Language Frontend
+# Implementing new language front ends
 
-- Language frontends are located under `TTS.tts.utils.text`
+- Language front ends are located under `TTS.tts.utils.text`
 - Each special language has a separate folder.
 - Each folder contains all the utilities for processing the text input.
 - `TTS.tts.utils.text.phonemizers` contains the main phonemizer for a language. This is the class that uses the utilities

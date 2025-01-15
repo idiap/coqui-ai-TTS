@@ -565,10 +565,6 @@ class Vits(BaseTTS):
                 use_spectral_norm=self.args.use_spectral_norm_disriminator,
             )
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def init_multispeaker(self, config: Coqpit):
         """Initialize multi-speaker modules of a model. A model can be trained either with a speaker embedding layer
         or with external `d_vectors` computed from a speaker encoder model.
@@ -927,7 +923,7 @@ class Vits(BaseTTS):
             return aux_input["x_lengths"]
         return torch.tensor(x.shape[1:2]).to(x.device)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x,
@@ -1014,7 +1010,7 @@ class Vits(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference_voice_conversion(
         self, reference_wav, speaker_id=None, d_vector=None, reference_speaker_id=None, reference_d_vector=None
     ):
@@ -1209,7 +1205,7 @@ class Vits(BaseTTS):
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
         return self.train_step(batch, criterion, optimizer_idx)
 
@@ -1266,7 +1262,7 @@ class Vits(BaseTTS):
             "language_name": language_name,
         }
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets) -> Tuple[Dict, Dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
@@ -1294,7 +1290,7 @@ class Vits(BaseTTS):
                 do_trim_silence=False,
             ).values()
             test_audios["{}-audio".format(idx)] = wav
-            test_figures["{}-alignment".format(idx)] = plot_alignment(alignment.T, output_fig=False)
+            test_figures["{}-alignment".format(idx)] = plot_alignment(alignment.permute(2, 1, 0), output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(

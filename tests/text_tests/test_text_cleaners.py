@@ -24,6 +24,8 @@ def test_currency() -> None:
 def test_expand_numbers() -> None:
     assert phoneme_cleaners("-1") == "minus one"
     assert phoneme_cleaners("1") == "one"
+    assert phoneme_cleaners("1" + "0" * 35) == "one hundred decillion"
+    assert phoneme_cleaners("1" + "0" * 36) == "one" + " zero" * 36
 
 
 def test_multilingual_phoneme_cleaners() -> None:

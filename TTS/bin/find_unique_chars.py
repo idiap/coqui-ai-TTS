@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 from argparse import RawTextHelpFormatter
 
 from TTS.config import load_config
@@ -10,7 +11,7 @@ from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
 def main():
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # pylint: disable=bad-option-value
     parser = argparse.ArgumentParser(

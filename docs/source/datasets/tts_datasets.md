@@ -1,6 +1,6 @@
-# TTS Datasets
+# Public TTS datasets
 
-Some of the known public datasets that we successfully applied 🐸TTS:
+Some of the known public datasets that were successfully used for 🐸TTS:
 
 - [English - LJ Speech](https://keithito.com/LJ-Speech-Dataset/)
 - [English - Nancy](http://www.cstr.ed.ac.uk/projects/blizzard/2011/lessac_blizzard2011/)

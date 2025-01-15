@@ -7,6 +7,7 @@ import contextlib
 import logging
 import sys
 from argparse import RawTextHelpFormatter
+from typing import Optional
 
 # pylint: disable=redefined-outer-name, unused-argument
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
@@ -14,128 +15,127 @@ from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 logger = logging.getLogger(__name__)
 
 description = """
-Synthesize speech on command line.
+Synthesize speech on the command line.
 
 You can either use your trained model or choose a model from the provided list.
 
-If you don't specify any models, then it uses LJSpeech based English model.
-
-#### Single Speaker Models
-
 - List provided models:
 
+  ```sh
+  tts --list_models
   ```
-  $ tts --list_models
+
+- Get model information. Use the names obtained from `--list_models`.
+  ```sh
+  tts --model_info_by_name "<model_type>/<language>/<dataset>/<model_name>"
+  ```
+  For example:
+  ```sh
+  tts --model_info_by_name tts_models/tr/common-voice/glow-tts
+  tts --model_info_by_name vocoder_models/en/ljspeech/hifigan_v2
   ```
 
-- Get model info (for both tts_models and vocoder_models):
+#### Single speaker models
 
-  - Query by type/name:
-    The model_info_by_name uses the name as it from the --list_models.
-    ```
-    $ tts --model_info_by_name "<model_type>/<language>/<dataset>/<model_name>"
-    ```
-    For example:
-    ```
-    $ tts --model_info_by_name tts_models/tr/common-voice/glow-tts
-    $ tts --model_info_by_name vocoder_models/en/ljspeech/hifigan_v2
-    ```
-  - Query by type/idx:
-    The model_query_idx uses the corresponding idx from --list_models.
+- Run TTS with the default model (`tts_models/en/ljspeech/tacotron2-DDC`):
 
-    ```
-    $ tts --model_info_by_idx "<model_type>/<model_query_idx>"
-    ```
-
-    For example:
-
-    ```
-    $ tts --model_info_by_idx tts_models/3
-    ```
-
-  - Query info for model info by full name:
-    ```
-    $ tts --model_info_by_name "<model_type>/<language>/<dataset>/<model_name>"
-    ```
-
-- Run TTS with default models:
-
-  ```
-  $ tts --text "Text for TTS" --out_path output/path/speech.wav
+  ```sh
+  tts --text "Text for TTS" --out_path output/path/speech.wav
   ```
 
 - Run TTS and pipe out the generated TTS wav file data:
 
-  ```
-  $ tts --text "Text for TTS" --pipe_out --out_path output/path/speech.wav | aplay
+  ```sh
+  tts --text "Text for TTS" --pipe_out --out_path output/path/speech.wav | aplay
   ```
 
 - Run a TTS model with its default vocoder model:
 
-  ```
-  $ tts --text "Text for TTS" --model_name "<model_type>/<language>/<dataset>/<model_name>" --out_path output/path/speech.wav
-  ```
-
-  For example:
-
-  ```
-  $ tts --text "Text for TTS" --model_name "tts_models/en/ljspeech/glow-tts" --out_path output/path/speech.wav
-  ```
-
-- Run with specific TTS and vocoder models from the list:
-
-  ```
-  $ tts --text "Text for TTS" --model_name "<model_type>/<language>/<dataset>/<model_name>" --vocoder_name "<model_type>/<language>/<dataset>/<model_name>" --out_path output/path/speech.wav
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_name "<model_type>/<language>/<dataset>/<model_name>" \\
+      --out_path output/path/speech.wav
   ```
 
   For example:
 
-  ```
-  $ tts --text "Text for TTS" --model_name "tts_models/en/ljspeech/glow-tts" --vocoder_name "vocoder_models/en/ljspeech/univnet" --out_path output/path/speech.wav
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_name "tts_models/en/ljspeech/glow-tts" \\
+      --out_path output/path/speech.wav
   ```
 
-- Run your own TTS model (Using Griffin-Lim Vocoder):
+- Run with specific TTS and vocoder models from the list. Note that not every vocoder is compatible with every TTS model.
 
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_name "<model_type>/<language>/<dataset>/<model_name>" \\
+      --vocoder_name "<model_type>/<language>/<dataset>/<model_name>" \\
+      --out_path output/path/speech.wav
   ```
-  $ tts --text "Text for TTS" --model_path path/to/model.pth --config_path path/to/config.json --out_path output/path/speech.wav
+
+  For example:
+
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_name "tts_models/en/ljspeech/glow-tts" \\
+      --vocoder_name "vocoder_models/en/ljspeech/univnet" \\
+      --out_path output/path/speech.wav
+  ```
+
+- Run your own TTS model (using Griffin-Lim Vocoder):
+
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_path path/to/model.pth \\
+      --config_path path/to/config.json \\
+      --out_path output/path/speech.wav
   ```
 
 - Run your own TTS and Vocoder models:
 
-  ```
-  $ tts --text "Text for TTS" --model_path path/to/model.pth --config_path path/to/config.json --out_path output/path/speech.wav
-      --vocoder_path path/to/vocoder.pth --vocoder_config_path path/to/vocoder_config.json
+  ```sh
+  tts --text "Text for TTS" \\
+      --model_path path/to/model.pth \\
+      --config_path path/to/config.json \\
+      --out_path output/path/speech.wav \\
+      --vocoder_path path/to/vocoder.pth \\
+      --vocoder_config_path path/to/vocoder_config.json
   ```
 
-#### Multi-speaker Models
+#### Multi-speaker models
 
-- List the available speakers and choose a <speaker_id> among them:
+- List the available speakers and choose a `<speaker_id>` among them:
 
-  ```
-  $ tts --model_name "<language>/<dataset>/<model_name>"  --list_speaker_idxs
+  ```sh
+  tts --model_name "<language>/<dataset>/<model_name>"  --list_speaker_idxs
   ```
 
 - Run the multi-speaker TTS model with the target speaker ID:
 
-  ```
-  $ tts --text "Text for TTS." --out_path output/path/speech.wav --model_name "<language>/<dataset>/<model_name>"  --speaker_idx <speaker_id>
+  ```sh
+  tts --text "Text for TTS." --out_path output/path/speech.wav \\
+      --model_name "<language>/<dataset>/<model_name>"  --speaker_idx <speaker_id>
   ```
 
 - Run your own multi-speaker TTS model:
 
-  ```
-  $ tts --text "Text for TTS" --out_path output/path/speech.wav --model_path path/to/model.pth --config_path path/to/config.json --speakers_file_path path/to/speaker.json --speaker_idx <speaker_id>
+  ```sh
+  tts --text "Text for TTS" --out_path output/path/speech.wav \\
+      --model_path path/to/model.pth --config_path path/to/config.json \\
+      --speakers_file_path path/to/speaker.json --speaker_idx <speaker_id>
   ```
 
-### Voice Conversion Models
+#### Voice conversion models
 
-```
-$ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<model_name>" --source_wav <path/to/speaker/wav> --target_wav <path/to/reference/wav>
+```sh
+tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<model_name>" \\
+    --source_wav <path/to/speaker/wav> --target_wav <path/to/reference/wav>
 ```
 """
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
     """Parse arguments."""
     parser = argparse.ArgumentParser(
         description=description.replace("    ```\n", ""),
@@ -275,13 +275,14 @@ def parse_args() -> argparse.Namespace:
         "--source_wav",
         type=str,
         default=None,
-        help="Original audio file to convert in the voice of the target_wav",
+        help="Original audio file to convert into the voice of the target_wav",
     )
     parser.add_argument(
         "--target_wav",
         type=str,
+        nargs="*",
         default=None,
-        help="Target audio file to convert in the voice of the source_wav",
+        help="Audio file(s) of the target voice into which to convert the source_wav",
     )
 
     parser.add_argument(
@@ -291,7 +292,7 @@ def parse_args() -> argparse.Namespace:
         help="Voice dir for tortoise model",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(arg_list)
 
     # print the description if either text or list_models is not set
     check_args = [
@@ -310,10 +311,11 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def main() -> None:
+def main(arg_list: Optional[list[str]] = None) -> None:
     """Entry point for `tts` command line interface."""
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
-    args = parse_args()
+    args = parse_args(arg_list)
+    stream = sys.stderr if args.pipe_out else sys.stdout
+    setup_logger("TTS", level=logging.INFO, stream=stream, formatter=ConsoleFormatter())
 
     pipe_out = sys.stdout if args.pipe_out else None
 
@@ -340,18 +342,18 @@ def main() -> None:
         # 1) List pre-trained TTS models
         if args.list_models:
             manager.list_models()
-            sys.exit()
+            sys.exit(0)
 
         # 2) Info about pre-trained TTS models (without loading a model)
         if args.model_info_by_idx:
             model_query = args.model_info_by_idx
             manager.model_info_by_idx(model_query)
-            sys.exit()
+            sys.exit(0)
 
         if args.model_info_by_name:
             model_query_full_name = args.model_info_by_name
             manager.model_info_by_full_name(model_query_full_name)
-            sys.exit()
+            sys.exit(0)
 
         # 3) Load a model for further info or TTS/VC
         device = args.device
@@ -377,23 +379,23 @@ def main() -> None:
         if args.list_speaker_idxs:
             if not api.is_multi_speaker:
                 logger.info("Model only has a single speaker.")
-                return
+                sys.exit(0)
             logger.info(
                 "Available speaker ids: (Set --speaker_idx flag to one of these values to use the multi-speaker model."
             )
             logger.info(api.speakers)
-            return
+            sys.exit(0)
 
         # query langauge ids of a multi-lingual model.
         if args.list_language_idxs:
             if not api.is_multi_lingual:
                 logger.info("Monolingual model.")
-                return
+                sys.exit(0)
             logger.info(
                 "Available language ids: (Set --language_idx flag to one of these values to use the multi-lingual model."
             )
             logger.info(api.languages)
-            return
+            sys.exit(0)
 
         # check the arguments against a multi-speaker model.
         if api.is_multi_speaker and (not args.speaker_idx and not args.speaker_wav):
@@ -401,7 +403,7 @@ def main() -> None:
                 "Looks like you use a multi-speaker model. Define `--speaker_idx` to "
                 "select the target speaker. You can list the available speakers for this model by `--list_speaker_idxs`."
             )
-            return
+            sys.exit(1)
 
         # RUN THE SYNTHESIS
         if args.text:
@@ -430,6 +432,7 @@ def main() -> None:
                 pipe_out=pipe_out,
             )
             logger.info("Saved VC output to %s", args.out_path)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

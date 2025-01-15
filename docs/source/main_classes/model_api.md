@@ -1,22 +1,22 @@
 # Model API
 Model API provides you a set of functions that easily make your model compatible with the `Trainer`,
-`Synthesizer` and `ModelZoo`.
+`Synthesizer` and the Coqui Python API.
 
-## Base TTS Model
+## Base Trainer Model
 
 ```{eval-rst}
 .. autoclass:: TTS.model.BaseTrainerModel
     :members:
 ```
 
-## Base tts Model
+## Base TTS Model
 
 ```{eval-rst}
 .. autoclass:: TTS.tts.models.base_tts.BaseTTS
     :members:
 ```
 
-## Base vocoder Model
+## Base Vocoder Model
 
 ```{eval-rst}
 .. autoclass:: TTS.vocoder.models.base_vocoder.BaseVocoder

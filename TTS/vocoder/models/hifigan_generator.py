@@ -179,6 +179,7 @@ class HifiganGenerator(torch.nn.Module):
         conv_post_weight_norm=True,
         conv_post_bias=True,
         cond_in_each_up_layer=False,
+        pre_linear=None,
     ):
         r"""HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
 
@@ -198,6 +199,7 @@ class HifiganGenerator(torch.nn.Module):
                 for each consecutive upsampling layer.
             upsample_factors (List[int]): upsampling factors (stride) for each upsampling layer.
             inference_padding (int): constant padding applied to the input at inference time. Defaults to 5.
+            pre_linear (int): If not None, add nn.Linear(pre_linear, in_channels) before the convolutions.
         """
         super().__init__()
         self.inference_padding = inference_padding
@@ -206,6 +208,8 @@ class HifiganGenerator(torch.nn.Module):
         self.cond_in_each_up_layer = cond_in_each_up_layer
 
         # initial upsampling layers
+        if pre_linear is not None:
+            self.lin_pre = nn.Linear(pre_linear, in_channels)
         self.conv_pre = weight_norm(Conv1d(in_channels, upsample_initial_channel, 7, 1, padding=3))
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
@@ -258,6 +262,9 @@ class HifiganGenerator(torch.nn.Module):
             x: [B, C, T]
             Tensor: [B, 1, T]
         """
+        if hasattr(self, "lin_pre"):
+            x = self.lin_pre(x)
+            x = x.permute(0, 2, 1)
         o = self.conv_pre(x)
         if hasattr(self, "cond_layer"):
             o = o + self.cond_layer(g)
@@ -280,7 +287,7 @@ class HifiganGenerator(torch.nn.Module):
         o = torch.tanh(o)
         return o
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c):
         """
         Args:

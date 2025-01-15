@@ -2,9 +2,10 @@
 import datetime
 import importlib
 import logging
+import os
 import re
 from pathlib import Path
-from typing import Callable, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TextIO, TypeVar, Union
 
 import torch
 from packaging.version import Version
@@ -30,6 +31,7 @@ def to_camel(text):
     text = re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
     text = text.replace("Tts", "TTS")
     text = text.replace("vc", "VC")
+    text = text.replace("Knn", "KNN")
     return text
 
 
@@ -107,25 +109,34 @@ def setup_logger(
     level: int = logging.INFO,
     *,
     formatter: Optional[logging.Formatter] = None,
-    screen: bool = False,
-    tofile: bool = False,
-    log_dir: str = "logs",
+    stream: Optional[TextIO] = None,
+    log_dir: Optional[Union[str, os.PathLike[Any]]] = None,
     log_name: str = "log",
 ) -> None:
+    """Set up a logger.
+
+    Args:
+        logger_name: Name of the logger to set up
+        level: Logging level
+        formatter: Formatter for the logger
+        stream: Add a StreamHandler for the given stream, e.g. sys.stderr or sys.stdout
+        log_dir: Folder to write the log file (no file created if None)
+        log_name: Prefix of the log file name
+    """
     lg = logging.getLogger(logger_name)
     if formatter is None:
         formatter = logging.Formatter(
             "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)s: %(message)s", datefmt="%y-%m-%d %H:%M:%S"
         )
     lg.setLevel(level)
-    if tofile:
+    if log_dir is not None:
         Path(log_dir).mkdir(exist_ok=True, parents=True)
         log_file = Path(log_dir) / f"{log_name}_{get_timestamp()}.log"
         fh = logging.FileHandler(log_file, mode="w")
         fh.setFormatter(formatter)
         lg.addHandler(fh)
-    if screen:
-        sh = logging.StreamHandler()
+    if stream is not None:
+        sh = logging.StreamHandler(stream)
         sh.setFormatter(formatter)
         lg.addHandler(sh)
 
@@ -133,3 +144,8 @@ def setup_logger(
 def is_pytorch_at_least_2_4() -> bool:
     """Check if the installed Pytorch version is 2.4 or higher."""
     return Version(torch.__version__) >= Version("2.4")
+
+
+def optional_to_str(x: Optional[Any]) -> str:
+    """Convert input to string, using empty string if input is None."""
+    return "" if x is None else str(x)

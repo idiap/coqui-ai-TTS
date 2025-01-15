@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from argparse import RawTextHelpFormatter
 
 import torch
@@ -53,7 +54,7 @@ def compute_encoder_accuracy(dataset_items, encoder_manager):
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     parser = argparse.ArgumentParser(
         description="""Compute the accuracy of the encoder.\n\n"""

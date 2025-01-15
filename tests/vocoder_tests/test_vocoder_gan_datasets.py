@@ -3,15 +3,11 @@ import os
 import numpy as np
 from torch.utils.data import DataLoader
 
-from tests import get_tests_output_path, get_tests_path
+from tests import get_tests_path
 from TTS.utils.audio import AudioProcessor
 from TTS.vocoder.configs import BaseGANVocoderConfig
 from TTS.vocoder.datasets.gan_dataset import GANDataset
 from TTS.vocoder.datasets.preprocess import load_wav_data
-
-file_path = os.path.dirname(os.path.realpath(__file__))
-OUTPATH = os.path.join(get_tests_output_path(), "loader_tests/")
-os.makedirs(OUTPATH, exist_ok=True)
 
 C = BaseGANVocoderConfig()
 

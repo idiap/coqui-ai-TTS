@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import librosa
 import numpy as np
@@ -233,7 +233,7 @@ class SpeakerEncoder(torch.nn.Module):
 class FreeVC(BaseVC):
     """
 
-    Papaer::
+    Paper::
         https://arxiv.org/abs/2210.15418#
 
     Paper Abstract::
@@ -306,15 +306,11 @@ class FreeVC(BaseVC):
 
         self.wavlm = get_wavlm()
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def load_pretrained_speaker_encoder(self):
         """Load pretrained speaker encoder model as mentioned in the paper."""
         logger.info("Loading pretrained speaker encoder model ...")
         self.enc_spk_ex = SpeakerEncoderEx(
-            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt", device=self.device
+            "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/speaker_encoder.pt"
         )
 
     def init_multispeaker(self, config: Coqpit):
@@ -389,8 +385,8 @@ class FreeVC(BaseVC):
 
         return o, ids_slice, spec_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-    @torch.no_grad()
-    def inference(self, c, g=None, mel=None, c_lengths=None):
+    @torch.inference_mode()
+    def inference(self, c, g=None, c_lengths=None):
         """
         Inference pass of the model
 
@@ -405,9 +401,6 @@ class FreeVC(BaseVC):
         """
         if c_lengths is None:
             c_lengths = (torch.ones(c.size(0)) * c.size(-1)).to(c.device)
-        if not self.use_spk:
-            g = self.enc_spk.embed_utterance(mel)
-            g = g.unsqueeze(-1)
         z_p, m_p, logs_p, c_mask = self.enc_p(c, c_lengths)
         z = self.flow(z_p, c_mask, g=g, reverse=True)
         o = self.dec(z * c_mask, g=g)
@@ -438,51 +431,52 @@ class FreeVC(BaseVC):
         return wav.float()
 
     @torch.inference_mode()
-    def voice_conversion(self, src, tgt):
+    def voice_conversion(self, src: Union[str, torch.Tensor], tgt: list[Union[str, torch.Tensor]]):
         """
         Voice conversion pass of the model.
 
         Args:
             src (str or torch.Tensor): Source utterance.
-            tgt (str or torch.Tensor): Target utterance.
+            tgt (list of str or torch.Tensor): Target utterances.
 
         Returns:
             torch.Tensor: Output tensor.
         """
 
-        wav_tgt = self.load_audio(tgt).cpu().numpy()
-        wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
-
-        if self.config.model_args.use_spk:
-            g_tgt = self.enc_spk_ex.embed_utterance(wav_tgt)
-            g_tgt = torch.from_numpy(g_tgt)[None, :, None].to(self.device)
-        else:
-            wav_tgt = torch.from_numpy(wav_tgt).unsqueeze(0).to(self.device)
-            mel_tgt = mel_spectrogram_torch(
-                wav_tgt,
-                self.config.audio.filter_length,
-                self.config.audio.n_mel_channels,
-                self.config.audio.input_sample_rate,
-                self.config.audio.hop_length,
-                self.config.audio.win_length,
-                self.config.audio.mel_fmin,
-                self.config.audio.mel_fmax,
-            )
         # src
         wav_src = self.load_audio(src)
         c = self.extract_wavlm_features(wav_src[None, :])
 
-        if self.config.model_args.use_spk:
-            audio = self.inference(c, g=g_tgt)
-        else:
-            audio = self.inference(c, mel=mel_tgt.transpose(1, 2))
-        audio = audio[0][0].data.cpu().float().numpy()
-        return audio
+        # tgt
+        g_tgts = []
+        for tg in tgt:
+            wav_tgt = self.load_audio(tg).cpu().numpy()
+            wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
+
+            if self.config.model_args.use_spk:
+                g_tgts.append(self.enc_spk_ex.embed_utterance(wav_tgt)[None, :, None])
+            else:
+                wav_tgt = torch.from_numpy(wav_tgt).unsqueeze(0).to(self.device)
+                mel_tgt = mel_spectrogram_torch(
+                    wav_tgt,
+                    self.config.audio.filter_length,
+                    self.config.audio.n_mel_channels,
+                    self.config.audio.input_sample_rate,
+                    self.config.audio.hop_length,
+                    self.config.audio.win_length,
+                    self.config.audio.mel_fmin,
+                    self.config.audio.mel_fmax,
+                )
+                g_tgts.append(self.enc_spk.embed_utterance(mel_tgt.transpose(1, 2)).unsqueeze(-1))
+
+        g_tgt = torch.stack(g_tgts).mean(dim=0)
+        audio = self.inference(c, g=g_tgt)
+        return audio[0][0].data.cpu().float().numpy()
 
     def eval_step(): ...
 
     @staticmethod
-    def init_from_config(config: FreeVCConfig, samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: FreeVCConfig) -> "FreeVC":
         model = FreeVC(config)
         return model
 

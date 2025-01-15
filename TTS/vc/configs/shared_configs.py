@@ -6,7 +6,7 @@ from TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 
 @dataclass
 class BaseVCConfig(BaseTrainingConfig):
-    """Shared parameters among all the tts models.
+    """Shared parameters among all the VC models.
 
     Args:
 

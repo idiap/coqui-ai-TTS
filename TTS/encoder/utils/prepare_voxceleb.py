@@ -216,7 +216,7 @@ def processor(directory, subset, force_process):
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     if len(sys.argv) != 4:
         print("Usage: python prepare_data.py save_directory user password")
         sys.exit()

@@ -238,7 +238,7 @@ class Tacotron2(BaseTacotron):
         )
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, text, aux_input=None):
         """Forward pass for inference with no Teacher-Forcing.
 

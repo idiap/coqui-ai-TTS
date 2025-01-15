@@ -25,7 +25,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.25.1"
+version = "0.25.2"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
 requires-python = ">=3.9, <3.13"
@@ -70,6 +70,7 @@ dependencies = [
     "pyyaml>=6.0",
     "fsspec[http]>=2023.6.0",
     "packaging>=23.1",
+    "typing_extensions>=4.10",
     # Inference
     "pysbd>=0.3.4",
     # Training
@@ -86,14 +87,14 @@ dependencies = [
     # Bark
     "encodec>=0.1.1",
     # XTTS
-    "num2words>=0.5.11",
+    "num2words>=0.5.14",
     "spacy[ja]>=3,<3.8",
 ]
 
 [project.optional-dependencies]
 # Only used in notebooks
 notebooks = [
-    "bokeh==1.4.0",
+    "bokeh>=3.0.3",
     "pandas>=1.4,<2.0",
     "umap-learn>=0.5.1",
 ]
@@ -137,18 +138,18 @@ all = [
 dev = [
     "black==24.2.0",
     "coverage[toml]>=7",
-    "nose2>=0.15",
     "pre-commit>=3",
+    "pytest>=8",
     "ruff==0.7.0",
 ]
 # Dependencies for building the documentation
 docs = [
-    "furo>=2023.5.20",
-    "myst-parser==2.0.0",
-    "sphinx==7.2.5",
+    "furo>=2024.8.6",
+    "myst-parser==3.0.1",
+    "sphinx==7.4.7",
     "sphinx_inline_tabs>=2023.4.21",
-    "sphinx_copybutton>=0.1",
-    "linkify-it-py>=2.0.0",
+    "sphinx_copybutton>=0.5.2",
+    "linkify-it-py>=2.0.3",
 ]
 
 [project.urls]
@@ -173,7 +174,6 @@ exclude = [
     "/.readthedocs.yml",
     "/Makefile",
     "/dockerfiles",
-    "/run_bash_tests.sh",
     "/scripts",
     "/tests",
 ]
@@ -235,10 +235,10 @@ max-returns = 7
 line-length = 120
 target-version = ['py39']
 
+[tool.coverage.report]
+skip_covered = true
+skip_empty = true
+
 [tool.coverage.run]
 parallel = true
 source = ["TTS"]
-
-[tool.cibuildwheel]
-build = "cp*"
-skip = "*-win32 *i686 *musllinux*"

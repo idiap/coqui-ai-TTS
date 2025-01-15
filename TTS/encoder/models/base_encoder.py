@@ -64,11 +64,11 @@ class BaseEncoder(nn.Module):
             ),
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, l2_norm=True):
         return self.forward(x, l2_norm)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def compute_embedding(self, x, num_frames=250, num_eval=10, return_mean=True, l2_norm=True):
         """
         Generate embeddings for a batch of utterances

@@ -197,10 +197,6 @@ class GPTTrainer(BaseTTS):
             mel_norm_file=self.args.mel_norm_file, sampling_rate=config.audio.dvae_sample_rate
         )
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def forward(self, text_inputs, text_lengths, audio_codes, wav_lengths, cond_mels, cond_idxs, cond_lens):
         """
         Forward pass that uses both text and voice in either text conditioning mode or voice conditioning mode
@@ -225,7 +221,7 @@ class GPTTrainer(BaseTTS):
         )
         return losses
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets) -> Tuple[Dict, Dict]:  # pylint: disable=W0613
         test_audios = {}
         if self.config.test_sentences:
@@ -335,7 +331,7 @@ class GPTTrainer(BaseTTS):
 
             WeightsFileHandler.add_pre_callback(callback_clearml_load_save)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x,

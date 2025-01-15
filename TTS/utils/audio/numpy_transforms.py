@@ -1,6 +1,7 @@
 import logging
+import os
 from io import BytesIO
-from typing import Optional
+from typing import Any, Optional, Union
 
 import librosa
 import numpy as np
@@ -406,7 +407,9 @@ def rms_volume_norm(*, x: np.ndarray, db_level: float = -27.0, **kwargs) -> np.n
     return rms_norm(wav=x, db_level=db_level)
 
 
-def load_wav(*, filename: str, sample_rate: Optional[int] = None, resample: bool = False, **kwargs) -> np.ndarray:
+def load_wav(
+    *, filename: Union[str, os.PathLike[Any]], sample_rate: Optional[int] = None, resample: bool = False, **kwargs
+) -> np.ndarray:
     """Read a wav file using Librosa and optionally resample, silence trim, volume normalize.
 
     Resampling slows down loading the file significantly. Therefore it is recommended to resample the file before.
@@ -434,7 +437,7 @@ def load_wav(*, filename: str, sample_rate: Optional[int] = None, resample: bool
 def save_wav(
     *,
     wav: np.ndarray,
-    path: str,
+    path: Union[str, os.PathLike[Any]],
     sample_rate: int,
     pipe_out=None,
     do_rms_norm: bool = False,

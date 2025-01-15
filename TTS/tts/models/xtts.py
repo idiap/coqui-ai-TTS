@@ -178,7 +178,7 @@ class XttsArgs(Coqpit):
 
 
 class Xtts(BaseTTS):
-    """ⓍTTS model implementation.
+    """XTTS model implementation.
 
     ❗ Currently it only supports inference.
 
@@ -238,10 +238,6 @@ class Xtts(BaseTTS):
             d_vector_dim=self.args.d_vector_dim,
             cond_d_vector_in_each_upsampling_layer=self.args.cond_d_vector_in_each_upsampling_layer,
         )
-
-    @property
-    def device(self):
-        return next(self.parameters()).device
 
     @torch.inference_mode()
     def get_gpt_cond_latents(self, audio, sr, length: int = 30, chunk_length: int = 6):
@@ -460,7 +456,7 @@ class Xtts(BaseTTS):
             gpt_cond_chunk_len: (int) Chunk length used for cloning. It must be <= `gpt_cond_len`.
                 If gpt_cond_len == gpt_cond_chunk_len, no chunking. Defaults to 6 seconds.
 
-            hf_generate_kwargs: (**kwargs) The huggingface Transformers generate API is used for the autoregressive
+            hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive
                 transformer. Extra keyword args fed to this function get forwarded directly to that API. Documentation
                 here: https://huggingface.co/docs/transformers/internal/generation_utils
 

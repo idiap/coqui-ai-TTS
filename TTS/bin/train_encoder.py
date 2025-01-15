@@ -87,7 +87,7 @@ def setup_loader(ap: AudioProcessor, is_val: bool = False):
 def evaluation(model, criterion, data_loader, global_step):
     eval_loss = 0
     for _, data in enumerate(data_loader):
-        with torch.no_grad():
+        with torch.inference_mode():
             # setup input data
             inputs, labels = data
 
@@ -322,7 +322,7 @@ def main(args):  # pylint: disable=redefined-outer-name
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     args, c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = init_training()
 

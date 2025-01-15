@@ -439,10 +439,6 @@ class DelightfulTTS(BaseTTSE2E):
             )
 
     @property
-    def device(self):
-        return next(self.parameters()).device
-
-    @property
     def energy_scaler(self):
         return self.acoustic_model.energy_scaler
 
@@ -622,7 +618,7 @@ class DelightfulTTS(BaseTTSE2E):
         model_outputs["slice_ids"] = slice_ids
         return model_outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self, x, aux_input={"d_vectors": None, "speaker_ids": None}, pitch_transform=None, energy_transform=None
     ):
@@ -646,7 +642,7 @@ class DelightfulTTS(BaseTTSE2E):
         model_outputs["model_outputs"] = vocoder_output
         return model_outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference_spec_decoder(self, x, aux_input={"d_vectors": None, "speaker_ids": None}):
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
@@ -1018,7 +1014,7 @@ class DelightfulTTS(BaseTTSE2E):
         }
         return return_dict
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def test_run(self, assets) -> Tuple[Dict, Dict]:
         """Generic test run for `tts` models used by `Trainer`.
 

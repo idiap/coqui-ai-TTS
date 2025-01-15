@@ -501,12 +501,12 @@ def _remove_dots(m):
 
 def _expand_decimal_point(m, lang="en"):
     amount = m.group(1).replace(",", ".")
-    return num2words(float(amount), lang=lang if lang != "cs" else "cz")
+    return num2words(float(amount), lang=lang)
 
 
 def _expand_currency(m, lang="en", currency="USD"):
     amount = float((re.sub(r"[^\d.]", "", m.group(0).replace(",", "."))))
-    full_amount = num2words(amount, to="currency", currency=currency, lang=lang if lang != "cs" else "cz")
+    full_amount = num2words(amount, to="currency", currency=currency, lang=lang)
 
     and_equivalents = {
         "en": ", ",
@@ -535,11 +535,11 @@ def _expand_currency(m, lang="en", currency="USD"):
 
 
 def _expand_ordinal(m, lang="en"):
-    return num2words(int(m.group(1)), ordinal=True, lang=lang if lang != "cs" else "cz")
+    return num2words(int(m.group(1)), ordinal=True, lang=lang)
 
 
 def _expand_number(m, lang="en"):
-    return num2words(int(m.group(0)), lang=lang if lang != "cs" else "cz")
+    return num2words(int(m.group(0)), lang=lang)
 
 
 def expand_numbers_multilingual(text, lang="en"):
