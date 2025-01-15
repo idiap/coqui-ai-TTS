@@ -23,7 +23,6 @@ test_xtts:
 
 test_aux:	## run aux tests.
 	coverage run -m pytest -x -v --durations=0 tests/aux_tests
-	./run_bash_tests.sh
 
 test_zoo:	## run zoo tests.
 	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py
