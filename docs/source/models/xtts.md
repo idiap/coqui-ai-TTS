@@ -182,7 +182,7 @@ To use the model API, you need to download the model files and pass config and m
 If you want to be able to `load_checkpoint` with `use_deepspeed=True` and **enjoy the speedup**, you need to install deepspeed first.
 
 ```console
-pip install deepspeed==0.10.3
+pip install deepspeed
 ```
 
 #### Inference parameters
