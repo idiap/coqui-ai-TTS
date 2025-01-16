@@ -3,7 +3,8 @@ import math
 import os
 from dataclasses import dataclass, field, replace
 from itertools import chain
-from typing import Dict, List, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -1581,13 +1582,16 @@ class Vits(BaseTTS):
 
         self.disc = None
         # set paths
-        config_file = os.path.join(checkpoint_dir, "config.json")
-        checkpoint_file = os.path.join(checkpoint_dir, "G_100000.pth")
-        vocab_file = os.path.join(checkpoint_dir, "vocab.txt")
+        checkpoint_dir = Path(checkpoint_dir)
+        config_file = checkpoint_dir / "config.json"
+        checkpoint_file = checkpoint_dir / "model.pth"
+        if not checkpoint_file.is_file():
+            checkpoint_file = checkpoint_dir / "G_100000.pth"
+        vocab_file = checkpoint_dir / "vocab.txt"
         # set config params
-        with open(config_file, "r", encoding="utf-8") as file:
+        with open(config_file, "r", encoding="utf-8") as f:
             # Load the JSON data as a dictionary
-            config_org = json.load(file)
+            config_org = json.load(f)
         self.config.audio.sample_rate = config_org["data"]["sampling_rate"]
         # self.config.add_blank = config['add_blank']
         # set tokenizer
@@ -1821,7 +1825,7 @@ class VitsCharacters(BaseCharacters):
 
 
 class FairseqVocab(BaseVocabulary):
-    def __init__(self, vocab: str):
+    def __init__(self, vocab: Union[str, os.PathLike[Any]]):
         super(FairseqVocab).__init__()
         self.vocab = vocab
 
@@ -1831,7 +1835,7 @@ class FairseqVocab(BaseVocabulary):
         return self._vocab
 
     @vocab.setter
-    def vocab(self, vocab_file):
+    def vocab(self, vocab_file: Union[str, os.PathLike[Any]]):
         with open(vocab_file, encoding="utf-8") as f:
             self._vocab = [x.replace("\n", "") for x in f.readlines()]
         self.blank = self._vocab[0]

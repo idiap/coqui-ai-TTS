@@ -37,6 +37,7 @@ def manager(tmp_path):
 num_partitions = int(os.getenv("NUM_PARTITIONS", "1"))
 partition = int(os.getenv("TEST_PARTITION", "0"))
 model_names = [name for name in TTS.list_models() if name not in MODELS_WITH_SEP_TESTS]
+model_names.extend(["tts_models/deu/fairseq/vits", "tts_models/sqi/fairseq/vits"])
 model_names = [name for i, name in enumerate(model_names) if i % num_partitions == partition]
 
 
