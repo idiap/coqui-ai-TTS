@@ -342,7 +342,6 @@ class Tortoise(BaseTTS):
             else self.args.autoregressive_batch_size
         )
         self.enable_redaction = self.args.enable_redaction
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.enable_redaction:
             self.aligner = Wav2VecAlignment()
 
