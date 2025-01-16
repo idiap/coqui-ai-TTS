@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Optional
 
 from TTS.utils.download import download_kaggle_dataset, download_url, extract_archive
 
@@ -21,7 +20,7 @@ def download_ljspeech(path: str):
     extract_archive(archive)
 
 
-def download_vctk(path: str, use_kaggle: Optional[bool] = False):
+def download_vctk(path: str, use_kaggle: bool | None = False):
     """Download and extract VCTK dataset.
 
     Args:
@@ -49,7 +48,7 @@ def download_tweb(path: str):
     download_kaggle_dataset("bryanpark/the-world-english-bible-speech-dataset", "TWEB", path)
 
 
-def download_libri_tts(path: str, subset: Optional[str] = "all"):
+def download_libri_tts(path: str, subset: str | None = "all"):
     """Download and extract libri tts dataset.
 
     Args:

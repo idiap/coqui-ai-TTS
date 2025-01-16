@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 import torch.distributions as tdist
 import torch.nn.functional as F
@@ -57,7 +55,7 @@ class NeuralHMM(nn.Module):
         prenet_dropout: float,
         prenet_dropout_at_inference: bool,
         memory_rnn_dim: int,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         flat_start_params: dict,
         std_floor: float,
         use_grad_checkpointing: bool = True,

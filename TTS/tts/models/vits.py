@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field, replace
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -401,12 +401,12 @@ class VitsArgs(Coqpit):
     dilation_rate_flow: int = 1
     num_layers_flow: int = 4
     resblock_type_decoder: str = "1"
-    resblock_kernel_sizes_decoder: List[int] = field(default_factory=lambda: [3, 7, 11])
-    resblock_dilation_sizes_decoder: List[List[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
-    upsample_rates_decoder: List[int] = field(default_factory=lambda: [8, 8, 2, 2])
+    resblock_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [3, 7, 11])
+    resblock_dilation_sizes_decoder: list[list[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
+    upsample_rates_decoder: list[int] = field(default_factory=lambda: [8, 8, 2, 2])
     upsample_initial_channel_decoder: int = 512
-    upsample_kernel_sizes_decoder: List[int] = field(default_factory=lambda: [16, 16, 4, 4])
-    periods_multi_period_discriminator: List[int] = field(default_factory=lambda: [2, 3, 5, 7, 11])
+    upsample_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [16, 16, 4, 4])
+    periods_multi_period_discriminator: list[int] = field(default_factory=lambda: [2, 3, 5, 7, 11])
     use_sdp: bool = True
     noise_scale: float = 1.0
     inference_noise_scale: float = 0.667
@@ -419,7 +419,7 @@ class VitsArgs(Coqpit):
     use_speaker_embedding: bool = False
     num_speakers: int = 0
     speakers_file: str = None
-    d_vector_file: List[str] = None
+    d_vector_file: list[str] = None
     speaker_embedding_channels: int = 256
     use_d_vector_file: bool = False
     d_vector_dim: int = 0
@@ -680,7 +680,7 @@ class Vits(BaseTTS):
                     raise RuntimeError(" [!] The weights of Text Encoder was not reinit check it !")
             logger.info("Text Encoder was reinit.")
 
-    def get_aux_input(self, aux_input: Dict):
+    def get_aux_input(self, aux_input: dict):
         sid, g, lid, _ = self._set_cond_input(aux_input)
         return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
 
@@ -710,7 +710,7 @@ class Vits(BaseTTS):
                 param.requires_grad = False
 
     @staticmethod
-    def _set_cond_input(aux_input: Dict):
+    def _set_cond_input(aux_input: dict):
         """Set the speaker conditioning input based on the multi-speaker mode."""
         sid, g, lid, durations = None, None, None, None
         if "speaker_ids" in aux_input and aux_input["speaker_ids"] is not None:
@@ -732,7 +732,7 @@ class Vits(BaseTTS):
 
         return sid, g, lid, durations
 
-    def _set_speaker_input(self, aux_input: Dict):
+    def _set_speaker_input(self, aux_input: dict):
         d_vectors = aux_input.get("d_vectors", None)
         speaker_ids = aux_input.get("speaker_ids", None)
 
@@ -805,7 +805,7 @@ class Vits(BaseTTS):
         y_lengths: torch.tensor,
         waveform: torch.tensor,
         aux_input={"d_vectors": None, "speaker_ids": None, "language_ids": None},
-    ) -> Dict:
+    ) -> dict:
         """Forward pass of the model.
 
         Args:
@@ -1052,8 +1052,8 @@ class Vits(BaseTTS):
         assert self.num_speakers > 0, "num_speakers have to be larger than 0."
         # speaker embedding
         if self.args.use_speaker_embedding and not self.args.use_d_vector_file:
-            g_src = self.emb_g(torch.from_numpy((np.array(speaker_cond_src))).unsqueeze(0)).unsqueeze(-1)
-            g_tgt = self.emb_g(torch.from_numpy((np.array(speaker_cond_tgt))).unsqueeze(0)).unsqueeze(-1)
+            g_src = self.emb_g(torch.from_numpy(np.array(speaker_cond_src)).unsqueeze(0)).unsqueeze(-1)
+            g_tgt = self.emb_g(torch.from_numpy(np.array(speaker_cond_tgt)).unsqueeze(0)).unsqueeze(-1)
         elif not self.args.use_speaker_embedding and self.args.use_d_vector_file:
             g_src = F.normalize(speaker_cond_src).unsqueeze(-1)
             g_tgt = F.normalize(speaker_cond_tgt).unsqueeze(-1)
@@ -1066,7 +1066,7 @@ class Vits(BaseTTS):
         o_hat = self.waveform_decoder(z_hat * y_mask, g=g_tgt)
         return o_hat, y_mask, (z, z_p, z_hat)
 
-    def train_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int) -> tuple[dict, dict]:
         """Perform a single training step. Run the model forward pass and compute losses.
 
         Args:
@@ -1186,9 +1186,7 @@ class Vits(BaseTTS):
         )
         return figures, audios
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ):  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use
         """Create visualizations and waveform examples.
 
         For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
@@ -1264,7 +1262,7 @@ class Vits(BaseTTS):
         }
 
     @torch.inference_mode()
-    def test_run(self, assets) -> Tuple[Dict, Dict]:
+    def test_run(self, assets) -> tuple[dict, dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -1290,17 +1288,21 @@ class Vits(BaseTTS):
                 use_griffin_lim=True,
                 do_trim_silence=False,
             ).values()
-            test_audios["{}-audio".format(idx)] = wav
-            test_figures["{}-alignment".format(idx)] = plot_alignment(alignment.permute(2, 1, 0), output_fig=False)
+            test_audios[f"{idx}-audio"] = wav
+            test_figures[f"{idx}-alignment"] = plot_alignment(alignment.permute(2, 1, 0), output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
         logger.test_figures(steps, outputs["figures"])
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict) -> dict:
         """Compute speaker, langugage IDs and d_vector for the batch if necessary."""
         speaker_ids = None
         language_ids = None
@@ -1364,9 +1366,9 @@ class Vits(BaseTTS):
         )
 
         if self.args.encoder_sample_rate:
-            assert batch["spec"].shape[2] == int(
-                batch["mel"].shape[2] / self.interpolate_factor
-            ), f"{batch['spec'].shape[2]}, {batch['mel'].shape[2]}"
+            assert batch["spec"].shape[2] == int(batch["mel"].shape[2] / self.interpolate_factor), (
+                f"{batch['spec'].shape[2]}, {batch['mel'].shape[2]}"
+            )
         else:
             assert batch["spec"].shape[2] == batch["mel"].shape[2], f"{batch['spec'].shape[2]}, {batch['mel'].shape[2]}"
 
@@ -1423,9 +1425,9 @@ class Vits(BaseTTS):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
         rank: int = None,
@@ -1487,7 +1489,7 @@ class Vits(BaseTTS):
                     )
         return loader
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         """Initiate and return the GAN optimizers based on the config parameters.
 
         It returns 2 optimizers in a list. First one is for the discriminator
@@ -1505,7 +1507,7 @@ class Vits(BaseTTS):
         )
         return [optimizer0, optimizer1]
 
-    def get_lr(self) -> List:
+    def get_lr(self) -> list:
         """Set the initial learning rates for each optimizer.
 
         Returns:
@@ -1513,7 +1515,7 @@ class Vits(BaseTTS):
         """
         return [self.config.lr_disc, self.config.lr_gen]
 
-    def get_scheduler(self, optimizer) -> List:
+    def get_scheduler(self, optimizer) -> list:
         """Set the schedulers for each optimizer.
 
         Args:
@@ -1536,9 +1538,7 @@ class Vits(BaseTTS):
 
         return [VitsDiscriminatorLoss(self.config), VitsGeneratorLoss(self.config)]
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, strict=True, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, strict=True, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         """Load the model checkpoint and setup for training or inference"""
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         # compat band-aid for the pre-trained models to not use the encoder baked into the model
@@ -1565,9 +1565,7 @@ class Vits(BaseTTS):
             self.eval()
             assert not self.training
 
-    def load_fairseq_checkpoint(
-        self, config, checkpoint_dir, eval=False, strict=True
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_fairseq_checkpoint(self, config, checkpoint_dir, eval=False, strict=True):  # pylint: disable=unused-argument, redefined-builtin
         """Load VITS checkpoints released by fairseq here: https://github.com/facebookresearch/fairseq/tree/main/examples/mms
         Performs some changes for compatibility.
 
@@ -1589,7 +1587,7 @@ class Vits(BaseTTS):
             checkpoint_file = checkpoint_dir / "G_100000.pth"
         vocab_file = checkpoint_dir / "vocab.txt"
         # set config params
-        with open(config_file, "r", encoding="utf-8") as f:
+        with open(config_file, encoding="utf-8") as f:
             # Load the JSON data as a dictionary
             config_org = json.load(f)
         self.config.audio.sample_rate = config_org["data"]["sampling_rate"]
@@ -1613,7 +1611,7 @@ class Vits(BaseTTS):
             assert not self.training
 
     @staticmethod
-    def init_from_config(config: "VitsConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "VitsConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:
@@ -1626,15 +1624,15 @@ class Vits(BaseTTS):
         upsample_rate = torch.prod(torch.as_tensor(config.model_args.upsample_rates_decoder)).item()
 
         if not config.model_args.encoder_sample_rate:
-            assert (
-                upsample_rate == config.audio.hop_length
-            ), f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {config.audio.hop_length}"
+            assert upsample_rate == config.audio.hop_length, (
+                f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {config.audio.hop_length}"
+            )
         else:
             encoder_to_vocoder_upsampling_factor = config.audio.sample_rate / config.model_args.encoder_sample_rate
             effective_hop_length = config.audio.hop_length * encoder_to_vocoder_upsampling_factor
-            assert (
-                upsample_rate == effective_hop_length
-            ), f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {effective_hop_length}"
+            assert upsample_rate == effective_hop_length, (
+                f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {effective_hop_length}"
+            )
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
@@ -1825,7 +1823,7 @@ class VitsCharacters(BaseCharacters):
 
 
 class FairseqVocab(BaseVocabulary):
-    def __init__(self, vocab: Union[str, os.PathLike[Any]]):
+    def __init__(self, vocab: str | os.PathLike[Any]):
         super(FairseqVocab).__init__()
         self.vocab = vocab
 
@@ -1835,7 +1833,7 @@ class FairseqVocab(BaseVocabulary):
         return self._vocab
 
     @vocab.setter
-    def vocab(self, vocab_file: Union[str, os.PathLike[Any]]):
+    def vocab(self, vocab_file: str | os.PathLike[Any]):
         with open(vocab_file, encoding="utf-8") as f:
             self._vocab = [x.replace("\n", "") for x in f.readlines()]
         self.blank = self._vocab[0]

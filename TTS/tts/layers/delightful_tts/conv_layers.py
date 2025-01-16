@@ -1,11 +1,9 @@
-from typing import Tuple
-
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
 import torch.nn.functional as F
 
 
-def calc_same_padding(kernel_size: int) -> Tuple[int, int]:
+def calc_same_padding(kernel_size: int) -> tuple[int, int]:
     pad = kernel_size // 2
     return (pad, pad - (kernel_size + 1) % 2)
 
@@ -52,7 +50,7 @@ class ConvNorm(nn.Module):
         w_init_gain="linear",
         use_weight_norm=False,
     ):
-        super(ConvNorm, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
         if padding is None:
             assert kernel_size % 2 == 1
             padding = int(dilation * (kernel_size - 1) / 2)
@@ -94,7 +92,7 @@ class ConvLSTMLinear(nn.Module):
         lstm_type="bilstm",
         use_linear=True,
     ):
-        super(ConvLSTMLinear, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
         self.out_dim = out_dim
         self.lstm_type = lstm_type
         self.use_linear = use_linear

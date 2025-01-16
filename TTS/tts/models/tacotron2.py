@@ -1,7 +1,3 @@
-# coding: utf-8
-
-from typing import Dict, List, Union
-
 import torch
 from torch import nn
 from trainer.trainer_utils import get_optimizer, get_scheduler
@@ -309,7 +305,7 @@ class Tacotron2(BaseTacotron):
             loss_dict["capacitron_vae_beta_loss"].backward()
             optimizer.first_step()
 
-    def train_step(self, batch: Dict, criterion: torch.nn.Module):
+    def train_step(self, batch: dict, criterion: torch.nn.Module):
         """A single training step. Forward pass and loss computation.
 
         Args:
@@ -360,7 +356,7 @@ class Tacotron2(BaseTacotron):
         loss_dict["align_error"] = align_error
         return outputs, loss_dict
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         if self.use_capacitron_vae:
             return CapacitronOptimizer(self.config, self.named_parameters())
         return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
@@ -403,9 +399,7 @@ class Tacotron2(BaseTacotron):
         audio = ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
         """Log training progress."""
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)
@@ -420,7 +414,7 @@ class Tacotron2(BaseTacotron):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @staticmethod
-    def init_from_config(config: "Tacotron2Config", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "Tacotron2Config", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

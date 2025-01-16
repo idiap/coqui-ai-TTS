@@ -1,5 +1,4 @@
 import logging
-from typing import Dict
 
 import numpy as np
 import torch
@@ -32,7 +31,7 @@ def interpolate_vocoder_input(scale_factor, spec):
     return spec
 
 
-def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_prefix: str = None) -> Dict:
+def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_prefix: str = None) -> dict:
     """Plot the predicted and the real waveform and their spectrograms.
 
     Args:

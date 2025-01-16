@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 from argparse import RawTextHelpFormatter
-from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -16,7 +15,7 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
-def parse_args(arg_list: Optional[list[str]]) -> argparse.Namespace:
+def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""Compute embedding vectors for each audio file in a dataset and store them keyed by `{dataset_name}#{file_path}` in a .pth file\n\n"""
         """
@@ -185,7 +184,7 @@ def compute_embeddings(
         print("Speaker embeddings saved at:", mapping_file_path)
 
 
-def main(arg_list: Optional[list[str]] = None):
+def main(arg_list: list[str] | None = None):
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     args = parse_args(arg_list)
 

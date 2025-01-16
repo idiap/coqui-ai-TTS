@@ -2,7 +2,6 @@ import logging
 import os
 import re
 from glob import glob
-from typing import Dict, List, Optional, Tuple
 
 import librosa
 import numpy as np
@@ -34,9 +33,9 @@ def _normalize_whitespace(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def get_voices(extra_voice_dirs: List[str] = []):  # pylint: disable=dangerous-default-value
+def get_voices(extra_voice_dirs: list[str] = []):  # pylint: disable=dangerous-default-value
     dirs = extra_voice_dirs
-    voices: Dict[str, List[str]] = {}
+    voices: dict[str, list[str]] = {}
     for d in dirs:
         subs = os.listdir(d)
         for sub in subs:
@@ -49,7 +48,7 @@ def get_voices(extra_voice_dirs: List[str] = []):  # pylint: disable=dangerous-d
     return voices
 
 
-def load_npz(npz_file: str) -> Tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.int64]]:
+def load_npz(npz_file: str) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.int64]]:
     x_history = np.load(npz_file)
     semantic = x_history["semantic_prompt"]
     coarse = x_history["coarse_prompt"]
@@ -58,10 +57,8 @@ def load_npz(npz_file: str) -> Tuple[npt.NDArray[np.int64], npt.NDArray[np.int64
 
 
 def load_voice(
-    model, voice: str, extra_voice_dirs: List[str] = []
-) -> Tuple[
-    Optional[npt.NDArray[np.int64]], Optional[npt.NDArray[np.int64]], Optional[npt.NDArray[np.int64]]
-]:  # pylint: disable=dangerous-default-value
+    model, voice: str, extra_voice_dirs: list[str] = []
+) -> tuple[npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None, npt.NDArray[np.int64] | None]:  # pylint: disable=dangerous-default-value
     if voice == "random":
         return None, None, None
 
@@ -206,8 +203,8 @@ def generate_text_semantic(
         semantic_history = None
     encoded_text = np.array(_tokenize(model.tokenizer, text)) + model.config.TEXT_ENCODING_OFFSET
     if len(encoded_text) > 256:
-        p = round((len(encoded_text) - 256) / len(encoded_text) * 100, 1)
-        logger.warning(f"warning, text too long, lopping of last {p}%")
+        p = (len(encoded_text) - 256) / len(encoded_text) * 100
+        logger.warning("warning, text too long, lopping of last %.1f%%", p)
         encoded_text = encoded_text[:256]
     encoded_text = np.pad(
         encoded_text,

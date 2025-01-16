@@ -7,7 +7,7 @@ from TTS.encoder.models.base_encoder import BaseEncoder
 
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=8):
-        super(SELayer, self).__init__()
+        super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
             nn.Linear(channel, channel // reduction),
@@ -27,7 +27,7 @@ class SEBasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, reduction=8):
-        super(SEBasicBlock, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1, bias=False)
@@ -73,7 +73,7 @@ class ResNetSpeakerEncoder(BaseEncoder):
         use_torch_spec=False,
         audio_config=None,
     ):
-        super(ResNetSpeakerEncoder, self).__init__()
+        super().__init__()
 
         self.encoder_type = encoder_type
         self.input_dim = input_dim

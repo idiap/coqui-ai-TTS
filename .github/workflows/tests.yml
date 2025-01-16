@@ -22,14 +22,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9, "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text"]
     steps:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         if: contains(fromJSON('["inference_tests", "test_text"]'), matrix.subset)
         run: |
@@ -50,7 +48,7 @@ jobs:
       - name: Unit tests
         run: |
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
           uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
@@ -66,14 +64,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.10", "3.12"]
         subset: ["test_tts", "test_tts2", "test_vocoder", "test_xtts"]
     steps:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         if: contains(fromJSON('["test_tts", "test_tts2", "test_xtts"]'), matrix.subset)
         run: |
@@ -94,7 +90,7 @@ jobs:
       - name: Integration tests
         run: |
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
           uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
@@ -116,8 +112,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         run: |
           sudo apt-get update

@@ -43,11 +43,11 @@ test_failed:  ## only run tests failed the last time.
 	coverage run -m pytest -x -v --last-failed tests
 
 style:	## update code style.
-	uv run --only-dev black ${target_dirs}
+	uv run --only-dev ruff format ${target_dirs}
 
 lint:	## run linters.
 	uv run --only-dev ruff check ${target_dirs}
-	uv run --only-dev black ${target_dirs} --check
+	uv run --only-dev ruff format ${target_dirs} --check
 
 system-deps:	## install linux system deps
 	sudo apt-get install -y libsndfile1-dev

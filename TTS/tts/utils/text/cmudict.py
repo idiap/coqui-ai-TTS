@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import re
 
 VALID_SYMBOLS = [
@@ -121,7 +119,7 @@ class CMUDict:
             word = word[:-1]
         arpabet = cmudict.lookup(word)
         if arpabet is not None:
-            return first_symbol + "{%s}" % arpabet[0] + last_symbol
+            return first_symbol + "{%s}" % arpabet[0] + last_symbol  # noqa: UP031
         return first_symbol + word + last_symbol
 
 

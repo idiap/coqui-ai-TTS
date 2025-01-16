@@ -9,7 +9,6 @@ import logging
 import os
 import sys
 from threading import Lock
-from typing import Union
 from urllib.parse import parse_qs
 
 try:
@@ -108,7 +107,7 @@ use_gst = api.synthesizer.tts_config.get("use_gst", False)
 app = Flask(__name__)
 
 
-def style_wav_uri_to_dict(style_wav: str) -> Union[str, dict]:
+def style_wav_uri_to_dict(style_wav: str) -> str | dict:
     """Transform an uri style_wav, in either a string (path to wav file to be use for style transfer)
     or a dict (gst tokens/values to be use for styling)
 

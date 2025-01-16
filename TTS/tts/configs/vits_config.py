@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.models.vits import VitsArgs, VitsAudioConfig
@@ -112,7 +111,7 @@ class VitsConfig(BaseTTSConfig):
     audio: VitsAudioConfig = field(default_factory=VitsAudioConfig)
 
     # optimizer
-    grad_clip: List[float] = field(default_factory=lambda: [1000, 1000])
+    grad_clip: list[float] = field(default_factory=lambda: [1000, 1000])
     lr_gen: float = 0.0002
     lr_disc: float = 0.0002
     lr_scheduler_gen: str = "ExponentialLR"
@@ -146,7 +145,7 @@ class VitsConfig(BaseTTSConfig):
     add_blank: bool = True
 
     # testing
-    test_sentences: List[List] = field(
+    test_sentences: list[list] = field(
         default_factory=lambda: [
             ["It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent."],
             ["Be a voice, not an echo."],
@@ -167,7 +166,7 @@ class VitsConfig(BaseTTSConfig):
 
     # use d-vectors
     use_d_vector_file: bool = False
-    d_vector_file: List[str] = None
+    d_vector_file: list[str] = None
     d_vector_dim: int = None
 
     def __post_init__(self):

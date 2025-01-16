@@ -1,12 +1,11 @@
 import logging
 import os
-from typing import Any, Optional, Union
+from typing import Any, TypeAlias
 
 import torch
 import torch.nn.functional as F
 import torchaudio
 from coqpit import Coqpit
-from typing_extensions import TypeAlias
 
 from TTS.vc.configs.knnvc_config import KNNVCConfig
 from TTS.vc.layers.freevc.wavlm import get_wavlm
@@ -14,7 +13,7 @@ from TTS.vc.models.base_vc import BaseVC
 
 logger = logging.getLogger(__name__)
 
-PathOrTensor: TypeAlias = Union[str, os.PathLike[Any], torch.Tensor]
+PathOrTensor: TypeAlias = str | os.PathLike[Any] | torch.Tensor
 
 
 class KNNVC(BaseVC):
@@ -74,7 +73,7 @@ class KNNVC(BaseVC):
             x, sr = torchaudio.load(audio, normalize=True)
 
         if not sr == self.config.audio.sample_rate:
-            logger.info(f"Resampling {sr} to {self.config.audio.sample_rate} in {audio}")
+            logger.info("Resampling %d to %d in %s", sr, self.config.audio.sample_rate, audio)
             x = torchaudio.functional.resample(x, orig_freq=sr, new_freq=self.config.audio.sample_rate)
             sr = self.config.audio.sample_rate
 
@@ -126,9 +125,9 @@ class KNNVC(BaseVC):
         self,
         query_seq: torch.Tensor,
         matching_set: torch.Tensor,
-        synth_set: Optional[torch.Tensor] = None,
-        topk: Optional[int] = None,
-        target_duration: Optional[float] = None,
+        synth_set: torch.Tensor | None = None,
+        topk: int | None = None,
+        target_duration: float | None = None,
     ) -> torch.Tensor:
         """Given `query_seq`, `matching_set`, and `synth_set` tensors of shape (N, dim), perform kNN regression matching
         with k=`topk`.
@@ -162,7 +161,7 @@ class KNNVC(BaseVC):
         out_feats = synth_set[best.indices].mean(dim=1)
         return out_feats.unsqueeze(0)
 
-    def load_checkpoint(self, vc_config: KNNVCConfig, _vc_checkpoint: Union[str, os.PathLike[Any]]) -> None:
+    def load_checkpoint(self, vc_config: KNNVCConfig, _vc_checkpoint: str | os.PathLike[Any]) -> None:
         """kNN-VC does not use checkpoints."""
 
     def forward(self) -> None: ...
@@ -173,7 +172,7 @@ class KNNVC(BaseVC):
         self,
         source: PathOrTensor,
         target: list[PathOrTensor],
-        topk: Optional[int] = None,
+        topk: int | None = None,
     ) -> torch.Tensor:
         if not isinstance(target, list):
             target = [target]

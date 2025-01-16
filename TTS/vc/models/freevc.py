@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Tuple, Union
 
 import librosa
 import numpy as np
@@ -102,7 +101,7 @@ class Generator(torch.nn.Module):
         upsample_kernel_sizes,
         gin_channels=0,
     ):
-        super(Generator, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
@@ -165,7 +164,7 @@ class Generator(torch.nn.Module):
 
 class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminator, self).__init__()
+        super().__init__()
         periods = [2, 3, 5, 7, 11]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -190,7 +189,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 class SpeakerEncoder(torch.nn.Module):
     def __init__(self, mel_n_channels=80, model_num_layers=3, model_hidden_size=256, model_embedding_size=256):
-        super(SpeakerEncoder, self).__init__()
+        super().__init__()
         self.lstm = nn.LSTM(mel_n_channels, model_hidden_size, model_num_layers, batch_first=True)
         self.linear = nn.Linear(model_hidden_size, model_embedding_size)
         self.relu = nn.ReLU()
@@ -331,15 +330,15 @@ class FreeVC(BaseVC):
         self,
         c: torch.Tensor,
         spec: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
-        mel: Optional[torch.Tensor] = None,
-        c_lengths: Optional[torch.Tensor] = None,
-        spec_lengths: Optional[torch.Tensor] = None,
-    ) -> Tuple[
+        g: torch.Tensor | None = None,
+        mel: torch.Tensor | None = None,
+        c_lengths: torch.Tensor | None = None,
+        spec_lengths: torch.Tensor | None = None,
+    ) -> tuple[
         torch.Tensor,
         torch.Tensor,
         torch.Tensor,
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ]:
         """
         Forward pass of the model.
@@ -431,7 +430,7 @@ class FreeVC(BaseVC):
         return wav.float()
 
     @torch.inference_mode()
-    def voice_conversion(self, src: Union[str, torch.Tensor], tgt: list[Union[str, torch.Tensor]]):
+    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]):
         """
         Voice conversion pass of the model.
 

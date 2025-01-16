@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 from trainer import Trainer, TrainerArgs
 
@@ -18,7 +17,7 @@ class TrainVocoderArgs(TrainerArgs):
     config_path: str = field(default=None, metadata={"help": "Path to the config file."})
 
 
-def main(arg_list: Optional[list[str]] = None):
+def main(arg_list: list[str] | None = None):
     """Run `tts` model training directly by a `config.json` file."""
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 

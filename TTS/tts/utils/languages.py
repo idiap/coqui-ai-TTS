@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 import fsspec
 import numpy as np
@@ -27,8 +27,8 @@ class LanguageManager(BaseIDManager):
 
     def __init__(
         self,
-        language_ids_file_path: Union[str, os.PathLike[Any]] = "",
-        config: Optional[Coqpit] = None,
+        language_ids_file_path: str | os.PathLike[Any] = "",
+        config: Coqpit | None = None,
     ):
         super().__init__(id_file_path=language_ids_file_path)
 
@@ -40,11 +40,11 @@ class LanguageManager(BaseIDManager):
         return len(list(self.name_to_id.keys()))
 
     @property
-    def language_names(self) -> List:
+    def language_names(self) -> list:
         return list(self.name_to_id.keys())
 
     @staticmethod
-    def parse_language_ids_from_config(c: Coqpit) -> Dict:
+    def parse_language_ids_from_config(c: Coqpit) -> dict:
         """Set language id from config.
 
         Args:
@@ -70,13 +70,13 @@ class LanguageManager(BaseIDManager):
         self.name_to_id = self.parse_language_ids_from_config(c)
 
     @staticmethod
-    def parse_ids_from_data(items: List, parse_key: str) -> Any:
+    def parse_ids_from_data(items: list, parse_key: str) -> Any:
         raise NotImplementedError
 
-    def set_ids_from_data(self, items: List, parse_key: str) -> Any:
+    def set_ids_from_data(self, items: list, parse_key: str) -> Any:
         raise NotImplementedError
 
-    def save_ids_to_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
+    def save_ids_to_file(self, file_path: str | os.PathLike[Any]) -> None:
         """Save language IDs to a json file.
 
         Args:
