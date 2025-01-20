@@ -1,7 +1,3 @@
-# coding: utf-8
-
-from typing import Dict, List, Tuple, Union
-
 import torch
 from torch import nn
 from trainer.trainer_utils import get_optimizer, get_scheduler
@@ -218,7 +214,7 @@ class Tacotron(BaseTacotron):
         )
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, text_input, aux_input=None):
         aux_input = self._format_aux_input(aux_input)
         inputs = self.embedding(text_input)
@@ -280,7 +276,7 @@ class Tacotron(BaseTacotron):
             loss_dict["capacitron_vae_beta_loss"].backward()
             optimizer.first_step()
 
-    def train_step(self, batch: Dict, criterion: torch.nn.Module) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: torch.nn.Module) -> tuple[dict, dict]:
         """Perform a single training step by fetching the right set of samples from the batch.
 
         Args:
@@ -332,7 +328,7 @@ class Tacotron(BaseTacotron):
         loss_dict["align_error"] = align_error
         return outputs, loss_dict
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         if self.use_capacitron_vae:
             return CapacitronOptimizer(self.config, self.named_parameters())
         return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
@@ -380,9 +376,7 @@ class Tacotron(BaseTacotron):
         audio = ap.inv_spectrogram(pred_linear_spec.T)
         return figures, {"audio": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
@@ -396,7 +390,7 @@ class Tacotron(BaseTacotron):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @staticmethod
-    def init_from_config(config: "TacotronConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "TacotronConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

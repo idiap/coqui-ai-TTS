@@ -9,7 +9,7 @@
 
 import logging
 import math
-from typing import List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 def compute_mask_indices(
-    shape: Tuple[int, int],
-    padding_mask: Optional[torch.Tensor],
+    shape: tuple[int, int],
+    padding_mask: torch.Tensor | None,
     mask_prob: float,
     mask_length: int,
     mask_type: str = "static",
@@ -68,8 +68,7 @@ def compute_mask_indices(
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        mask_prob * all_sz / float(mask_length)
-        + np.random.rand()
+        mask_prob * all_sz / float(mask_length) + np.random.rand()
     )
 
     all_num_mask = max(min_masks, all_num_mask)
@@ -80,8 +79,7 @@ def compute_mask_indices(
             sz = all_sz - padding_mask[i].long().sum().item()
             num_mask = int(
                 # add a random number for probabilistic rounding
-                mask_prob * sz / float(mask_length)
-                + np.random.rand()
+                mask_prob * sz / float(mask_length) + np.random.rand()
             )
             num_mask = max(min_masks, num_mask)
         else:
@@ -155,9 +153,7 @@ def compute_mask_indices(
 
 class WavLMConfig:
     def __init__(self, cfg=None):
-        self.extractor_mode: str = (
-            "default"  # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
-        )
+        self.extractor_mode: str = "default"  # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
         self.encoder_layers: int = 12  # num encoder layers in the transformer
 
         self.encoder_embed_dim: int = 768  # encoder embedding dimension
@@ -166,9 +162,7 @@ class WavLMConfig:
         self.activation_fn: str = "gelu"  # activation function to use
 
         self.layer_norm_first: bool = False  # apply layernorm first in the transformer
-        self.conv_feature_layers: str = (
-            "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"  # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
-        )
+        self.conv_feature_layers: str = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"  # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
         self.conv_bias: bool = False  # include bias in conv encoder
         self.feature_grad_mult: float = 1.0  # multiply feature extractor var grads by this
 
@@ -225,7 +219,7 @@ class WavLM(nn.Module):
         cfg: WavLMConfig,
     ) -> None:
         super().__init__()
-        logger.info(f"WavLM Config: {cfg.__dict__}")
+        logger.info("WavLM Config: %s", cfg.__dict__)
 
         self.cfg = cfg
         feature_enc_layers = eval(cfg.conv_feature_layers)
@@ -317,12 +311,12 @@ class WavLM(nn.Module):
     def extract_features(
         self,
         source: torch.Tensor,
-        padding_mask: Optional[torch.Tensor] = None,
+        padding_mask: torch.Tensor | None = None,
         mask: bool = False,
         ret_conv: bool = False,
-        output_layer: Optional[int] = None,
+        output_layer: int | None = None,
         ret_layer_results: bool = False,
-    ):
+    ) -> tuple[torch.Tensor, dict[str, Any]]:
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -367,7 +361,7 @@ class WavLM(nn.Module):
 class ConvFeatureExtractionModel(nn.Module):
     def __init__(
         self,
-        conv_layers: List[Tuple[int, int, int]],
+        conv_layers: list[tuple[int, int, int]],
         dropout: float = 0.0,
         mode: str = "default",
         conv_bias: bool = False,

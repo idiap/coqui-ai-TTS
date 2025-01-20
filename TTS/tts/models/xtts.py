@@ -2,7 +2,6 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import librosa
 import torch
@@ -239,10 +238,6 @@ class Xtts(BaseTTS):
             cond_d_vector_in_each_upsampling_layer=self.args.cond_d_vector_in_each_upsampling_layer,
         )
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     @torch.inference_mode()
     def get_gpt_cond_latents(self, audio, sr, length: int = 30, chunk_length: int = 6):
         """Compute the conditioning latents for the GPT model from the given audio.
@@ -384,9 +379,9 @@ class Xtts(BaseTTS):
             as latents used at inference.
 
         """
-        assert (
-            "zh-cn" if language == "zh" else language in self.config.languages
-        ), f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        assert "zh-cn" if language == "zh" else language in self.config.languages, (
+            f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        )
         # Use generally found best tuning knobs for generation.
         settings = {
             "temperature": config.temperature,
@@ -526,9 +521,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             with torch.no_grad():
                 gpt_codes = self.gpt.generate(
@@ -631,9 +626,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             fake_inputs = self.gpt.compute_embeddings(
                 gpt_cond_latent.to(self.device),
@@ -722,13 +717,13 @@ class Xtts(BaseTTS):
     def load_checkpoint(
         self,
         config: "XttsConfig",
-        checkpoint_dir: Optional[str] = None,
-        checkpoint_path: Optional[str] = None,
-        vocab_path: Optional[str] = None,
+        checkpoint_dir: str | None = None,
+        checkpoint_path: str | None = None,
+        vocab_path: str | None = None,
         eval: bool = True,
         strict: bool = True,
         use_deepspeed: bool = False,
-        speaker_file_path: Optional[str] = None,
+        speaker_file_path: str | None = None,
     ):
         """
         Loads a checkpoint from disk and initializes the model's state and tokenizer.

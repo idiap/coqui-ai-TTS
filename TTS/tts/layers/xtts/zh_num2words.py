@@ -392,7 +392,7 @@ IN_VALID_CHARS = {c: True for c in VALID_CHARS}
 # ================================================================================ #
 #                                    basic class
 # ================================================================================ #
-class ChineseChar(object):
+class ChineseChar:
     """
     中文字符
     每个字符对应简体和繁体,
@@ -420,13 +420,13 @@ class ChineseNumberUnit(ChineseChar):
     """
 
     def __init__(self, power, simplified, traditional, big_s, big_t):
-        super(ChineseNumberUnit, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.power = power
         self.big_s = big_s
         self.big_t = big_t
 
     def __str__(self):
-        return "10^{}".format(self.power)
+        return f"10^{self.power}"
 
     @classmethod
     def create(cls, index, value, numbering_type=NUMBERING_TYPES[1], small_unit=False):
@@ -447,7 +447,7 @@ class ChineseNumberUnit(ChineseChar):
                 power=pow(2, index + 3), simplified=value[0], traditional=value[1], big_s=value[0], big_t=value[1]
             )
         else:
-            raise ValueError("Counting type should be in {0} ({1} provided).".format(NUMBERING_TYPES, numbering_type))
+            raise ValueError(f"Counting type should be in {NUMBERING_TYPES} ({numbering_type} provided).")
 
 
 class ChineseNumberDigit(ChineseChar):
@@ -456,7 +456,7 @@ class ChineseNumberDigit(ChineseChar):
     """
 
     def __init__(self, value, simplified, traditional, big_s, big_t, alt_s=None, alt_t=None):
-        super(ChineseNumberDigit, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.value = value
         self.big_s = big_s
         self.big_t = big_t
@@ -477,7 +477,7 @@ class ChineseMath(ChineseChar):
     """
 
     def __init__(self, simplified, traditional, symbol, expression=None):
-        super(ChineseMath, self).__init__(simplified, traditional)
+        super().__init__(simplified, traditional)
         self.symbol = symbol
         self.expression = expression
         self.big_s = simplified
@@ -487,13 +487,13 @@ class ChineseMath(ChineseChar):
 CC, CNU, CND, CM = ChineseChar, ChineseNumberUnit, ChineseNumberDigit, ChineseMath
 
 
-class NumberSystem(object):
+class NumberSystem:
     """
     中文数字系统
     """
 
 
-class MathSymbol(object):
+class MathSymbol:
     """
     用于中文数字系统的数学符号 (繁/简体), e.g.
     positive = ['正', '正']
@@ -507,8 +507,7 @@ class MathSymbol(object):
         self.point = point
 
     def __iter__(self):
-        for v in self.__dict__.values():
-            yield v
+        yield from self.__dict__.values()
 
 
 # class OtherSymbol(object):
@@ -640,7 +639,7 @@ def chn2num(chinese_string, numbering_type=NUMBERING_TYPES[1]):
     int_str = str(compute_value(int_part))
     dec_str = "".join([str(d.value) for d in dec_part])
     if dec_part:
-        return "{0}.{1}".format(int_str, dec_str)
+        return f"{int_str}.{dec_str}"
     else:
         return int_str
 
@@ -686,7 +685,7 @@ def num2chn(
         int_string = int_dec[0]
         dec_string = int_dec[1]
     else:
-        raise ValueError("invalid input num string with more than one dot: {}".format(number_string))
+        raise ValueError(f"invalid input num string with more than one dot: {number_string}")
 
     if use_units and len(int_string) > 1:
         result_symbols = get_value(int_string)
@@ -702,7 +701,7 @@ def num2chn(
             if isinstance(v, CND) and v.value == 2:
                 next_symbol = result_symbols[i + 1] if i < len(result_symbols) - 1 else None
                 previous_symbol = result_symbols[i - 1] if i > 0 else None
-                if isinstance(next_symbol, CNU) and isinstance(previous_symbol, (CNU, type(None))):
+                if isinstance(next_symbol, CNU) and isinstance(previous_symbol, CNU | type(None)):
                     if next_symbol.power != 1 and ((previous_symbol is None) or (previous_symbol.power != 1)):
                         result_symbols[i] = liang
 
@@ -1166,7 +1165,7 @@ if __name__ == "__main__":
     )
 
     ndone = 0
-    with open(args.ifile, "r", encoding="utf8") as istream, open(args.ofile, "w+", encoding="utf8") as ostream:
+    with open(args.ifile, encoding="utf8") as istream, open(args.ofile, "w+", encoding="utf8") as ostream:
         if args.format == "tsv":
             reader = csv.DictReader(istream, delimiter="\t")
             assert "TEXT" in reader.fieldnames

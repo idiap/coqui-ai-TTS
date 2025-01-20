@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -107,7 +106,7 @@ class BaseTTS(BaseTrainerModel):
             print(f"Interpolation failed: {e}")
             return gpt_latents
 
-    def init_multispeaker(self, config: Coqpit, data: List = None):
+    def init_multispeaker(self, config: Coqpit, data: list = None):
         """Set up for multi-speaker TTS.
 
         Initialize a speaker embedding layer if needed and define expected embedding
@@ -142,7 +141,7 @@ class BaseTTS(BaseTrainerModel):
             self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
-    def get_aux_input(self, **kwargs) -> Dict:
+    def get_aux_input(self, **kwargs) -> dict:
         """Prepare and return `aux_input` used by `forward()`"""
         return {"speaker_id": None, "style_wav": None, "d_vector": None, "language_id": None}
 
@@ -193,7 +192,7 @@ class BaseTTS(BaseTrainerModel):
             "language_id": language_id,
         }
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict) -> dict:
         """Generic batch formatting for `TTSDataset`.
 
         You must override this if you use a custom dataset.
@@ -239,9 +238,9 @@ class BaseTTS(BaseTrainerModel):
                 extra_frames = dur.sum() - mel_lengths[idx]
                 largest_idxs = torch.argsort(-dur)[:extra_frames]
                 dur[largest_idxs] -= 1
-                assert (
-                    dur.sum() == mel_lengths[idx]
-                ), f" [!] total duration {dur.sum()} vs spectrogram length {mel_lengths[idx]}"
+                assert dur.sum() == mel_lengths[idx], (
+                    f" [!] total duration {dur.sum()} vs spectrogram length {mel_lengths[idx]}"
+                )
                 durations[idx, : text_lengths[idx]] = dur
 
         # set stop targets wrt reduction factor
@@ -313,9 +312,9 @@ class BaseTTS(BaseTrainerModel):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
         rank: int = None,
@@ -394,7 +393,7 @@ class BaseTTS(BaseTrainerModel):
 
     def _get_test_aux_input(
         self,
-    ) -> Dict:
+    ) -> dict:
         d_vector = None
         if self.config.use_d_vector_file:
             d_vector = [self.speaker_manager.embeddings[name]["embedding"] for name in self.speaker_manager.embeddings]
@@ -411,7 +410,7 @@ class BaseTTS(BaseTrainerModel):
         }
         return aux_inputs
 
-    def test_run(self, assets: Dict) -> Tuple[Dict, Dict]:
+    def test_run(self, assets: dict) -> tuple[dict, dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -442,13 +441,11 @@ class BaseTTS(BaseTrainerModel):
                 use_griffin_lim=True,
                 do_trim_silence=False,
             )
-            test_audios["{}-audio".format(idx)] = outputs_dict["wav"]
-            test_figures["{}-prediction".format(idx)] = plot_spectrogram(
+            test_audios[f"{idx}-audio"] = outputs_dict["wav"]
+            test_figures[f"{idx}-prediction"] = plot_spectrogram(
                 outputs_dict["outputs"]["model_outputs"], self.ap, output_fig=False
             )
-            test_figures["{}-alignment".format(idx)] = plot_alignment(
-                outputs_dict["outputs"]["alignments"], output_fig=False
-            )
+            test_figures[f"{idx}-alignment"] = plot_alignment(outputs_dict["outputs"]["alignments"], output_fig=False)
         return test_figures, test_audios
 
     def on_init_start(self, trainer):

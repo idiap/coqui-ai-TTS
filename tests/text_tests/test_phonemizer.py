@@ -240,12 +240,8 @@ class TestZH_CN_Phonemizer(unittest.TestCase):
 class TestBN_Phonemizer(unittest.TestCase):
     def setUp(self):
         self.phonemizer = BN_Phonemizer()
-        self._TEST_CASES = (
-            "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে, কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয়, তখনও যেন"
-        )
-        self._EXPECTED = (
-            "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয় তখনও যেন।"
-        )
+        self._TEST_CASES = "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে, কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয়, তখনও যেন"
+        self._EXPECTED = "রাসূলুল্লাহ সাল্লাল্লাহু আলাইহি ওয়া সাল্লাম শিক্ষা দিয়েছেন যে কেউ যদি কোন খারাপ কিছুর সম্মুখীন হয় তখনও যেন।"
 
     def test_phonemize(self):
         self.assertEqual(self.phonemizer.phonemize(self._TEST_CASES, separator=""), self._EXPECTED)

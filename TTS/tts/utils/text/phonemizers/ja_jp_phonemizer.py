@@ -1,5 +1,3 @@
-from typing import Dict
-
 from TTS.tts.utils.text.japanese.phonemizer import japanese_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -51,7 +49,7 @@ class JA_JP_Phonemizer(BasePhonemizer):
         return self._phonemize(text, separator)
 
     @staticmethod
-    def supported_languages() -> Dict:
+    def supported_languages() -> dict:
         return {"ja-jp": "Japanese (Japan)"}
 
     def version(self) -> str:

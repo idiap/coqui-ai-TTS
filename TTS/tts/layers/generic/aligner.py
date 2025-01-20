@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 from torch import nn
 
@@ -68,7 +66,7 @@ class AlignmentNetwork(torch.nn.Module):
 
     def forward(
         self, queries: torch.tensor, keys: torch.tensor, mask: torch.tensor = None, attn_prior: torch.tensor = None
-    ) -> Tuple[torch.tensor, torch.tensor]:
+    ) -> tuple[torch.tensor, torch.tensor]:
         """Forward pass of the aligner encoder.
         Shapes:
             - queries: :math:`[B, C, T_de]`

@@ -18,7 +18,7 @@ class WaveRNNDataset(Dataset):
     def __init__(self, ap, items, seq_len, hop_len, pad, mode, mulaw, is_training=True, return_segments=True):
         super().__init__()
         self.ap = ap
-        self.compute_feat = not isinstance(items[0], (tuple, list))
+        self.compute_feat = not isinstance(items[0], tuple | list)
         self.item_list = items
         self.seq_len = seq_len
         self.hop_len = hop_len

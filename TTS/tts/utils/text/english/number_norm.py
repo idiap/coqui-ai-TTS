@@ -1,7 +1,6 @@
-""" from https://github.com/keithito/tacotron """
+"""from https://github.com/keithito/tacotron"""
 
 import re
-from typing import Dict
 
 import inflect
 
@@ -21,7 +20,7 @@ def _expand_decimal_point(m):
     return m.group(1).replace(".", " point ")
 
 
-def __expand_currency(value: str, inflection: Dict[float, str]) -> str:
+def __expand_currency(value: str, inflection: dict[float, str]) -> str:
     parts = value.replace(",", "").split(".")
     if len(parts) > 2:
         return f"{value} {inflection[2]}"  # Unexpected format
@@ -85,7 +84,11 @@ def _expand_number(m):
         if num % 100 == 0:
             return _inflect.number_to_words(num // 100) + " hundred"
         return _inflect.number_to_words(num, andword="", zero="oh", group=2).replace(", ", " ")
-    return _inflect.number_to_words(num, andword="")
+    try:
+        text = _inflect.number_to_words(num, andword="")
+    except inflect.NumOutOfRangeError:
+        text = _inflect.number_to_words(num, group=1).replace(", ", " ")
+    return text
 
 
 def normalize_numbers(text):

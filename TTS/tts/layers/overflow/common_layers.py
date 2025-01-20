@@ -1,5 +1,4 @@
 import logging
-from typing import List, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -44,7 +43,7 @@ class Encoder(nn.Module):
         )
         self.rnn_state = None
 
-    def forward(self, x: torch.FloatTensor, x_len: torch.LongTensor) -> Tuple[torch.FloatTensor, torch.LongTensor]:
+    def forward(self, x: torch.FloatTensor, x_len: torch.LongTensor) -> tuple[torch.FloatTensor, torch.LongTensor]:
         """Forward pass to the encoder.
 
         Args:
@@ -110,7 +109,7 @@ class ParameterModel(nn.Module):
 
     def __init__(
         self,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         input_size: int,
         output_size: int,
         frame_channels: int,
@@ -152,7 +151,7 @@ class Outputnet(nn.Module):
         encoder_dim: int,
         memory_rnn_dim: int,
         frame_channels: int,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         flat_start_params: dict,
         std_floor: float = 1e-2,
     ):

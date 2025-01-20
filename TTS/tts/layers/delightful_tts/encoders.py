@@ -1,5 +1,3 @@
-from typing import List, Tuple, Union
-
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
 import torch.nn.functional as F
@@ -36,9 +34,9 @@ class ReferenceEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
     ):
         super().__init__()
@@ -80,7 +78,7 @@ class ReferenceEncoder(nn.Module):
             batch_first=True,
         )
 
-    def forward(self, x: torch.Tensor, mel_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, mel_lens: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         inputs --- [N,  n_mels, timesteps]
         outputs --- [N, E//2]
@@ -120,9 +118,9 @@ class UtteranceLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,
@@ -192,9 +190,9 @@ class PhonemeLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,

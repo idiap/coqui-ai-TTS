@@ -12,7 +12,7 @@ def gaussian_loss(y_hat, y, log_std_min=-7.0):
     mean = y_hat[:, :, :1]
     log_std = torch.clamp(y_hat[:, :, 1:], min=log_std_min)
     # TODO: replace with pytorch dist
-    log_probs = -0.5 * (-math.log(2.0 * math.pi) - 2.0 * log_std - torch.pow(y - mean, 2) * torch.exp((-2.0 * log_std)))
+    log_probs = -0.5 * (-math.log(2.0 * math.pi) - 2.0 * log_std - torch.pow(y - mean, 2) * torch.exp(-2.0 * log_std))
     return log_probs.squeeze().mean()
 
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import logging
 import os
@@ -87,7 +86,7 @@ def setup_loader(ap: AudioProcessor, is_val: bool = False):
 def evaluation(model, criterion, data_loader, global_step):
     eval_loss = 0
     for _, data in enumerate(data_loader):
-        with torch.no_grad():
+        with torch.inference_mode():
             # setup input data
             inputs, labels = data
 
@@ -219,10 +218,8 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
 
             if global_step % c.print_step == 0:
                 print(
-                    "   | > Step:{}  Loss:{:.5f}  GradNorm:{:.5f}  "
-                    "StepTime:{:.2f}  LoaderTime:{:.2f}  AvGLoaderTime:{:.2f}  LR:{:.6f}".format(
-                        global_step, loss.item(), grad_norm, step_time, loader_time, avg_loader_time, current_lr
-                    ),
+                    f"   | > Step:{global_step}  Loss:{loss.item():.5f}  GradNorm:{grad_norm:.5f}  "
+                    f"StepTime:{step_time:.2f}  LoaderTime:{loader_time:.2f}  AvGLoaderTime:{avg_loader_time:.2f}  LR:{current_lr:.6f}",
                     flush=True,
                 )
 
@@ -236,10 +233,8 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
 
         print("")
         print(
-            ">>> Epoch:{}  AvgLoss: {:.5f} GradNorm:{:.5f}  "
-            "EpochTime:{:.2f} AvGLoaderTime:{:.2f} ".format(
-                epoch, tot_loss / len(data_loader), grad_norm, epoch_time, avg_loader_time
-            ),
+            f">>> Epoch:{epoch}  AvgLoss: {tot_loss / len(data_loader):.5f} GradNorm:{grad_norm:.5f}  "
+            f"EpochTime:{epoch_time:.2f} AvGLoaderTime:{avg_loader_time:.2f} ",
             flush=True,
         )
         # evaluation
@@ -249,7 +244,7 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
             print("\n\n")
             print("--> EVAL PERFORMANCE")
             print(
-                "   | > Epoch:{}  AvgLoss: {:.5f} ".format(epoch, eval_loss),
+                f"   | > Epoch:{epoch}  AvgLoss: {eval_loss:.5f} ",
                 flush=True,
             )
             # save the best checkpoint
@@ -301,7 +296,7 @@ def main(args):  # pylint: disable=redefined-outer-name
         criterion, args.restore_step = model.load_checkpoint(
             c, args.restore_path, eval=False, use_cuda=use_cuda, criterion=criterion
         )
-        print(" > Model restored from step %d" % args.restore_step, flush=True)
+        print(f" > Model restored from step {args.restore_step}", flush=True)
     else:
         args.restore_step = 0
 
@@ -311,7 +306,7 @@ def main(args):  # pylint: disable=redefined-outer-name
         scheduler = None
 
     num_params = count_parameters(model)
-    print("\n > Model has {} parameters".format(num_params), flush=True)
+    print(f"\n > Model has {num_params} parameters", flush=True)
 
     if use_cuda:
         model = model.cuda()

@@ -55,7 +55,7 @@ class TestFreeVC(unittest.TestCase):
         config = FreeVCConfig()
         model = FreeVC(config).to(device)
         model.train()
-        print(" > Num parameters for FreeVC model:%s" % (count_parameters(model)))
+        print(f" > Num parameters for FreeVC model:{count_parameters(model)}")
 
         mel, spec, spec_lengths, waveform = self._create_inputs(config, batch_size)
 
@@ -80,9 +80,9 @@ class TestFreeVC(unittest.TestCase):
         wavlm_vec_lengths = torch.ones(batch_size, dtype=torch.long)
 
         output_wav = model.inference(wavlm_vec, None, mel, wavlm_vec_lengths)
-        assert (
-            output_wav.shape[-1] // config.audio.hop_length == wavlm_vec.shape[-1]
-        ), f"{output_wav.shape[-1] // config.audio.hop_length} != {wavlm_vec.shape}"
+        assert output_wav.shape[-1] // config.audio.hop_length == wavlm_vec.shape[-1], (
+            f"{output_wav.shape[-1] // config.audio.hop_length} != {wavlm_vec.shape}"
+        )
 
     def test_inference(self):
         self._test_inference(1)
@@ -95,9 +95,9 @@ class TestFreeVC(unittest.TestCase):
 
         source_wav, target_wav = self._create_inputs_inference()
         output_wav = model.voice_conversion(source_wav, target_wav)
-        assert (
-            output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length
-        ), f"{output_wav.shape} != {source_wav.shape}, {config.audio.hop_length}"
+        assert output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length, (
+            f"{output_wav.shape} != {source_wav.shape}, {config.audio.hop_length}"
+        )
 
     def test_train_step(self): ...
 

@@ -72,8 +72,8 @@ class TacotronTrainTest(unittest.TestCase):
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
             # ignore pre-higway layer since it works conditional
             # if count not in [145, 59]:
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1
 
@@ -131,8 +131,8 @@ class MultiSpeakerTacotronTrainTest(unittest.TestCase):
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
             # ignore pre-higway layer since it works conditional
             # if count not in [145, 59]:
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1
 
@@ -198,8 +198,8 @@ class TacotronGSTTrainTest(unittest.TestCase):
             if name == "gst_layer.encoder.recurrence.weight_hh_l0":
                 # print(param.grad)
                 continue
-            assert (param != param_ref).any(), "param {} {} with shape {} not updated!! \n{}\n{}".format(
-                name, count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {name} {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1
 
@@ -254,8 +254,8 @@ class TacotronGSTTrainTest(unittest.TestCase):
             if name == "gst_layer.encoder.recurrence.weight_hh_l0":
                 # print(param.grad)
                 continue
-            assert (param != param_ref).any(), "param {} {} with shape {} not updated!! \n{}\n{}".format(
-                name, count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {name} {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1
 
@@ -321,8 +321,8 @@ class TacotronCapacitronTrainTest(unittest.TestCase):
         count = 0
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
             # ignore pre-higway layer since it works conditional
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1
 
@@ -384,7 +384,7 @@ class SCGSTMultiSpeakeTacotronTrainTest(unittest.TestCase):
             name, param = name_param
             if name == "gst_layer.encoder.recurrence.weight_hh_l0":
                 continue
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                count, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count += 1

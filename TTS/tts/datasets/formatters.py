@@ -5,7 +5,6 @@ import re
 import xml.etree.ElementTree as ET
 from glob import glob
 from pathlib import Path
-from typing import List
 
 from tqdm import tqdm
 
@@ -21,7 +20,7 @@ def cml_tts(root_path, meta_file, ignored_speakers=None):
     https://github.com/freds0/CML-TTS-Dataset/"""
     filepath = os.path.join(root_path, meta_file)
     # ensure there are 4 columns for every line
-    with open(filepath, "r", encoding="utf8") as f:
+    with open(filepath, encoding="utf8") as f:
         lines = f.readlines()
     num_cols = len(lines[0].split("|"))  # take the first row as reference
     for idx, line in enumerate(lines[1:]):
@@ -61,7 +60,7 @@ def coqui(root_path, meta_file, ignored_speakers=None):
     """Interal dataset formatter."""
     filepath = os.path.join(root_path, meta_file)
     # ensure there are 4 columns for every line
-    with open(filepath, "r", encoding="utf8") as f:
+    with open(filepath, encoding="utf8") as f:
         lines = f.readlines()
     num_cols = len(lines[0].split("|"))  # take the first row as reference
     for idx, line in enumerate(lines[1:]):
@@ -104,7 +103,7 @@ def tweb(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "tweb"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("\t")
             wav_file = os.path.join(root_path, cols[0] + ".wav")
@@ -118,7 +117,7 @@ def mozilla(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "mozilla"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = cols[1].strip()
@@ -133,7 +132,7 @@ def mozilla_de(root_path, meta_file, **kwargs):  # pylint: disable=unused-argume
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "mozilla"
-    with open(txt_file, "r", encoding="ISO 8859-1") as ttf:
+    with open(txt_file, encoding="ISO 8859-1") as ttf:
         for line in ttf:
             cols = line.strip().split("|")
             wav_file = cols[0].strip()
@@ -177,7 +176,7 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
             if speaker_name in ignored_speakers:
                 continue
         logger.info(csv_file)
-        with open(txt_file, "r", encoding="utf-8") as ttf:
+        with open(txt_file, encoding="utf-8") as ttf:
             for line in ttf:
                 cols = line.split("|")
                 if not meta_files:
@@ -201,7 +200,7 @@ def ljspeech(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "ljspeech"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "wavs", cols[0] + ".wav")
@@ -215,7 +214,7 @@ def ljspeech_test(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
     https://keithito.com/LJ-Speech-Dataset/"""
     txt_file = os.path.join(root_path, meta_file)
     items = []
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         speaker_id = 0
         for idx, line in enumerate(ttf):
             # 2 samples per speaker to avoid eval split issues
@@ -236,7 +235,7 @@ def thorsten(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "thorsten"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "wavs", cols[0] + ".wav")
@@ -268,7 +267,7 @@ def ruslan(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "ruslan"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "RUSLAN", cols[0] + ".wav")
@@ -282,7 +281,7 @@ def css10(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "css10"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, cols[0])
@@ -296,7 +295,7 @@ def nancy(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "nancy"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             utt_id = line.split()[1]
             text = line[line.find('"') + 1 : line.rfind('"') - 1]
@@ -309,7 +308,7 @@ def common_voice(root_path, meta_file, ignored_speakers=None):
     """Normalize the common voice meta data file to TTS format."""
     txt_file = os.path.join(root_path, meta_file)
     items = []
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             if line.startswith("client_id"):
                 continue
@@ -338,7 +337,7 @@ def libri_tts(root_path, meta_files=None, ignored_speakers=None):
 
     for meta_file in meta_files:
         _meta_file = os.path.basename(meta_file).split(".")[0]
-        with open(meta_file, "r", encoding="utf-8") as ttf:
+        with open(meta_file, encoding="utf-8") as ttf:
             for line in ttf:
                 cols = line.split("\t")
                 file_name = cols[0]
@@ -368,7 +367,7 @@ def custom_turkish(root_path, meta_file, **kwargs):  # pylint: disable=unused-ar
     items = []
     speaker_name = "turkish-female"
     skipped_files = []
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "wavs", cols[0].strip() + ".wav")
@@ -386,7 +385,7 @@ def brspeech(root_path, meta_file, ignored_speakers=None):
     """BRSpeech 3.0 beta"""
     txt_file = os.path.join(root_path, meta_file)
     items = []
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             if line.startswith("wav_filename"):
                 continue
@@ -425,7 +424,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
     """
     file_ext = "flac"
     items = []
-    meta_files = glob(f"{os.path.join(root_path,'txt')}/**/*.txt", recursive=True)
+    meta_files = glob(f"{os.path.join(root_path, 'txt')}/**/*.txt", recursive=True)
     for meta_file in meta_files:
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
@@ -433,7 +432,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
         if isinstance(ignored_speakers, list):
             if speaker_id in ignored_speakers:
                 continue
-        with open(meta_file, "r", encoding="utf-8") as file_text:
+        with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readlines()[0]
         # p280 has no mic2 recordings
         if speaker_id == "p280":
@@ -452,7 +451,7 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
 def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=None):
     """homepages.inf.ed.ac.uk/jyamagis/release/VCTK-Corpus.tar.gz"""
     items = []
-    meta_files = glob(f"{os.path.join(root_path,'txt')}/**/*.txt", recursive=True)
+    meta_files = glob(f"{os.path.join(root_path, 'txt')}/**/*.txt", recursive=True)
     for meta_file in meta_files:
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
@@ -460,7 +459,7 @@ def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=Non
         if isinstance(ignored_speakers, list):
             if speaker_id in ignored_speakers:
                 continue
-        with open(meta_file, "r", encoding="utf-8") as file_text:
+        with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readlines()[0]
         wav_file = os.path.join(root_path, wavs_path, speaker_id, file_id + ".wav")
         items.append(
@@ -482,7 +481,7 @@ def synpaflex(root_path, metafiles=None, **kwargs):  # pylint: disable=unused-ar
                 os.path.dirname(wav_file), "txt", os.path.basename(wav_file).replace(".wav", ".txt")
             )
         if os.path.exists(txt_file) and os.path.exists(wav_file):
-            with open(txt_file, "r", encoding="utf-8") as file_text:
+            with open(txt_file, encoding="utf-8") as file_text:
                 text = file_text.readlines()[0]
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
     return items
@@ -500,7 +499,7 @@ def open_bible(root_path, meta_files="train", ignore_digits_sentences=True, igno
         if isinstance(ignored_speakers, list):
             if speaker_id in ignored_speakers:
                 continue
-        with open(meta_file, "r", encoding="utf-8") as file_text:
+        with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readline().replace("\n", "")
         # ignore sentences that contains digits
         if ignore_digits_sentences and any(map(str.isdigit, text)):
@@ -513,7 +512,7 @@ def open_bible(root_path, meta_files="train", ignore_digits_sentences=True, igno
 def mls(root_path, meta_files=None, ignored_speakers=None):
     """http://www.openslr.org/94/"""
     items = []
-    with open(os.path.join(root_path, meta_files), "r", encoding="utf-8") as meta:
+    with open(os.path.join(root_path, meta_files), encoding="utf-8") as meta:
         for line in meta:
             file, text = line.split("\t")
             text = text[:-1]
@@ -553,7 +552,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
 
     # if not exists meta file, crawl recursively for 'wav' files
     if meta_file is not None:
-        with open(str(meta_file), "r", encoding="utf-8") as f:
+        with open(str(meta_file), encoding="utf-8") as f:
             return [x.strip().split("|") for x in f.readlines()]
 
     elif not cache_to.exists():
@@ -575,7 +574,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
         if cnt < expected_count:
             raise ValueError(f"Found too few instances for Voxceleb. Should be around {expected_count}, is: {cnt}")
 
-    with open(str(cache_to), "r", encoding="utf-8") as f:
+    with open(str(cache_to), encoding="utf-8") as f:
         return [x.strip().split("|") for x in f.readlines()]
 
 
@@ -583,7 +582,7 @@ def emotion(root_path, meta_file, ignored_speakers=None):
     """Generic emotion dataset"""
     txt_file = os.path.join(root_path, meta_file)
     items = []
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             if line.startswith("file_path"):
                 continue
@@ -601,7 +600,7 @@ def emotion(root_path, meta_file, ignored_speakers=None):
     return items
 
 
-def baker(root_path: str, meta_file: str, **kwargs) -> List[List[str]]:  # pylint: disable=unused-argument
+def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:  # pylint: disable=unused-argument
     """Normalizes the Baker meta data file to TTS format
 
     Args:
@@ -613,7 +612,7 @@ def baker(root_path: str, meta_file: str, **kwargs) -> List[List[str]]:  # pylin
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "baker"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             wav_name, text = line.rstrip("\n").split("|")
             wav_path = os.path.join(root_path, "clips_22", wav_name)
@@ -626,7 +625,7 @@ def kokoro(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "kokoro"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "wavs", cols[0] + ".wav")
@@ -640,7 +639,7 @@ def kss(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "kss"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, cols[0])
@@ -653,7 +652,7 @@ def bel_tts_formatter(root_path, meta_file, **kwargs):  # pylint: disable=unused
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "bel_tts"
-    with open(txt_file, "r", encoding="utf-8") as ttf:
+    with open(txt_file, encoding="utf-8") as ttf:
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, cols[0])

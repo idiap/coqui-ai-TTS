@@ -98,6 +98,7 @@ repository are also still a useful source of information.
 
 ### Voice Conversion
 - [FreeVC](https://arxiv.org/abs/2210.15418)
+- [kNN-VC](https://doi.org/10.21437/Interspeech.2023-419)
 - [OpenVoice](https://arxiv.org/abs/2312.01479)
 
 ### Others
@@ -115,7 +116,7 @@ You can also help us implement more models.
 <!-- start installation -->
 ## Installation
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.9, < 3.13**, but should also
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.13**, but should also
 work on Mac and Windows.
 
 If you are only interested in [synthesizing speech](https://coqui-tts.readthedocs.io/en/latest/inference.html) with the pretrained 🐸TTS models, installing from PyPI is the easiest option.
@@ -170,7 +171,7 @@ You can also try out Coqui TTS without installation with the docker image.
 Simply run the following command and you will be able to run TTS:
 
 ```bash
-docker run --rm -it -p 5002:5002 --entrypoint /bin/bash ghcr.io/coqui-ai/tts-cpu
+docker run --rm -it -p 5002:5002 --entrypoint /bin/bash ghcr.io/idiap/coqui-tts-cpu
 python3 TTS/server/server.py --list_models #To get the list of available models
 python3 TTS/server/server.py --model_name tts_models/en/vctk/vits # To start a server
 ```
@@ -234,7 +235,7 @@ tts.tts_to_file(text="Ich bin eine Testnachricht.", file_path=OUTPUT_PATH)
 
 #### Voice conversion (VC)
 
-Converting the voice in `source_wav` to the voice of `target_wav`
+Converting the voice in `source_wav` to the voice of `target_wav`:
 
 ```python
 tts = TTS("voice_conversion_models/multilingual/vctk/freevc24").to("cuda")
@@ -246,8 +247,12 @@ tts.voice_conversion_to_file(
 ```
 
 Other available voice conversion models:
+- `voice_conversion_models/multilingual/multi-dataset/knnvc`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
+
+For more details, see the
+[documentation](https://coqui-tts.readthedocs.io/en/latest/vc.html).
 
 #### Voice cloning by combining single speaker TTS model with the default VC model
 

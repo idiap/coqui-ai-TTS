@@ -1,7 +1,6 @@
 # AGPL: a notification must be added stating that changes have been made to that file.
 import functools
 import random
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -609,9 +608,9 @@ class UnifiedVoice(nn.Module):
         if input_tokens is None:
             inputs = fake_inputs
         else:
-            assert (
-                num_return_sequences % input_tokens.shape[0] == 0
-            ), "The number of return sequences must be divisible by the number of input sequences"
+            assert num_return_sequences % input_tokens.shape[0] == 0, (
+                "The number of return sequences must be divisible by the number of input sequences"
+            )
             fake_inputs = fake_inputs.repeat(num_return_sequences, 1)
             input_tokens = input_tokens.repeat(num_return_sequences // input_tokens.shape[0], 1)
             inputs = torch.cat([fake_inputs, input_tokens], dim=1)
@@ -640,8 +639,8 @@ class UnifiedVoice(nn.Module):
 
 def _prepare_attention_mask_for_generation(
     inputs: torch.Tensor,
-    pad_token_id: Optional[torch.Tensor],
-    eos_token_id: Optional[torch.Tensor],
+    pad_token_id: torch.Tensor | None,
+    eos_token_id: torch.Tensor | None,
 ) -> torch.LongTensor:
     # No information for attention mask inference -> return default attention mask
     default_attention_mask = torch.ones(inputs.shape[:2], dtype=torch.long, device=inputs.device)

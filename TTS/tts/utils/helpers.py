@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import torch
 from scipy.stats import betabinom
@@ -35,7 +33,7 @@ class StandardScaler:
 
 
 # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
-def sequence_mask(sequence_length: torch.Tensor, max_len: Optional[int] = None) -> torch.Tensor:
+def sequence_mask(sequence_length: torch.Tensor, max_len: int | None = None) -> torch.Tensor:
     """Create a sequence mask for filtering padding in a sequence tensor.
 
     Args:
@@ -107,9 +105,9 @@ def rand_segments(
         _x_lenghts[len_diff < 0] = segment_size
         len_diff = _x_lenghts - segment_size
     else:
-        assert all(
-            len_diff > 0
-        ), f" [!] At least one sample is shorter than the segment size ({segment_size}). \n {_x_lenghts}"
+        assert all(len_diff > 0), (
+            f" [!] At least one sample is shorter than the segment size ({segment_size}). \n {_x_lenghts}"
+        )
     segment_indices = (torch.rand([B]).type_as(x) * (len_diff + 1)).long()
     ret = segment(x, segment_indices, segment_size, pad_short=pad_short)
     return ret, segment_indices
@@ -164,7 +162,7 @@ def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
 
 def generate_attention(
-    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: Optional[torch.Tensor] = None
+    duration: torch.Tensor, x_mask: torch.Tensor, y_mask: torch.Tensor | None = None
 ) -> torch.Tensor:
     """Generate an attention map from the linear scale durations.
 

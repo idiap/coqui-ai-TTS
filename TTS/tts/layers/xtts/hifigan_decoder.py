@@ -97,7 +97,7 @@ class HifiDecoder(torch.nn.Module):
         o = self.waveform_decoder(z, g=g)
         return o
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c, g):
         """
         Args:

@@ -342,7 +342,6 @@ class Tortoise(BaseTTS):
             else self.args.autoregressive_batch_size
         )
         self.enable_redaction = self.args.enable_redaction
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.enable_redaction:
             self.aligner = Wav2VecAlignment()
 
@@ -685,9 +684,9 @@ class Tortoise(BaseTTS):
 
         text_tokens = torch.IntTensor(self.tokenizer.encode(text)).unsqueeze(0).to(self.device)
         text_tokens = F.pad(text_tokens, (0, 1))  # This may not be necessary.
-        assert (
-            text_tokens.shape[-1] < 400
-        ), "Too much text provided. Break the text up into separate segments and re-try inference."
+        assert text_tokens.shape[-1] < 400, (
+            "Too much text provided. Break the text up into separate segments and re-try inference."
+        )
 
         if voice_samples is not None:
             (

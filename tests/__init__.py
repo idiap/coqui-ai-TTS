@@ -1,5 +1,8 @@
 import os
+from collections.abc import Callable
+from typing import Optional
 
+import pytest
 from trainer.generic_utils import get_cuda
 
 from TTS.config import BaseDatasetConfig
@@ -42,6 +45,12 @@ def get_tests_output_path():
 def run_cli(command):
     exit_status = os.system(command)
     assert exit_status == 0, f" [!] command `{command}` failed."
+
+
+def run_main(main_func: Callable, args: list[str] | None = None, expected_code: int = 0):
+    with pytest.raises(SystemExit) as exc_info:
+        main_func(args)
+    assert exc_info.value.code == expected_code
 
 
 def get_test_data_config():

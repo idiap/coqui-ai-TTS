@@ -1,7 +1,6 @@
 """Set of default text cleaners"""
 
 import re
-from typing import Optional
 from unicodedata import normalize
 
 from anyascii import anyascii
@@ -47,7 +46,7 @@ def remove_aux_symbols(text: str) -> str:
     return text
 
 
-def replace_symbols(text: str, lang: Optional[str] = "en") -> str:
+def replace_symbols(text: str, lang: str | None = "en") -> str:
     """Replace symbols based on the language tag.
 
     Args:

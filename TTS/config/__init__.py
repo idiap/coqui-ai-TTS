@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import fsspec
 import yaml
@@ -54,11 +54,11 @@ def register_config(model_name: str) -> Coqpit:
     return config_class
 
 
-def _process_model_name(config_dict: Dict) -> str:
+def _process_model_name(config_dict: dict) -> str:
     """Format the model name as expected. It is a band-aid for the old `vocoder` model names.
 
     Args:
-        config_dict (Dict): A dictionary including the config fields.
+        config_dict (dict): A dictionary including the config fields.
 
     Returns:
         str: Formatted modelname.
@@ -68,7 +68,7 @@ def _process_model_name(config_dict: Dict) -> str:
     return model_name
 
 
-def load_config(config_path: Union[str, os.PathLike[Any]]) -> Coqpit:
+def load_config(config_path: str | os.PathLike[Any]) -> Coqpit:
     """Import `json` or `yaml` files as TTS configs. First, load the input file as a `dict` and check the model name
     to find the corresponding Config class. Then initialize the Config.
 
