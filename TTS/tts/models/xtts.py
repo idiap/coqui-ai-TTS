@@ -363,7 +363,7 @@ class Xtts(BaseTTS):
 
         return gpt_cond_latents, speaker_embedding
 
-    def synthesize(self, text, config, speaker_wav, language, speaker_id=None, speed: float = 1.0, **kwargs):
+    def synthesize(self, text, config, speaker_wav, language, speaker_id=None, **kwargs):
         """Synthesize speech with the given input text.
 
         Args:
@@ -383,6 +383,7 @@ class Xtts(BaseTTS):
             f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
         )
         # Use generally found best tuning knobs for generation.
+        speed = kwargs.get('speed', 1.0)
         settings = {
             "temperature": config.temperature,
             "length_penalty": config.length_penalty,
