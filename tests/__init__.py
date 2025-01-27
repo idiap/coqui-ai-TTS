@@ -42,11 +42,6 @@ def get_tests_output_path():
     return path
 
 
-def run_cli(command):
-    exit_status = os.system(command)
-    assert exit_status == 0, f" [!] command `{command}` failed."
-
-
 def run_main(main_func: Callable, args: list[str] | None = None, expected_code: int = 0):
     with pytest.raises(SystemExit) as exc_info:
         main_func(args)

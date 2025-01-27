@@ -6,6 +6,7 @@ import random
 import numpy as np
 from scipy import signal
 
+from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.models.lstm import LSTMSpeakerEncoder
 from TTS.encoder.models.resnet import ResNetSpeakerEncoder
 
@@ -120,7 +121,7 @@ class AugmentWAV:
         return self.additive_noise(noise_type, audio)
 
 
-def setup_encoder_model(config: "Coqpit"):
+def setup_encoder_model(config: "Coqpit") -> BaseEncoder:
     if config.model_params["model_name"].lower() == "lstm":
         model = LSTMSpeakerEncoder(
             config.model_params["input_dim"],
@@ -138,4 +139,7 @@ def setup_encoder_model(config: "Coqpit"):
             use_torch_spec=config.model_params.get("use_torch_spec", False),
             audio_config=config.audio,
         )
+    else:
+        msg = f"Model not supported: {config.model_params['model_name']}"
+        raise ValueError(msg)
     return model
