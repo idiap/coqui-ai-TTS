@@ -15,12 +15,6 @@ test_vocoder:	## run vocoder tests.
 test_tts:	## run tts tests.
 	coverage run -m pytest -x -v --durations=0 tests/tts_tests
 
-test_tts2:	## run tts tests.
-	coverage run -m pytest -x -v --durations=0 tests/tts_tests2
-
-test_xtts:
-	coverage run -m pytest -x -v --durations=0 tests/xtts_tests
-
 test_aux:	## run aux tests.
 	coverage run -m pytest -x -v --durations=0 tests/aux_tests
 

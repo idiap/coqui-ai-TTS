@@ -58,20 +58,18 @@ jobs:
           include-hidden-files: true
           name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
           path: .coverage.*
-          if-no-files-found: ignore
   integration:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.12"]
-        subset: ["test_tts", "test_tts2", "test_vocoder", "test_xtts"]
+        shard: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
-        if: contains(fromJSON('["test_tts", "test_tts2", "test_xtts"]'), matrix.subset)
         run: |
           sudo apt-get update
           sudo apt-get install espeak espeak-ng
@@ -87,20 +85,22 @@ jobs:
           if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
             uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
           fi
-      - name: Integration tests
+      - name: Integration tests for shard ${{ matrix.shard }}
         run: |
+          uv run pytest tests/integration --collect-only --quiet | grep "::" > integration_tests.txt
+          total_shards=5
+          shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
           resolution=highest
           if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
-          uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
+          uv run --resolution=$resolution --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
           include-hidden-files: true
-          name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
+          name: coverage-data-integration-${{ matrix.shard }}-${{ matrix.python-version }}
           path: .coverage.*
-          if-no-files-found: ignore
   zoo:
     runs-on: ubuntu-latest
     strategy:
@@ -139,7 +139,6 @@ jobs:
           include-hidden-files: true
           name: coverage-data-zoo-${{ matrix.partition }}
           path: .coverage.*
-          if-no-files-found: ignore
   coverage:
     if: always()
     needs: [unit, integration, zoo]
