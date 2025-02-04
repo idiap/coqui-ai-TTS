@@ -142,7 +142,7 @@ class NeuralhmmTTSConfig(BaseTTSConfig):
     min_audio_len: int = 512
 
     # testing
-    test_sentences: list[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "Be a voice, not an echo.",
         ]

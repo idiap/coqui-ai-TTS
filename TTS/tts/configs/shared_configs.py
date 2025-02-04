@@ -330,7 +330,7 @@ class BaseTTSConfig(BaseTrainingConfig):
     lr_scheduler: str = None
     lr_scheduler_params: dict = field(default_factory=lambda: {})
     # testing
-    test_sentences: list[str] = field(default_factory=lambda: [])
+    test_sentences: list[str] | list[list[str]] = field(default_factory=lambda: [])
     # evaluation
     eval_split_max_size: int = None
     eval_split_size: float = 0.01

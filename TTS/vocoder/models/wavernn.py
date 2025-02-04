@@ -604,6 +604,7 @@ class Wavernn(BaseVocoder):
         samples: list,
         verbose: bool,
         num_gpus: int,
+        rank: int | None = None,
     ):
         ap = self.ap
         dataset = WaveRNNDataset(

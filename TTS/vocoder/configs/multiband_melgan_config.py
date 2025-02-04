@@ -121,7 +121,7 @@ class MultibandMelganConfig(BaseGANVocoderConfig):
     pad_short: int = 2000
     use_noise_augment: bool = False
     use_cache: bool = True
-    steps_to_start_discriminator: bool = 200000
+    steps_to_start_discriminator: int = 200000
 
     # LOSS PARAMETERS - overrides
     use_stft_loss: bool = True

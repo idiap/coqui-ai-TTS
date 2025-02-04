@@ -139,7 +139,7 @@ class DelightfulTTSConfig(BaseTTSConfig):
     d_vector_dim: int = None
 
     # testing
-    test_sentences: list[list[str]] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             ["It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent."],
             ["Be a voice, not an echo."],

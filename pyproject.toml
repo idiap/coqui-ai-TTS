@@ -76,7 +76,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     # Coqui stack
     "coqui-tts-trainer>=0.2.0,<0.3.0",
-    "coqpit-config>=0.1.1,<0.2.0",
+    "coqpit-config>=0.2.0,<0.3.0",
     "monotonic-alignment-search>=0.1.0",
     # Gruut + supported languages
     "gruut[de,es,fr]>=2.4.0",
