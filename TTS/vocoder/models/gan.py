@@ -330,7 +330,7 @@ class GAN(BaseVocoder):
         samples: list,
         verbose: bool,
         num_gpus: int,
-        rank: int = None,  # pylint: disable=unused-argument
+        rank: int | None = None,  # pylint: disable=unused-argument
     ):
         """Initiate and return the GAN dataloader.
 

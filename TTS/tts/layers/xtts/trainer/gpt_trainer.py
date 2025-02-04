@@ -359,7 +359,7 @@ class GPTTrainer(BaseTTS):
         samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
-        rank: int = None,
+        rank: int | None = None,
     ) -> "DataLoader":  # pylint: disable=W0613
         if is_eval and not config.run_eval:
             loader = None
