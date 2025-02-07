@@ -162,6 +162,15 @@ def load_attention_mask_meta_data(metafile_path):
     return meta_data
 
 
+def add_formatter(name: str, formatter: Callable):
+    """Add a formatter to the datasets module."""
+    thismodule = sys.modules[__name__]
+    if not hasattr(thismodule, name.lower()):
+        setattr(thismodule, name.lower(), formatter)
+    else:
+        raise ValueError(f"Formatter {name} already exists.")
+
+
 def _get_formatter_by_name(name):
     """Returns the respective preprocessing function."""
     thismodule = sys.modules[__name__]

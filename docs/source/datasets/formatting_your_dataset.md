@@ -101,7 +101,7 @@ train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
 Load a custom dataset with a custom formatter.
 
 ```python
-from TTS.tts.datasets import load_tts_samples
+from TTS.tts.datasets import load_tts_samples, add_formatter
 
 
 # custom formatter implementation
@@ -119,8 +119,12 @@ def formatter(root_path, manifest_file, **kwargs):  # pylint: disable=unused-arg
             items.append({"text":text, "audio_file":wav_file, "speaker_name":speaker_name, "root_path": root_path})
     return items
 
+add_formatter("custom_formatter_name", formatter) # Use the custom formatter name in the dataset config
+dataset_config = BaseDatasetConfig(
+    formatter="custom_formatter_name", meta_file_train="", language="en-us", path="dataset-path")
+)
 # load training samples
-train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True, formatter=formatter)
+train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
 ```
 
 See {py:class}`~TTS.tts.datasets.TTSDataset`, a generic Pytorch `Dataset` implementation for the `tts` models.
