@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from tests import get_tests_data_path
 from TTS.tts.configs.shared_configs import BaseDatasetConfig, BaseTTSConfig
-from TTS.tts.datasets import load_tts_samples
+from TTS.tts.datasets import add_formatter, load_tts_samples
 from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
@@ -251,3 +251,36 @@ def test_padding_and_spectrograms(tmp_path):
         # check batch zero-frame conditions (zero-frame disabled)
         # assert (linear_input * stop_target.unsqueeze(2)).sum() == 0
         # assert (mel_input * stop_target.unsqueeze(2)).sum() == 0
+
+
+def test_custom_formatted_dataset_with_loader():
+    def custom_formatter(path, metafile, **kwargs):
+        with open(os.path.join(path, metafile)) as f:
+            data = f.readlines()
+        items = []
+        for line in data:
+            file_path, text = line.split("|", 1)
+            items.append({"text": text, "audio_file": file_path, "root_path": path, "speaker_name": "test"})
+        return items
+
+    def custom_formatter2(x, *args, **kwargs):
+        items = custom_formatter(x, *args, **kwargs)
+        [item.update({"audio_file": f"{item['audio_file']}.wav"}) for item in items]
+        return items
+
+    add_formatter("custom_formatter1", custom_formatter)
+    add_formatter("custom_formatter2", custom_formatter2)
+    dataset1 = BaseDatasetConfig(
+        formatter="custom_formatter1",
+        meta_file_train="metadata.csv",
+        path=c.data_path,
+    )
+    dataset2 = BaseDatasetConfig(
+        formatter="custom_formatter2",
+        meta_file_train="metadata.csv",
+        path=c.data_path,
+    )
+    dataset_configs = [dataset1, dataset2]
+    train_samples, eval_samples = load_tts_samples(dataset_configs, eval_split=True, eval_split_size=0.2)
+    assert len(train_samples) == 14
+    assert len(eval_samples) == 2
