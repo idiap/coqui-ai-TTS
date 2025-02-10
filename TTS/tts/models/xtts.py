@@ -175,6 +175,18 @@ class XttsArgs(Coqpit):
     # constants
     duration_const: int = 102400
 
+    # training params
+    min_conditioning_length: int = 66150
+    max_conditioning_length: int = 132300
+    gpt_loss_text_ce_weight: float = 0.01
+    gpt_loss_mel_ce_weight: float = 1.0
+    debug_loading_failures: bool = False
+    max_wav_length: int = 255995
+    max_text_length: int = 200
+    mel_norm_file: str = ""
+    dvae_checkpoint: str = ""
+    xtts_checkpoint: str = ""
+    vocoder: str = ""
 
 class Xtts(BaseTTS):
     """XTTS model implementation.
