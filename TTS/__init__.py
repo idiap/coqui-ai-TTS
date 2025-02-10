@@ -4,6 +4,15 @@ from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 __version__ = importlib.metadata.version("coqui-tts")
 
+if "coqpit" in importlib.metadata.packages_distributions().get("coqpit", []):
+    msg = (
+        "coqui-tts switched to a forked version of Coqpit, but you still have the original "
+        "package installed. Run the following to avoid conflicts:\n"
+        "  pip uninstall coqpit\n"
+        "  pip install coqpit-config"
+    )
+    raise ImportError(msg)
+
 
 if is_pytorch_at_least_2_4():
     import _codecs
