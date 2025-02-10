@@ -24,16 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GPTTrainerConfig(XttsConfig):
-    lr: float = 5e-06
-    training_seed: int = 1
-    optimizer_wd_only_on_weights: bool = False
-    weighted_loss_attrs: dict = field(default_factory=lambda: {})
-    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: list[dict] = field(default_factory=lambda: [])
-
-
-@dataclass
 class GPTArgs(XttsArgs):
     min_conditioning_length: int = 66150
     max_conditioning_length: int = 132300
@@ -49,6 +39,17 @@ class GPTArgs(XttsArgs):
     xtts_checkpoint: str = ""
     gpt_checkpoint: str = ""  # if defined it will replace the gpt weights on xtts model
     vocoder: str = ""  # overide vocoder key on the config to avoid json write issues
+
+
+@dataclass
+class GPTTrainerConfig(XttsConfig):
+    lr: float = 5e-06
+    training_seed: int = 1
+    optimizer_wd_only_on_weights: bool = False
+    weighted_loss_attrs: dict = field(default_factory=lambda: {})
+    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
+    test_sentences: list[dict] = field(default_factory=lambda: [])
+    model_args: GPTArgs = field(default_factory=GPTArgs)
 
 
 def callback_clearml_load_save(operation_type, model_info):
