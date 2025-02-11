@@ -207,8 +207,8 @@ class NewGenerationMixin(GenerationMixin):
             )
             model_kwargs["attention_mask"] = self._prepare_attention_mask_for_generation(
                 inputs_tensor,
-                generation_config._pad_token_tensor,
-                generation_config._eos_token_tensor,
+                generation_config,
+                model_kwargs,
             )
 
         # decoder-only models should use left-padding for generation
