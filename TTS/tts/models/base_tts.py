@@ -4,6 +4,7 @@ import random
 
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
@@ -77,6 +78,33 @@ class BaseTTS(BaseTrainerModel):
             self.args = config
         else:
             raise ValueError("config must be either a *Config or *Args")
+
+    def adjust_speech_rate(self, gpt_latents, length_scale):
+        if abs(length_scale - 1.0) < 1e-6:
+            return gpt_latents
+
+        B, L, D = gpt_latents.shape
+        target_length = int(L * length_scale)
+
+        assert target_length > 0, f"Invalid target length: {target_length}"
+
+        try:
+            resized = F.interpolate(
+                gpt_latents.transpose(1, 2),
+                size=target_length,
+                mode="linear",
+                align_corners=True
+            ).transpose(1, 2)
+
+            if torch.isnan(resized).any():
+                print("Warning: NaN values detected on adjust speech rate")
+                return gpt_latents
+
+            return resized
+
+        except RuntimeError as e:
+            print(f"Interpolation failed: {e}")
+            return gpt_latents
 
     def init_multispeaker(self, config: Coqpit, data: list = None):
         """Set up for multi-speaker TTS.
