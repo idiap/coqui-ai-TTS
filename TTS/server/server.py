@@ -126,6 +126,25 @@ def style_wav_uri_to_dict(style_wav: str) -> str | dict:
     return None
 
 
+def speaker_wav_uri_to_dict(speaker_wav: str) -> str | dict:
+    """Transform an uri speaker_wav, in either a string (path to wav file to be use for voice cloning)
+    or a dict (gst tokens/values to be use for voice cloning)
+
+    Args:
+        speaker_wav (str): uri
+
+    Returns:
+        Union[str, dict]: path to file (str) or gst speaker (dict)
+    """
+    if speaker_wav:
+        if os.path.isfile(speaker_wav) and speaker_wav.endswith(".wav"):
+            return speaker_wav  # local to the server
+
+        speaker_wav = json.loads(speaker_wav)
+        return speaker_wav
+    return None
+
+
 @app.route("/")
 def index():
     return render_template(
@@ -170,11 +189,13 @@ def tts():
         )
         style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
         style_wav = style_wav_uri_to_dict(style_wav)
+        speaker_wav = request.headers.get("speaker-wav") or request.values.get("speaker_wav", "")
+        speaker_wav = speaker_wav_uri_to_dict(speaker_wav)
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
         logger.info("Language idx: %s", language_idx)
-        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav)
+        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
