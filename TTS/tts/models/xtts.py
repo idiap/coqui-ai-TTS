@@ -391,7 +391,7 @@ class Xtts(BaseTTS):
             "top_p": config.top_p,
         }
         settings.update(kwargs)  # allow overriding of preset settings with kwargs
-        if speaker_id is not None:
+        if speaker_id is not None and speaker_id != "":
             gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker_id].values()
             return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
         settings.update(
