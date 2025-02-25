@@ -264,7 +264,6 @@ class TTS(nn.Module):
         language: str | None = None,
         speaker_wav: str | None = None,
         emotion: str | None = None,
-        speed: float | None = None,
         **kwargs,
     ) -> None:
         """Check if the arguments are valid for the model."""
@@ -277,8 +276,8 @@ class TTS(nn.Module):
             raise ValueError("Model is not multi-speaker but `speaker` is provided.")
         if not self.is_multi_lingual and language is not None:
             raise ValueError("Model is not multi-lingual but `language` is provided.")
-        if emotion is not None and speed is not None:
-            raise ValueError("Emotion and speed can only be used with Coqui Studio models. Which is discontinued.")
+        if emotion is not None:
+            raise ValueError("Emotion can only be used with Coqui Studio models. Which is discontinued.")
 
     def tts(
         self,
@@ -287,7 +286,6 @@ class TTS(nn.Module):
         language: str | None = None,
         speaker_wav: str | None = None,
         emotion: str | None = None,
-        speed: float | None = None,
         split_sentences: bool = True,
         **kwargs,
     ):
@@ -306,9 +304,6 @@ class TTS(nn.Module):
                 Defaults to None.
             emotion (str, optional):
                 Emotion to use for 🐸Coqui Studio models. If None, Studio models use "Neutral". Defaults to None.
-            speed (float, optional):
-                Speed factor to use for 🐸Coqui Studio models, between 0 and 2.0. If None, Studio models use 1.0.
-                Defaults to None.
             split_sentences (bool, optional):
                 Split text into sentences, synthesize them separately and concatenate the file audio.
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
@@ -316,9 +311,7 @@ class TTS(nn.Module):
             kwargs (dict, optional):
                 Additional arguments for the model.
         """
-        self._check_arguments(
-            speaker=speaker, language=language, speaker_wav=speaker_wav, emotion=emotion, speed=speed, **kwargs
-        )
+        self._check_arguments(speaker=speaker, language=language, speaker_wav=speaker_wav, emotion=emotion, **kwargs)
         wav = self.synthesizer.tts(
             text=text,
             speaker_name=speaker,
@@ -336,7 +329,6 @@ class TTS(nn.Module):
         language: str | None = None,
         speaker_wav: str | None = None,
         emotion: str | None = None,
-        speed: float = 1.0,
         pipe_out=None,
         file_path: str = "output.wav",
         split_sentences: bool = True,
@@ -358,8 +350,6 @@ class TTS(nn.Module):
                 Defaults to None.
             emotion (str, optional):
                 Emotion to use for 🐸Coqui Studio models. Defaults to "Neutral".
-            speed (float, optional):
-                Speed factor to use for 🐸Coqui Studio models, between 0.0 and 2.0. Defaults to None.
             pipe_out (BytesIO, optional):
                 Flag to stdout the generated TTS wav file for shell pipe.
             file_path (str, optional):
