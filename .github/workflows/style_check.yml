@@ -4,8 +4,25 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
 jobs:
   lint:
     runs-on: ubuntu-latest

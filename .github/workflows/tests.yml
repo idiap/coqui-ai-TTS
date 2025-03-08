@@ -4,8 +4,24 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   workflow_dispatch:
     inputs:
       trainer_branch:
@@ -16,6 +32,15 @@ on:
         description: "Branch of Coqpit to test"
         required: false
         default: "main"
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
 jobs:
   unit:
     runs-on: ubuntu-latest
