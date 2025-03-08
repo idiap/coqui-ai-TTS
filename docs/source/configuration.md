@@ -1,6 +1,6 @@
 # Configuration
 
-We use 👩‍✈️[Coqpit] for configuration management. It provides basic static type checking and serialization capabilities on top of native Python `dataclasses`. Here is how a simple configuration looks like with Coqpit.
+We use 👩‍✈️[Coqpit](https://github.com/idiap/coqui-ai-coqpit) for configuration management. It provides basic static type checking and serialization capabilities on top of native Python `dataclasses`. Here is how a simple configuration looks like with Coqpit.
 
 ```python
 from dataclasses import asdict, dataclass, field
@@ -36,7 +36,7 @@ class SimpleConfig(Coqpit):
         check_argument("val_c", c, restricted=True)
 ```
 
-In TTS, each model must have a configuration class that exposes all the values necessary for its lifetime.
+In Coqui, each model must have a configuration class that exposes all the values necessary for its lifetime.
 
 It defines model architecture, hyper-parameters, training, and inference settings. For our models, we merge all the fields in a single configuration class for ease. It may not look like a wise practice but enables easier bookkeeping and reproducible experiments.
 

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.models.forward_tts import ForwardTTSArgs
@@ -117,10 +116,10 @@ class FastPitchConfig(BaseTTSConfig):
 
     # multi-speaker settings
     num_speakers: int = 0
-    speakers_file: str = None
+    speakers_file: str | None = None
     use_speaker_embedding: bool = False
     use_d_vector_file: bool = False
-    d_vector_file: str = False
+    d_vector_file: str | None = None
     d_vector_dim: int = 0
 
     # optimizer parameters
@@ -150,10 +149,10 @@ class FastPitchConfig(BaseTTSConfig):
 
     # dataset configs
     compute_f0: bool = True
-    f0_cache_path: str = None
+    f0_cache_path: str | None = None
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

@@ -1,6 +1,6 @@
 import os
 from abc import abstractmethod
-from typing import Any, Union
+from typing import Any
 
 import torch
 from coqpit import Coqpit
@@ -12,7 +12,7 @@ from trainer import TrainerModel
 class BaseTrainerModel(TrainerModel):
     """BaseTrainerModel model expanding TrainerModel with required functions by 🐸TTS.
 
-    Every new 🐸TTS model must inherit it.
+    Every new Coqui model must inherit it.
     """
 
     @staticmethod
@@ -48,7 +48,7 @@ class BaseTrainerModel(TrainerModel):
     def load_checkpoint(
         self,
         config: Coqpit,
-        checkpoint_path: Union[str, os.PathLike[Any]],
+        checkpoint_path: str | os.PathLike[Any],
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,
@@ -64,3 +64,7 @@ class BaseTrainerModel(TrainerModel):
                 It is cached under `trainer.io.get_user_data_dir()/tts_cache`. Defaults to False.
         """
         ...
+
+    @property
+    def device(self) -> torch.device:
+        return next(self.parameters()).device

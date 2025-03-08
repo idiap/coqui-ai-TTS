@@ -1,6 +1,7 @@
 import logging
+import os
 from io import BytesIO
-from typing import Optional
+from typing import Any
 
 import librosa
 import numpy as np
@@ -20,7 +21,7 @@ def build_mel_basis(
     fft_size: int,
     num_mels: int,
     mel_fmin: int,
-    mel_fmax: Optional[int] = None,
+    mel_fmax: int | None = None,
     **kwargs,
 ) -> np.ndarray:
     """Build melspectrogram basis.
@@ -59,7 +60,7 @@ def _exp(x, base):
     return np.exp(x)
 
 
-def amp_to_db(*, x: np.ndarray, gain: float = 1, base: int = 10, **kwargs) -> np.ndarray:
+def amp_to_db(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> np.ndarray:
     """Convert amplitude values to decibels.
 
     Args:
@@ -176,8 +177,8 @@ def stft(
     *,
     y: np.ndarray,
     fft_size: int,
-    hop_length: Optional[int] = None,
-    win_length: Optional[int] = None,
+    hop_length: int | None = None,
+    win_length: int | None = None,
     pad_mode: str = "reflect",
     window: str = "hann",
     center: bool = True,
@@ -204,8 +205,8 @@ def stft(
 def istft(
     *,
     y: np.ndarray,
-    hop_length: Optional[int] = None,
-    win_length: Optional[int] = None,
+    hop_length: int | None = None,
+    win_length: int | None = None,
     window: str = "hann",
     center: bool = True,
     **kwargs,
@@ -247,8 +248,8 @@ def compute_stft_paddings(*, x: np.ndarray, hop_length: int, pad_two_sides: bool
 def compute_f0(
     *,
     x: np.ndarray,
-    pitch_fmax: Optional[float] = None,
-    pitch_fmin: Optional[float] = None,
+    pitch_fmax: float | None = None,
+    pitch_fmin: float | None = None,
     hop_length: int,
     win_length: int,
     sample_rate: int,
@@ -406,7 +407,9 @@ def rms_volume_norm(*, x: np.ndarray, db_level: float = -27.0, **kwargs) -> np.n
     return rms_norm(wav=x, db_level=db_level)
 
 
-def load_wav(*, filename: str, sample_rate: Optional[int] = None, resample: bool = False, **kwargs) -> np.ndarray:
+def load_wav(
+    *, filename: str | os.PathLike[Any], sample_rate: int | None = None, resample: bool = False, **kwargs
+) -> np.ndarray:
     """Read a wav file using Librosa and optionally resample, silence trim, volume normalize.
 
     Resampling slows down loading the file significantly. Therefore it is recommended to resample the file before.
@@ -434,7 +437,7 @@ def load_wav(*, filename: str, sample_rate: Optional[int] = None, resample: bool
 def save_wav(
     *,
     wav: np.ndarray,
-    path: str,
+    path: str | os.PathLike[Any],
     sample_rate: int,
     pipe_out=None,
     do_rms_norm: bool = False,

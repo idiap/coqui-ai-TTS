@@ -93,25 +93,6 @@ def load_audio(audiopath, sampling_rate):
     return audio
 
 
-def pad_or_truncate(t, length):
-    """
-    Ensure a given tensor t has a specified sequence length by either padding it with zeros or clipping it.
-
-    Args:
-        t (torch.Tensor): The input tensor to be padded or truncated.
-        length (int): The desired length of the tensor.
-
-    Returns:
-        torch.Tensor: The padded or truncated tensor.
-    """
-    tp = t[..., :length]
-    if t.shape[-1] == length:
-        tp = t
-    elif t.shape[-1] < length:
-        tp = F.pad(t, (0, length - t.shape[-1]))
-    return tp
-
-
 @dataclass
 class XttsAudioConfig(Coqpit):
     """
@@ -120,10 +101,12 @@ class XttsAudioConfig(Coqpit):
     Args:
         sample_rate (int): The sample rate in which the GPT operates.
         output_sample_rate (int): The sample rate of the output audio waveform.
+        dvae_sample_rate (int): The sample rate of the DVAE
     """
 
     sample_rate: int = 22050
     output_sample_rate: int = 24000
+    dvae_sample_rate: int = 22050
 
 
 @dataclass
@@ -194,7 +177,7 @@ class XttsArgs(Coqpit):
 
 
 class Xtts(BaseTTS):
-    """ⓍTTS model implementation.
+    """XTTS model implementation.
 
     ❗ Currently it only supports inference.
 
@@ -254,10 +237,6 @@ class Xtts(BaseTTS):
             d_vector_dim=self.args.d_vector_dim,
             cond_d_vector_in_each_upsampling_layer=self.args.cond_d_vector_in_each_upsampling_layer,
         )
-
-    @property
-    def device(self):
-        return next(self.parameters()).device
 
     @torch.inference_mode()
     def get_gpt_cond_latents(self, audio, sr, length: int = 30, chunk_length: int = 6):
@@ -400,9 +379,9 @@ class Xtts(BaseTTS):
             as latents used at inference.
 
         """
-        assert (
-            "zh-cn" if language == "zh" else language in self.config.languages
-        ), f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        assert "zh-cn" if language == "zh" else language in self.config.languages, (
+            f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
+        )
         # Use generally found best tuning knobs for generation.
         settings = {
             "temperature": config.temperature,
@@ -476,7 +455,7 @@ class Xtts(BaseTTS):
             gpt_cond_chunk_len: (int) Chunk length used for cloning. It must be <= `gpt_cond_len`.
                 If gpt_cond_len == gpt_cond_chunk_len, no chunking. Defaults to 6 seconds.
 
-            hf_generate_kwargs: (**kwargs) The huggingface Transformers generate API is used for the autoregressive
+            hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive
                 transformer. Extra keyword args fed to this function get forwarded directly to that API. Documentation
                 here: https://huggingface.co/docs/transformers/internal/generation_utils
 
@@ -540,9 +519,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             with torch.no_grad():
                 gpt_codes = self.gpt.generate(
@@ -648,9 +627,9 @@ class Xtts(BaseTTS):
             sent = sent.strip().lower()
             text_tokens = torch.IntTensor(self.tokenizer.encode(sent, lang=language)).unsqueeze(0).to(self.device)
 
-            assert (
-                text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            assert text_tokens.shape[-1] < self.args.gpt_max_text_tokens, (
+                " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            )
 
             fake_inputs = self.gpt.compute_embeddings(
                 gpt_cond_latent.to(self.device),
@@ -738,14 +717,14 @@ class Xtts(BaseTTS):
 
     def load_checkpoint(
         self,
-        config,
-        checkpoint_dir=None,
-        checkpoint_path=None,
-        vocab_path=None,
-        eval=True,
-        strict=True,
-        use_deepspeed=False,
-        speaker_file_path=None,
+        config: "XttsConfig",
+        checkpoint_dir: str | None = None,
+        checkpoint_path: str | None = None,
+        vocab_path: str | None = None,
+        eval: bool = True,
+        strict: bool = True,
+        use_deepspeed: bool = False,
+        speaker_file_path: str | None = None,
     ):
         """
         Loads a checkpoint from disk and initializes the model's state and tokenizer.
@@ -761,7 +740,9 @@ class Xtts(BaseTTS):
         Returns:
             None
         """
-
+        if checkpoint_dir is not None and Path(checkpoint_dir).is_file():
+            msg = f"You passed a file to `checkpoint_dir=`. Use `checkpoint_path={checkpoint_dir}` instead."
+            raise ValueError(msg)
         model_path = checkpoint_path or os.path.join(checkpoint_dir, "model.pth")
         if vocab_path is None:
             if checkpoint_dir is not None and (Path(checkpoint_dir) / "vocab.json").is_file():

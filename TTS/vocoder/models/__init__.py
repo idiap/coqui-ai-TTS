@@ -4,15 +4,14 @@ import re
 
 from coqpit import Coqpit
 
+from TTS.utils.generic_utils import to_camel
+from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig, BaseVocoderConfig
+from TTS.vocoder.models.base_vocoder import BaseVocoder
+
 logger = logging.getLogger(__name__)
 
 
-def to_camel(text):
-    text = text.capitalize()
-    return re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
-
-
-def setup_model(config: Coqpit):
+def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     """Load models directly from configuration."""
     if "discriminator_model" in config and "generator_model" in config:
         MyModel = importlib.import_module("TTS.vocoder.models.gan")
@@ -29,19 +28,20 @@ def setup_model(config: Coqpit):
             try:
                 MyModel = getattr(MyModel, to_camel(config.model))
             except ModuleNotFoundError as e:
-                raise ValueError(f"Model {config.model} not exist!") from e
+                raise ValueError(f"Model {config.model} does not exist!") from e
     logger.info("Vocoder model: %s", config.model)
     return MyModel.init_from_config(config)
 
 
-def setup_generator(c):
+def setup_generator(c: BaseGANVocoderConfig):
     """TODO: use config object as arguments"""
     logger.info("Generator model: %s", c.generator_model)
     MyModel = importlib.import_module("TTS.vocoder.models." + c.generator_model.lower())
     MyModel = getattr(MyModel, to_camel(c.generator_model))
     # this is to preserve the Wavernn class name (instead of Wavernn)
     if c.generator_model.lower() in "hifigan_generator":
-        model = MyModel(in_channels=c.audio["num_mels"], out_channels=1, **c.generator_model_params)
+        c.generator_model_params["in_channels"] = c.generator_model_params.get("in_channels", c.audio["num_mels"])
+        model = MyModel(out_channels=1, **c.generator_model_params)
     elif c.generator_model.lower() in "melgan_generator":
         model = MyModel(
             in_channels=c.audio["num_mels"],
@@ -97,8 +97,8 @@ def setup_generator(c):
     return model
 
 
-def setup_discriminator(c):
-    """TODO: use config objekt as arguments"""
+def setup_discriminator(c: BaseGANVocoderConfig):
+    """TODO: use config object as arguments"""
     logger.info("Discriminator model: %s", c.discriminator_model)
     if "parallel_wavegan" in c.discriminator_model:
         MyModel = importlib.import_module("TTS.vocoder.models.parallel_wavegan_discriminator")
@@ -107,7 +107,7 @@ def setup_discriminator(c):
     MyModel = getattr(MyModel, to_camel(c.discriminator_model.lower()))
     if c.discriminator_model in "hifigan_discriminator":
         model = MyModel()
-    if c.discriminator_model in "random_window_discriminator":
+    elif c.discriminator_model in "random_window_discriminator":
         model = MyModel(
             cond_channels=c.audio["num_mels"],
             hop_length=c.audio["hop_length"],
@@ -116,7 +116,7 @@ def setup_discriminator(c):
             cond_disc_out_channels=c.discriminator_model_params["cond_disc_out_channels"],
             window_sizes=c.discriminator_model_params["window_sizes"],
         )
-    if c.discriminator_model in "melgan_multiscale_discriminator":
+    elif c.discriminator_model in "melgan_multiscale_discriminator":
         model = MyModel(
             in_channels=1,
             out_channels=1,
@@ -125,7 +125,7 @@ def setup_discriminator(c):
             max_channels=c.discriminator_model_params["max_channels"],
             downsample_factors=c.discriminator_model_params["downsample_factors"],
         )
-    if c.discriminator_model == "residual_parallel_wavegan_discriminator":
+    elif c.discriminator_model == "residual_parallel_wavegan_discriminator":
         model = MyModel(
             in_channels=1,
             out_channels=1,
@@ -140,7 +140,7 @@ def setup_discriminator(c):
             nonlinear_activation="LeakyReLU",
             nonlinear_activation_params={"negative_slope": 0.2},
         )
-    if c.discriminator_model == "parallel_wavegan_discriminator":
+    elif c.discriminator_model == "parallel_wavegan_discriminator":
         model = MyModel(
             in_channels=1,
             out_channels=1,
@@ -152,6 +152,8 @@ def setup_discriminator(c):
             nonlinear_activation_params={"negative_slope": 0.2},
             bias=True,
         )
-    if c.discriminator_model == "univnet_discriminator":
+    elif c.discriminator_model == "univnet_discriminator":
         model = MyModel()
+    else:
+        raise NotImplementedError(f"Model {c.discriminator_model} not implemented!")
     return model

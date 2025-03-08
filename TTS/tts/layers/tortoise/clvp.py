@@ -8,10 +8,6 @@ from TTS.tts.layers.tortoise.transformer import Transformer
 from TTS.tts.layers.tortoise.xtransformers import Encoder
 
 
-def exists(val):
-    return val is not None
-
-
 def masked_mean(t, mask, dim=1):
     t = t.masked_fill(~mask[:, :, None], 0.0)
     return t.sum(dim=1) / mask.sum(dim=1)[..., None]

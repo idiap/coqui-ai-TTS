@@ -9,9 +9,8 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch import einsum, nn
 
-
-def exists(val):
-    return val is not None
+from TTS.tts.layers.tortoise.transformer import GEGLU
+from TTS.utils.generic_utils import default, exists
 
 
 def once(fn):
@@ -151,12 +150,6 @@ def Sequential(*mods):
     return nn.Sequential(*filter(exists, mods))
 
 
-def default(val, d):
-    if exists(val):
-        return val
-    return d() if callable(d) else d
-
-
 class RMSNorm(nn.Module):
     def __init__(self, dim, scale=True, dim_cond=None):
         super().__init__()
@@ -192,12 +185,6 @@ class CausalConv1d(nn.Conv1d):
     def forward(self, x):
         causal_padded_x = F.pad(x, (self.causal_padding, 0), value=0.0)
         return super().forward(causal_padded_x)
-
-
-class GEGLU(nn.Module):
-    def forward(self, x):
-        x, gate = x.chunk(2, dim=-1)
-        return F.gelu(gate) * x
 
 
 def FeedForward(dim, mult=4, causal_conv=False):

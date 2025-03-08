@@ -24,7 +24,7 @@ class FullbandMelganGenerator(MelganGenerator):
             num_res_blocks=num_res_blocks,
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, cond_features):
         cond_features = cond_features.to(self.layers[1].weight.device)
         cond_features = torch.nn.functional.pad(

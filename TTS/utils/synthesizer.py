@@ -1,7 +1,8 @@
 import logging
 import os
 import time
-from typing import List
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pysbd
@@ -15,7 +16,10 @@ from TTS.tts.models.vits import Vits
 from TTS.tts.utils.synthesis import synthesis, transfer_voice, trim_silence
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
+from TTS.utils.generic_utils import optional_to_str
+from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models import setup_model as setup_vc_model
+from TTS.vc.models.openvoice import OpenVoice
 from TTS.vocoder.models import setup_model as setup_vocoder_model
 from TTS.vocoder.utils.generic_utils import interpolate_vocoder_input
 
@@ -25,18 +29,19 @@ logger = logging.getLogger(__name__)
 class Synthesizer(nn.Module):
     def __init__(
         self,
-        tts_checkpoint: str = "",
-        tts_config_path: str = "",
-        tts_speakers_file: str = "",
-        tts_languages_file: str = "",
-        vocoder_checkpoint: str = "",
-        vocoder_config: str = "",
-        encoder_checkpoint: str = "",
-        encoder_config: str = "",
-        vc_checkpoint: str = "",
-        vc_config: str = "",
-        model_dir: str = "",
-        voice_dir: str = None,
+        *,
+        tts_checkpoint: str | os.PathLike[Any] | None = None,
+        tts_config_path: str | os.PathLike[Any] | None = None,
+        tts_speakers_file: str | os.PathLike[Any] | None = None,
+        tts_languages_file: str | os.PathLike[Any] | None = None,
+        vocoder_checkpoint: str | os.PathLike[Any] | None = None,
+        vocoder_config: str | os.PathLike[Any] | None = None,
+        encoder_checkpoint: str | os.PathLike[Any] | None = None,
+        encoder_config: str | os.PathLike[Any] | None = None,
+        vc_checkpoint: str | os.PathLike[Any] | None = None,
+        vc_config: str | os.PathLike[Any] | None = None,
+        model_dir: str | os.PathLike[Any] | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
         use_cuda: bool = False,
     ) -> None:
         """General 🐸 TTS interface for inference. It takes a tts and a vocoder
@@ -62,16 +67,17 @@ class Synthesizer(nn.Module):
             use_cuda (bool, optional): enable/disable cuda. Defaults to False.
         """
         super().__init__()
-        self.tts_checkpoint = tts_checkpoint
-        self.tts_config_path = tts_config_path
-        self.tts_speakers_file = tts_speakers_file
-        self.tts_languages_file = tts_languages_file
-        self.vocoder_checkpoint = vocoder_checkpoint
-        self.vocoder_config = vocoder_config
-        self.encoder_checkpoint = encoder_checkpoint
-        self.encoder_config = encoder_config
-        self.vc_checkpoint = vc_checkpoint
-        self.vc_config = vc_config
+        self.tts_checkpoint = optional_to_str(tts_checkpoint)
+        self.tts_config_path = optional_to_str(tts_config_path)
+        self.tts_speakers_file = optional_to_str(tts_speakers_file)
+        self.tts_languages_file = optional_to_str(tts_languages_file)
+        self.vocoder_checkpoint = optional_to_str(vocoder_checkpoint)
+        self.vocoder_config = optional_to_str(vocoder_config)
+        self.encoder_checkpoint = optional_to_str(encoder_checkpoint)
+        self.encoder_config = optional_to_str(encoder_config)
+        self.vc_checkpoint = optional_to_str(vc_checkpoint)
+        self.vc_config = optional_to_str(vc_config)
+        model_dir = optional_to_str(model_dir)
         self.use_cuda = use_cuda
 
         self.tts_model = None
@@ -90,24 +96,21 @@ class Synthesizer(nn.Module):
             assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
         if tts_checkpoint:
-            self._load_tts(tts_checkpoint, tts_config_path, use_cuda)
-            self.output_sample_rate = self.tts_config.audio["sample_rate"]
+            self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
+
+        if vc_checkpoint and model_dir == "":
+            self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
 
         if vocoder_checkpoint:
-            self._load_vocoder(vocoder_checkpoint, vocoder_config, use_cuda)
-            self.output_sample_rate = self.vocoder_config.audio["sample_rate"]
-
-        if vc_checkpoint:
-            self._load_vc(vc_checkpoint, vc_config, use_cuda)
-            self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
 
         if model_dir:
             if "fairseq" in model_dir:
                 self._load_fairseq_from_dir(model_dir, use_cuda)
-                self.output_sample_rate = self.tts_config.audio["sample_rate"]
+            elif "openvoice" in model_dir:
+                self._load_openvoice_from_dir(Path(model_dir), use_cuda)
             else:
                 self._load_tts_from_dir(model_dir, use_cuda)
-                self.output_sample_rate = self.tts_config.audio["output_sample_rate"]
 
     @staticmethod
     def _get_segmenter(lang: str):
@@ -136,6 +139,9 @@ class Synthesizer(nn.Module):
         """
         # pylint: disable=global-statement
         self.vc_config = load_config(vc_config_path)
+        self.output_sample_rate = self.vc_config.audio.get(
+            "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
+        )
         self.vc_model = setup_vc_model(config=self.vc_config)
         self.vc_model.load_checkpoint(self.vc_config, vc_checkpoint)
         if use_cuda:
@@ -150,8 +156,23 @@ class Synthesizer(nn.Module):
         self.tts_model = Vits.init_from_config(self.tts_config)
         self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_dir=model_dir, eval=True)
         self.tts_config = self.tts_model.config
+        self.output_sample_rate = self.tts_config.audio["sample_rate"]
         if use_cuda:
             self.tts_model.cuda()
+
+    def _load_openvoice_from_dir(self, checkpoint: Path, use_cuda: bool) -> None:
+        """Load the OpenVoice model from a directory.
+
+        We assume the model knows how to load itself from the directory and
+        there is a config.json file in the directory.
+        """
+        self.vc_config = OpenVoiceConfig()
+        self.vc_model = OpenVoice.init_from_config(self.vc_config)
+        self.vc_model.load_checkpoint(self.vc_config, checkpoint, eval=True)
+        self.vc_config = self.vc_model.config
+        self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
+        if use_cuda:
+            self.vc_model.cuda()
 
     def _load_tts_from_dir(self, model_dir: str, use_cuda: bool) -> None:
         """Load the TTS model from a directory.
@@ -160,6 +181,7 @@ class Synthesizer(nn.Module):
         """
         config = load_config(os.path.join(model_dir, "config.json"))
         self.tts_config = config
+        self.output_sample_rate = self.tts_config.audio["output_sample_rate"]
         self.tts_model = setup_tts_model(config)
         self.tts_model.load_checkpoint(config, checkpoint_dir=model_dir, eval=True)
         if use_cuda:
@@ -181,6 +203,7 @@ class Synthesizer(nn.Module):
         """
         # pylint: disable=global-statement
         self.tts_config = load_config(tts_config_path)
+        self.output_sample_rate = self.tts_config.audio["sample_rate"]
         if self.tts_config["use_phonemes"] and self.tts_config["phonemizer"] is None:
             raise ValueError("Phonemizer is not defined in the TTS config.")
 
@@ -218,13 +241,14 @@ class Synthesizer(nn.Module):
             use_cuda (bool): enable/disable CUDA use.
         """
         self.vocoder_config = load_config(model_config)
+        self.output_sample_rate = self.vocoder_config.audio["sample_rate"]
         self.vocoder_ap = AudioProcessor(**self.vocoder_config.audio)
         self.vocoder_model = setup_vocoder_model(self.vocoder_config)
         self.vocoder_model.load_checkpoint(self.vocoder_config, model_file, eval=True)
         if use_cuda:
             self.vocoder_model.cuda()
 
-    def split_into_sentences(self, text) -> List[str]:
+    def split_into_sentences(self, text) -> list[str]:
         """Split give text into sentences.
 
         Args:
@@ -235,7 +259,7 @@ class Synthesizer(nn.Module):
         """
         return self.seg.segment(text)
 
-    def save_wav(self, wav: List[int], path: str, pipe_out=None) -> None:
+    def save_wav(self, wav: list[int], path: str, pipe_out=None) -> None:
         """Save the waveform as a file.
 
         Args:
@@ -250,9 +274,21 @@ class Synthesizer(nn.Module):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str) -> List[int]:
-        output_wav = self.vc_model.voice_conversion(source_wav, target_wav)
-        return output_wav
+    def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
+        start_time = time.time()
+
+        if not isinstance(target_wav, list):
+            target_wav = [target_wav]
+        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
+        if self.vocoder_model is not None:
+            output = self.vocoder_model.inference(output)
+
+        output = output.squeeze()
+        process_time = time.time() - start_time
+        audio_time = len(output) / self.output_sample_rate
+        logger.info("Processing time: %.3f", process_time)
+        logger.info("Real-time factor: %.3f", process_time / audio_time)
+        return output
 
     def tts(
         self,
@@ -266,7 +302,7 @@ class Synthesizer(nn.Module):
         reference_speaker_name=None,
         split_sentences: bool = True,
         **kwargs,
-    ) -> List[int]:
+    ) -> list[int]:
         """🐸 TTS magic. Run all the models and generate speech.
 
         Args:

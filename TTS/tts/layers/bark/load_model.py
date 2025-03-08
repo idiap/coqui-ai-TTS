@@ -88,7 +88,7 @@ def clear_cuda_cache():
 
 
 def load_model(ckpt_path, device, config, model_type="text"):
-    logger.info(f"loading {model_type} model from {ckpt_path}...")
+    logger.info("loading %s model from %s...", model_type, ckpt_path)
 
     if device == "cpu":
         logger.warning("No GPU being used. Careful, Inference might be extremely slow!")
@@ -108,11 +108,13 @@ def load_model(ckpt_path, device, config, model_type="text"):
         and os.path.exists(ckpt_path)
         and _md5(ckpt_path) != config.REMOTE_MODEL_PATHS[model_type]["checksum"]
     ):
-        logger.warning(f"found outdated {model_type} model, removing...")
+        logger.warning("found outdated %s model, removing...", model_type)
         os.remove(ckpt_path)
     if not os.path.exists(ckpt_path):
-        logger.info(f"{model_type} model not found, downloading...")
-        _download(config.REMOTE_MODEL_PATHS[model_type]["path"], ckpt_path, config.CACHE_DIR)
+        logger.info("%s model not found, downloading...", model_type)
+        # The URL in the config is a 404 and needs to be fixed
+        download_url = config.REMOTE_MODEL_PATHS[model_type]["path"].replace("tree", "resolve")
+        _download(download_url, ckpt_path, config.CACHE_DIR)
 
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=is_pytorch_at_least_2_4())
     # this is a hack
@@ -148,7 +150,7 @@ def load_model(ckpt_path, device, config, model_type="text"):
     model.load_state_dict(state_dict, strict=False)
     n_params = model.get_num_params()
     val_loss = checkpoint["best_val_loss"].item()
-    logger.info(f"model loaded: {round(n_params/1e6,1)}M params, {round(val_loss,3)} loss")
+    logger.info("model loaded: %.1fM params, %.3f loss", n_params / 1e6, val_loss)
     model.eval()
     model.to(device)
     del checkpoint, state_dict

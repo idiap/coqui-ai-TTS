@@ -13,14 +13,10 @@ from TTS.tts.models.vits import (
     Vits,
     VitsArgs,
     VitsAudioConfig,
-    amp_to_db,
-    db_to_amp,
     load_audio,
-    spec_to_mel,
-    wav_to_mel,
-    wav_to_spec,
 )
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.audio.torch_transforms import amp_to_db, db_to_amp, spec_to_mel, wav_to_mel, wav_to_spec
 
 LANG_FILE = os.path.join(get_tests_input_path(), "language_ids.json")
 SPEAKER_ENCODER_CONFIG = os.path.join(get_tests_input_path(), "test_speaker_encoder_config.json")
@@ -377,8 +373,8 @@ class TestVits(unittest.TestCase):
             name = item1[0]
             param = item1[1]
             param_ref = item2[1]
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                name, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count = count + 1
 

@@ -1,7 +1,6 @@
 import copy
 import logging
 from abc import abstractmethod
-from typing import Dict, Tuple
 
 import torch
 from coqpit import Coqpit
@@ -62,7 +61,7 @@ class BaseTacotron(BaseTTS):
         self.coarse_decoder = None
 
     @staticmethod
-    def _format_aux_input(aux_input: Dict) -> Dict:
+    def _format_aux_input(aux_input: dict) -> dict:
         """Set missing fields to their default values"""
         if aux_input:
             return format_aux_input({"d_vectors": None, "speaker_ids": None}, aux_input)
@@ -94,9 +93,7 @@ class BaseTacotron(BaseTTS):
     def inference(self):
         pass
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         """Load model checkpoint and set up internals.
 
         Args:
@@ -141,7 +138,7 @@ class BaseTacotron(BaseTTS):
     # TEST AND LOG FUNCTIONS #
     ##########################
 
-    def test_run(self, assets: Dict) -> Tuple[Dict, Dict]:
+    def test_run(self, assets: dict) -> tuple[dict, dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -169,17 +166,19 @@ class BaseTacotron(BaseTTS):
                 use_griffin_lim=True,
                 do_trim_silence=False,
             )
-            test_audios["{}-audio".format(idx)] = outputs_dict["wav"]
-            test_figures["{}-prediction".format(idx)] = plot_spectrogram(
+            test_audios[f"{idx}-audio"] = outputs_dict["wav"]
+            test_figures[f"{idx}-prediction"] = plot_spectrogram(
                 outputs_dict["outputs"]["model_outputs"], self.ap, output_fig=False
             )
-            test_figures["{}-alignment".format(idx)] = plot_alignment(
-                outputs_dict["outputs"]["alignments"], output_fig=False
-            )
+            test_figures[f"{idx}-alignment"] = plot_alignment(outputs_dict["outputs"]["alignments"], output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
         logger.test_figures(steps, outputs["figures"])

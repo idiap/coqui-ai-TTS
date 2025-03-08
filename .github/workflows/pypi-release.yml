@@ -46,8 +46,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: dist
-          pattern: build
+          path: "dist/"
+          name: build
       - run: |
           ls -lh dist/
       - name: Publish package distributions to PyPI

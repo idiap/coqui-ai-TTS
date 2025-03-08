@@ -14,10 +14,6 @@ from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 logger = logging.getLogger(__name__)
 
 
-def default(val, d):
-    return val if val is not None else d
-
-
 def eval_decorator(fn):
     def inner(model, *args, **kwargs):
         was_training = model.training

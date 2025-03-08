@@ -4,7 +4,7 @@ import copy
 import inspect
 import random
 import warnings
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -45,18 +45,18 @@ class StreamGenerationConfig(GenerationConfig):
 
 
 class NewGenerationMixin(GenerationMixin):
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(  # noqa: PLR0911
         self,
-        inputs: Optional[torch.Tensor] = None,
-        generation_config: Optional[StreamGenerationConfig] = None,
-        logits_processor: Optional[LogitsProcessorList] = None,
-        stopping_criteria: Optional[StoppingCriteriaList] = None,
-        prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], list[int]]] = None,
-        synced_gpus: Optional[bool] = False,
+        inputs: torch.Tensor | None = None,
+        generation_config: StreamGenerationConfig | None = None,
+        logits_processor: LogitsProcessorList | None = None,
+        stopping_criteria: StoppingCriteriaList | None = None,
+        prefix_allowed_tokens_fn: Callable[[int, torch.Tensor], list[int]] | None = None,
+        synced_gpus: bool | None = False,
         seed: int = 0,
         **kwargs,
-    ) -> Union[GenerateOutput, torch.LongTensor]:
+    ) -> GenerateOutput | torch.LongTensor:
         r"""
 
         Generates sequences of token ids for models with a language modeling head.
@@ -207,8 +207,8 @@ class NewGenerationMixin(GenerationMixin):
             )
             model_kwargs["attention_mask"] = self._prepare_attention_mask_for_generation(
                 inputs_tensor,
-                generation_config._pad_token_tensor,
-                generation_config._eos_token_tensor,
+                generation_config,
+                model_kwargs,
             )
 
         # decoder-only models should use left-padding for generation
@@ -662,23 +662,23 @@ class NewGenerationMixin(GenerationMixin):
                 **model_kwargs,
             )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def sample_stream(
         self,
         input_ids: torch.LongTensor,
-        logits_processor: Optional[LogitsProcessorList] = None,
-        stopping_criteria: Optional[StoppingCriteriaList] = None,
-        logits_warper: Optional[LogitsProcessorList] = None,
-        max_length: Optional[int] = None,
-        pad_token_id: Optional[int] = None,
-        eos_token_id: Optional[Union[int, list[int]]] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        output_scores: Optional[bool] = None,
-        return_dict_in_generate: Optional[bool] = None,
-        synced_gpus: Optional[bool] = False,
+        logits_processor: LogitsProcessorList | None = None,
+        stopping_criteria: StoppingCriteriaList | None = None,
+        logits_warper: LogitsProcessorList | None = None,
+        max_length: int | None = None,
+        pad_token_id: int | None = None,
+        eos_token_id: int | list[int] | None = None,
+        output_attentions: bool | None = None,
+        output_hidden_states: bool | None = None,
+        output_scores: bool | None = None,
+        return_dict_in_generate: bool | None = None,
+        synced_gpus: bool | None = False,
         **model_kwargs,
-    ) -> Union[SampleOutput, torch.LongTensor]:
+    ) -> SampleOutput | torch.LongTensor:
         r"""
         Generates sequences of token ids for models with a language modeling head using **multinomial sampling** and
         can be used for text-decoder, text-to-text, speech-to-text, and vision-to-text models.
@@ -953,7 +953,6 @@ if __name__ == "__main__":
 
 
 def _get_logits_warper(generation_config: GenerationConfig) -> LogitsProcessorList:
-
     warpers = LogitsProcessorList()
 
     if generation_config.temperature is not None and generation_config.temperature != 1.0:

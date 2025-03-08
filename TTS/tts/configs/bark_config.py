@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass, field
-from typing import Dict
 
 from trainer.io import get_user_data_dir
 
@@ -70,9 +69,9 @@ class BarkConfig(BaseTTSConfig):
     COARSE_INFER_TOKEN: int = 12_050
 
     REMOTE_BASE_URL = "https://huggingface.co/erogol/bark/tree/main/"
-    REMOTE_MODEL_PATHS: Dict = None
-    LOCAL_MODEL_PATHS: Dict = None
-    SMALL_REMOTE_MODEL_PATHS: Dict = None
+    REMOTE_MODEL_PATHS: dict = None
+    LOCAL_MODEL_PATHS: dict = None
+    SMALL_REMOTE_MODEL_PATHS: dict = None
     CACHE_DIR: str = str(get_user_data_dir("tts/suno/bark_v0"))
     DEF_SPEAKER_DIR: str = str(get_user_data_dir("tts/bark_v0/speakers"))
 

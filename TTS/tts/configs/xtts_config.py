@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.models.xtts import XttsArgs, XttsAudioConfig
@@ -70,7 +69,7 @@ class XttsConfig(BaseTTSConfig):
     model_args: XttsArgs = field(default_factory=XttsArgs)
     audio: XttsAudioConfig = field(default_factory=XttsAudioConfig)
     model_dir: str = None
-    languages: List[str] = field(
+    languages: list[str] = field(
         default_factory=lambda: [
             "en",
             "es",

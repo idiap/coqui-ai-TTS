@@ -3,7 +3,7 @@ import collections
 import logging
 import os
 import random
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -47,7 +47,7 @@ def string2filename(string: str) -> str:
     return base64.urlsafe_b64encode(string.encode("utf-8")).decode("utf-8", "ignore")
 
 
-def get_audio_size(audiopath: Union[str, os.PathLike[Any]]) -> int:
+def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
     """Return the number of samples in the audio file."""
     if not isinstance(audiopath, str):
         audiopath = str(audiopath)
@@ -63,29 +63,54 @@ def get_audio_size(audiopath: Union[str, os.PathLike[Any]]) -> int:
         raise RuntimeError(msg) from e
 
 
+def get_attribute_balancer_weights(items: list, attr_name: str, multi_dict: dict | None = None):
+    """Create inverse frequency weights for balancing the dataset.
+
+    Use `multi_dict` to scale relative weights."""
+    attr_names_samples = np.array([item[attr_name] for item in items])
+    unique_attr_names = np.unique(attr_names_samples).tolist()
+    attr_idx = [unique_attr_names.index(l) for l in attr_names_samples]
+    attr_count = np.array([len(np.where(attr_names_samples == l)[0]) for l in unique_attr_names])
+    weight_attr = 1.0 / attr_count
+    dataset_samples_weight = np.array([weight_attr[l] for l in attr_idx])
+    dataset_samples_weight = dataset_samples_weight / np.linalg.norm(dataset_samples_weight)
+    if multi_dict is not None:
+        # check if all keys are in the multi_dict
+        for k in multi_dict:
+            assert k in unique_attr_names, f"{k} not in {unique_attr_names}"
+        # scale weights
+        multiplier_samples = np.array([multi_dict.get(item[attr_name], 1.0) for item in items])
+        dataset_samples_weight *= multiplier_samples
+    return (
+        torch.from_numpy(dataset_samples_weight).float(),
+        unique_attr_names,
+        np.unique(dataset_samples_weight).tolist(),
+    )
+
+
 class TTSDataset(Dataset):
     def __init__(
         self,
         outputs_per_step: int = 1,
         compute_linear_spec: bool = False,
         ap: AudioProcessor = None,
-        samples: Optional[list[dict]] = None,
+        samples: list[dict] | None = None,
         tokenizer: "TTSTokenizer" = None,
         compute_f0: bool = False,
         compute_energy: bool = False,
-        f0_cache_path: Optional[str] = None,
-        energy_cache_path: Optional[str] = None,
+        f0_cache_path: str | None = None,
+        energy_cache_path: str | None = None,
         return_wav: bool = False,
         batch_group_size: int = 0,
         min_text_len: int = 0,
         max_text_len: int = float("inf"),
         min_audio_len: int = 0,
         max_audio_len: int = float("inf"),
-        phoneme_cache_path: Optional[str] = None,
+        phoneme_cache_path: str | None = None,
         precompute_num_workers: int = 0,
-        speaker_id_mapping: Optional[dict] = None,
-        d_vector_mapping: Optional[dict] = None,
-        language_id_mapping: Optional[dict] = None,
+        speaker_id_mapping: dict | None = None,
+        d_vector_mapping: dict | None = None,
+        language_id_mapping: dict | None = None,
         use_noise_augment: bool = False,
         start_by_longest: bool = False,
     ) -> None:
@@ -206,7 +231,7 @@ class TTSDataset(Dataset):
             try:
                 audio_len = get_audio_size(wav_file)
             except RuntimeError:
-                logger.warning(f"Failed to compute length for {item['audio_file']}")
+                logger.warning("Failed to compute length for %s", item["audio_file"])
                 audio_len = 0
             lens.append(audio_len)
         return lens
@@ -327,7 +352,7 @@ class TTSDataset(Dataset):
             try:
                 audio_length = get_audio_size(item["audio_file"])
             except RuntimeError:
-                logger.warning(f"Failed to compute length, skipping {item['audio_file']}")
+                logger.warning("Failed to compute length, skipping %s", item["audio_file"])
                 continue
             text_lenght = len(item["text"])
             item["audio_length"] = audio_length
@@ -412,14 +437,14 @@ class TTSDataset(Dataset):
         self.samples = samples
 
         logger.info("Preprocessing samples")
-        logger.info(f"Max text length: {np.max(text_lengths)}")
-        logger.info(f"Min text length: {np.min(text_lengths)}")
-        logger.info(f"Avg text length: {np.mean(text_lengths)}")
-        logger.info(f"Max audio length: {np.max(audio_lengths)}")
-        logger.info(f"Min audio length: {np.min(audio_lengths)}")
-        logger.info(f"Avg audio length: {np.mean(audio_lengths)}")
+        logger.info("Max text length: %d", np.max(text_lengths))
+        logger.info("Min text length: %d", np.min(text_lengths))
+        logger.info("Avg text length: %.2f", np.mean(text_lengths))
+        logger.info("Max audio length: %.2f", np.max(audio_lengths))
+        logger.info("Min audio length: %.2f", np.min(audio_lengths))
+        logger.info("Avg audio length: %.2f", np.mean(audio_lengths))
         logger.info("Num. instances discarded samples: %d", len(ignore_idx))
-        logger.info(f"Batch group size: {self.batch_group_size}.")
+        logger.info("Batch group size: %d", self.batch_group_size)
 
     @staticmethod
     def _sort_batch(batch, text_lengths):
@@ -615,7 +640,7 @@ class PhonemeDataset(Dataset):
 
     def __init__(
         self,
-        samples: Union[list[dict], list[list]],
+        samples: list[dict] | list[list],
         tokenizer: "TTSTokenizer",
         cache_path: str,
         precompute_num_workers: int = 0,
@@ -719,10 +744,10 @@ class F0Dataset:
 
     def __init__(
         self,
-        samples: Union[list[list], list[dict]],
+        samples: list[list] | list[dict],
         ap: "AudioProcessor",
         audio_config=None,  # pylint: disable=unused-argument
-        cache_path: Optional[str] = None,
+        cache_path: str | None = None,
         precompute_num_workers: int = 0,
         normalize_f0: bool = True,
     ) -> None:
@@ -871,9 +896,9 @@ class EnergyDataset:
 
     def __init__(
         self,
-        samples: Union[list[list], list[dict]],
+        samples: list[list] | list[dict],
         ap: "AudioProcessor",
-        cache_path: Optional[str] = None,
+        cache_path: str | None = None,
         precompute_num_workers=0,
         normalize_energy=True,
     ) -> None:

@@ -1,6 +1,5 @@
 import logging
 from dataclasses import replace
-from typing import Dict
 
 from TTS.tts.configs.shared_configs import CharactersConfig
 
@@ -47,7 +46,7 @@ class BaseVocabulary:
         vocab (Dict): A dictionary of characters and their corresponding indices.
     """
 
-    def __init__(self, vocab: Dict, pad: str = None, blank: str = None, bos: str = None, eos: str = None):
+    def __init__(self, vocab: dict, pad: str = None, blank: str = None, bos: str = None, eos: str = None):
         self.vocab = vocab
         self.pad = pad
         self.blank = blank
@@ -290,9 +289,9 @@ class BaseCharacters:
         self.vocab = _vocab + list(self._punctuations)
         if self.is_unique:
             duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
-            assert (
-                len(self.vocab) == len(self._char_to_id) == len(self._id_to_char)
-            ), f" [!] There are duplicate characters in the character set. {duplicates}"
+            assert len(self.vocab) == len(self._char_to_id) == len(self._id_to_char), (
+                f" [!] There are duplicate characters in the character set. {duplicates}"
+            )
 
     def char_to_id(self, char: str) -> int:
         try:

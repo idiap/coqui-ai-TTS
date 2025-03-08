@@ -803,6 +803,22 @@
                     "license": "apache 2.0"
                 }
             },
+            "librispeech100": {
+                "wavlm-hifigan": {
+                    "description": "HiFiGAN vocoder for WavLM features from kNN-VC",
+                    "github_rls_url": "https://github.com/idiap/coqui-ai-TTS/releases/download/v0.25.2_models/vocoder_models--en--librispeech100--wavlm-hifigan.zip",
+                    "commit": "cfba7e0",
+                    "author": "Benjamin van Niekerk @bshall, Matthew Baas @RF5",
+                    "license": "MIT"
+                },
+                "wavlm-hifigan_prematched": {
+                    "description": "Prematched HiFiGAN vocoder for WavLM features from kNN-VC",
+                    "github_rls_url": "https://github.com/idiap/coqui-ai-TTS/releases/download/v0.25.2_models/vocoder_models--en--librispeech100--wavlm-hifigan_prematched.zip",
+                    "commit": "cfba7e0",
+                    "author": "Benjamin van Niekerk @bshall, Matthew Baas @RF5",
+                    "license": "MIT"
+                }
+            },
             "ljspeech": {
                 "multiband-melgan": {
                     "github_rls_url": "https://github.com/coqui-ai/TTS/releases/download/v0.6.1_models/vocoder_models--en--ljspeech--multiband-melgan.zip",
@@ -943,7 +959,39 @@
                 "freevc24": {
                     "github_rls_url": "https://github.com/coqui-ai/TTS/releases/download/v0.13.0_models/voice_conversion_models--multilingual--vctk--freevc24.zip",
                     "description": "FreeVC model trained on VCTK dataset from https://github.com/OlaWod/FreeVC",
+                    "default_vocoder": null,
                     "author": "Jing-Yi Li @OlaWod",
+                    "license": "MIT",
+                    "commit": null
+                }
+            },
+            "multi-dataset": {
+                "knnvc": {
+                    "description": "kNN-VC model from https://github.com/bshall/knn-vc",
+                    "default_vocoder": "vocoder_models/en/librispeech100/wavlm-hifigan_prematched",
+                    "author": "Benjamin van Niekerk @bshall, Matthew Baas @RF5",
+                    "license": "MIT",
+                    "commit": null
+                },
+                "openvoice_v1": {
+                    "hf_url": [
+                        "https://huggingface.co/myshell-ai/OpenVoice/resolve/main/checkpoints/converter/config.json",
+                        "https://huggingface.co/myshell-ai/OpenVoice/resolve/main/checkpoints/converter/checkpoint.pth"
+                    ],
+                    "description": "OpenVoice VC model from https://huggingface.co/myshell-ai/OpenVoiceV2",
+                    "default_vocoder": null,
+                    "author": "MyShell.ai",
+                    "license": "MIT",
+                    "commit": null
+                },
+                "openvoice_v2": {
+                    "hf_url": [
+                        "https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main/converter/config.json",
+                        "https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main/converter/checkpoint.pth"
+                    ],
+                    "description": "OpenVoice VC model from https://huggingface.co/myshell-ai/OpenVoiceV2",
+                    "default_vocoder": null,
+                    "author": "MyShell.ai",
                     "license": "MIT",
                     "commit": null
                 }

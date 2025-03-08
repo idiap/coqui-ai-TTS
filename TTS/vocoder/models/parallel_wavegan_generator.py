@@ -12,6 +12,13 @@ from TTS.vocoder.layers.upsample import ConvUpsample
 logger = logging.getLogger(__name__)
 
 
+def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
+    assert layers % stacks == 0
+    layers_per_cycle = layers // stacks
+    dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
+    return (kernel_size - 1) * sum(dilations) + 1
+
+
 class ParallelWaveganGenerator(torch.nn.Module):
     """PWGAN generator as in https://arxiv.org/pdf/1910.11480.pdf.
     It is similar to WaveNet with no causal convolution.
@@ -101,9 +108,9 @@ class ParallelWaveganGenerator(torch.nn.Module):
         # perform upsampling
         if c is not None and self.upsample_net is not None:
             c = self.upsample_net(c)
-            assert (
-                c.shape[-1] == x.shape[-1]
-            ), f" [!] Upsampling scale does not match the expected output. {c.shape} vs {x.shape}"
+            assert c.shape[-1] == x.shape[-1], (
+                f" [!] Upsampling scale does not match the expected output. {c.shape} vs {x.shape}"
+            )
 
         # encode to hidden representation
         x = self.first_conv(x)
@@ -120,7 +127,7 @@ class ParallelWaveganGenerator(torch.nn.Module):
 
         return x
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c):
         c = c.to(self.first_conv.weight.device)
         c = torch.nn.functional.pad(c, (self.inference_padding, self.inference_padding), "replicate")
@@ -138,26 +145,17 @@ class ParallelWaveganGenerator(torch.nn.Module):
 
     def apply_weight_norm(self):
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
                 logger.info("Weight norm is applied to %s", m)
 
         self.apply(_apply_weight_norm)
 
-    @staticmethod
-    def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
-        assert layers % stacks == 0
-        layers_per_cycle = layers // stacks
-        dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
-        return (kernel_size - 1) * sum(dilations) + 1
-
     @property
     def receptive_field_size(self):
-        return self._get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
+        return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:

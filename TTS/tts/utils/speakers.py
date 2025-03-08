@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import fsspec
 import numpy as np
@@ -56,11 +56,11 @@ class SpeakerManager(EmbeddingManager):
 
     def __init__(
         self,
-        data_items: List[List[Any]] = None,
+        data_items: list[list[Any]] | None = None,
         d_vectors_file_path: str = "",
-        speaker_id_file_path: str = "",
-        encoder_model_path: str = "",
-        encoder_config_path: str = "",
+        speaker_id_file_path: str | os.PathLike[Any] = "",
+        encoder_model_path: str | os.PathLike[Any] = "",
+        encoder_config_path: str | os.PathLike[Any] = "",
         use_cuda: bool = False,
     ):
         super().__init__(
@@ -82,11 +82,11 @@ class SpeakerManager(EmbeddingManager):
     def speaker_names(self):
         return list(self.name_to_id.keys())
 
-    def get_speakers(self) -> List:
+    def get_speakers(self) -> list:
         return self.name_to_id
 
     @staticmethod
-    def init_from_config(config: "Coqpit", samples: Union[List[List], List[Dict]] = None) -> "SpeakerManager":
+    def init_from_config(config: "Coqpit", samples: list[list] | list[dict] = None) -> "SpeakerManager":
         """Initialize a speaker manager from config
 
         Args:
@@ -150,7 +150,7 @@ def save_speaker_mapping(out_path, speaker_mapping):
             json.dump(speaker_mapping, f, indent=4)
 
 
-def get_speaker_manager(c: Coqpit, data: List = None, restore_path: str = None, out_path: str = None) -> SpeakerManager:
+def get_speaker_manager(c: Coqpit, data: list = None, restore_path: str = None, out_path: str = None) -> SpeakerManager:
     """Initiate a `SpeakerManager` instance by the provided config.
 
     Args:
@@ -185,9 +185,9 @@ def get_speaker_manager(c: Coqpit, data: List = None, restore_path: str = None, 
             elif not c.use_d_vector_file:  # restor speaker manager with speaker ID file.
                 speaker_ids_from_data = speaker_manager.name_to_id
                 speaker_manager.load_ids_from_file(speakers_file)
-                assert all(
-                    speaker in speaker_manager.name_to_id for speaker in speaker_ids_from_data
-                ), " [!] You cannot introduce new speakers to a pre-trained model."
+                assert all(speaker in speaker_manager.name_to_id for speaker in speaker_ids_from_data), (
+                    " [!] You cannot introduce new speakers to a pre-trained model."
+                )
         elif c.use_d_vector_file and c.d_vector_file:
             # new speaker manager with external speaker embeddings.
             speaker_manager.load_embeddings_from_file(c.d_vector_file)

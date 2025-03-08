@@ -342,7 +342,6 @@ class Tortoise(BaseTTS):
             else self.args.autoregressive_batch_size
         )
         self.enable_redaction = self.args.enable_redaction
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.enable_redaction:
             self.aligner = Wav2VecAlignment()
 
@@ -423,7 +422,9 @@ class Tortoise(BaseTTS):
         Transforms one or more voice_samples into a tuple (autoregressive_conditioning_latent, diffusion_conditioning_latent).
         These are expressive learned latents that encode aspects of the provided clips like voice, intonation, and acoustic
         properties.
-        :param voice_samples: List of arbitrary reference clips, which should be *pairs* of torch tensors containing arbitrary kHz waveform data.
+
+        :param voice_samples: List of arbitrary reference clips, which should be *pairs*
+                              of torch tensors containing arbitrary kHz waveform data.
         :param latent_averaging_mode: 0/1/2 for following modes:
             0 - latents will be generated as in original tortoise, using ~4.27s from each voice sample, averaging latent across all samples
             1 - latents will be generated using (almost) entire voice samples, averaged across all the ~4.27s chunks
@@ -671,7 +672,7 @@ class Tortoise(BaseTTS):
                 As cond_free_k increases, the output becomes dominated by the conditioning-free signal.
             diffusion_temperature: (float) Controls the variance of the noise fed into the diffusion model. [0,1]. Values at 0
                                       are the "mean" prediction of the diffusion network and will sound bland and smeared.
-            hf_generate_kwargs: (**kwargs) The huggingface Transformers generate API is used for the autoregressive transformer.
+            hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive transformer.
                                     Extra keyword args fed to this function get forwarded directly to that API. Documentation
                                     here: https://huggingface.co/docs/transformers/internal/generation_utils
 
@@ -683,9 +684,9 @@ class Tortoise(BaseTTS):
 
         text_tokens = torch.IntTensor(self.tokenizer.encode(text)).unsqueeze(0).to(self.device)
         text_tokens = F.pad(text_tokens, (0, 1))  # This may not be necessary.
-        assert (
-            text_tokens.shape[-1] < 400
-        ), "Too much text provided. Break the text up into separate segments and re-try inference."
+        assert text_tokens.shape[-1] < 400, (
+            "Too much text provided. Break the text up into separate segments and re-try inference."
+        )
 
         if voice_samples is not None:
             (

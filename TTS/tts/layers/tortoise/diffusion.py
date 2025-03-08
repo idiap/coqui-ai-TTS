@@ -653,7 +653,7 @@ class GaussianDiffusion:
         """
         if device is None:
             device = next(model.parameters()).device
-        assert isinstance(shape, (tuple, list))
+        assert isinstance(shape, tuple | list)
         if noise is not None:
             img = noise
         else:
@@ -805,7 +805,7 @@ class GaussianDiffusion:
         """
         if device is None:
             device = next(model.parameters()).device
-        assert isinstance(shape, (tuple, list))
+        assert isinstance(shape, tuple | list)
         if noise is not None:
             img = noise
         else:

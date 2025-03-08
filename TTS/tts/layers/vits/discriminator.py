@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn.modules.conv import Conv1d
 
-from TTS.vocoder.models.hifigan_discriminator import DiscriminatorP
+from TTS.vocoder.models.hifigan_discriminator import LRELU_SLOPE, DiscriminatorP
 
 
 class DiscriminatorS(torch.nn.Module):
@@ -39,7 +39,7 @@ class DiscriminatorS(torch.nn.Module):
         feat = []
         for l in self.convs:
             x = l(x)
-            x = torch.nn.functional.leaky_relu(x, 0.1)
+            x = torch.nn.functional.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
         feat.append(x)

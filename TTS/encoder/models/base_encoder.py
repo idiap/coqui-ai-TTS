@@ -5,10 +5,10 @@ import torch
 import torchaudio
 from coqpit import Coqpit
 from torch import nn
+from trainer.generic_utils import set_partial_state_dict
 from trainer.io import load_fsspec
 
 from TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
-from TTS.utils.generic_utils import set_init_dict
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class BaseEncoder(nn.Module):
 
     # pylint: disable=W0102
     def __init__(self):
-        super(BaseEncoder, self).__init__()
+        super().__init__()
 
     def get_torch_mel_spectrogram_class(self, audio_config):
         return torch.nn.Sequential(
@@ -64,11 +64,11 @@ class BaseEncoder(nn.Module):
             ),
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, l2_norm=True):
         return self.forward(x, l2_norm)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def compute_embedding(self, x, num_frames=250, num_eval=10, return_mean=True, l2_norm=True):
         """
         Generate embeddings for a batch of utterances
@@ -107,7 +107,7 @@ class BaseEncoder(nn.Module):
         elif c.loss == "softmaxproto":
             criterion = SoftmaxAngleProtoLoss(c.model_params["proj_dim"], num_classes)
         else:
-            raise Exception("The %s  not is a loss supported" % c.loss)
+            raise Exception(f"The {c.loss}  not is a loss supported")
         return criterion
 
     def load_checkpoint(
@@ -130,7 +130,7 @@ class BaseEncoder(nn.Module):
 
             logger.info("Partial model initialization.")
             model_dict = self.state_dict()
-            model_dict = set_init_dict(model_dict, state["model"], c)
+            model_dict = set_partial_state_dict(model_dict, state["model"], config)
             self.load_state_dict(model_dict)
             del model_dict
 

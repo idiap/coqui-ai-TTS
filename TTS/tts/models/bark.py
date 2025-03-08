@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
 
 import numpy as np
 from coqpit import Coqpit
@@ -42,10 +42,6 @@ class Bark(BaseTTS):
         self.encodec = EncodecModel.encodec_model_24khz()
         self.encodec.set_target_bandwidth(6.0)
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
     def load_bark_models(self):
         self.semantic_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["text"], device=self.device, config=self.config, model_type="text"
@@ -68,7 +64,7 @@ class Bark(BaseTTS):
     def text_to_semantic(
         self,
         text: str,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         temp: float = 0.7,
         base=None,
         allow_early_stop=True,
@@ -98,7 +94,7 @@ class Bark(BaseTTS):
     def semantic_to_waveform(
         self,
         semantic_tokens: np.ndarray,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         temp: float = 0.7,
         base=None,
     ):
@@ -132,7 +128,7 @@ class Bark(BaseTTS):
     def generate_audio(
         self,
         text: str,
-        history_prompt: Optional[str] = None,
+        history_prompt: str | None = None,
         text_temp: float = 0.7,
         waveform_temp: float = 0.7,
         base=None,
@@ -194,9 +190,7 @@ class Bark(BaseTTS):
         return _voice_dirs
 
     # TODO: remove config from synthesize
-    def synthesize(
-        self, text, config, speaker_id="random", voice_dirs=None, **kwargs
-    ):  # pylint: disable=unused-argument
+    def synthesize(self, text, config, speaker_id="random", voice_dirs=None, **kwargs):  # pylint: disable=unused-argument
         """Synthesize speech with the given input text.
 
         Args:
@@ -206,12 +200,14 @@ class Bark(BaseTTS):
             speaker_wav (str): Path to the speaker audio file for cloning a new voice. It is cloned and saved in
                 `voice_dirs` with the name `speaker_id`. Defaults to None.
             voice_dirs (List[str]): List of paths that host reference audio files for speakers. Defaults to None.
-            **kwargs: Model specific inference settings used by `generate_audio()` and `TTS.tts.layers.bark.inference_funcs.generate_text_semantic().
+            **kwargs: Model specific inference settings used by `generate_audio()` and
+                      `TTS.tts.layers.bark.inference_funcs.generate_text_semantic()`.
 
         Returns:
-            A dictionary of the output values with `wav` as output waveform, `deterministic_seed` as seed used at inference,
-            `text_input` as text token IDs after tokenizer, `voice_samples` as samples used for cloning, `conditioning_latents`
-            as latents used at inference.
+            A dictionary of the output values with `wav` as output waveform,
+            `deterministic_seed` as seed used at inference, `text_input` as text token IDs
+            after tokenizer, `voice_samples` as samples used for cloning,
+            `conditioning_latents` as latents used at inference.
 
         """
         speaker_id = "random" if speaker_id is None else speaker_id
@@ -267,10 +263,12 @@ class Bark(BaseTTS):
         fine_model_path = fine_model_path or os.path.join(checkpoint_dir, "fine_2.pt")
         hubert_tokenizer_path = hubert_tokenizer_path or os.path.join(checkpoint_dir, "tokenizer.pth")
 
+        # The paths in the default config start with /root/.local/share/tts and need to be fixed
         self.config.LOCAL_MODEL_PATHS["text"] = text_model_path
         self.config.LOCAL_MODEL_PATHS["coarse"] = coarse_model_path
         self.config.LOCAL_MODEL_PATHS["fine"] = fine_model_path
         self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"] = hubert_tokenizer_path
+        self.config.CACHE_DIR = str(Path(text_model_path).parent)
 
         self.load_bark_models()
 

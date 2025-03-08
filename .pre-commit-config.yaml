@@ -2,16 +2,14 @@ repos:
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: v5.0.0
     hooks:
+      - id: check-json
+        files: "TTS/.models.json"
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: "https://github.com/psf/black"
-    rev: 24.2.0
-    hooks:
-      - id: black
-        language_version: python3
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
+    rev: v0.9.1
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format

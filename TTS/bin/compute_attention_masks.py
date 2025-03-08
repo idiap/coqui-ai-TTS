@@ -2,6 +2,7 @@ import argparse
 import importlib
 import logging
 import os
+import sys
 from argparse import RawTextHelpFormatter
 
 import numpy as np
@@ -18,7 +19,7 @@ from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # pylint: disable=bad-option-value
     parser = argparse.ArgumentParser(
@@ -80,7 +81,7 @@ Example run:
     num_chars = len(phonemes) if C.use_phonemes else len(symbols)
     # TODO: handle multi-speaker
     model = setup_model(C)
-    model, _ = load_checkpoint(model, args.model_path, args.use_cuda, True)
+    model, _ = load_checkpoint(model, args.model_path, use_cuda=args.use_cuda, eval=True)
 
     # data loader
     preprocessor = importlib.import_module("TTS.tts.datasets.formatters")
@@ -112,7 +113,7 @@ Example run:
 
     # compute attentions
     file_paths = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for data in tqdm(loader):
             # setup input data
             text_input = data[0]

@@ -104,7 +104,7 @@ logging.basicConfig(
 
 def read_logs():
     sys.stdout.flush()
-    with open(sys.stdout.log_file, "r") as f:
+    with open(sys.stdout.log_file) as f:
         return f.read()
 
 

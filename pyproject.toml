@@ -25,10 +25,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.24.3"
+version = "0.25.3"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.10, <3.13"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
@@ -39,7 +39,6 @@ maintainers = [
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -70,30 +69,31 @@ dependencies = [
     "pyyaml>=6.0",
     "fsspec[http]>=2023.6.0",
     "packaging>=23.1",
+    "typing_extensions>=4.10",
     # Inference
     "pysbd>=0.3.4",
     # Training
     "matplotlib>=3.7.0",
     # Coqui stack
-    "coqui-tts-trainer>=0.1.4,<0.2.0",
-    "coqpit>=0.0.16",
+    "coqui-tts-trainer>=0.2.0,<0.3.0",
+    "coqpit-config>=0.2.0,<0.3.0",
     "monotonic-alignment-search>=0.1.0",
     # Gruut + supported languages
     "gruut[de,es,fr]>=2.4.0",
     # Tortoise
     "einops>=0.6.0",
-    "transformers>=4.43.0,<=4.46.2",
+    "transformers>=4.47.0",
     # Bark
     "encodec>=0.1.1",
     # XTTS
-    "num2words>=0.5.11",
-    "spacy[ja]>=3,<3.8",
+    "num2words>=0.5.14",
+    "spacy[ja]>=3.2,<3.8",
 ]
 
 [project.optional-dependencies]
 # Only used in notebooks
 notebooks = [
-    "bokeh==1.4.0",
+    "bokeh>=3.0.3",
     "pandas>=1.4,<2.0",
     "umap-learn>=0.5.1",
 ]
@@ -115,7 +115,7 @@ ko = [
 ]
 # Japanese
 ja = [
-    "mecab-python3>=1.0.2",
+    "mecab-python3>=1.0.6",
     "unidic-lite==1.0.8",
     "cutlet>=0.2.0",
 ]
@@ -135,20 +135,19 @@ all = [
 
 [dependency-groups]
 dev = [
-    "black==24.2.0",
     "coverage[toml]>=7",
-    "nose2>=0.15",
-    "pre-commit>=3",
-    "ruff==0.7.0",
+    "pre-commit>=4",
+    "pytest>=8",
+    "ruff==0.9.1",
 ]
 # Dependencies for building the documentation
 docs = [
-    "furo>=2023.5.20",
-    "myst-parser==2.0.0",
-    "sphinx==7.2.5",
+    "furo>=2024.8.6",
+    "myst-parser==3.0.1",
+    "sphinx==7.4.7",
     "sphinx_inline_tabs>=2023.4.21",
-    "sphinx_copybutton>=0.1",
-    "linkify-it-py>=2.0.0",
+    "sphinx_copybutton>=0.5.2",
+    "linkify-it-py>=2.0.3",
 ]
 
 [project.urls]
@@ -173,7 +172,6 @@ exclude = [
     "/.readthedocs.yml",
     "/Makefile",
     "/dockerfiles",
-    "/run_bash_tests.sh",
     "/scripts",
     "/tests",
 ]
@@ -192,6 +190,7 @@ lint.extend-select = [
     "F704", # yield-outside-function
     "F706", # return-outside-function
     "F841", # unused-variable
+    "G004", # no f-string in logging
     "I", # import sorting
     "PIE790", # unnecessary-pass
     "PLC",
@@ -201,6 +200,7 @@ lint.extend-select = [
     "PLR0911", # too-many-return-statements
     "PLR1711", # useless-return
     "PLW",
+    "UP", # pyupgrade
     "W291", # trailing-whitespace
     "NPY201",  # NumPy 2.0 deprecation
 ]
@@ -231,14 +231,10 @@ max-returns = 7
     "E402", # module level import not at top of file
 ]
 
-[tool.black]
-line-length = 120
-target-version = ['py39']
+[tool.coverage.report]
+skip_covered = true
+skip_empty = true
 
 [tool.coverage.run]
 parallel = true
 source = ["TTS"]
-
-[tool.cibuildwheel]
-build = "cp*"
-skip = "*-win32 *i686 *musllinux*"

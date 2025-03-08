@@ -1,15 +1,29 @@
-# -*- coding: utf-8 -*-
 import datetime
 import importlib
 import logging
+import os
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, TextIO, TypeVar
 
 import torch
 from packaging.version import Version
+from typing_extensions import TypeIs
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+def exists(val: _T | None) -> TypeIs[_T]:
+    return val is not None
+
+
+def default(val: _T | None, d: _T | Callable[[], _T]) -> _T:
+    if exists(val):
+        return val
+    return d() if callable(d) else d
 
 
 def to_camel(text):
@@ -17,6 +31,7 @@ def to_camel(text):
     text = re.sub(r"(?!^)_([a-zA-Z])", lambda m: m.group(1).upper(), text)
     text = text.replace("Tts", "TTS")
     text = text.replace("vc", "VC")
+    text = text.replace("Knn", "KNN")
     return text
 
 
@@ -54,26 +69,7 @@ def get_import_path(obj: object) -> str:
     return ".".join([type(obj).__module__, type(obj).__name__])
 
 
-def set_init_dict(model_dict, checkpoint_state, c):
-    # Partial initialization: if there is a mismatch with new and old layer, it is skipped.
-    for k, v in checkpoint_state.items():
-        if k not in model_dict:
-            logger.warning("Layer missing in the model finition %s", k)
-    # 1. filter out unnecessary keys
-    pretrained_dict = {k: v for k, v in checkpoint_state.items() if k in model_dict}
-    # 2. filter out different size layers
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if v.numel() == model_dict[k].numel()}
-    # 3. skip reinit layers
-    if c.has("reinit_layers") and c.reinit_layers is not None:
-        for reinit_layer_name in c.reinit_layers:
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if reinit_layer_name not in k}
-    # 4. overwrite entries in the existing state dict
-    model_dict.update(pretrained_dict)
-    logger.info("%d / %d layers are restored.", len(pretrained_dict), len(model_dict))
-    return model_dict
-
-
-def format_aux_input(def_args: Dict, kwargs: Dict) -> Dict:
+def format_aux_input(def_args: dict, kwargs: dict) -> dict:
     """Format kwargs to hande auxilary inputs to models.
 
     Args:
@@ -84,9 +80,9 @@ def format_aux_input(def_args: Dict, kwargs: Dict) -> Dict:
         Dict: arguments with formatted auxilary inputs.
     """
     kwargs = kwargs.copy()
-    for name in def_args:
+    for name, arg in def_args.items():
         if name not in kwargs or kwargs[name] is None:
-            kwargs[name] = def_args[name]
+            kwargs[name] = arg
     return kwargs
 
 
@@ -112,26 +108,35 @@ def setup_logger(
     logger_name: str,
     level: int = logging.INFO,
     *,
-    formatter: Optional[logging.Formatter] = None,
-    screen: bool = False,
-    tofile: bool = False,
-    log_dir: str = "logs",
+    formatter: logging.Formatter | None = None,
+    stream: TextIO | None = None,
+    log_dir: str | os.PathLike[Any] | None = None,
     log_name: str = "log",
 ) -> None:
+    """Set up a logger.
+
+    Args:
+        logger_name: Name of the logger to set up
+        level: Logging level
+        formatter: Formatter for the logger
+        stream: Add a StreamHandler for the given stream, e.g. sys.stderr or sys.stdout
+        log_dir: Folder to write the log file (no file created if None)
+        log_name: Prefix of the log file name
+    """
     lg = logging.getLogger(logger_name)
     if formatter is None:
         formatter = logging.Formatter(
             "%(asctime)s.%(msecs)03d - %(levelname)-8s - %(name)s: %(message)s", datefmt="%y-%m-%d %H:%M:%S"
         )
     lg.setLevel(level)
-    if tofile:
+    if log_dir is not None:
         Path(log_dir).mkdir(exist_ok=True, parents=True)
         log_file = Path(log_dir) / f"{log_name}_{get_timestamp()}.log"
         fh = logging.FileHandler(log_file, mode="w")
         fh.setFormatter(formatter)
         lg.addHandler(fh)
-    if screen:
-        sh = logging.StreamHandler()
+    if stream is not None:
+        sh = logging.StreamHandler(stream)
         sh.setFormatter(formatter)
         lg.addHandler(sh)
 
@@ -139,3 +144,8 @@ def setup_logger(
 def is_pytorch_at_least_2_4() -> bool:
     """Check if the installed Pytorch version is 2.4 or higher."""
     return Version(torch.__version__) >= Version("2.4")
+
+
+def optional_to_str(x: Any | None) -> str:
+    """Convert input to string, using empty string if input is None."""
+    return "" if x is None else str(x)
