@@ -71,7 +71,7 @@ class ParallelWaveganDiscriminator(nn.Module):
 
     def apply_weight_norm(self):
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
 
         self.apply(_apply_weight_norm)
@@ -174,7 +174,7 @@ class ResidualParallelWaveganDiscriminator(nn.Module):
 
     def apply_weight_norm(self):
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
 
         self.apply(_apply_weight_norm)

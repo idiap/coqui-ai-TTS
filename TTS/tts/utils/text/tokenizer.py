@@ -1,5 +1,6 @@
 import logging
-from typing import Callable, Dict, List, Union
+from collections.abc import Callable
+from typing import Union
 
 from TTS.tts.utils.text import cleaners
 from TTS.tts.utils.text.characters import Graphemes, IPAPhonemes
@@ -43,7 +44,7 @@ class TTSTokenizer:
         use_phonemes=False,
         text_cleaner: Callable = None,
         characters: "BaseCharacters" = None,
-        phonemizer: Union["Phonemizer", Dict] = None,
+        phonemizer: Union["Phonemizer", dict] = None,
         add_blank: bool = False,
         use_eos_bos=False,
     ):
@@ -65,7 +66,7 @@ class TTSTokenizer:
         self.pad_id = self.characters.char_to_id(self.characters.pad) if self.characters.pad else None
         self.blank_id = self.characters.char_to_id(self.characters.blank) if self.characters.blank else None
 
-    def encode(self, text: str) -> List[int]:
+    def encode(self, text: str) -> list[int]:
         """Encodes a string of text as a sequence of IDs."""
         token_ids = []
         for char in text:
@@ -80,14 +81,14 @@ class TTSTokenizer:
                     logger.warning("Character %s not found in the vocabulary. Discarding it.", repr(char))
         return token_ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def decode(self, token_ids: list[int]) -> str:
         """Decodes a sequence of IDs to a string of text."""
         text = ""
         for token_id in token_ids:
             text += self.characters.id_to_char(token_id)
         return text
 
-    def text_to_ids(self, text: str, language: str = None) -> List[int]:  # pylint: disable=unused-argument
+    def text_to_ids(self, text: str, language: str = None) -> list[int]:  # pylint: disable=unused-argument
         """Converts a string of text to a sequence of token IDs.
 
         Args:
@@ -121,15 +122,15 @@ class TTSTokenizer:
             text = self.pad_with_bos_eos(text)
         return text
 
-    def ids_to_text(self, id_sequence: List[int]) -> str:
+    def ids_to_text(self, id_sequence: list[int]) -> str:
         """Converts a sequence of token IDs to a string of text."""
         return self.decode(id_sequence)
 
-    def pad_with_bos_eos(self, char_sequence: List[str]):
+    def pad_with_bos_eos(self, char_sequence: list[str]):
         """Pads a sequence with the special BOS and EOS characters."""
         return [self.characters.bos_id] + list(char_sequence) + [self.characters.eos_id]
 
-    def intersperse_blank_char(self, char_sequence: List[str], use_blank_char: bool = False):
+    def intersperse_blank_char(self, char_sequence: list[str], use_blank_char: bool = False):
         """Intersperses the blank character between characters in a sequence.
 
         Use the ```blank``` character if defined else use the ```pad``` character.
@@ -163,7 +164,7 @@ class TTSTokenizer:
         """
         # init cleaners
         text_cleaner = None
-        if isinstance(config.text_cleaner, (str, list)):
+        if isinstance(config.text_cleaner, str | list):
             text_cleaner = getattr(cleaners, config.text_cleaner)
 
         # init characters

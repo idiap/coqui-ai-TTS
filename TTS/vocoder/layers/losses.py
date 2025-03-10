@@ -1,5 +1,3 @@
-from typing import Dict, Union
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -226,9 +224,9 @@ class GeneratorLoss(nn.Module):
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_stft_loss = C.use_stft_loss if "use_stft_loss" in C else False
         self.use_subband_stft_loss = C.use_subband_stft_loss if "use_subband_stft_loss" in C else False
@@ -313,9 +311,9 @@ class DiscriminatorLoss(nn.Module):
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_mse_gan_loss = C.use_mse_gan_loss
         self.use_hinge_gan_loss = C.use_hinge_gan_loss
@@ -352,7 +350,7 @@ class DiscriminatorLoss(nn.Module):
 
 
 class WaveRNNLoss(nn.Module):
-    def __init__(self, wave_rnn_mode: Union[str, int]):
+    def __init__(self, wave_rnn_mode: str | int):
         super().__init__()
         if wave_rnn_mode == "mold":
             self.loss_func = discretized_mix_logistic_loss
@@ -363,6 +361,6 @@ class WaveRNNLoss(nn.Module):
         else:
             raise ValueError(" [!] Unknown mode for Wavernn.")
 
-    def forward(self, y_hat, y) -> Dict:
+    def forward(self, y_hat, y) -> dict:
         loss = self.loss_func(y_hat, y)
         return {"loss": loss}

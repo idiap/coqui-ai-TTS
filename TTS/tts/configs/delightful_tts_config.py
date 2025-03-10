@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.models.delightful_tts import DelightfulTtsArgs, DelightfulTtsAudioConfig, VocoderConfig
@@ -73,7 +72,7 @@ class DelightfulTTSConfig(BaseTTSConfig):
 
     # optimizer
     steps_to_start_discriminator: int = 200000
-    grad_clip: List[float] = field(default_factory=lambda: [1000, 1000])
+    grad_clip: list[float] = field(default_factory=lambda: [1000, 1000])
     lr_gen: float = 0.0002
     lr_disc: float = 0.0002
     lr_scheduler_gen: str = "ExponentialLR"
@@ -140,7 +139,7 @@ class DelightfulTTSConfig(BaseTTSConfig):
     d_vector_dim: int = None
 
     # testing
-    test_sentences: List[List[str]] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             ["It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent."],
             ["Be a voice, not an echo."],

@@ -4,7 +4,6 @@ import logging
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Optional, Union
 
 from torch import nn
 
@@ -22,15 +21,15 @@ class TTS(nn.Module):
         self,
         model_name: str = "",
         *,
-        model_path: Optional[str] = None,
-        config_path: Optional[str] = None,
-        vocoder_name: Optional[str] = None,
-        vocoder_path: Optional[str] = None,
-        vocoder_config_path: Optional[str] = None,
-        encoder_path: Optional[str] = None,
-        encoder_config_path: Optional[str] = None,
-        speakers_file_path: Optional[str] = None,
-        language_ids_file_path: Optional[str] = None,
+        model_path: str | None = None,
+        config_path: str | None = None,
+        vocoder_name: str | None = None,
+        vocoder_path: str | None = None,
+        vocoder_config_path: str | None = None,
+        encoder_path: str | None = None,
+        encoder_config_path: str | None = None,
+        speakers_file_path: str | None = None,
+        language_ids_file_path: str | None = None,
         progress_bar: bool = True,
         gpu: bool = False,
     ) -> None:
@@ -77,8 +76,8 @@ class TTS(nn.Module):
         super().__init__()
         self.manager = ModelManager(models_file=self.get_models_file_path(), progress_bar=progress_bar)
         self.config = load_config(config_path) if config_path else None
-        self.synthesizer: Optional[Synthesizer] = None
-        self.voice_converter: Optional[Synthesizer] = None
+        self.synthesizer: Synthesizer | None = None
+        self.voice_converter: Synthesizer | None = None
         self.model_name = ""
 
         self.vocoder_path = vocoder_path
@@ -156,10 +155,18 @@ class TTS(nn.Module):
         return ModelManager(models_file=TTS.get_models_file_path(), progress_bar=False).list_models()
 
     def download_model_by_name(
-        self, model_name: str, vocoder_name: Optional[str] = None
-    ) -> tuple[Optional[Path], Optional[Path], Optional[Path], Optional[Path], Optional[Path]]:
+        self, model_name: str, vocoder_name: str | None = None
+    ) -> tuple[Path | None, Path | None, Path | None, Path | None, Path | None]:
         model_path, config_path, model_item = self.manager.download_model(model_name)
-        if "fairseq" in model_name or (model_item is not None and isinstance(model_item["model_url"], list)):
+        if (
+            "fairseq" in model_name
+            or "openvoice" in model_name
+            or (
+                model_item is not None
+                and isinstance(model_item["model_url"], list)
+                and len(model_item["model_url"]) > 2
+            )
+        ):
             # return model directory if there are multiple files
             # we assume that the model knows how to load itself
             return None, None, None, None, model_path
@@ -176,7 +183,7 @@ class TTS(nn.Module):
             vocoder_path, vocoder_config_path, _ = self.manager.download_model(vocoder_name)
         return model_path, config_path, vocoder_path, vocoder_config_path, None
 
-    def load_model_by_name(self, model_name: str, vocoder_name: Optional[str] = None, *, gpu: bool = False) -> None:
+    def load_model_by_name(self, model_name: str, vocoder_name: str | None = None, *, gpu: bool = False) -> None:
         """Load one of the 🐸TTS models by name.
 
         Args:
@@ -185,7 +192,7 @@ class TTS(nn.Module):
         """
         self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
 
-    def load_vc_model_by_name(self, model_name: str, vocoder_name: Optional[str] = None, *, gpu: bool = False) -> None:
+    def load_vc_model_by_name(self, model_name: str, vocoder_name: str | None = None, *, gpu: bool = False) -> None:
         """Load one of the voice conversion models by name.
 
         Args:
@@ -205,7 +212,7 @@ class TTS(nn.Module):
             use_cuda=gpu,
         )
 
-    def load_tts_model_by_name(self, model_name: str, vocoder_name: Optional[str] = None, *, gpu: bool = False) -> None:
+    def load_tts_model_by_name(self, model_name: str, vocoder_name: str | None = None, *, gpu: bool = False) -> None:
         """Load one of 🐸TTS models by name.
 
         Args:
@@ -261,11 +268,10 @@ class TTS(nn.Module):
 
     def _check_arguments(
         self,
-        speaker: Optional[str] = None,
-        language: Optional[str] = None,
-        speaker_wav: Optional[str] = None,
-        emotion: Optional[str] = None,
-        speed: Optional[float] = None,
+        speaker: str | None = None,
+        language: str | None = None,
+        speaker_wav: str | None = None,
+        emotion: str | None = None,
         **kwargs,
     ) -> None:
         """Check if the arguments are valid for the model."""
@@ -278,17 +284,16 @@ class TTS(nn.Module):
             raise ValueError("Model is not multi-speaker but `speaker` is provided.")
         if not self.is_multi_lingual and language is not None:
             raise ValueError("Model is not multi-lingual but `language` is provided.")
-        if emotion is not None and speed is not None:
-            raise ValueError("Emotion and speed can only be used with Coqui Studio models. Which is discontinued.")
+        if emotion is not None:
+            raise ValueError("Emotion can only be used with Coqui Studio models. Which is discontinued.")
 
     def tts(
         self,
         text: str,
-        speaker: Optional[str] = None,
-        language: Optional[str] = None,
-        speaker_wav: Optional[str] = None,
-        emotion: Optional[str] = None,
-        speed: Optional[float] = None,
+        speaker: str | None = None,
+        language: str | None = None,
+        speaker_wav: str | None = None,
+        emotion: str | None = None,
         split_sentences: bool = True,
         **kwargs,
     ):
@@ -307,9 +312,6 @@ class TTS(nn.Module):
                 Defaults to None.
             emotion (str, optional):
                 Emotion to use for 🐸Coqui Studio models. If None, Studio models use "Neutral". Defaults to None.
-            speed (float, optional):
-                Speed factor to use for 🐸Coqui Studio models, between 0 and 2.0. If None, Studio models use 1.0.
-                Defaults to None.
             split_sentences (bool, optional):
                 Split text into sentences, synthesize them separately and concatenate the file audio.
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
@@ -317,9 +319,7 @@ class TTS(nn.Module):
             kwargs (dict, optional):
                 Additional arguments for the model.
         """
-        self._check_arguments(
-            speaker=speaker, language=language, speaker_wav=speaker_wav, emotion=emotion, speed=speed, **kwargs
-        )
+        self._check_arguments(speaker=speaker, language=language, speaker_wav=speaker_wav, emotion=emotion, **kwargs)
         wav = self.synthesizer.tts(
             text=text,
             speaker_name=speaker,
@@ -333,11 +333,10 @@ class TTS(nn.Module):
     def tts_to_file(
         self,
         text: str,
-        speaker: Optional[str] = None,
-        language: Optional[str] = None,
-        speaker_wav: Optional[str] = None,
-        emotion: Optional[str] = None,
-        speed: float = 1.0,
+        speaker: str | None = None,
+        language: str | None = None,
+        speaker_wav: str | None = None,
+        emotion: str | None = None,
         pipe_out=None,
         file_path: str = "output.wav",
         split_sentences: bool = True,
@@ -359,8 +358,6 @@ class TTS(nn.Module):
                 Defaults to None.
             emotion (str, optional):
                 Emotion to use for 🐸Coqui Studio models. Defaults to "Neutral".
-            speed (float, optional):
-                Speed factor to use for 🐸Coqui Studio models, between 0.0 and 2.0. Defaults to None.
             pipe_out (BytesIO, optional):
                 Flag to stdout the generated TTS wav file for shell pipe.
             file_path (str, optional):
@@ -388,7 +385,7 @@ class TTS(nn.Module):
     def voice_conversion(
         self,
         source_wav: str,
-        target_wav: Union[str, list[str]],
+        target_wav: str | list[str],
     ):
         """Voice conversion with FreeVC. Convert source wav to target speaker.
 
@@ -406,7 +403,7 @@ class TTS(nn.Module):
     def voice_conversion_to_file(
         self,
         source_wav: str,
-        target_wav: Union[str, list[str]],
+        target_wav: str | list[str],
         file_path: str = "output.wav",
         pipe_out=None,
     ) -> str:
@@ -430,9 +427,9 @@ class TTS(nn.Module):
         self,
         text: str,
         *,
-        language: Optional[str] = None,
-        speaker_wav: Union[str, list[str]],
-        speaker: Optional[str] = None,
+        language: str | None = None,
+        speaker_wav: str | list[str],
+        speaker: str | None = None,
         split_sentences: bool = True,
     ):
         """Convert text to speech with voice conversion.
@@ -473,10 +470,10 @@ class TTS(nn.Module):
         self,
         text: str,
         *,
-        language: Optional[str] = None,
-        speaker_wav: Union[str, list[str]],
+        language: str | None = None,
+        speaker_wav: str | list[str],
         file_path: str = "output.wav",
-        speaker: Optional[str] = None,
+        speaker: str | None = None,
         split_sentences: bool = True,
         pipe_out=None,
     ) -> str:

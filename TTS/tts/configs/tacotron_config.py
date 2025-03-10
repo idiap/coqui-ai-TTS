@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig, CapacitronVAEConfig, GSTConfig
 
@@ -154,7 +153,7 @@ class TacotronConfig(BaseTTSConfig):
     num_speakers: int = 1
     num_chars: int = 0
     r: int = 2
-    gradual_training: List[List[int]] = None
+    gradual_training: list[list[int]] = None
     memory_size: int = -1
     prenet_type: str = "original"
     prenet_dropout: bool = True
@@ -170,7 +169,7 @@ class TacotronConfig(BaseTTSConfig):
 
     # attention layers
     attention_type: str = "original"
-    attention_heads: int = None
+    attention_heads: int | None = None
     attention_norm: str = "sigmoid"
     attention_win: bool = False
     windowing: bool = False
@@ -189,8 +188,8 @@ class TacotronConfig(BaseTTSConfig):
     use_speaker_embedding: bool = False
     speaker_embedding_dim: int = 512
     use_d_vector_file: bool = False
-    d_vector_file: str = False
-    d_vector_dim: int = None
+    d_vector_file: str | None = None
+    d_vector_dim: int | None = None
 
     # optimizer parameters
     optimizer: str = "RAdam"
@@ -212,7 +211,7 @@ class TacotronConfig(BaseTTSConfig):
     ga_alpha: float = 5.0
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",
@@ -224,12 +223,12 @@ class TacotronConfig(BaseTTSConfig):
 
     def check_values(self):
         if self.gradual_training:
-            assert (
-                self.gradual_training[0][1] == self.r
-            ), f"[!] the first scheduled gradual training `r` must be equal to the model's `r` value. {self.gradual_training[0][1]} vs {self.r}"
+            assert self.gradual_training[0][1] == self.r, (
+                f"[!] the first scheduled gradual training `r` must be equal to the model's `r` value. {self.gradual_training[0][1]} vs {self.r}"
+            )
         if self.model == "tacotron" and self.audio is not None:
-            assert self.out_channels == (
-                self.audio.fft_size // 2 + 1
-            ), f"{self.out_channels} vs {self.audio.fft_size // 2 + 1}"
+            assert self.out_channels == (self.audio.fft_size // 2 + 1), (
+                f"{self.out_channels} vs {self.audio.fft_size // 2 + 1}"
+            )
         if self.model == "tacotron2" and self.audio is not None:
             assert self.out_channels == self.audio.num_mels

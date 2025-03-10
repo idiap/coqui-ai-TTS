@@ -1,6 +1,6 @@
 ### credit: https://github.com/dunky11/voicesmith
 import logging
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
@@ -177,7 +177,7 @@ class AcousticModel(torch.nn.Module):
             self._init_d_vector()
 
     @staticmethod
-    def _set_cond_input(aux_input: Dict):
+    def _set_cond_input(aux_input: dict):
         """Set the speaker conditioning input based on the multi-speaker mode."""
         sid, g, lid, durations = None, None, None, None
         if "speaker_ids" in aux_input and aux_input["speaker_ids"] is not None:
@@ -194,11 +194,11 @@ class AcousticModel(torch.nn.Module):
 
         return sid, g, lid, durations
 
-    def get_aux_input(self, aux_input: Dict):
+    def get_aux_input(self, aux_input: dict):
         sid, g, lid, _ = self._set_cond_input(aux_input)
         return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
 
-    def _set_speaker_input(self, aux_input: Dict):
+    def _set_speaker_input(self, aux_input: dict):
         d_vectors = aux_input.get("d_vectors", None)
         speaker_ids = aux_input.get("speaker_ids", None)
 
@@ -237,7 +237,7 @@ class AcousticModel(torch.nn.Module):
         x_mask: torch.IntTensor,
         y_mask: torch.IntTensor,
         attn_priors: torch.FloatTensor,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Aligner forward pass.
 
         1. Compute a mask to apply to the attention map.
@@ -298,7 +298,7 @@ class AcousticModel(torch.nn.Module):
         use_ground_truth: bool = True,
         d_vectors: torch.Tensor = None,
         speaker_idx: torch.Tensor = None,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         sid, g, lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
             {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
         )  # pylint: disable=unused-variable

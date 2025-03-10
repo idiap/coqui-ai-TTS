@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Callable, List, Union
+from collections.abc import Callable
 
 from torch.utils.data.sampler import BatchSampler, Sampler, SubsetRandomSampler
 
@@ -49,9 +49,9 @@ class PerfectBatchSampler(Sampler):
         label_key="class_name",
     ):
         super().__init__(dataset_items)
-        assert (
-            batch_size % (num_classes_in_batch * num_gpus) == 0
-        ), "Batch size must be divisible by number of classes times the number of data parallel devices (if enabled)."
+        assert batch_size % (num_classes_in_batch * num_gpus) == 0, (
+            "Batch size must be divisible by number of classes times the number of data parallel devices (if enabled)."
+        )
 
         label_indices = {}
         for idx, item in enumerate(dataset_items):
@@ -176,7 +176,7 @@ class BucketBatchSampler(BatchSampler):
         data,
         batch_size,
         drop_last,
-        sort_key: Union[Callable, List] = identity,
+        sort_key: Callable | list = identity,
         bucket_size_multiplier=100,
     ):
         super().__init__(sampler, batch_size, drop_last)

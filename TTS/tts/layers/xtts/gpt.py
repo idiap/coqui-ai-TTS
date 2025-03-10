@@ -347,12 +347,12 @@ class GPT(nn.Module):
             audio_codes = F.pad(audio_codes, (0, max_mel_len - audio_codes.shape[-1]))
 
         # 💖 Lovely assertions
-        assert (
-            max_mel_len <= audio_codes.shape[-1]
-        ), f" ❗ max_mel_len ({max_mel_len}) > audio_codes.shape[-1] ({audio_codes.shape[-1]})"
-        assert (
-            max_text_len <= text_inputs.shape[-1]
-        ), f" ❗ max_text_len ({max_text_len}) > text_inputs.shape[-1] ({text_inputs.shape[-1]})"
+        assert max_mel_len <= audio_codes.shape[-1], (
+            f" ❗ max_mel_len ({max_mel_len}) > audio_codes.shape[-1] ({audio_codes.shape[-1]})"
+        )
+        assert max_text_len <= text_inputs.shape[-1], (
+            f" ❗ max_text_len ({max_text_len}) > text_inputs.shape[-1] ({text_inputs.shape[-1]})"
+        )
 
         # Append stop token to text inputs
         text_inputs = F.pad(text_inputs[:, :max_text_len], (0, 1), value=self.stop_text_token)
@@ -454,9 +454,9 @@ class GPT(nn.Module):
             mel_targets[idx, l + 1 :] = -1
 
         # check if stoptoken is in every row of mel_targets
-        assert (mel_targets == self.stop_audio_token).sum() >= mel_targets.shape[
-            0
-        ], f" ❗ mel_targets does not contain stop token ({self.stop_audio_token}) in every row."
+        assert (mel_targets == self.stop_audio_token).sum() >= mel_targets.shape[0], (
+            f" ❗ mel_targets does not contain stop token ({self.stop_audio_token}) in every row."
+        )
 
         # ignore the loss for the segment used for conditioning
         # coin flip for the segment to be ignored

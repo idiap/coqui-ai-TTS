@@ -34,7 +34,7 @@ class BaseEncoder(nn.Module):
 
     # pylint: disable=W0102
     def __init__(self):
-        super(BaseEncoder, self).__init__()
+        super().__init__()
 
     def get_torch_mel_spectrogram_class(self, audio_config):
         return torch.nn.Sequential(
@@ -107,7 +107,7 @@ class BaseEncoder(nn.Module):
         elif c.loss == "softmaxproto":
             criterion = SoftmaxAngleProtoLoss(c.model_params["proj_dim"], num_classes)
         else:
-            raise Exception("The %s  not is a loss supported" % c.loss)
+            raise Exception(f"The {c.loss}  not is a loss supported")
         return criterion
 
     def load_checkpoint(

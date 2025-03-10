@@ -9,7 +9,6 @@ import logging
 import os
 import sys
 from threading import Lock
-from typing import Union
 from urllib.parse import parse_qs
 
 try:
@@ -105,10 +104,11 @@ api = TTS(
 
 # TODO: set this from SpeakerManager
 use_gst = api.synthesizer.tts_config.get("use_gst", False)
+supports_cloning = api.synthesizer.tts_config.get("model", "") in ["xtts", "bark"]
 app = Flask(__name__)
 
 
-def style_wav_uri_to_dict(style_wav: str) -> Union[str, dict]:
+def style_wav_uri_to_dict(style_wav: str) -> str | dict:
     """Transform an uri style_wav, in either a string (path to wav file to be use for style transfer)
     or a dict (gst tokens/values to be use for styling)
 
@@ -137,6 +137,7 @@ def index():
         speaker_ids=api.speakers,
         language_ids=api.languages,
         use_gst=use_gst,
+        supports_cloning=supports_cloning,
     )
 
 
@@ -164,6 +165,8 @@ def tts():
         speaker_idx = (
             request.headers.get("speaker-id") or request.values.get("speaker_id", "") if api.is_multi_speaker else None
         )
+        if speaker_idx == "":
+            speaker_idx = None
         language_idx = (
             request.headers.get("language-id") or request.values.get("language_id", "")
             if api.is_multi_lingual
@@ -171,11 +174,12 @@ def tts():
         )
         style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
         style_wav = style_wav_uri_to_dict(style_wav)
+        speaker_wav = request.headers.get("speaker-wav") or request.values.get("speaker_wav", "")
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
         logger.info("Language idx: %s", language_idx)
-        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav)
+        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")

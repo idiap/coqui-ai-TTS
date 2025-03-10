@@ -373,8 +373,8 @@ class TestVits(unittest.TestCase):
             name = item1[0]
             param = item1[1]
             param_ref = item2[1]
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                name, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count = count + 1
 

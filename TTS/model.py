@@ -1,6 +1,6 @@
 import os
 from abc import abstractmethod
-from typing import Any, Union
+from typing import Any
 
 import torch
 from coqpit import Coqpit
@@ -48,7 +48,7 @@ class BaseTrainerModel(TrainerModel):
     def load_checkpoint(
         self,
         config: Coqpit,
-        checkpoint_path: Union[str, os.PathLike[Any]],
+        checkpoint_path: str | os.PathLike[Any],
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,

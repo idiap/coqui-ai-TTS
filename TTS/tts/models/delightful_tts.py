@@ -3,7 +3,6 @@ import os
 from dataclasses import dataclass, field
 from itertools import chain
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -65,7 +64,7 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
     def __init__(
         self,
         ap,
-        samples: Union[List[List], List[Dict]],
+        samples: list[list] | list[dict],
         cache_path: str = None,
         precompute_num_workers=0,
         normalize_f0=True,
@@ -275,15 +274,15 @@ class ForwardTTSE2eDataset(TTSDataset):
 @dataclass
 class VocoderConfig(Coqpit):
     resblock_type_decoder: str = "1"
-    resblock_kernel_sizes_decoder: List[int] = field(default_factory=lambda: [3, 7, 11])
-    resblock_dilation_sizes_decoder: List[List[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
-    upsample_rates_decoder: List[int] = field(default_factory=lambda: [8, 8, 2, 2])
+    resblock_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [3, 7, 11])
+    resblock_dilation_sizes_decoder: list[list[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
+    upsample_rates_decoder: list[int] = field(default_factory=lambda: [8, 8, 2, 2])
     upsample_initial_channel_decoder: int = 512
-    upsample_kernel_sizes_decoder: List[int] = field(default_factory=lambda: [16, 16, 4, 4])
+    upsample_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [16, 16, 4, 4])
     use_spectral_norm_discriminator: bool = False
-    upsampling_rates_discriminator: List[int] = field(default_factory=lambda: [4, 4, 4, 4])
-    periods_discriminator: List[int] = field(default_factory=lambda: [2, 3, 5, 7, 11])
-    pretrained_model_path: Optional[str] = None
+    upsampling_rates_discriminator: list[int] = field(default_factory=lambda: [4, 4, 4, 4])
+    periods_discriminator: list[int] = field(default_factory=lambda: [2, 3, 5, 7, 11])
+    pretrained_model_path: str | None = None
 
 
 @dataclass
@@ -553,7 +552,7 @@ class DelightfulTTS(BaseTTSE2E):
         attn_priors: torch.FloatTensor = None,
         d_vectors: torch.FloatTensor = None,
         speaker_idx: torch.LongTensor = None,
-    ) -> Dict:
+    ) -> dict:
         """Model's forward pass.
 
         Args:
@@ -832,9 +831,7 @@ class DelightfulTTS(BaseTTSE2E):
         audios[f"{name_prefix}/vocoder_audio"] = sample_voice
         return figures, audios
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ):  # pylint: disable=no-self-use, unused-argument
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use, unused-argument
         """Create visualizations and waveform examples.
 
         For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
@@ -1015,7 +1012,7 @@ class DelightfulTTS(BaseTTSE2E):
         return return_dict
 
     @torch.inference_mode()
-    def test_run(self, assets) -> Tuple[Dict, Dict]:
+    def test_run(self, assets) -> tuple[dict, dict]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
@@ -1041,18 +1038,22 @@ class DelightfulTTS(BaseTTSE2E):
                 d_vector=aux_inputs["d_vector"],
             )
             # speaker_name = self.speaker_manager.speaker_names[aux_inputs["speaker_id"]]
-            test_audios["{}-audio".format(idx)] = outputs["wav"].T
-            test_audios["{}-audio_encoder".format(idx)] = outputs_gl["wav"].T
-            test_figures["{}-alignment".format(idx)] = plot_alignment(outputs["alignments"], output_fig=False)
+            test_audios[f"{idx}-audio"] = outputs["wav"].T
+            test_audios[f"{idx}-audio_encoder"] = outputs_gl["wav"].T
+            test_figures[f"{idx}-alignment"] = plot_alignment(outputs["alignments"], output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.config.audio.sample_rate)
         logger.test_figures(steps, outputs["figures"])
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict) -> dict:
         """Compute speaker, langugage IDs and d_vector for the batch if necessary."""
         speaker_ids = None
         d_vectors = None
@@ -1160,12 +1161,12 @@ class DelightfulTTS(BaseTTSE2E):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
-        rank: int = None,
+        rank: int | None = None,
     ) -> "DataLoader":
         if is_eval and not config.run_eval:
             loader = None
@@ -1217,7 +1218,7 @@ class DelightfulTTS(BaseTTSE2E):
     def get_criterion(self):
         return [VitsDiscriminatorLoss(self.config), DelightfulTTSLoss(self.config)]
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         """Initiate and return the GAN optimizers based on the config parameters.
         It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
         Returns:
@@ -1232,7 +1233,7 @@ class DelightfulTTS(BaseTTSE2E):
         )
         return [optimizer_disc, optimizer_gen]
 
-    def get_lr(self) -> List:
+    def get_lr(self) -> list:
         """Set the initial learning rates for each optimizer.
 
         Returns:
@@ -1240,7 +1241,7 @@ class DelightfulTTS(BaseTTSE2E):
         """
         return [self.config.lr_disc, self.config.lr_gen]
 
-    def get_scheduler(self, optimizer) -> List:
+    def get_scheduler(self, optimizer) -> list:
         """Set the schedulers for each optimizer.
 
         Args:
@@ -1259,9 +1260,7 @@ class DelightfulTTS(BaseTTSE2E):
         self.energy_scaler.eval()
 
     @staticmethod
-    def init_from_config(
-        config: "DelightfulTTSConfig", samples: Union[List[List], List[Dict]] = None
-    ):  # pylint: disable=unused-argument
+    def init_from_config(config: "DelightfulTTSConfig", samples: list[list] | list[dict] = None):  # pylint: disable=unused-argument
         """Initiate model from config
 
         Args:

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
-from transformers import LogitsWarper
+from transformers import LogitsProcessor
 
 from TTS.tts.layers.tortoise.xtransformers import ContinuousTransformerWrapper, RelativePositionBias
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
@@ -101,9 +101,9 @@ class AttentionBlock(nn.Module):
         if num_head_channels == -1:
             self.num_heads = num_heads
         else:
-            assert (
-                channels % num_head_channels == 0
-            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            assert channels % num_head_channels == 0, (
+                f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            )
             self.num_heads = channels // num_head_channels
         self.norm = normalization(channels)
         self.qkv = nn.Conv1d(channels, channels * 3, 1)
@@ -292,7 +292,7 @@ class CheckpointedXTransformerEncoder(nn.Module):
         return h
 
 
-class TypicalLogitsWarper(LogitsWarper):
+class TypicalLogitsWarper(LogitsProcessor):
     def __init__(
         self,
         mass: float = 0.9,

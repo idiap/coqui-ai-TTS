@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import pysbd
@@ -30,18 +30,18 @@ class Synthesizer(nn.Module):
     def __init__(
         self,
         *,
-        tts_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
-        tts_config_path: Optional[Union[str, os.PathLike[Any]]] = None,
-        tts_speakers_file: Optional[Union[str, os.PathLike[Any]]] = None,
-        tts_languages_file: Optional[Union[str, os.PathLike[Any]]] = None,
-        vocoder_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
-        vocoder_config: Optional[Union[str, os.PathLike[Any]]] = None,
-        encoder_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
-        encoder_config: Optional[Union[str, os.PathLike[Any]]] = None,
-        vc_checkpoint: Optional[Union[str, os.PathLike[Any]]] = None,
-        vc_config: Optional[Union[str, os.PathLike[Any]]] = None,
-        model_dir: Optional[Union[str, os.PathLike[Any]]] = None,
-        voice_dir: Optional[Union[str, os.PathLike[Any]]] = None,
+        tts_checkpoint: str | os.PathLike[Any] | None = None,
+        tts_config_path: str | os.PathLike[Any] | None = None,
+        tts_speakers_file: str | os.PathLike[Any] | None = None,
+        tts_languages_file: str | os.PathLike[Any] | None = None,
+        vocoder_checkpoint: str | os.PathLike[Any] | None = None,
+        vocoder_config: str | os.PathLike[Any] | None = None,
+        encoder_checkpoint: str | os.PathLike[Any] | None = None,
+        encoder_config: str | os.PathLike[Any] | None = None,
+        vc_checkpoint: str | os.PathLike[Any] | None = None,
+        vc_config: str | os.PathLike[Any] | None = None,
+        model_dir: str | os.PathLike[Any] | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
         use_cuda: bool = False,
     ) -> None:
         """General 🐸 TTS interface for inference. It takes a tts and a vocoder
@@ -248,7 +248,7 @@ class Synthesizer(nn.Module):
         if use_cuda:
             self.vocoder_model.cuda()
 
-    def split_into_sentences(self, text) -> List[str]:
+    def split_into_sentences(self, text) -> list[str]:
         """Split give text into sentences.
 
         Args:
@@ -259,7 +259,7 @@ class Synthesizer(nn.Module):
         """
         return self.seg.segment(text)
 
-    def save_wav(self, wav: List[int], path: str, pipe_out=None) -> None:
+    def save_wav(self, wav: list[int], path: str, pipe_out=None) -> None:
         """Save the waveform as a file.
 
         Args:
@@ -274,7 +274,7 @@ class Synthesizer(nn.Module):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: Union[str, list[str]], **kwargs) -> List[int]:
+    def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
         start_time = time.time()
 
         if not isinstance(target_wav, list):
@@ -302,7 +302,7 @@ class Synthesizer(nn.Module):
         reference_speaker_name=None,
         split_sentences: bool = True,
         **kwargs,
-    ) -> List[int]:
+    ) -> list[int]:
         """🐸 TTS magic. Run all the models and generate speech.
 
         Args:

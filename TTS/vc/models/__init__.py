@@ -1,7 +1,6 @@
 import importlib
 import logging
 import re
-from typing import Dict, List, Optional, Union
 
 from TTS.vc.configs.shared_configs import BaseVCConfig
 from TTS.vc.models.base_vc import BaseVC

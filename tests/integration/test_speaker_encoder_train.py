@@ -1,6 +1,7 @@
 import shutil
 
-from tests import get_device_id, run_cli
+from tests import run_main
+from TTS.bin.train_encoder import main
 from TTS.config.shared_configs import BaseAudioConfig
 from TTS.encoder.configs.speaker_encoder_config import SpeakerEncoderConfig
 
@@ -10,15 +11,21 @@ def test_train(tmp_path):
     output_path = tmp_path / "train_outputs"
 
     def run_test_train():
-        command = (
-            f"CUDA_VISIBLE_DEVICES='{get_device_id()}' python TTS/bin/train_encoder.py --config_path {config_path} "
-            f"--coqpit.output_path {output_path} "
-            "--coqpit.datasets.0.formatter ljspeech_test "
-            "--coqpit.datasets.0.meta_file_train metadata.csv "
-            "--coqpit.datasets.0.meta_file_val metadata.csv "
-            "--coqpit.datasets.0.path tests/data/ljspeech "
-        )
-        run_cli(command)
+        command = [
+            "--config_path",
+            str(config_path),
+            "--coqpit.output_path",
+            str(output_path),
+            "--coqpit.datasets.0.formatter",
+            "ljspeech_test",
+            "--coqpit.datasets.0.meta_file_train",
+            "metadata.csv",
+            "--coqpit.datasets.0.meta_file_val",
+            "metadata.csv",
+            "--coqpit.datasets.0.path",
+            "tests/data/ljspeech",
+        ]
+        run_main(main, command)
 
     config = SpeakerEncoderConfig(
         batch_size=4,
@@ -47,10 +54,7 @@ def test_train(tmp_path):
     continue_path = max(output_path.iterdir(), key=lambda p: p.stat().st_mtime)
 
     # restore the model and continue training for one more epoch
-    command_train = (
-        f"CUDA_VISIBLE_DEVICES='{get_device_id()}' python TTS/bin/train_encoder.py --continue_path {continue_path} "
-    )
-    run_cli(command_train)
+    run_main(main, ["--continue_path", str(continue_path)])
     shutil.rmtree(continue_path)
 
     # test resnet speaker encoder
@@ -64,10 +68,7 @@ def test_train(tmp_path):
     continue_path = max(output_path.iterdir(), key=lambda p: p.stat().st_mtime)
 
     # restore the model and continue training for one more epoch
-    command_train = (
-        f"CUDA_VISIBLE_DEVICES='{get_device_id()}' python TTS/bin/train_encoder.py --continue_path {continue_path} "
-    )
-    run_cli(command_train)
+    run_main(main, ["--continue_path", str(continue_path)])
     shutil.rmtree(continue_path)
 
     # test model with ge2e loss function

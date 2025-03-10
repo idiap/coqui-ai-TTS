@@ -1,4 +1,3 @@
-# coding: utf-8
 # Add the word you want to the dictionary.
 etc_dictionary = {"1+1": "원플러스원", "2+1": "투플러스원"}
 

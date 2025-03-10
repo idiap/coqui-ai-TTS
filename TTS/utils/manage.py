@@ -6,7 +6,7 @@ import tarfile
 import zipfile
 from pathlib import Path
 from shutil import copyfile, rmtree
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, TypedDict
 
 import fsspec
 import requests
@@ -27,12 +27,12 @@ class ModelItem(TypedDict, total=False):
     license: str
     author: str
     contact: str
-    commit: Optional[str]
+    commit: str | None
     model_hash: str
     tos_required: bool
-    default_vocoder: Optional[str]
-    model_url: Union[str, list[str]]
-    github_rls_url: Union[str, list[str]]
+    default_vocoder: str | None
+    model_url: str | list[str]
+    github_rls_url: str | list[str]
     hf_url: list[str]
 
 
@@ -49,7 +49,7 @@ LICENSE_URLS = {
 }
 
 
-class ModelManager(object):
+class ModelManager:
     tqdm_progress = None
     """Manage TTS models defined in .models.json.
     It provides an interface to list and download
@@ -66,8 +66,8 @@ class ModelManager(object):
 
     def __init__(
         self,
-        models_file: Optional[Union[str, os.PathLike[Any]]] = None,
-        output_prefix: Optional[Union[str, os.PathLike[Any]]] = None,
+        models_file: str | os.PathLike[Any] | None = None,
+        output_prefix: str | os.PathLike[Any] | None = None,
         progress_bar: bool = False,
     ) -> None:
         super().__init__()
@@ -84,7 +84,7 @@ class ModelManager(object):
             path = Path(__file__).parent / "../.models.json"
             self.read_models_file(path)
 
-    def read_models_file(self, file_path: Union[str, os.PathLike[Any]]) -> None:
+    def read_models_file(self, file_path: str | os.PathLike[Any]) -> None:
         """Read .models.json as a dict
 
         Args:
@@ -274,7 +274,7 @@ class ModelManager(object):
             model_item["model_url"] = "https://huggingface.co/coqui/"
         return model_item
 
-    def _set_model_item(self, model_name: str) -> tuple[ModelItem, str, str, Optional[str]]:
+    def _set_model_item(self, model_name: str) -> tuple[ModelItem, str, str, str | None]:
         # fetch model info from the dict
         if "fairseq" in model_name:
             model_type, lang, dataset, model = model_name.split("/")
@@ -389,7 +389,7 @@ class ModelManager(object):
             logger.info("%s is already downloaded however it has been changed. Redownloading it...", model_name)
             self.create_dir_and_download_model(model_name, model_item, output_path)
 
-    def download_model(self, model_name: str) -> tuple[Path, Optional[Path], ModelItem]:
+    def download_model(self, model_name: str) -> tuple[Path, Path | None, ModelItem]:
         """Download model files given the full model name.
         Model name is in the format
             'type/language/dataset/model'
@@ -471,7 +471,7 @@ class ModelManager(object):
         return model_file, config_file
 
     @staticmethod
-    def _find_speaker_encoder(output_path: Path) -> Optional[Path]:
+    def _find_speaker_encoder(output_path: Path) -> Path | None:
         """Find the speaker encoder file in the output path
 
         Args:
@@ -523,7 +523,7 @@ class ModelManager(object):
         self._update_path("model_args.speaker_encoder_config_path", speaker_encoder_config_path, config_path)
 
     @staticmethod
-    def _update_path(field_name: str, new_path: Optional[Path], config_path: Path) -> None:
+    def _update_path(field_name: str, new_path: Path | None, config_path: Path) -> None:
         """Update the path in the model config.json for the current environment after download"""
         if new_path is not None and new_path.is_file():
             config = load_config(str(config_path))
@@ -619,9 +619,7 @@ class ModelManager(object):
         rmtree(output_folder / tar_names[0])
 
     @staticmethod
-    def _download_model_files(
-        file_urls: list[str], output_folder: Union[str, os.PathLike[Any]], progress_bar: bool
-    ) -> None:
+    def _download_model_files(file_urls: list[str], output_folder: str | os.PathLike[Any], progress_bar: bool) -> None:
         """Download the github releases"""
         output_folder = Path(output_folder)
         for file_url in file_urls:

@@ -45,11 +45,11 @@ def test_normalize_unicode() -> None:
         ("na\u0303", "nã"),
         ("o\u0302u", "ôu"),
         ("n\u0303", "ñ"),
-        ("\u4E2D\u56FD", "中国"),
+        ("\u4e2d\u56fd", "中国"),
         ("niño", "niño"),
         ("a\u0308", "ä"),
         ("\u3053\u3093\u306b\u3061\u306f", "こんにちは"),
-        ("\u03B1\u03B2", "αβ"),
+        ("\u03b1\u03b2", "αβ"),
     ]
     for arg, expect in test_cases:
         assert normalize_unicode(arg) == expect

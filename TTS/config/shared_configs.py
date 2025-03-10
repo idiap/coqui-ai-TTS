@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass
-from typing import List
 
 from coqpit import Coqpit, check_argument
 from trainer import TrainerConfig
@@ -227,7 +226,7 @@ class BaseDatasetConfig(Coqpit):
     dataset_name: str = ""
     path: str = ""
     meta_file_train: str = ""
-    ignored_speakers: List[str] = None
+    ignored_speakers: list[str] = None
     language: str = ""
     phonemizer: str = ""
     meta_file_val: str = ""

@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import Any
 
 import librosa
 import numpy as np
@@ -117,7 +118,7 @@ class OpenVoice(BaseVC):
     October 2023, serving as the backend of MyShell.
     """
 
-    def __init__(self, config: Coqpit, speaker_manager: Optional[SpeakerManager] = None) -> None:
+    def __init__(self, config: Coqpit, speaker_manager: SpeakerManager | None = None) -> None:
         super().__init__(config, None, speaker_manager, None)
 
         self.init_multispeaker(config)
@@ -178,7 +179,7 @@ class OpenVoice(BaseVC):
     def init_from_config(config: OpenVoiceConfig) -> "OpenVoice":
         return OpenVoice(config)
 
-    def init_multispeaker(self, config: Coqpit, data: Optional[list[Any]] = None) -> None:
+    def init_multispeaker(self, config: Coqpit, data: list[Any] | None = None) -> None:
         """Initialize multi-speaker modules of a model. A model can be trained either with a speaker embedding layer
         or with external `d_vectors` computed from a speaker encoder model.
 
@@ -195,7 +196,7 @@ class OpenVoice(BaseVC):
     def load_checkpoint(
         self,
         config: OpenVoiceConfig,
-        checkpoint_path: Union[str, os.PathLike[Any]],
+        checkpoint_path: str | os.PathLike[Any],
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,
@@ -219,7 +220,7 @@ class OpenVoice(BaseVC):
     def eval_step(self) -> None: ...
 
     @staticmethod
-    def _set_x_lengths(x: torch.Tensor, aux_input: Mapping[str, Optional[torch.Tensor]]) -> torch.Tensor:
+    def _set_x_lengths(x: torch.Tensor, aux_input: Mapping[str, torch.Tensor | None]) -> torch.Tensor:
         if "x_lengths" in aux_input and aux_input["x_lengths"] is not None:
             return aux_input["x_lengths"]
         return torch.tensor(x.shape[-1:]).to(x.device)
@@ -228,7 +229,7 @@ class OpenVoice(BaseVC):
     def inference(
         self,
         x: torch.Tensor,
-        aux_input: Mapping[str, Optional[torch.Tensor]] = {"x_lengths": None, "g_src": None, "g_tgt": None},
+        aux_input: Mapping[str, torch.Tensor | None] = {"x_lengths": None, "g_src": None, "g_tgt": None},
     ) -> dict[str, torch.Tensor]:
         """
         Inference pass of the model
@@ -267,7 +268,7 @@ class OpenVoice(BaseVC):
             "z_hat": z_hat,
         }
 
-    def load_audio(self, wav: Union[str, npt.NDArray[np.float32], torch.Tensor, list[float]]) -> torch.Tensor:
+    def load_audio(self, wav: str | npt.NDArray[np.float32] | torch.Tensor | list[float]) -> torch.Tensor:
         """Read and format the input audio."""
         if isinstance(wav, str):
             out = torch.from_numpy(librosa.load(wav, sr=self.config.audio.input_sample_rate)[0])
@@ -279,7 +280,7 @@ class OpenVoice(BaseVC):
             out = wav
         return out.to(self.device).float()
 
-    def extract_se(self, audio: Union[str, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
+    def extract_se(self, audio: str | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         y = self.load_audio(audio)
         y = y.to(self.device)
         y = y.unsqueeze(0)
@@ -296,9 +297,7 @@ class OpenVoice(BaseVC):
         return g, spec
 
     @torch.inference_mode()
-    def voice_conversion(
-        self, src: Union[str, torch.Tensor], tgt: list[Union[str, torch.Tensor]]
-    ) -> npt.NDArray[np.float32]:
+    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]) -> npt.NDArray[np.float32]:
         """
         Voice conversion pass of the model.
 

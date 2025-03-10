@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -293,7 +293,7 @@ class UnivNetGenerator(nn.Module):
         hop_length=256,
         n_mel_channels=100,
     ):
-        super(UnivNetGenerator, self).__init__()
+        super().__init__()
         self.mel_channel = n_mel_channels
         self.noise_dim = noise_dim
         self.hop_length = hop_length
@@ -344,7 +344,7 @@ class UnivNetGenerator(nn.Module):
         return z
 
     def eval(self, inference=False):
-        super(UnivNetGenerator, self).eval()
+        super().eval()
         # don't remove weight norm while validation in training loop
         if inference:
             self.remove_weight_norm()
@@ -378,7 +378,7 @@ class UnivNetGenerator(nn.Module):
 class VocType:
     constructor: Callable[[], nn.Module]
     model_path: str
-    subkey: Optional[str] = None
+    subkey: str | None = None
 
     def optionally_index(self, model_dict):
         if self.subkey is not None:

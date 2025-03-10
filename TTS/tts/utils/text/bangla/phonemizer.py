@@ -45,7 +45,7 @@ def tag_text(text: str):
     # create start and end
     text = "start" + text + "end"
     # tag text
-    parts = re.split("[\u0600-\u06FF]+", text)
+    parts = re.split("[\u0600-\u06ff]+", text)
     # remove non chars
     parts = [p for p in parts if p.strip()]
     # unique parts

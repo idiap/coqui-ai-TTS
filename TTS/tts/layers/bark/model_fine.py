@@ -101,9 +101,9 @@ class FineGPT(GPT):
     def forward(self, pred_idx, idx):
         device = idx.device
         b, t, codes = idx.size()
-        assert (
-            t <= self.config.block_size
-        ), f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
+        assert t <= self.config.block_size, (
+            f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
+        )
         assert pred_idx > 0, "cannot predict 0th codebook"
         assert codes == self.n_codes_total, (b, t, codes)
         pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)  # shape (1, t)

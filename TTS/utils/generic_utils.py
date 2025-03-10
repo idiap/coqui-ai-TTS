@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 import datetime
 import importlib
 import logging
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TextIO, TypeVar, Union
+from typing import Any, TextIO, TypeVar
 
 import torch
 from packaging.version import Version
@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 
-def exists(val: Union[_T, None]) -> TypeIs[_T]:
+def exists(val: _T | None) -> TypeIs[_T]:
     return val is not None
 
 
-def default(val: Union[_T, None], d: Union[_T, Callable[[], _T]]) -> _T:
+def default(val: _T | None, d: _T | Callable[[], _T]) -> _T:
     if exists(val):
         return val
     return d() if callable(d) else d
@@ -69,7 +69,7 @@ def get_import_path(obj: object) -> str:
     return ".".join([type(obj).__module__, type(obj).__name__])
 
 
-def format_aux_input(def_args: Dict, kwargs: Dict) -> Dict:
+def format_aux_input(def_args: dict, kwargs: dict) -> dict:
     """Format kwargs to hande auxilary inputs to models.
 
     Args:
@@ -80,9 +80,9 @@ def format_aux_input(def_args: Dict, kwargs: Dict) -> Dict:
         Dict: arguments with formatted auxilary inputs.
     """
     kwargs = kwargs.copy()
-    for name in def_args:
+    for name, arg in def_args.items():
         if name not in kwargs or kwargs[name] is None:
-            kwargs[name] = def_args[name]
+            kwargs[name] = arg
     return kwargs
 
 
@@ -108,9 +108,9 @@ def setup_logger(
     logger_name: str,
     level: int = logging.INFO,
     *,
-    formatter: Optional[logging.Formatter] = None,
-    stream: Optional[TextIO] = None,
-    log_dir: Optional[Union[str, os.PathLike[Any]]] = None,
+    formatter: logging.Formatter | None = None,
+    stream: TextIO | None = None,
+    log_dir: str | os.PathLike[Any] | None = None,
     log_name: str = "log",
 ) -> None:
     """Set up a logger.
@@ -146,6 +146,6 @@ def is_pytorch_at_least_2_4() -> bool:
     return Version(torch.__version__) >= Version("2.4")
 
 
-def optional_to_str(x: Optional[Any]) -> str:
+def optional_to_str(x: Any | None) -> str:
     """Convert input to string, using empty string if input is None."""
     return "" if x is None else str(x)

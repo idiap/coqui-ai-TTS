@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
 
 import torch
 from coqpit import Coqpit
@@ -233,9 +232,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(
-        self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None
-    ):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None):  # pylint: disable=unused-argument
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -352,9 +349,7 @@ class AlignTTS(BaseTTS):
         train_audio = ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
+    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.train_figures(steps, figures)
         logger.train_audios(steps, audios, self.ap.sample_rate)
@@ -367,9 +362,7 @@ class AlignTTS(BaseTTS):
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:
@@ -403,7 +396,7 @@ class AlignTTS(BaseTTS):
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)
 
     @staticmethod
-    def init_from_config(config: "AlignTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "AlignTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

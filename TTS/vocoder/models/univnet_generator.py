@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 import numpy as np
 import torch
@@ -21,7 +20,7 @@ class UnivnetGenerator(torch.nn.Module):
         out_channels: int,
         hidden_channels: int,
         cond_channels: int,
-        upsample_factors: List[int],
+        upsample_factors: list[int],
         lvc_layers_each_block: int,
         lvc_kernel_size: int,
         kpnet_hidden_channels: int,
@@ -128,7 +127,7 @@ class UnivnetGenerator(torch.nn.Module):
         """Apply weight normalization module from all of the layers."""
 
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
                 logger.info("Weight norm is applied to %s", m)
 

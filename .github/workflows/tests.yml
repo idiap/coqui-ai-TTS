@@ -4,8 +4,24 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   workflow_dispatch:
     inputs:
       trainer_branch:
@@ -16,20 +32,27 @@ on:
         description: "Branch of Coqpit to test"
         required: false
         default: "main"
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
 jobs:
   unit:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9, "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text"]
     steps:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         if: contains(fromJSON('["inference_tests", "test_text"]'), matrix.subset)
         run: |
@@ -50,7 +73,7 @@ jobs:
       - name: Unit tests
         run: |
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
           uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
@@ -60,22 +83,18 @@ jobs:
           include-hidden-files: true
           name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
           path: .coverage.*
-          if-no-files-found: ignore
   integration:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12"]
-        subset: ["test_tts", "test_tts2", "test_vocoder", "test_xtts"]
+        python-version: ["3.10", "3.12"]
+        shard: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
-        if: contains(fromJSON('["test_tts", "test_tts2", "test_xtts"]'), matrix.subset)
         run: |
           sudo apt-get update
           sudo apt-get install espeak espeak-ng
@@ -91,20 +110,22 @@ jobs:
           if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
             uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
           fi
-      - name: Integration tests
+      - name: Integration tests for shard ${{ matrix.shard }}
         run: |
+          uv run pytest tests/integration --collect-only --quiet | grep "::" > integration_tests.txt
+          total_shards=5
+          shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
           resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.9" ]; then
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
-          uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
+          uv run --resolution=$resolution --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
           include-hidden-files: true
-          name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
+          name: coverage-data-integration-${{ matrix.shard }}-${{ matrix.python-version }}
           path: .coverage.*
-          if-no-files-found: ignore
   zoo:
     runs-on: ubuntu-latest
     strategy:
@@ -116,8 +137,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
       - name: Install Espeak
         run: |
           sudo apt-get update
@@ -145,7 +164,6 @@ jobs:
           include-hidden-files: true
           name: coverage-data-zoo-${{ matrix.partition }}
           path: .coverage.*
-          if-no-files-found: ignore
   coverage:
     if: always()
     needs: [unit, integration, zoo]
