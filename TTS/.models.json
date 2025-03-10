@@ -734,6 +734,83 @@
                     "description": "persian-tts-female-vits model for text to speech purposes. Single-speaker female voice trained on persian-tts-dataset-female.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset-famale.",
                     "author": "@karim23657",
                     "license": "openrail"
+                },
+                "vits-male": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-male-vits/resolve/main/best_model_65633.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-male-vits/resolve/main/config-0.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "persian-tts-male-vits model for text to speech purposes. Single-speaker male voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "vits-female-best": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-female-vits/resolve/main/checkpoint_48000.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-female-vits/resolve/main/config-2.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "Best version of persian-tts-female-vits model for text to speech purposes. Single-speaker female voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "glowtts-male": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-male-glow_tts/resolve/main/best_model_77797.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-male-glow_tts/resolve/main/config-1.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "persian-tts-male-glow_tts model for text to speech purposes. Single-speaker male voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "glowtts-female": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-female-glow_tts/resolve/main/best_model.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-female-glow_tts/resolve/main/config.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "persian-tts-female-glow_tts model for text to speech purposes. Single-speaker female voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "vits-male1-best": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-male1-vits/resolve/main/checkpoint_88000.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-male1-vits/resolve/main/config.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "Best version of persian-tts-male1-vits model for text to speech purposes. Single-speaker male voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "vits-female1": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-female1-vits/resolve/main/checkpoint_50000.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-female1-vits/resolve/main/config.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "persian-tts-female1-vits model for text to speech purposes. Single-speaker female voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
+                },
+                "tacotron2-female": {
+                    "hf_url": [
+                        "https://huggingface.co/Kamtera/persian-tts-female-tacotron2/resolve/main/checkpoint_313000.pth",
+                        "https://huggingface.co/Kamtera/persian-tts-female-tacotron2/resolve/main/config-2.json"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "description": "persian-tts-female-tacotron2 model for text to speech purposes. Single-speaker female voice.",
+                    "author": "@karim23657",
+                    "license": "openrail"
                 }
             }
         },
