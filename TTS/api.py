@@ -158,7 +158,15 @@ class TTS(nn.Module):
         self, model_name: str, vocoder_name: str | None = None
     ) -> tuple[Path | None, Path | None, Path | None, Path | None, Path | None]:
         model_path, config_path, model_item = self.manager.download_model(model_name)
-        if "fairseq" in model_name or (model_item is not None and isinstance(model_item["model_url"], list)):
+        if (
+            "fairseq" in model_name
+            or "openvoice" in model_name
+            or (
+                model_item is not None
+                and isinstance(model_item["model_url"], list)
+                and len(model_item["model_url"]) > 2
+            )
+        ):
             # return model directory if there are multiple files
             # we assume that the model knows how to load itself
             return None, None, None, None, model_path
