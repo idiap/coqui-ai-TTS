@@ -742,7 +742,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "persian-tts-male-vits model for text to speech purposes. Single-speaker male voice.",
+                    "description": "persian-tts-male-vits model for text to speech purposes. Single-speaker male voice trained on persian-tts-dataset.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -753,7 +753,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "Best version of persian-tts-female-vits model for text to speech purposes. Single-speaker female voice.",
+                    "description": "Best version of persian-tts-female-vits model for text to speech purposes. Single-speaker female voice trained on persian-tts-dataset-female.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset-famale.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -764,7 +764,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "persian-tts-male-glow_tts model for text to speech purposes. Single-speaker male voice.",
+                    "description": "persian-tts-male-glow_tts model for text to speech purposes. Single-speaker male voice trained on persian-tts-dataset.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -775,7 +775,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "persian-tts-female-glow_tts model for text to speech purposes. Single-speaker female voice.",
+                    "description": "persian-tts-female-glow_tts model for text to speech purposes. Single-speaker female voice trained on persian-tts-dataset-female.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset-famale.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -786,7 +786,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "Best version of persian-tts-male1-vits model for text to speech purposes. Single-speaker male voice.",
+                    "description": "Best version of persian-tts-male1-vits model for text to speech purposes. Single-speaker male voice trained on persian-tts-dataset-male.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset-male.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -797,7 +797,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "persian-tts-female1-vits model for text to speech purposes. Single-speaker female voice.",
+                    "description": "persian-tts-female1-vits model for text to speech purposes. Single-speaker female voice trained on ParsiGoo dataset.\nDataset: https://github.com/karim23657/ParsiGoo.",
                     "author": "@karim23657",
                     "license": "openrail"
                 },
@@ -808,7 +808,7 @@
                     ],
                     "default_vocoder": null,
                     "commit": null,
-                    "description": "persian-tts-female-tacotron2 model for text to speech purposes. Single-speaker female voice.",
+                    "description": "persian-tts-female-tacotron2 model for text to speech purposes. Single-speaker female voice trained on persian-tts-dataset-female.\nDataset: https://www.kaggle.com/datasets/magnoliasis/persian-tts-dataset-famale.",
                     "author": "@karim23657",
                     "license": "openrail"
                 }
