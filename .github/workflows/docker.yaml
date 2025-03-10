@@ -1,12 +1,29 @@
 name: "Docker build and push"
 on:
   pull_request:
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   push:
     branches:
       - main
       - dev
     tags:
       - v*
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
 jobs:
   docker-build:
     name: "Build and push Docker image"
