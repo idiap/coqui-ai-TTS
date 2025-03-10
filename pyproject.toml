@@ -28,7 +28,7 @@ name = "coqui-tts"
 version = "0.26.0"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.10, <3.14"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
@@ -42,7 +42,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Operating System :: POSIX :: Linux",
@@ -56,7 +57,7 @@ classifiers = [
 ]
 dependencies = [
     # Core
-    "numpy>=1.25.2,<2.0",
+    "numpy>=2.0",
     "cython>=3.0.0",
     "scipy>=1.11.2",
     "torch>=2.1",
@@ -87,7 +88,7 @@ dependencies = [
     "encodec>=0.1.1",
     # XTTS
     "num2words>=0.5.14",
-    "spacy[ja]>=3.2,<3.8",
+    "spacy[ja]>=3.8",
 ]
 
 [project.optional-dependencies]
