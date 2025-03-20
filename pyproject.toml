@@ -56,11 +56,11 @@ classifiers = [
 ]
 dependencies = [
     # Core
-    "numpy>=1.25.2,<2.0",
+    "numpy>=2",
     "cython>=3.0.0",
-    "scipy>=1.11.2",
-    "torch>=2.1",
-    "torchaudio>=2.1.0",
+    "scipy>=1.13.0",
+    "torch>=2.3",
+    "torchaudio>=2.3.0",
     "soundfile>=0.12.0",
     "librosa>=0.10.1",
     "inflect>=5.6.0",
@@ -73,7 +73,7 @@ dependencies = [
     # Inference
     "pysbd>=0.3.4",
     # Training
-    "matplotlib>=3.7.0",
+    "matplotlib>=3.8.4",
     # Coqui stack
     "coqui-tts-trainer>=0.2.0,<0.3.0",
     "coqpit-config>=0.2.0,<0.3.0",
@@ -87,14 +87,14 @@ dependencies = [
     "encodec>=0.1.1",
     # XTTS
     "num2words>=0.5.14",
-    "spacy[ja]>=3.2,<3.8",
+    "spacy[ja]>=3.8,<4",
 ]
 
 [project.optional-dependencies]
 # Only used in notebooks
 notebooks = [
     "bokeh>=3.0.3",
-    "pandas>=1.4,<2.0",
+    "pandas>=1.4,<3.0",
     "umap-learn>=0.5.1",
 ]
 # For running the TTS server
