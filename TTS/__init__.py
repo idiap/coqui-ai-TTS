@@ -31,7 +31,7 @@ if is_pytorch_at_least_2_4():
     # Bark
     torch.serialization.add_safe_globals(
         [
-            np.core.multiarray.scalar,
+            np._core.multiarray.scalar,
             np.dtype,
             np.dtypes.Float64DType,
             _codecs.encode,  # TODO: safe by default from Pytorch 2.5
