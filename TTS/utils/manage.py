@@ -447,27 +447,37 @@ class ModelManager:
         self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item
 
+
     @staticmethod
     def _find_files(output_path: Path) -> tuple[Path, Path]:
         """Find the model and config files in the output path
-
         Args:
             output_path (str): path to the model files
-
         Returns:
             Tuple[str, str]: path to the model file and config file
         """
         model_file = None
         config_file = None
+        
+        # Check for config.json first, rename if needed
+        json_files = list(output_path.glob("*.json"))
+        if len(json_files) == 1 and json_files[0].name != "config.json":
+            # Rename the single JSON file to config.json
+            new_config_path = output_path / "config.json"
+            json_files[0].rename(new_config_path)
+        
+        # Now look for the files
         for f in output_path.iterdir():
             if f.name in ["model_file.pth", "model_file.pth.tar", "model.pth", "checkpoint.pth"]:
                 model_file = f
             elif f.name == "config.json":
                 config_file = f
+        
         if model_file is None:
             raise ValueError(" [!] Model file not found in the output path")
         if config_file is None:
             raise ValueError(" [!] Config file not found in the output path")
+        
         return model_file, config_file
 
     @staticmethod
