@@ -39,6 +39,7 @@ def create_argparser() -> argparse.ArgumentParser:
         help="Name of one of the pre-trained tts models in format <language>/<dataset>/<model_name>",
     )
     parser.add_argument("--vocoder_name", type=str, default=None, help="name of one of the released vocoder models.")
+    parser.add_argument("--speaker_name", type=str, default=None, help="name of the speaker to use in multi-speaker models.")
 
     # Args for running custom models
     parser.add_argument("--config_path", default=None, type=str, help="Path to model config file.")
@@ -91,6 +92,7 @@ if args.use_cuda:
 
 # CASE2: load models
 model_name = args.model_name if args.model_path is None else None
+speaker_name = args.speaker_name
 api = TTS(
     model_name=model_name,
     model_path=args.model_path,
@@ -211,19 +213,23 @@ def mary_tts_api_voices():
         "{{ name }} {{ locale }} {{ gender }}\n", name=model_details[3], locale=model_details[1], gender="u"
     )
 
-
 @app.route("/process", methods=["GET", "POST"])
 def mary_tts_api_process():
     """MaryTTS-compatible /process endpoint"""
     with lock:
         if request.method == "POST":
             data = parse_qs(request.get_data(as_text=True))
+            speaker_idx = data.get("VOICE", [""])[0]
             # NOTE: we ignore param. LOCALE and VOICE for now since we have only one active model
             text = data.get("INPUT_TEXT", [""])[0]
         else:
             text = request.args.get("INPUT_TEXT", "")
-        logger.info("Model input: %s", text)
-        wavs = api.tts(text)
+            speaker_idx = request.args.get("VOICE", "")
+
+        speaker_name = speaker_idx if speaker_idx else args.speaker_name
+
+        print(f" > Voice: {speaker_name}, Model input: {text}")
+        wavs = api.synthesizer.tts(text, speaker_name=speaker_name)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
