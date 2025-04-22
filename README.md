@@ -180,6 +180,10 @@ You can then enjoy the TTS server [here](http://[::1]:5002/)
 More details about the docker images (like GPU support) can be found
 [here](https://coqui-tts.readthedocs.io/en/latest/docker_images.html)
 
+## Hugging Face Space
+
+You can try that Hugging Face Space: https://huggingface.co/spaces/rrg92/xtts  
+It runs XTTS using de ZeroGPU and Gradio Interface
 
 ## Synthesizing speech by 🐸TTS
 <!-- start inference -->
