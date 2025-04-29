@@ -197,7 +197,7 @@ pip install deepspeed
 - `top_k`: Lower values mean the decoder produces more "likely" (aka boring) outputs. Defaults to 50.
 - `top_p`: Lower values mean the decoder produces more "likely" (aka boring) outputs. Defaults to 0.8.
 - `speed`: The speed rate of the generated audio. Defaults to 1.0. (can produce artifacts if far from 1.0)
-- `enable_text_splitting`: Whether to split the text into sentences and generate audio for each sentence. It allows you to have infinite input length but might loose important context between sentences. Defaults to True.
+- `enable_text_splitting`: Whether to split the text into sentences and generate audio for each sentence. It allows you to have infinite input length but might loose important context between sentences. Defaults to False.
 
 
 #### Inference
