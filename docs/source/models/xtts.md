@@ -295,7 +295,7 @@ The user can run this gradio demo locally or remotely using a Colab Notebook.
 #### Run demo on Colab
 To make the `XTTS_v2` fine-tuning more accessible for users that do not have good GPUs available we did a Google Colab Notebook.
 
-The Colab Notebook is available [here](https://colab.research.google.com/drive/1GiI4_X724M8q2W-zZ-jXo7cWTV7RfaH-?usp=sharing).
+The Colab Notebook is available [here](https://colab.research.google.com/github/idiap/coqui-ai-TTS/blob/dev/TTS/demos/xtts_ft_demo/XTTS_finetune_colab.ipynb).
 
 To learn how to use this Colab Notebook please check the [XTTS fine-tuning video](https://www.youtube.com/watch?v=8tpDiiouGxc).
 
