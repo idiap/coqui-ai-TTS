@@ -39,7 +39,7 @@ def create_argparser() -> argparse.ArgumentParser:
         help="Name of one of the pre-trained tts models in format <language>/<dataset>/<model_name>",
     )
     parser.add_argument("--vocoder_name", type=str, default=None, help="name of one of the released vocoder models.")
-    parser.add_argument("--speaker_name", type=str, default=None, help="name of the speaker to use in multi-speaker models.")
+    parser.add_argument("--speaker_idx", type=str, default=None, help="name of the speaker to use in multi-speaker models.")
 
     # Args for running custom models
     parser.add_argument("--config_path", default=None, type=str, help="Path to model config file.")
@@ -92,7 +92,7 @@ if args.use_cuda:
 
 # CASE2: load models
 model_name = args.model_name if args.model_path is None else None
-speaker_name = args.speaker_name
+speaker_idx = args.speaker_idx
 api = TTS(
     model_name=model_name,
     model_path=args.model_path,
@@ -210,7 +210,7 @@ def mary_tts_api_voices():
     else:
         model_details = ["", "en", "", "default"]
     return render_template_string(
-        "{{ name }} {{ locale }} {{ gender }}\n", name=model_details[3], locale=model_details[1], gender="u"
+        "{{ name }} {{ locale }} {{ gender }} {{ speaker_idx }}\n", name=model_details[3], locale=model_details[1], gender="u", speaker_idx=speaker_idx
     )
 
 @app.route("/process", methods=["GET", "POST"])
@@ -226,10 +226,10 @@ def mary_tts_api_process():
             text = request.args.get("INPUT_TEXT", "")
             speaker_idx = request.args.get("VOICE", "")
 
-        speaker_name = speaker_idx if speaker_idx else args.speaker_name
+        speaker_idx = speaker_idx if speaker_idx else args.speaker_idx
 
-        print(f" > Voice: {speaker_name}, Model input: {text}")
-        wavs = api.synthesizer.tts(text, speaker_name=speaker_name)
+        print(f" > Voice: {speaker_idx}, Model input: {text}")
+        wavs = api.synthesizer.tts(text, speaker_name=speaker_idx)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
