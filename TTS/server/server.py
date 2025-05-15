@@ -38,7 +38,10 @@ def create_argparser() -> argparse.ArgumentParser:
         default="tts_models/en/ljspeech/tacotron2-DDC",
         help="Name of one of the pre-trained tts models in format <language>/<dataset>/<model_name>",
     )
-    parser.add_argument("--vocoder_name", type=str, default=None, help="name of one of the released vocoder models.")
+    parser.add_argument("--vocoder_name", type=str, default=None, help="Name of one of the released vocoder models.")
+    parser.add_argument(
+        "--speaker_idx", type=str, default=None, help="Target speaker ID for a multi-speaker TTS model."
+    )
 
     # Args for running custom models
     parser.add_argument("--config_path", default=None, type=str, help="Path to model config file.")
@@ -163,10 +166,10 @@ def tts():
     with lock:
         text = request.headers.get("text") or request.values.get("text", "")
         speaker_idx = (
-            request.headers.get("speaker-id") or request.values.get("speaker_id", "") if api.is_multi_speaker else None
+            request.headers.get("speaker-id") or request.values.get("speaker_id", args.speaker_idx)
+            if api.is_multi_speaker
+            else None
         )
-        if speaker_idx == "":
-            speaker_idx = None
         language_idx = (
             request.headers.get("language-id") or request.values.get("language_id", "")
             if api.is_multi_lingual
@@ -207,6 +210,13 @@ def mary_tts_api_voices():
         model_details = args.model_name.split("/")
     else:
         model_details = ["", "en", "", "default"]
+    if api.is_multi_speaker:
+        return render_template_string(
+            "{% for speaker in speakers %}{{ speaker }} {{ locale }} {{ gender }}\n{% endfor %}",
+            speakers=api.speakers,
+            locale=model_details[1],
+            gender="u",
+        )
     return render_template_string(
         "{{ name }} {{ locale }} {{ gender }}\n", name=model_details[3], locale=model_details[1], gender="u"
     )
@@ -218,12 +228,16 @@ def mary_tts_api_process():
     with lock:
         if request.method == "POST":
             data = parse_qs(request.get_data(as_text=True))
-            # NOTE: we ignore param. LOCALE and VOICE for now since we have only one active model
+            speaker_idx = data.get("VOICE", [args.speaker_idx])[0]
+            # NOTE: we ignore parameter LOCALE for now since we have only one active model
             text = data.get("INPUT_TEXT", [""])[0]
         else:
             text = request.args.get("INPUT_TEXT", "")
+            speaker_idx = request.args.get("VOICE", args.speaker_idx)
+
         logger.info("Model input: %s", text)
-        wavs = api.tts(text)
+        logger.info("Speaker idx: %s", speaker_idx)
+        wavs = api.tts(text, speaker=speaker_idx)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
