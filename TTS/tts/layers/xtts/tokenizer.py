@@ -1,3 +1,4 @@
+# Tokenizer
 import logging
 import os
 import re
@@ -241,6 +242,16 @@ _abbreviations = {
             # Hindi doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
+    "vi": [
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        for x in [
+            ("ông", "ông"),  # Mr.
+            ("bà", "bà"),    # Mrs.
+            ("dr", "bác sĩ"), # doctor
+            ("ts", "tiến sĩ"), # PhD
+            ("st", "số thứ tự"), # ordinal
+        ]
+    ],
 }
 
 
@@ -449,6 +460,19 @@ _symbols_multilingual = {
             ("°", " डिग्री "),
         ]
     ],
+    "vi": [
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        for x in [
+            ("&", " và "),        # and
+            ("@", " a còng "),    # at
+            ("%", " phần trăm "), # percent
+            ("#", " dấu thăng "), # hash
+            ("$", " đô la "),     # dollar
+            ("£", " bảng Anh "),  # pound
+            ("°", " độ "),        # degree
+        ]
+    ],
+
 }
 
 
@@ -475,7 +499,9 @@ _ordinal_re = {
     "hu": re.compile(r"([0-9]+)(\.|adik|edik|odik|edik|ödik|ödike|ik)"),
     "ko": re.compile(r"([0-9]+)(번째|번|차|째)"),
     "hi": re.compile(r"([0-9]+)(st|nd|rd|th)"),  # To check
+    "vi": re.compile(r"([0-9]+)(th|thứ)?"),  # Matches "1", "thứ 1", "2", "thứ 2"
 }
+
 _number_re = re.compile(r"[0-9]+")
 _currency_re = {
     "USD": re.compile(r"((\$[0-9\.\,]*[0-9]+)|([0-9\.\,]*[0-9]+\$))"),
@@ -527,6 +553,8 @@ def _expand_currency(m, lang="en", currency="USD"):
         "hu": ", ",
         "ko": ", ",
         "hi": ", ",
+        "vi": " và ",
+
     }
 
     if amount.is_integer():
@@ -632,6 +660,7 @@ class VoiceBpeTokenizer:
             "hu": 224,
             "ko": 95,
             "hi": 150,
+            "vi": 250,
         }
 
     @cached_property
@@ -651,7 +680,7 @@ class VoiceBpeTokenizer:
             )
 
     def preprocess_text(self, txt, lang):
-        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
+        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko", "vi"}:
             txt = multilingual_cleaners(txt, lang)
             if lang == "zh":
                 txt = chinese_transliterate(txt)
@@ -662,6 +691,7 @@ class VoiceBpeTokenizer:
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
+
 
     def encode(self, txt, lang):
         lang = lang.split("-")[0]  # remove the region
@@ -784,6 +814,14 @@ def test_expand_numbers_multilingual():
         # Hindi
         ("12.5 सेकंड में।", "साढ़े बारह सेकंड में।", "hi"),
         ("50 सैनिक थे।", "पचास सैनिक थे।", "hi"),
+        # Vietnamese
+        ("Trong 12,5 giây.", "Trong mười hai phẩy năm giây.", "vi"),
+        ("Có 50 binh sĩ.", "Có năm mươi binh sĩ.", "vi"),
+        ("Đây là bài kiểm tra thứ 1", "Đây là bài kiểm tra thứ nhất", "vi"),
+        ("Đó sẽ là $20 thưa ông.", "Đó sẽ là hai mươi đô la thưa ông.", "vi"),
+        ("Đó sẽ là 20€ thưa ông.", "Đó sẽ là hai mươi euro thưa ông.", "vi"),
+        ("Đó sẽ là 20,15€ thưa ông.", "Đó sẽ là hai mươi euro, mười lăm xu thưa ông.", "vi"),
+
     ]
     for a, b, lang in test_cases:
         out = expand_numbers_multilingual(a, lang=lang)
@@ -826,6 +864,11 @@ def test_abbreviations_multilingual():
         ("Dr. Ayşe burada.", "doktor Ayşe burada.", "tr"),
         # Hungarian
         ("Dr. Szabó itt van.", "doktor Szabó itt van.", "hu"),
+        # Vietnamese
+        ("Chào Ông. Nguyễn.", "Chào ông Nguyễn.", "vi"),
+        ("Bà. Trần đã đến.", "Bà Trần đã đến.", "vi"),
+        ("Tiến sĩ. Lê đang đợi bạn.", "Tiến sĩ Lê đang đợi bạn.", "vi"),
+
     ]
 
     for a, b, lang in test_cases:
@@ -854,6 +897,10 @@ def test_symbols_multilingual():
         ("Az akkumulátorom töltöttsége 14%", "Az akkumulátorom töltöttsége 14 százalék", "hu"),
         ("배터리 잔량이 14%입니다.", "배터리 잔량이 14 퍼센트입니다.", "ko"),
         ("मेरे पास 14% बैटरी है।", "मेरे पास चौदह प्रतिशत बैटरी है।", "hi"),
+        ("Tôi còn 14% pin", "Tôi còn 14 phần trăm pin", "vi"),
+        ("Hẹn gặp @ bữa tiệc", "Hẹn gặp tại bữa tiệc", "vi"),
+        ("Nhiệt độ là 36.5°", "Nhiệt độ là 36.5 độ", "vi"),
+
     ]
 
     for a, b, lang in test_cases:
