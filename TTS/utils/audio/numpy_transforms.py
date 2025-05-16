@@ -281,8 +281,13 @@ def compute_f0(
         >>> wav = ap.load_wav(WAV_FILE, sr=ap.sample_rate)[:5 * ap.sample_rate]
         >>> pitch = ap.compute_f0(wav)
     """
-    assert pitch_fmax is not None, " [!] Set `pitch_fmax` before caling `compute_f0`."
-    assert pitch_fmin is not None, " [!] Set `pitch_fmin` before caling `compute_f0`."
+    assert pitch_fmax is not None, " [!] Set `pitch_fmax` before calling `compute_f0`."
+    assert pitch_fmin is not None, " [!] Set `pitch_fmin` before calling `compute_f0`."
+
+    if sample_rate / pitch_fmin >= win_length - 1:
+        logger.warning("pitch_fmin=%.2f is too small for win_length=%d", pitch_fmin, win_length)
+        pitch_fmin = sample_rate / (win_length - 1) + 0.1
+        logger.warning("pitch_fmin increased to %f", pitch_fmin)
 
     f0, voiced_mask, _ = pyin(
         y=x.astype(np.double),
@@ -290,7 +295,6 @@ def compute_f0(
         fmax=pitch_fmax,
         sr=sample_rate,
         frame_length=win_length,
-        win_length=win_length // 2,
         hop_length=hop_length,
         pad_mode=stft_pad_mode,
         center=center,

@@ -18,6 +18,13 @@ MODELS_WITH_SEP_TESTS = [
     "tts_models/multilingual/multi-dataset/xtts_v2",
 ]
 
+# These contain np.core.multiarray.scalar which cannot be added safe globals for
+# weights-only loading because it's renamed to np._core.multiarray.scalar
+BROKEN_MODELS = [
+    "tts_models/en/blizzard2013/capacitron-t2-c50",
+    "tts_models/en/blizzard2013/capacitron-t2-c150_v2",
+]
+
 
 @pytest.fixture(autouse=True)
 def run_around_tests(tmp_path):
@@ -36,7 +43,7 @@ def manager(tmp_path):
 # To split tests into different CI jobs
 num_partitions = int(os.getenv("NUM_PARTITIONS", "1"))
 partition = int(os.getenv("TEST_PARTITION", "0"))
-model_names = [name for name in TTS.list_models() if name not in MODELS_WITH_SEP_TESTS]
+model_names = [name for name in TTS.list_models() if name not in MODELS_WITH_SEP_TESTS and name not in BROKEN_MODELS]
 model_names.extend(["tts_models/deu/fairseq/vits", "tts_models/sqi/fairseq/vits"])
 model_names = [name for i, name in enumerate(model_names) if i % num_partitions == partition]
 

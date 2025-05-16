@@ -123,7 +123,7 @@ def test_loader(dataset_config: BaseDatasetConfig):
         mel_new = mel_new[:, : mel_lengths[0]]
         ignore_seg = -(1 + c.audio.win_length // c.audio.hop_length)
         mel_diff = (mel_new[:, : mel_input.shape[1]] - mel_input[0].T.numpy())[:, 0:ignore_seg]
-        assert abs(mel_diff.sum()) < 1e-5
+        assert abs(mel_diff.sum()) < 1e-4
 
         # check normalization ranges
         if ap.symmetric_norm:

@@ -331,7 +331,7 @@ class ForwardTTS(BaseTTS):
         return o_dr
 
     def _forward_encoder(
-        self, x: torch.LongTensor, x_mask: torch.FloatTensor, g: torch.FloatTensor = None
+        self, x: torch.LongTensor, x_mask: torch.FloatTensor, g: torch.FloatTensor | None = None
     ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Encoding forward pass.
 
@@ -356,7 +356,7 @@ class ForwardTTS(BaseTTS):
             - g: :math:`(B, C)`
         """
         if hasattr(self, "emb_g"):
-            g = g.type(torch.LongTensor)
+            g = g.type(torch.LongTensor).to(x.device)
             g = self.emb_g(g)  # [B, C, 1]
         if g is not None:
             g = g.unsqueeze(-1)
