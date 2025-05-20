@@ -44,7 +44,7 @@ def sequence_mask(sequence_length: torch.Tensor, max_len: int | None = None) -> 
         - mask: :math:`[B, T_max]`
     """
     if max_len is None:
-        max_len = int(sequence_length.max())
+        max_len = sequence_length.max()
     seq_range = torch.arange(max_len, dtype=sequence_length.dtype, device=sequence_length.device)
     # B x T_max
     return seq_range.unsqueeze(0) < sequence_length.unsqueeze(1)
