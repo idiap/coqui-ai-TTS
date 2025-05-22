@@ -770,6 +770,25 @@
             }
         }
     },
+        "be": {
+            "bel-tts": {
+                "glow-tts":{
+                    "description": "Belarusian GlowTTS model created by @jhlfrfufyfn (Huggingface) https://huggingface.co/jhlfrfufyfn/bel-tts. Rated as pretty good by users apparently, You can find a huggingface space demo of it here https://huggingface.co/spaces/jhlfrfufyfn/bel-tts",
+                    "hf_url": [
+                        "https://huggingface.co/jhlfrfufyfn/bel-tts/resolve/main/model.pth",
+                        "https://huggingface.co/jhlfrfufyfn/bel-tts/resolve/main/config.json",
+                        "https://huggingface.co/jhlfrfufyfn/bel-tts/resolve/main/vocoder.pth",
+                        "https://huggingface.co/jhlfrfufyfn/bel-tts/resolve/main/vocoder_config.json"
+                    ],
+
+                    "default_vocoder": "vocoder_models/be/common-voice/hifigan",
+                    "commit": "dcb716b24bb6733e6b2424d5e90adff69a65f47b",
+                    "license": "Apache 2.0",
+                    "contact": "https://huggingface.co/jhlfrfufyfn"
+                }
+            }
+        }
+    },
     "vocoder_models": {
         "universal": {
             "libri-tts": {
