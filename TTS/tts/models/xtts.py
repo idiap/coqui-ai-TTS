@@ -249,6 +249,7 @@ class Xtts(BaseTTS):
             chunk_length (int): Length of the audio chunks in seconds. When `length == chunk_length`, the whole audio
                 is being used without chunking. It must be < `length`. Defaults to 6.
         """
+        MIN_AUDIO_SECONDS = 0.33
         if sr != 22050:
             audio = torchaudio.functional.resample(audio, sr, 22050)
         if length > 0:
@@ -259,7 +260,7 @@ class Xtts(BaseTTS):
                 audio_chunk = audio[:, i : i + 22050 * chunk_length]
 
                 # if the chunk is too short ignore it
-                if audio_chunk.size(-1) < 22050 * 0.33:
+                if audio_chunk.size(-1) < 22050 * MIN_AUDIO_SECONDS:
                     continue
 
                 mel_chunk = wav_to_mel_cloning(
@@ -279,6 +280,9 @@ class Xtts(BaseTTS):
                 style_embs.append(style_emb)
 
             # mean style embedding
+            if len(style_embs) == 0:
+                msg = f"Provided reference audio too short (minimum length: {MIN_AUDIO_SECONDS:.2f} seconds)."
+                raise RuntimeError(msg)
             cond_latent = torch.stack(style_embs).mean(dim=0)
         else:
             mel = wav_to_mel_cloning(
