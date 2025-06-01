@@ -249,12 +249,12 @@ class Bark(BaseTTS):
         If eval is True, set the model to eval mode.
 
         Args:
-            config (TortoiseConfig): The model config.
+            config (BarkConfig): The model config.
             checkpoint_dir (str): The directory where the checkpoints are stored.
-            ar_checkpoint_path (str, optional): The path to the autoregressive checkpoint. Defaults to None.
-            diff_checkpoint_path (str, optional): The path to the diffusion checkpoint. Defaults to None.
-            clvp_checkpoint_path (str, optional): The path to the CLVP checkpoint. Defaults to None.
-            vocoder_checkpoint_path (str, optional): The path to the vocoder checkpoint. Defaults to None.
+            text_model_path (str, optional): The path to the text model checkpoint. Defaults to None.
+            coarse_model_path (str, optional): The path to the coarse model checkpoint. Defaults to None.
+            fine_model_path (str, optional): The path to the fine model checkpoint. Defaults to None.
+            hubert_tokenizer_path (str, optional): The path to the tokenizer checkpoint. Defaults to None.
             eval (bool, optional): Whether to set the model to eval mode. Defaults to False.
             strict (bool, optional): Whether to load the model strictly. Defaults to True.
         """
