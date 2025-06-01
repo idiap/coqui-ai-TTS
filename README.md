@@ -176,9 +176,9 @@ python3 TTS/server/server.py --list_models #To get the list of available models
 python3 TTS/server/server.py --model_name tts_models/en/vctk/vits # To start a server
 ```
 
-You can then enjoy the TTS server [here](http://[::1]:5002/)
-More details about the docker images (like GPU support) can be found
-[here](https://coqui-tts.readthedocs.io/en/latest/docker_images.html)
+You can then enjoy the TTS server [here](http://localhost:5002/). More details,
+like GPU support and a Docker Compose configuration, can be found [in the
+documentation](https://coqui-tts.readthedocs.io/en/latest/docker_images.html).
 
 
 ## Synthesizing speech by 🐸TTS
