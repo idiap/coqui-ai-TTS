@@ -205,7 +205,6 @@ if __name__ == "__main__":
                 label="Logs:",
                 interactive=False,
             )
-            # demo.load(read_logs, None, logs, every=1)
 
             prompt_compute_btn = gr.Button(value="Step 1 - Create dataset")
 
@@ -289,8 +288,7 @@ if __name__ == "__main__":
                 label="Logs:",
                 interactive=False,
             )
-            # demo.load(read_logs, None, logs_tts_train, every=1)
-            
+
             train_btn = gr.Button(value="Step 2 - Run the training")
 
             def train_model(
