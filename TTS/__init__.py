@@ -19,14 +19,8 @@ if is_pytorch_at_least_2_4():
     from collections import defaultdict
 
     import numpy as np
-    try:
-        # NumPy ≤ 1.x
-        from numpy.core.multiarray import scalar as _np_scalar
-    except ModuleNotFoundError:
-        # NumPy ≥ 2.0 – public namespace gone, fall back to the shim
-        from numpy._core.multiarray import scalar as _np_scalar
-
     import torch
+    from numpy._core.multiarray import scalar as _np_scalar
 
     from TTS.config.shared_configs import BaseDatasetConfig
     from TTS.tts.configs.xtts_config import XttsConfig
