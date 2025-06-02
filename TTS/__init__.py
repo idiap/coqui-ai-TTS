@@ -19,6 +19,13 @@ if is_pytorch_at_least_2_4():
     from collections import defaultdict
 
     import numpy as np
+    try:
+        # NumPy ≤ 1.x
+        from numpy.core.multiarray import scalar as _np_scalar
+    except ModuleNotFoundError:
+        # NumPy ≥ 2.0 – public namespace gone, fall back to the shim
+        from numpy._core.multiarray import scalar as _np_scalar
+
     import torch
 
     from TTS.config.shared_configs import BaseDatasetConfig
@@ -31,7 +38,7 @@ if is_pytorch_at_least_2_4():
     # Bark
     torch.serialization.add_safe_globals(
         [
-            np._core.multiarray.scalar,
+            (_np_scalar, "numpy.core.multiarray.scalar"),
             np.dtype,
             np.dtypes.Float64DType,
             _codecs.encode,  # TODO: safe by default from Pytorch 2.5
