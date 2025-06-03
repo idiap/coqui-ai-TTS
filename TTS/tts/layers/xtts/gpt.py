@@ -475,7 +475,6 @@ class GPT(nn.Module):
         return loss_text.mean(), loss_mel.mean(), mel_logits
 
     def inference(self, cond_latents, text_inputs, **hf_generate_kwargs):
-        self.compute_embeddings(cond_latents, text_inputs)
         return self.generate(cond_latents, text_inputs, **hf_generate_kwargs)
 
     def compute_embeddings(
