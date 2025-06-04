@@ -1,5 +1,7 @@
 # Training a model
 
+## Single-speaker training
+
 1. Decide the model you want to use.
 
     Each model has a different set of pros and cons that define the run-time efficiency and the voice quality. It is up to you to decide what model serves your needs. Other than referring to the papers, one easy way is to test the 🐸TTS
@@ -131,7 +133,7 @@
     In the example above, we trained a `GlowTTS` model, but the same workflow applies to all the other 🐸TTS models.
 
 
-## Multi-speaker Training
+## Multi-speaker training
 
 Training a multi-speaker model is mostly the same as training a single-speaker model.
 You need to specify a couple of configuration parameters, initiate a `SpeakerManager` instance and pass it to the model.
@@ -142,4 +144,13 @@ d-vectors. For using d-vectors, you first need to compute the d-vectors using th
 The same Glow-TTS model above can be trained on a multi-speaker VCTK dataset with the script below.
 
 ```{literalinclude} ../../../recipes/vctk/glow_tts/train_glow_tts.py
+```
+
+## Resume training
+
+If you want to continue a training/fine-tuning run that got interrupted, e.g.
+because a job failed or reached a time limit:
+
+```bash
+$ python train_glowtts.py --continue_path path/to/previous/run/folder/
 ```
