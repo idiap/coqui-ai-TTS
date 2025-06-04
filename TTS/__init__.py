@@ -33,7 +33,7 @@ if is_pytorch_at_least_2_4():
     np_core = np._core if version.parse(np.__version__) >= version.parse("2.0.0") else np.core
     torch.serialization.add_safe_globals(
         [
-            np_core,
+            np_core.multiarray.scalar,
             np.dtype,
             np.dtypes.Float64DType,
             _codecs.encode,  # TODO: safe by default from Pytorch 2.5
