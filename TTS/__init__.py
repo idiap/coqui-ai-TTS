@@ -20,6 +20,7 @@ if is_pytorch_at_least_2_4():
 
     import numpy as np
     import torch
+    from packaging import version
 
     from TTS.config.shared_configs import BaseDatasetConfig
     from TTS.tts.configs.xtts_config import XttsConfig
@@ -29,9 +30,10 @@ if is_pytorch_at_least_2_4():
     torch.serialization.add_safe_globals([dict, defaultdict, RAdam])
 
     # Bark
+    np_core = np._core if version.parse(np.__version__) >= version.parse("2.0.0") else np.core
     torch.serialization.add_safe_globals(
         [
-            np._core.multiarray.scalar,
+            np_core.multiarray.scalar,
             np.dtype,
             np.dtypes.Float64DType,
             _codecs.encode,  # TODO: safe by default from Pytorch 2.5
