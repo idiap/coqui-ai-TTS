@@ -26,13 +26,6 @@ else:
 logger = logging.getLogger(__name__)
 
 
-if not hasattr(torch.nn.functional, "scaled_dot_product_attention"):
-    logger.warning(
-        "torch version does not support flash attention. You will get significantly faster"
-        + " inference speed by upgrade torch to newest version / nightly."
-    )
-
-
 def _md5(fname):
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
