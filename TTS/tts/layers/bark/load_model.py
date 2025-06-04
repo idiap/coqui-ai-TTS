@@ -81,10 +81,10 @@ def clear_cuda_cache():
 
 
 def load_model(ckpt_path, device, config, model_type="text"):
-    logger.info("loading %s model from %s...", model_type, ckpt_path)
+    logger.info("Loading %s model from %s...", model_type, ckpt_path)
 
     if device == "cpu":
-        logger.warning("No GPU being used. Careful, Inference might be extremely slow!")
+        logger.warning("No GPU being used. Careful, inference might be extremely slow!")
     if model_type == "text":
         ConfigClass = GPTConfig
         ModelClass = GPT
@@ -101,12 +101,16 @@ def load_model(ckpt_path, device, config, model_type="text"):
         and os.path.exists(ckpt_path)
         and _md5(ckpt_path) != config.REMOTE_MODEL_PATHS[model_type]["checksum"]
     ):
-        logger.warning("found outdated %s model, removing...", model_type)
+        logger.warning(
+            ("Found outdated %s model (local file does not match checksum of %s), removing..."),
+            model_type,
+            config.REMOTE_MODEL_PATHS[model_type]["path"].replace("tree", "resolve"),
+        )
         os.remove(ckpt_path)
     if not os.path.exists(ckpt_path):
-        logger.info("%s model not found, downloading...", model_type)
         # The URL in the config is a 404 and needs to be fixed
         download_url = config.REMOTE_MODEL_PATHS[model_type]["path"].replace("tree", "resolve")
+        logger.info("%s model not found, downloading from %s into %s", model_type, download_url, ckpt_path)
         _download(download_url, ckpt_path, config.CACHE_DIR)
 
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=is_pytorch_at_least_2_4())
@@ -143,7 +147,7 @@ def load_model(ckpt_path, device, config, model_type="text"):
     model.load_state_dict(state_dict, strict=False)
     n_params = model.get_num_params()
     val_loss = checkpoint["best_val_loss"].item()
-    logger.info("model loaded: %.1fM params, %.3f loss", n_params / 1e6, val_loss)
+    logger.info("Model loaded: %.1fM params, %.3f loss", n_params / 1e6, val_loss)
     model.eval()
     model.to(device)
     del checkpoint, state_dict
