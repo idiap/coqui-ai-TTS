@@ -12,6 +12,7 @@ _TEST_CASES = """
 今日は８月22日です/kyo:wahachigatsuniju:ninichidesu
 xyzとαβγ/eqkusuwaizeqtotoarufabe:tagaNma
 値段は$12.34です/nedaNwaju:niteNsaNyoNdorudesu
+ちょっと待って！/choqtomaqte!
 """
 
 

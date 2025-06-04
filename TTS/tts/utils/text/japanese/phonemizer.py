@@ -5,9 +5,9 @@ import re
 import unicodedata
 
 try:
-    import MeCab
+    import fugashi
 except ImportError as e:
-    raise ImportError("Japanese requires mecab-python3 and unidic-lite.") from e
+    raise ImportError("Japanese requires: fugashi.") from e
 from num2words import num2words
 
 _CONVRULES = [
@@ -352,29 +352,20 @@ def hira2kata(text: str) -> str:
 
 _SYMBOL_TOKENS = set("・、。？！")
 _NO_YOMI_TOKENS = set("「」『』―（）［］[]　…")
-_TAGGER = MeCab.Tagger()
+_TAGGER = fugashi.Tagger()
 
 
 def text2kata(text: str) -> str:
-    parsed = _TAGGER.parse(text)
     res = []
-    for line in parsed.split("\n"):
-        if line == "EOS":
-            break
-        parts = line.split("\t")
-
-        word, yomi = parts[0], parts[1]
-        if yomi:
-            res.append(yomi)
-        else:
-            if word in _SYMBOL_TOKENS:
-                res.append(word)
-            elif word in ("っ", "ッ"):
-                res.append("ッ")
-            elif word in _NO_YOMI_TOKENS:
-                pass
-            else:
-                res.append(word)
+    for word in _TAGGER(text):
+        if word.feature.pron != "" and word.feature.pron is not None:
+            res.append(word.feature.pron)
+        elif word.surface in _SYMBOL_TOKENS:
+            res.append(word.surface)
+        elif word.surface in ("っ", "ッ"):
+            res.append("ッ")
+        elif word.surface not in _NO_YOMI_TOKENS and word.surface is not None:
+            res.append(word.surface)
     return hira2kata("".join(res))
 
 
