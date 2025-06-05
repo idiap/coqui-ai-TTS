@@ -115,7 +115,7 @@ ko = [
 # Japanese
 ja = [
     "cutlet>=0.2.0",
-    "fugashi[unidic-lite]>=1.3.0,!=1.5.0",
+    "fugashi[unidic-lite]>=1.3.0",
 ]
 # Chinese
 zh = [
