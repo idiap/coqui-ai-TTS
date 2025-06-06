@@ -10,7 +10,6 @@ import tqdm
 
 from TTS.tts.layers.bark.model import GPT, GPTConfig
 from TTS.tts.layers.bark.model_fine import FineGPT, FineGPTConfig
-from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
     autocast = functools.partial(torch.autocast, device_type="cuda", dtype=torch.bfloat16)
@@ -113,7 +112,7 @@ def load_model(ckpt_path, device, config, model_type="text"):
         logger.info("%s model not found, downloading from %s into %s", model_type, download_url, ckpt_path)
         _download(download_url, ckpt_path, config.CACHE_DIR)
 
-    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=is_pytorch_at_least_2_4())
+    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     # this is a hack
     model_args = checkpoint["model_args"]
     if "input_vocab_size" not in model_args:
