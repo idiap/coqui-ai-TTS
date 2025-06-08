@@ -3,16 +3,20 @@
 """TTS demo server."""
 
 import argparse
+import gc
 import io
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 from threading import Lock
 from urllib.parse import parse_qs
+import torch
+import torchaudio
 
 try:
-    from flask import Flask, render_template, render_template_string, request, send_file
+    from flask import Flask, render_template, render_template_string, request, send_file, jsonify
 except ImportError as e:
     msg = "Server requires requires flask, use `pip install coqui-tts[server]`"
     raise ImportError(msg) from e
@@ -68,6 +72,8 @@ def create_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show_details", action=argparse.BooleanOptionalAction, default=False, help="Generate model detail page."
     )
+    parser.add_argument("--language_id", type=str, help="language id. Default=en. Can be overridden in request.", default="en")
+    parser.add_argument("--lowvram", action=argparse.BooleanOptionalAction, default=False, help="true to use low vram mode, switches device to cpu when idle.")
     return parser
 
 
@@ -90,7 +96,10 @@ if args.list_models:
 
 device = args.device
 if args.use_cuda:
-    device = "cuda"
+    if not "cuda" in device:
+        device = "cuda"
+
+current_device = device 
 
 # CASE2: load models
 model_name = args.model_name if args.model_path is None else None
@@ -108,9 +117,46 @@ api = TTS(
 # TODO: set this from SpeakerManager
 use_gst = api.synthesizer.tts_config.get("use_gst", False)
 supports_cloning = api.synthesizer.tts_config.get("model", "") in ["xtts", "bark"]
+
 app = Flask(__name__)
 
+def handle_vram_change(desired_device: str):
+    current_device = str(api.synthesizer.tts_model.device)
+    if torch.cuda.is_available():
+        if "cuda" in desired_device:
+            if "cuda" not in current_device:
+                api.synthesizer.tts_model.to(desired_device)
+                gc.collect()
+                current_device = desired_device
+        if "cpu" in desired_device:
+            if "cpu" not in current_device:
+                api.synthesizer.tts_model.to(desired_device)
+                torch.cuda.empty_cache()
+                gc.collect()
+                current_device = desired_device
 
+# Move out of vram if low vram mode until ready to generate
+if args.lowvram and "cuda" in device:
+    handle_vram_change("cpu")
+
+# Handle large passages that may throw errors
+def split_sentences_in_text(text: str, lang:str="en") -> list:
+    # Do not split short passages
+    if len(text) <= 175:
+        return [text]
+
+    if not api:
+        return [text]
+    
+    # Use segmenter built into coqui-tts library to split sentences
+    try:
+        api.synthesizer.seg = api.synthesizer._get_segmenter(lang)
+    except Exception as e:
+        logger.info(f"Getting segmenter for language: {lang} failed, defaulting to English.  Reason: {e}.")
+    text_lines = api.synthesizer.split_into_sentences(text)
+    
+    return text_lines
+    
 def style_wav_uri_to_dict(style_wav: str) -> str | dict:
     """Transform an uri style_wav, in either a string (path to wav file to be use for style transfer)
     or a dict (gst tokens/values to be use for styling)
@@ -164,6 +210,8 @@ lock = Lock()
 @app.route("/api/tts", methods=["GET", "POST"])
 def tts():
     with lock:
+        if args.lowvram:
+            handle_vram_change(device)
         text = request.headers.get("text") or request.values.get("text", "")
         speaker_idx = (
             request.headers.get("speaker-id") or request.values.get("speaker_id", args.speaker_idx)
@@ -171,7 +219,7 @@ def tts():
             else None
         )
         language_idx = (
-            request.headers.get("language-id") or request.values.get("language_id", "")
+            request.headers.get("language-id") or request.values.get("language_id") or args.language_id or "en"
             if api.is_multi_lingual
             else None
         )
@@ -182,9 +230,18 @@ def tts():
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
         logger.info("Language idx: %s", language_idx)
-        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
+        sentences = split_sentences_in_text(text, language_idx)
+        combined_audio = None
+        for sentence in sentences:
+            wavs = api.tts(sentence, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
+            if combined_audio == None:
+                combined_audio = wavs
+            else:
+                combined_audio = combined_audio + wavs
         out = io.BytesIO()
-        api.synthesizer.save_wav(wavs, out)
+        api.synthesizer.save_wav(combined_audio, out)
+    if args.lowvram:
+        handle_vram_change("cpu")
     return send_file(out, mimetype="audio/wav")
 
 
@@ -226,6 +283,8 @@ def mary_tts_api_voices():
 def mary_tts_api_process():
     """MaryTTS-compatible /process endpoint"""
     with lock:
+        if args.lowvram:
+            handle_vram_change(device)
         if request.method == "POST":
             data = parse_qs(request.get_data(as_text=True))
             speaker_idx = data.get("VOICE", [args.speaker_idx])[0]
@@ -237,10 +296,170 @@ def mary_tts_api_process():
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
-        wavs = api.tts(text, speaker=speaker_idx)
+        locale=args.model_name.split("/")[1]
+        sentences = split_sentences_in_text(text, locale)
+        combined_audio = None
+        for sentence in sentences:
+            wavs = api.tts(sentence, speaker=speaker_idx)
+            if combined_audio == None:
+                combined_audio = wavs
+            else:
+                combined_audio = combined_audio + wavs
         out = io.BytesIO()
-        api.synthesizer.save_wav(wavs, out)
+        api.synthesizer.save_wav(combined_audio, out)
+    if args.lowvram:
+        handle_vram_change("cpu")
     return send_file(out, mimetype="audio/wav")
+
+# OpenAI Speech API
+def check_voice_type(voice):
+    if not isinstance(voice, str):
+        return str(voice)
+    if os.path.isdir(voice):
+        return "dir"
+    elif os.path.isfile(voice) and voice.endswith(".wav"):
+        return "wav"
+    else:
+        return "string"
+
+@app.route("/v1/audio/speech", methods=["POST"])
+def openai_tts():
+    """
+    POST /v1/audio/speech
+    {
+      "model": "tts-1",           # ignored, defaults to args.model_name
+      "voice": "alloy",           # required: a voice id
+      "input": "Hello world!",    # required text to speak
+      "format": "wav"             # optional: wav, opus, aac, flac, wav, pcm
+      "response_format": "wav"    # optional: wav, opus, aac, flac, wav, pcm (alternative to format)
+    }
+    """
+    payload = request.get_json(force=True)
+    logger.info(payload)
+    text   = payload.get("input") or ""
+    voice  = payload.get("voice", None)
+    voice_type = check_voice_type(voice)
+    # support either "format" or "response_format" parameters
+    fmt    = payload.get("format") 
+    if not fmt:
+        fmt = payload.get("response_format", "mp3") # OpenAI speech default is .mp3
+    fmt = fmt.lower()
+    speed  = payload.get("speed", 1.0)
+    language_idx = args.language_id if args.language_id else "en"
+    
+    # map OpenAI model names to your loaded model
+    # here we ignore payload["model"] since you load at startup
+
+    with lock:
+        if args.lowvram:
+            handle_vram_change(device)
+        sentences = split_sentences_in_text(text, language_idx)
+        combined_audio = None
+        for sentence in sentences:
+            # if voice is a plain string, assume its a built-in speaker
+            if not voice_type in ["dir", "wav"]:
+                wavs = api.tts(sentence, speaker=voice, language=language_idx, speed=speed)
+            # if its a path to a .wav file, it's a cloning .wav
+            elif voice_type == "wav":
+                wavs = api.tts(sentence, speaker_wav=voice, language=language_idx, speed=speed)
+            # if it's a directory, get all the .wavs inside as a list of cloning .wavs
+            elif voice_type == "dir":
+                voice = Path(voice)
+                voices = [
+                    str(wav_path)
+                    for wav_path in voice.glob("*.wav")
+                    if wav_path.is_file()
+                ]
+                wavs = api.tts(sentence, speaker_wav=voices, language=language_idx, speed=speed)
+            if combined_audio == None:
+                combined_audio = wavs
+            else:
+                combined_audio = combined_audio + wavs
+        wav_io = io.BytesIO()
+        api.synthesizer.save_wav(combined_audio, wav_io)
+        wav_io.seek(0)
+
+        # Load WAV data into tensor
+        waveform, sample_rate = torchaudio.load(wav_io)
+
+        mimetypes = {
+            "wav": "audio/wav",
+            "mp3": "audio/mpeg",
+            "opus": "audio/ogg",
+            "aac": "audio/aac",
+            "flac": "audio/flac",
+            "pcm": "audio/L16"
+        }
+
+        fmt = fmt.lower()
+        mimetype = mimetypes.get(fmt, "mp3")
+        if args.lowvram:
+            handle_vram_change("cpu")
+        if fmt == "wav":
+            wav_io.seek(0)
+            return send_file(wav_io, mimetype=mimetype)
+        elif fmt == "mp3":
+            out_mp3 = io.BytesIO()
+            torchaudio.save(out_mp3, waveform, sample_rate, format="mp3")
+            out_mp3.seek(0)
+            return send_file(out_mp3, mimetype=mimetype)
+        elif fmt == "opus":
+            out_opus = io.BytesIO()
+            torchaudio.save(out_opus, waveform, sample_rate, format="ogg", encoding="opus")
+            out_opus.seek(0)
+            return send_file(out_opus, mimetype=mimetype)
+        elif fmt == "aac":
+            out_aac = io.BytesIO()
+            torchaudio.save(out_aac, waveform, sample_rate, format="mp4", encoding="aac")  # m4a container
+            out_aac.seek(0)
+            return send_file(out_aac, mimetype=mimetype)
+        elif fmt == "flac":
+            out_flac = io.BytesIO()
+            torchaudio.save(out_flac, waveform, sample_rate, format="flac")
+            out_flac.seek(0)
+            return send_file(out_flac, mimetype=mimetype)
+        elif fmt == "pcm":
+            # Raw PCM (16-bit little-endian)
+            waveform_int16 = (waveform * 32767).to(torch.int16)
+            out_pcm = io.BytesIO()
+            out_pcm.write(waveform_int16.numpy().tobytes())
+            out_pcm.seek(0)
+            return send_file(out_pcm, mimetype=mimetype)
+        else:
+            return {"error": f"Unsupported format: {fmt}"}, 400
+
+@app.route("/v1/audio/voices", methods=["GET"])
+def openai_list_voices():
+    """
+    GET /v1/audio/voices
+    Returns the list of available voice IDs.
+    """
+    # map api.speakers to OpenAI data schema
+    data = []
+    for v in (api.speakers or []):
+        data.append({
+            "voice_id": v,
+            "language_codes": api.languages if api.is_multi_lingual else ["en"],
+            "name": v,
+            "preview_url": None,
+        })
+    return jsonify({"data": data})
+
+
+@app.route("/v1/models", methods=["GET"])
+def openai_list_models():
+    """
+    GET /v1/models
+    Returns a list of “models” – here we only expose our TTS model.
+    """
+    model_id = args.model_name or os.path.basename(args.model_path or "")
+    return jsonify({
+        "data": [
+            {"id": model_id, "object": "model"}
+        ]
+    })
+
+# ───────────────────────────────────────────────────────────────────────────────
 
 
 def main():
