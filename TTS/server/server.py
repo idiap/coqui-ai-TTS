@@ -3,7 +3,6 @@
 """TTS demo server."""
 
 import argparse
-import gc
 import io
 import json
 import logging
