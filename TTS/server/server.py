@@ -276,6 +276,9 @@ def openai_tts():
     logger.info(payload)
     text   = payload.get("input") or ""
     voice  = payload.get("voice", None)
+    # If no voice parameter is passed, default back to speaker_idx from server arguments
+    if not voice and args.speaker_idx:
+        voice = args.speaker_idx
     voice_type = check_voice_type(voice)
     # support either "format" or "response_format" parameters
     fmt    = payload.get("format") 
@@ -315,15 +318,14 @@ def openai_tts():
             "flac": "audio/flac",
             "pcm": "audio/L16"
         }
-
+        # load WAV data into tensor, to convert to desired format
+        waveform, sample_rate = torchaudio.load(out)
         fmt = fmt.lower()
         # OpenAI spec defaults to .mp3 if not specified
         mimetype = mimetypes.get(fmt, "mp3")
         if fmt == "wav":
             out.seek(0)
             return send_file(out, mimetype=mimetype)
-        # If requested format is not .wav, load WAV data into tensor, and convert to desired format
-        waveform, sample_rate = torchaudio.load(out)
         elif fmt == "mp3":
             out_mp3 = io.BytesIO()
             torchaudio.save(out_mp3, waveform, sample_rate, format="mp3")
