@@ -7,15 +7,17 @@ import io
 import json
 import logging
 import os
-from pathlib import Path
 import sys
+import warnings
+from pathlib import Path
 from threading import Lock
 from urllib.parse import parse_qs
+
 import torch
 import torchaudio
 
 try:
-    from flask import Flask, render_template, render_template_string, request, send_file, jsonify
+    from flask import Flask, render_template, render_template_string, request, send_file
 except ImportError as e:
     msg = "Server requires requires flask, use `pip install coqui-tts[server]`"
     raise ImportError(msg) from e
@@ -42,9 +44,7 @@ def create_argparser() -> argparse.ArgumentParser:
         help="Name of one of the pre-trained tts models in format <language>/<dataset>/<model_name>",
     )
     parser.add_argument("--vocoder_name", type=str, default=None, help="Name of one of the released vocoder models.")
-    parser.add_argument(
-        "--speaker_idx", type=str, default=None, help="Target speaker ID for a multi-speaker TTS model."
-    )
+    parser.add_argument("--speaker_idx", type=str, default=None, help="Default speaker ID for multi-speaker models.")
 
     # Args for running custom models
     parser.add_argument("--config_path", default=None, type=str, help="Path to model config file.")
@@ -71,7 +71,7 @@ def create_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show_details", action=argparse.BooleanOptionalAction, default=False, help="Generate model detail page."
     )
-    parser.add_argument("--language_id", type=str, help="language id. Default=en. Can be overridden in request.", default="en")
+    parser.add_argument("--language_idx", type=str, help="Default language ID for multilingual models.", default="en")
     return parser
 
 
@@ -94,9 +94,7 @@ if args.list_models:
 
 device = args.device
 if args.use_cuda:
-    # Only override with "cuda" if user has not already specified a cuda variant, e.g., "cuda:0", "cuda:1"
-    if not "cuda" in device:
-        device = "cuda"
+    warnings.warn("`--use_cuda` is deprecated, use `--device cuda` instead.", DeprecationWarning, stacklevel=2)
 
 # CASE2: load models
 model_name = args.model_name if args.model_path is None else None
@@ -116,7 +114,8 @@ use_gst = api.synthesizer.tts_config.get("use_gst", False)
 supports_cloning = api.synthesizer.tts_config.get("model", "") in ["xtts", "bark"]
 
 app = Flask(__name__)
-    
+
+
 def style_wav_uri_to_dict(style_wav: str) -> str | dict:
     """Transform an uri style_wav, in either a string (path to wav file to be use for style transfer)
     or a dict (gst tokens/values to be use for styling)
@@ -177,7 +176,7 @@ def tts():
             else None
         )
         language_idx = (
-            request.headers.get("language-id") or request.values.get("language_id") or args.language_id or "en"
+            request.headers.get("language-id") or request.values.get("language_id", args.language_idx)
             if api.is_multi_lingual
             else None
         )
@@ -187,6 +186,7 @@ def tts():
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
+        logger.info("Speaker wav: %s", speaker_wav)
         logger.info("Language idx: %s", language_idx)
         wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
         out = io.BytesIO()
@@ -243,72 +243,66 @@ def mary_tts_api_process():
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
-        locale=args.model_name.split("/")[1]
         wavs = api.tts(text, speaker=speaker_idx)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
 
-# OpenAI Speech API
-def check_voice_type(voice):
-    if not isinstance(voice, str):
-        return str(voice)
-    if os.path.isdir(voice):
-        return "dir"
-    elif os.path.isfile(voice) and voice.endswith(".wav"):
-        return "wav"
-    else:
-        return "string"
 
+# OpenAI-compatible Speech API
 @app.route("/v1/audio/speech", methods=["POST"])
 def openai_tts():
     """
     POST /v1/audio/speech
     {
       "model": "tts-1",           # ignored, defaults to args.model_name
-      "voice": "alloy",           # required: a voice id
+      "voice": "alloy",           # required: a speaker ID or a file/folder for voice cloning
       "input": "Hello world!",    # required text to speak
-      "format": "wav"             # optional: wav, opus, aac, flac, wav, pcm
       "response_format": "wav"    # optional: wav, opus, aac, flac, wav, pcm (alternative to format)
     }
     """
     payload = request.get_json(force=True)
     logger.info(payload)
-    text   = payload.get("input") or ""
-    voice  = payload.get("voice", None)
-    # If no voice parameter is passed, default back to speaker_idx from server arguments
-    if not voice and args.speaker_idx:
-        voice = args.speaker_idx
-    voice_type = check_voice_type(voice)
-    # support either "format" or "response_format" parameters
-    fmt    = payload.get("format") 
-    if not fmt:
-        fmt = payload.get("response_format", "mp3") # OpenAI speech default is .mp3
-    fmt = fmt.lower()
-    speed  = payload.get("speed", 1.0)
-    language_idx = args.language_id if args.language_id else "en"
-    
+    text = payload.get("input") or ""
+    speaker_idx = payload.get("voice", args.speaker_idx) if api.is_multi_speaker else None
+    fmt = payload.get("response_format", "mp3").lower()  # OpenAI default is .mp3
+    speed = payload.get("speed", 1.0)
+    language_idx = args.language_idx if api.is_multi_lingual else None
+
+    speaker_wav = None
+    if speaker_idx is not None:
+        voice_path = Path(speaker_idx)
+        if voice_path.exists() and supports_cloning:
+            speaker_wav = str(voice_path) if voice_path.is_file() else [str(w) for w in voice_path.glob("*.wav")]
+            speaker_idx = None
+
     # here we ignore payload["model"] since its loaded at startup
 
+    def _save_audio(waveform, sample_rate, format_args):
+        buf = io.BytesIO()
+        torchaudio.save(buf, waveform, sample_rate, **format_args)
+        buf.seek(0)
+        return buf
+
+    def _save_pcm(waveform):
+        """Raw PCM (16-bit little-endian)."""
+        waveform_int16 = (waveform * 32767).to(torch.int16)
+        buf = io.BytesIO()
+        buf.write(waveform_int16.numpy().tobytes())
+        buf.seek(0)
+        return buf
+
     with lock:
-        # if voice is a plain string, assume its a built-in speaker
-        if not voice_type in ["dir", "wav"]:
-            wavs = api.tts(text, speaker=voice, language=language_idx, speed=speed)
-        # if its a path to a .wav file, it's a cloning .wav
-        elif voice_type == "wav":
-            wavs = api.tts(text, speaker_wav=voice, language=language_idx, speed=speed)
-        # if it's a directory, get all the .wavs inside as a list of cloning .wavs
-        elif voice_type == "dir":
-            voice = Path(voice)
-            voices = [
-                str(wav_path)
-                for wav_path in voice.glob("*.wav")
-                if wav_path.is_file()
-            ]
-            wavs = api.tts(text, speaker_wav=voices, language=language_idx, speed=speed)
+        logger.info("Model input: %s", text)
+        logger.info("Speaker idx: %s", speaker_idx)
+        logger.info("Speaker wav: %s", speaker_wav)
+        logger.info("Language idx: %s", language_idx)
+
+        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, speaker_wav=speaker_wav, speed=speed)
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
         out.seek(0)
+        waveform, sample_rate = torchaudio.load(out)
 
         mimetypes = {
             "wav": "audio/wav",
@@ -316,45 +310,30 @@ def openai_tts():
             "opus": "audio/ogg",
             "aac": "audio/aac",
             "flac": "audio/flac",
-            "pcm": "audio/L16"
+            "pcm": "audio/L16",
         }
-        # load WAV data into tensor, to convert to desired format
-        waveform, sample_rate = torchaudio.load(out)
-        fmt = fmt.lower()
-        # OpenAI spec defaults to .mp3 if not specified
-        mimetype = mimetypes.get(fmt, "mp3")
+
+        mimetype = mimetypes.get(fmt, "audio/mpeg")
         if fmt == "wav":
             out.seek(0)
             return send_file(out, mimetype=mimetype)
-        elif fmt == "mp3":
-            out_mp3 = io.BytesIO()
-            torchaudio.save(out_mp3, waveform, sample_rate, format="mp3")
-            out_mp3.seek(0)
-            return send_file(out_mp3, mimetype=mimetype)
-        elif fmt == "opus":
-            out_opus = io.BytesIO()
-            torchaudio.save(out_opus, waveform, sample_rate, format="ogg", encoding="opus")
-            out_opus.seek(0)
-            return send_file(out_opus, mimetype=mimetype)
-        elif fmt == "aac":
-            out_aac = io.BytesIO()
-            torchaudio.save(out_aac, waveform, sample_rate, format="mp4", encoding="aac")  # m4a container
-            out_aac.seek(0)
-            return send_file(out_aac, mimetype=mimetype)
-        elif fmt == "flac":
-            out_flac = io.BytesIO()
-            torchaudio.save(out_flac, waveform, sample_rate, format="flac")
-            out_flac.seek(0)
-            return send_file(out_flac, mimetype=mimetype)
-        elif fmt == "pcm":
-            # Raw PCM (16-bit little-endian)
-            waveform_int16 = (waveform * 32767).to(torch.int16)
-            out_pcm = io.BytesIO()
-            out_pcm.write(waveform_int16.numpy().tobytes())
-            out_pcm.seek(0)
-            return send_file(out_pcm, mimetype=mimetype)
-        else:
-            return {"error": f"Unsupported format: {fmt}"}, 400
+
+        format_dispatch = {
+            "mp3": lambda: _save_audio(waveform, sample_rate, {"format": "mp3"}),
+            "opus": lambda: _save_audio(waveform, sample_rate, {"format": "ogg", "encoding": "opus"}),
+            "aac": lambda: _save_audio(waveform, sample_rate, {"format": "mp4", "encoding": "aac"}),  # m4a container
+            "flac": lambda: _save_audio(waveform, sample_rate, {"format": "flac"}),
+            "pcm": lambda: _save_pcm(waveform),
+        }
+
+        # Check if format is supported
+        if fmt not in format_dispatch:
+            return "Unsupported format", 400
+
+        # Generate and send file
+        audio_buffer = format_dispatch[fmt]()
+        return send_file(audio_buffer, mimetype=mimetype)
+
 
 def main():
     app.run(debug=args.debug, host="::", port=args.port)
