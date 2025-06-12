@@ -311,9 +311,11 @@ If you are not able to acess the video you need to follow the steps:
 #### Run demo locally
 
 To run the demo locally you need to do the following steps:
-1. Install   🐸 TTS following the instructions available [here](https://coqui-tts.readthedocs.io/en/latest/installation.html).
-2. Install the Gradio demo requirements with the command `python3 -m pip install -r TTS/demos/xtts_ft_demo/requirements.txt`
-3. Run the Gradio demo using the command `python3 TTS/demos/xtts_ft_demo/xtts_demo.py`
+1. Install   🐸 TTS following the instructions available
+[here](https://coqui-tts.readthedocs.io/en/latest/installation.html), e.g. `pip
+install coqui-tts`
+2. Install the Gradio demo requirements with the command `pip install gradio faster_whisper`
+3. Run the Gradio demo using the command `python3 -m TTS.demos.xtts_ft_demo.xtts_demo`
 4. Follow the steps presented in the [tutorial video](https://www.youtube.com/watch?v=8tpDiiouGxc&feature=youtu.be) to be able to fine-tune and test the fine-tuned model.
 
 

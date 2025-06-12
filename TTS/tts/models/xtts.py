@@ -531,7 +531,6 @@ class Xtts(BaseTTS):
                 gpt_codes = self.gpt.generate(
                     cond_latents=gpt_cond_latent,
                     text_inputs=text_tokens,
-                    input_tokens=None,
                     do_sample=do_sample,
                     top_p=top_p,
                     top_k=top_k,

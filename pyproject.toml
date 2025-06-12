@@ -82,7 +82,7 @@ dependencies = [
     "gruut[de,es,fr]>=2.4.0",
     # Tortoise
     "einops>=0.6.0",
-    "transformers>=4.47.0,<4.52",
+    "transformers>=4.52.1",
     # Bark
     "encodec>=0.1.1",
     # XTTS
@@ -115,7 +115,7 @@ ko = [
 # Japanese
 ja = [
     "cutlet>=0.2.0",
-    "fugashi[unidic-lite]>=1.3.0,!=1.5.0",
+    "fugashi[unidic-lite]>=1.3.0",
 ]
 # Chinese
 zh = [
