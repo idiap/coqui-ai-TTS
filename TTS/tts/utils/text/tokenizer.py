@@ -172,6 +172,9 @@ class TTSTokenizer:
             # set characters based on defined characters class
             if config.characters and config.characters.characters_class:
                 CharactersClass = import_class(config.characters.characters_class)
+                if not issubclass(CharactersClass, BaseCharacters):
+                    msg = f"{config.characters.characters_class} is not a subclass of BaseCharacters."
+                    raise TypeError(msg)
                 characters, new_config = CharactersClass.init_from_config(config)
             # set characters based on config
             else:
