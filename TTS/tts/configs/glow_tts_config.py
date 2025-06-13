@@ -101,16 +101,6 @@ class GlowTTSConfig(BaseTTSConfig):
 
     # model params
     num_chars: int | None = None
-    encoder_type: str = "rel_pos_transformer"
-    encoder_params: dict = field(
-        default_factory=lambda: {
-            "kernel_size": 3,
-            "dropout_p": 0.1,
-            "num_layers": 6,
-            "num_heads": 2,
-            "hidden_channels_ffn": 768,
-        }
-    )
     use_encoder_prenet: bool = True
     hidden_channels_enc: int = 192
     hidden_channels_dec: int = 192
@@ -120,7 +110,6 @@ class GlowTTSConfig(BaseTTSConfig):
     mean_only: bool = True
     out_channels: int = 80
     num_flow_blocks_dec: int = 12
-    inference_noise_scale: float = 0.33
     kernel_size_dec: int = 5
     dilation_rate: int = 1
     num_block_layers: int = 4
