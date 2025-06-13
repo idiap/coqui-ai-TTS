@@ -7,7 +7,7 @@ from TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 
 @dataclass
 class GSTConfig(Coqpit):
-    """Defines the Global Style Token Module
+    """Defines the Global Style Token Module.
 
     Args:
         gst_style_input_wav (str):
@@ -33,10 +33,8 @@ class GSTConfig(Coqpit):
     gst_num_heads: int = 4
     gst_num_style_tokens: int = 10
 
-    def check_values(
-        self,
-    ):
-        """Check config fields"""
+    def check_values(self) -> None:
+        """Check config fields."""
         c = asdict(self)
         super().check_values()
         check_argument("gst_style_input_weights", c, restricted=False)
@@ -49,7 +47,8 @@ class GSTConfig(Coqpit):
 
 @dataclass
 class CapacitronVAEConfig(Coqpit):
-    """Defines the capacitron VAE Module
+    """Defines the capacitron VAE Module.
+
     Args:
         capacitron_capacity (int):
             Defines the variational capacity limit of the prosody embeddings. Defaults to 150.
@@ -77,10 +76,8 @@ class CapacitronVAEConfig(Coqpit):
     capacitron_VAE_loss_alpha: float = 0.25
     capacitron_grad_clip: float = 5.0
 
-    def check_values(
-        self,
-    ):
-        """Check config fields"""
+    def check_values(self) -> None:
+        """Check config fields."""
         c = asdict(self)
         super().check_values()
         check_argument("capacitron_capacity", c, restricted=True, min_val=10, max_val=500)
@@ -100,7 +97,7 @@ class CharactersConfig(Coqpit):
             Defines the class of the characters used. If None, we pick ```Phonemes``` or ```Graphemes``` based on
             the configuration. Defaults to None.
 
-        vocab_dict (dict):
+        vocab_dict (list[str]):
             Defines the vocabulary dictionary used to encode the characters. Defaults to None.
 
         pad (str):
@@ -137,7 +134,7 @@ class CharactersConfig(Coqpit):
     characters_class: str = None
 
     # using BaseVocabulary
-    vocab_dict: dict = None
+    vocab_dict: list[str] | None = None
 
     # using on BaseCharacters
     pad: str = "<PAD>"
@@ -153,10 +150,9 @@ class CharactersConfig(Coqpit):
 
 @dataclass
 class BaseTTSConfig(BaseTrainingConfig):
-    """Shared parameters among all the tts models.
+    """Shared parameters among all the TTS models.
 
     Args:
-
         audio (BaseAudioConfig):
             Audio processor config object instance.
 
@@ -284,9 +280,11 @@ class BaseTTSConfig(BaseTrainingConfig):
             Number that control the influence of the language sampler weights. Defaults to ```1.0```.
 
         use_length_weighted_sampler (bool):
-            Enable / Disable the batch balancer by audio length. If enabled the dataset will be divided
-            into 10 buckets considering the min and max audio of the dataset. The sampler weights will be
-            computed forcing to have the same quantity of data for each bucket in each training batch. Defaults to ```False```.
+            Enable / Disable the batch balancer by audio length. If enabled the
+            dataset will be divided into 10 buckets considering the min and max
+            audio of the dataset. The sampler weights will be computed forcing
+            to have the same quantity of data for each bucket in each training
+            batch. Defaults to ```False```.
 
         length_weighted_sampler_alpha (float):
             Number that control the influence of the length sampler weights. Defaults to ```1.0```.
@@ -328,9 +326,9 @@ class BaseTTSConfig(BaseTrainingConfig):
     optimizer_params: dict = None
     # scheduler
     lr_scheduler: str = None
-    lr_scheduler_params: dict = field(default_factory=lambda: {})
+    lr_scheduler_params: dict = field(default_factory=dict)
     # testing
-    test_sentences: list[str] | list[list[str]] = field(default_factory=lambda: [])
+    test_sentences: list[str] | list[list[str]] = field(default_factory=list)
     # evaluation
     eval_split_max_size: int = None
     eval_split_size: float = 0.01

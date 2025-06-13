@@ -1823,19 +1823,18 @@ class VitsCharacters(BaseCharacters):
 
 
 class FairseqVocab(BaseVocabulary):
-    def __init__(self, vocab: str | os.PathLike[Any]):
-        super(FairseqVocab).__init__()
+    def __init__(self, vocab: str | os.PathLike[Any]) -> None:
         self.vocab = vocab
 
     @property
-    def vocab(self):
+    def vocab(self) -> list[str]:
         """Return the vocabulary dictionary."""
         return self._vocab
 
     @vocab.setter
-    def vocab(self, vocab_file: str | os.PathLike[Any]):
+    def vocab(self, vocab_file: str | os.PathLike[Any]) -> None:
         with open(vocab_file, encoding="utf-8") as f:
-            self._vocab = [x.replace("\n", "") for x in f.readlines()]
+            self._vocab = [line.replace("\n", "") for line in f]
         self.blank = self._vocab[0]
         self.pad = " "
         self._char_to_id = {s: i for i, s in enumerate(self._vocab)}  # pylint: disable=unnecessary-comprehension

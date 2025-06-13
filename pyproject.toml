@@ -190,7 +190,7 @@ lint.extend-select = [
     "F841", # unused-variable
     "G004", # no f-string in logging
     "I", # import sorting
-    "PIE790", # unnecessary-pass
+    "PIE",
     "PLC",
     "PLE",
     "PLR0124", # comparison-with-itself

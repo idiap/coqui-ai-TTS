@@ -3,7 +3,7 @@ from collections.abc import Callable
 from typing import Union
 
 from TTS.tts.utils.text import cleaners
-from TTS.tts.utils.text.characters import Graphemes, IPAPhonemes
+from TTS.tts.utils.text.characters import BaseCharacters, Graphemes, IPAPhonemes
 from TTS.tts.utils.text.phonemizers import DEF_LANG_TO_PHONEMIZER, get_phonemizer_by_name
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
 from TTS.utils.generic_utils import get_import_path, import_class
@@ -41,12 +41,12 @@ class TTSTokenizer:
 
     def __init__(
         self,
-        use_phonemes=False,
-        text_cleaner: Callable = None,
-        characters: "BaseCharacters" = None,
-        phonemizer: Union["Phonemizer", dict] = None,
+        use_phonemes: bool = False,
+        text_cleaner: Callable[[str], str] | None = None,
+        characters: BaseCharacters | None = None,
+        phonemizer: Union["Phonemizer", dict] | None = None,
         add_blank: bool = False,
-        use_eos_bos=False,
+        use_eos_bos: bool = False,
     ):
         self.text_cleaner = text_cleaner
         self.use_phonemes = use_phonemes
@@ -88,7 +88,7 @@ class TTSTokenizer:
             text += self.characters.id_to_char(token_id)
         return text
 
-    def text_to_ids(self, text: str, language: str = None) -> list[int]:  # pylint: disable=unused-argument
+    def text_to_ids(self, text: str, language: str | None = None) -> list[int]:  # pylint: disable=unused-argument
         """Converts a string of text to a sequence of token IDs.
 
         Args:
@@ -154,7 +154,7 @@ class TTSTokenizer:
                 logger.info("%s| %s", indent, char)
 
     @staticmethod
-    def init_from_config(config: "Coqpit", characters: "BaseCharacters" = None):
+    def init_from_config(config: "Coqpit", characters: BaseCharacters | None = None):
         """Init Tokenizer object from config
 
         Args:

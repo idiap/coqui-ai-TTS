@@ -86,11 +86,10 @@ class TestTTSTokenizer(unittest.TestCase):
             enable_eos_bos_chars: bool = True
             use_phonemes: bool = True
             add_blank: bool = False
-            characters: str = field(default_factory=Characters)
+            characters: Characters = field(default_factory=Characters)
             phonemizer: str = "espeak"
             phoneme_language: str = "tr"
             text_cleaner: str = "phoneme_cleaners"
-            characters = field(default_factory=Characters)
 
         tokenizer_ph, _ = TTSTokenizer.init_from_config(TokenizerConfig())
         tokenizer_ph.phonemizer.backend = "espeak"
