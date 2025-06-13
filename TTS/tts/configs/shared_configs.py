@@ -140,7 +140,7 @@ class CharactersConfig(Coqpit):
     vocab_dict: dict = None
 
     # using on BaseCharacters
-    pad: str = None
+    pad: str = "<PAD>"
     eos: str = None
     bos: str = None
     blank: str = None
