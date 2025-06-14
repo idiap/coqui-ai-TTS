@@ -3,6 +3,7 @@ import importlib
 import logging
 import os
 import re
+import unicodedata
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO, TypeVar
@@ -33,6 +34,19 @@ def to_camel(text):
     text = text.replace("vc", "VC")
     text = text.replace("Knn", "KNN")
     return text
+
+
+def slugify(text: str) -> str:
+    """Convert a string (e.g. speaker IDs) into a safe filename base."""
+    # Normalize to ASCII (e.g., Zoë -> Zoe)
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_str = normalized.encode("ascii", "ignore").decode("ascii")
+
+    # Replace unsafe characters with underscores
+    safe = re.sub(r"[^\w\-]", "_", ascii_str)
+
+    # Collapse repeated underscores
+    return re.sub(r"_+", "_", safe).strip("_")
 
 
 def find_module(module_path: str, module_name: str) -> type[Any]:
