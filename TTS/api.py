@@ -110,12 +110,11 @@ class TTS(nn.Module):
 
     @property
     def is_multi_speaker(self) -> bool:
-        if (
-            self.synthesizer is not None
-            and hasattr(self.synthesizer.tts_model, "speaker_manager")
-            and self.synthesizer.tts_model.speaker_manager
-        ):
-            return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
+        if self.synthesizer is not None:
+            if hasattr(self.synthesizer.tts_model, "clone_voice"):
+                return True
+            if hasattr(self.synthesizer.tts_model, "speaker_manager") and self.synthesizer.tts_model.speaker_manager:
+                return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
         return False
 
     @property
@@ -137,13 +136,13 @@ class TTS(nn.Module):
         return False
 
     @property
-    def speakers(self) -> list[str]:
+    def speakers(self) -> list[str] | None:
         if not self.is_multi_speaker:
             return None
         return self.synthesizer.tts_model.speaker_manager.speaker_names
 
     @property
-    def languages(self) -> list[str]:
+    def languages(self) -> list[str] | None:
         if not self.is_multi_lingual:
             return None
         return self.synthesizer.tts_model.language_manager.language_names

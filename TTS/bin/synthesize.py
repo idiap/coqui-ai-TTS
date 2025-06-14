@@ -428,6 +428,8 @@ def main(arg_list: list[str] | None = None) -> None:
                 source_wav=args.source_wav,
                 target_wav=args.target_wav,
                 file_path=args.out_path,
+                speaker=args.speaker_idx,
+                voice_dir=args.voice_dir,
                 pipe_out=pipe_out,
             )
             logger.info("Saved VC output to %s", args.out_path)
