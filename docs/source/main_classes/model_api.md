@@ -18,6 +18,13 @@ API](../inference.md).
     :members:
 ```
 
+## Base VC Model
+
+```{eval-rst}
+.. autoclass:: TTS.vc.models.base_vc.BaseVC
+    :members:
+```
+
 ## Base Vocoder Model
 
 ```{eval-rst}

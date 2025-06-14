@@ -223,6 +223,10 @@ tts.tts_to_file(
 )
 ```
 
+From version 0.27.0 you can [cache cloned
+voices](https://coqui-tts.readthedocs.io/en/latest/cloning.html) with a custom
+`speaker` ID, so you only need to pass audio files in `speaker_wav` once.
+
 #### Single speaker model
 
 ```python
