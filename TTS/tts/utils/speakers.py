@@ -1,9 +1,7 @@
-import json
 import logging
 import os
 from typing import Any
 
-import fsspec
 import numpy as np
 import torch
 from coqpit import Coqpit
@@ -82,9 +80,6 @@ class SpeakerManager(EmbeddingManager):
     def speaker_names(self):
         return list(self.name_to_id.keys())
 
-    def get_speakers(self) -> list:
-        return self.name_to_id
-
     @staticmethod
     def init_from_config(config: "Coqpit", samples: list[list] | list[dict] = None) -> "SpeakerManager":
         """Initialize a speaker manager from config
@@ -117,102 +112,6 @@ class SpeakerManager(EmbeddingManager):
                     d_vectors_file_path=get_from_config_or_model_args_with_default(config, "d_vector_file", None)
                 )
         return speaker_manager
-
-
-def _set_file_path(path):
-    """Find the speakers.json under the given path or the above it.
-    Intended to band aid the different paths returned in restored and continued training."""
-    path_restore = os.path.join(os.path.dirname(path), "speakers.json")
-    path_continue = os.path.join(path, "speakers.json")
-    fs = fsspec.get_mapper(path).fs
-    if fs.exists(path_restore):
-        return path_restore
-    if fs.exists(path_continue):
-        return path_continue
-    raise FileNotFoundError(f" [!] `speakers.json` not found in {path}")
-
-
-def load_speaker_mapping(out_path):
-    """Loads speaker mapping if already present."""
-    if os.path.splitext(out_path)[1] == ".json":
-        json_file = out_path
-    else:
-        json_file = _set_file_path(out_path)
-    with fsspec.open(json_file, "r") as f:
-        return json.load(f)
-
-
-def save_speaker_mapping(out_path, speaker_mapping):
-    """Saves speaker mapping if not yet present."""
-    if out_path is not None:
-        speakers_json_path = _set_file_path(out_path)
-        with fsspec.open(speakers_json_path, "w") as f:
-            json.dump(speaker_mapping, f, indent=4)
-
-
-def get_speaker_manager(c: Coqpit, data: list = None, restore_path: str = None, out_path: str = None) -> SpeakerManager:
-    """Initiate a `SpeakerManager` instance by the provided config.
-
-    Args:
-        c (Coqpit): Model configuration.
-        restore_path (str): Path to a previous training folder.
-        data (List): Data samples used in training to infer speakers from. It must be provided if speaker embedding
-            layers is used. Defaults to None.
-        out_path (str, optional): Save the generated speaker IDs to a output path. Defaults to None.
-
-    Returns:
-        SpeakerManager: initialized and ready to use instance.
-    """
-    speaker_manager = SpeakerManager()
-    if c.use_speaker_embedding:
-        if data is not None:
-            speaker_manager.set_ids_from_data(data, parse_key="speaker_name")
-        if restore_path:
-            speakers_file = _set_file_path(restore_path)
-            # restoring speaker manager from a previous run.
-            if c.use_d_vector_file:
-                # restore speaker manager with the embedding file
-                if not os.path.exists(speakers_file):
-                    logger.warning(
-                        "speakers.json was not found in %s, trying to use CONFIG.d_vector_file", restore_path
-                    )
-                    if not os.path.exists(c.d_vector_file):
-                        raise RuntimeError(
-                            "You must copy the file speakers.json to restore_path, or set a valid file in CONFIG.d_vector_file"
-                        )
-                    speaker_manager.load_embeddings_from_file(c.d_vector_file)
-                speaker_manager.load_embeddings_from_file(speakers_file)
-            elif not c.use_d_vector_file:  # restor speaker manager with speaker ID file.
-                speaker_ids_from_data = speaker_manager.name_to_id
-                speaker_manager.load_ids_from_file(speakers_file)
-                assert all(speaker in speaker_manager.name_to_id for speaker in speaker_ids_from_data), (
-                    " [!] You cannot introduce new speakers to a pre-trained model."
-                )
-        elif c.use_d_vector_file and c.d_vector_file:
-            # new speaker manager with external speaker embeddings.
-            speaker_manager.load_embeddings_from_file(c.d_vector_file)
-        elif c.use_d_vector_file and not c.d_vector_file:
-            raise "use_d_vector_file is True, so you need pass a external speaker embedding file."
-        elif c.use_speaker_embedding and "speakers_file" in c and c.speakers_file:
-            # new speaker manager with speaker IDs file.
-            speaker_manager.load_ids_from_file(c.speakers_file)
-
-        if speaker_manager.num_speakers > 0:
-            logger.info(
-                "Speaker manager is loaded with %d speakers: %s",
-                speaker_manager.num_speakers,
-                ", ".join(speaker_manager.name_to_id),
-            )
-
-        # save file if path is defined
-        if out_path:
-            out_file_path = os.path.join(out_path, "speakers.json")
-            logger.info("Saving `speakers.json` to %s", out_file_path)
-            if c.use_d_vector_file and c.d_vector_file:
-                speaker_manager.save_embeddings_to_file(out_file_path)
-            else:
-                speaker_manager.save_ids_to_file(out_file_path)
-    return speaker_manager
 
 
 def get_speaker_balancer_weights(items: list):
