@@ -2,6 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import librosa
 import torch
@@ -17,6 +18,7 @@ from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
 from TTS.tts.layers.xtts.xtts_manager import LanguageManager, SpeakerManager
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +178,7 @@ class XttsArgs(Coqpit):
     duration_const: int = 102400
 
 
-class Xtts(BaseTTS):
+class Xtts(CloningMixin, BaseTTS):
     """XTTS model implementation.
 
     ❗ Currently it only supports inference.
@@ -310,16 +312,27 @@ class Xtts(BaseTTS):
             .to(self.device)
         )
 
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        gpt_conditioning_latents, speaker_embedding = self.get_conditioning_latents(
+            audio_path=speaker_wav,
+            **generate_kwargs,
+        )
+        voice = {"gpt_conditioning_latents": gpt_conditioning_latents, "speaker_embedding": speaker_embedding}
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
+
     @torch.inference_mode()
     def get_conditioning_latents(
         self,
-        audio_path,
-        max_ref_length=30,
-        gpt_cond_len=6,
-        gpt_cond_chunk_len=6,
-        librosa_trim_db=None,
-        sound_norm_refs=False,
-        load_sr=22050,
+        audio_path: str | os.PathLike[Any] | list[str | os.PathLike[Any]],
+        max_ref_length: int = 30,
+        gpt_cond_len: int = 6,
+        gpt_cond_chunk_len: int = 6,
+        librosa_trim_db: int | None = None,
+        sound_norm_refs: bool = False,
+        load_sr: int = 22050,
     ):
         """Get the conditioning latents for the GPT model from the given audio.
 
@@ -330,7 +343,7 @@ class Xtts(BaseTTS):
             gpt_cond_chunk_len (int): Chunk length used for gpt latents. It must be <= gpt_conf_len. Defaults to 6.
             librosa_trim_db (int, optional): Trim the audio using this value. If None, not trimming. Defaults to None.
             sound_norm_refs (bool, optional): Whether to normalize the audio. Defaults to False.
-            load_sr (int, optional): Sample rate to load the audio. Defaults to 24000.
+            load_sr (int, optional): Sample rate to load the audio. Defaults to 22050.
         """
         # deal with multiples references
         if not isinstance(audio_path, list):
@@ -367,13 +380,23 @@ class Xtts(BaseTTS):
 
         return gpt_cond_latents, speaker_embedding
 
-    def synthesize(self, text, config, speaker_wav, language, speaker_id=None, **kwargs):
+    def synthesize(
+        self,
+        text: str,
+        config: "XttsConfig",
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None,
+        language: str,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
+    ) -> dict:
         """Synthesize speech with the given input text.
 
         Args:
             text (str): Input text.
             config (XttsConfig): Config with inference parameters.
-            speaker_wav (list): List of paths to the speaker audio files to be used for cloning.
+            speaker_wav (list): List of paths to the reference speaker audio  files to be used for
+                cloning, should be >3 seconds long.
             language (str): Language ID of the speaker.
             **kwargs: Inference settings. See `inference()`.
 
@@ -395,38 +418,38 @@ class Xtts(BaseTTS):
             "top_p": config.top_p,
         }
         settings.update(kwargs)  # allow overriding of preset settings with kwargs
-        if speaker_id is not None:
+        if speaker_id is not None and speaker_id in self.speaker_manager.speakers:
             gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker_id].values()
-            return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
-        settings.update(
-            {
+        else:
+            voice_settings = {
                 "gpt_cond_len": config.gpt_cond_len,
                 "gpt_cond_chunk_len": config.gpt_cond_chunk_len,
-                "max_ref_len": config.max_ref_len,
+                "max_ref_length": config.max_ref_len,
                 "sound_norm_refs": config.sound_norm_refs,
             }
-        )
-        return self.full_inference(text, speaker_wav, language, **settings)
+            voice = self.clone_voice(speaker_wav, speaker_id, voice_dir, **voice_settings)
+            gpt_cond_latent = voice["gpt_conditioning_latents"]
+            speaker_embedding = voice["speaker_embedding"]
+        return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
 
     @torch.inference_mode()
-    def full_inference(
+    def inference(
         self,
         text,
-        ref_audio_path,
         language,
+        gpt_cond_latent,
+        speaker_embedding,
         # GPT inference
-        temperature=0.75,
-        length_penalty=1.0,
-        repetition_penalty=10.0,
-        top_k=50,
-        top_p=0.85,
-        do_sample=True,
-        # Cloning
-        gpt_cond_len=30,
-        gpt_cond_chunk_len=6,
-        max_ref_len=10,
-        sound_norm_refs=False,
-        **hf_generate_kwargs,
+        temperature: float = 0.75,
+        length_penalty: float = 1.0,
+        repetition_penalty: float = 10.0,
+        top_k: int = 50,
+        top_p: float = 0.85,
+        do_sample: bool = True,
+        num_beams: int = 1,
+        speed: float = 1.0,
+        enable_text_splitting: bool = False,
+        **hf_generate_kwargs: Any,
     ):
         """
         This function produces an audio clip of the given text being spoken with the given reference voice.
@@ -434,8 +457,9 @@ class Xtts(BaseTTS):
         Args:
             text: (str) Text to be spoken.
 
-            ref_audio_path: (str) Path to a reference audio file to be used for cloning. This audio file should be >3
-                seconds long.
+            gpt_cond_latent: GPT conditioning latents.
+
+            speaker_embedding: Target speaker embedding.
 
             language: (str) Language of the voice to be generated.
 
@@ -453,12 +477,6 @@ class Xtts(BaseTTS):
             top_p: (float) P value used in nucleus sampling. (0,1]. Lower values mean the decoder produces more "likely"
                 (aka boring) outputs. Defaults to 0.8.
 
-            gpt_cond_len: (int) Length of the audio used for cloning. If audio is shorter, then audio length is used
-                else the first `gpt_cond_len` secs is used. Defaults to 30 seconds.
-
-            gpt_cond_chunk_len: (int) Chunk length used for cloning. It must be <= `gpt_cond_len`.
-                If gpt_cond_len == gpt_cond_chunk_len, no chunking. Defaults to 6 seconds.
-
             hf_generate_kwargs: (`**kwargs`) The huggingface Transformers generate API is used for the autoregressive
                 transformer. Extra keyword args fed to this function get forwarded directly to that API. Documentation
                 here: https://huggingface.co/docs/transformers/internal/generation_utils
@@ -467,47 +485,6 @@ class Xtts(BaseTTS):
             Generated audio clip(s) as a torch tensor. Shape 1,S if k=1 else, (k,1,S) where S is the sample length.
             Sample rate is 24kHz.
         """
-        (gpt_cond_latent, speaker_embedding) = self.get_conditioning_latents(
-            audio_path=ref_audio_path,
-            gpt_cond_len=gpt_cond_len,
-            gpt_cond_chunk_len=gpt_cond_chunk_len,
-            max_ref_length=max_ref_len,
-            sound_norm_refs=sound_norm_refs,
-        )
-
-        return self.inference(
-            text,
-            language,
-            gpt_cond_latent,
-            speaker_embedding,
-            temperature=temperature,
-            length_penalty=length_penalty,
-            repetition_penalty=repetition_penalty,
-            top_k=top_k,
-            top_p=top_p,
-            do_sample=do_sample,
-            **hf_generate_kwargs,
-        )
-
-    @torch.inference_mode()
-    def inference(
-        self,
-        text,
-        language,
-        gpt_cond_latent,
-        speaker_embedding,
-        # GPT inference
-        temperature=0.75,
-        length_penalty=1.0,
-        repetition_penalty=10.0,
-        top_k=50,
-        top_p=0.85,
-        do_sample=True,
-        num_beams=1,
-        speed=1.0,
-        enable_text_splitting=False,
-        **hf_generate_kwargs,
-    ):
         language = language.split("-")[0]  # remove the country code
         length_scale = 1.0 / max(speed, 0.05)
         gpt_cond_latent = gpt_cond_latent.to(self.device)
