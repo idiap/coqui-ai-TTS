@@ -274,13 +274,30 @@ class Synthesizer(nn.Module):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
+    def voice_conversion(
+        self,
+        source_wav: str,
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
+    ) -> list[int]:
         """Run a voice conversion model."""
         start_time = time.time()
+        if self.vc_model is None:
+            msg = "Voice conversion model not loaded"
+            raise RuntimeError(msg)
+        if target_wav is None and speaker_id is None:
+            msg = "Need to specify at least one of `target_wav` and `speaker_id`"
+            raise RuntimeError(msg)
 
-        if not isinstance(target_wav, list):
+        voice_dir = Path(voice_dir) if voice_dir is not None else self.voice_dir
+        if target_wav is not None and not isinstance(target_wav, list):
             target_wav = [target_wav]
-        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
+        output = self.vc_model.voice_conversion(
+            source_wav, target_wav, speaker_id=speaker_id, voice_dir=voice_dir, **kwargs
+        )
         if self.vocoder_model is not None:
             output = self.vocoder_model.inference(output)
 
@@ -320,6 +337,9 @@ class Synthesizer(nn.Module):
         Returns:
             List[int]: [description]
         """
+        if self.tts_model is None:
+            msg = "Text-to-speech model not loaded"
+            raise RuntimeError(msg)
         start_time = time.time()
         wavs = []
 
