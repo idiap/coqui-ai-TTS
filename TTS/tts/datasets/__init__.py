@@ -4,6 +4,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -74,7 +75,7 @@ def load_tts_samples(
     formatter: Callable = None,
     eval_split_max_size=None,
     eval_split_size=0.01,
-) -> tuple[list[list], list[list]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Parse the dataset from the datasets config, load the samples as a list and load the attention alignments if provided.
     If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
     on the dataset name.
@@ -99,7 +100,7 @@ def load_tts_samples(
             If > 1, represents the absolute number of evaluation samples. Defaults to 0.01 (1%).
 
     Returns:
-        tuple[list[list], list[list]: training and evaluation splits of the dataset.
+        tuple[list[dict], list[dict]]: training and evaluation splits of the dataset.
     """
     meta_data_train_all = []
     meta_data_eval_all = [] if eval_split else None

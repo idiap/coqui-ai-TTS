@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -54,7 +54,7 @@ class SpeakerManager(EmbeddingManager):
 
     def __init__(
         self,
-        data_items: list[list[Any]] | None = None,
+        data_items: list[dict[str, Any]] | None = None,
         d_vectors_file_path: str = "",
         speaker_id_file_path: str | os.PathLike[Any] = "",
         encoder_model_path: str | os.PathLike[Any] = "",
@@ -73,15 +73,17 @@ class SpeakerManager(EmbeddingManager):
             self.set_ids_from_data(data_items, parse_key="speaker_name")
 
     @property
-    def num_speakers(self):
+    def num_speakers(self) -> int:
         return len(self.name_to_id)
 
     @property
-    def speaker_names(self):
+    def speaker_names(self) -> list[str]:
         return list(self.name_to_id.keys())
 
     @staticmethod
-    def init_from_config(config: "Coqpit", samples: list[list] | list[dict] = None) -> "SpeakerManager":
+    def init_from_config(
+        config: "Coqpit", samples: list[dict[str, Any]] | None = None
+    ) -> Union["SpeakerManager", None]:
         """Initialize a speaker manager from config
 
         Args:
@@ -96,21 +98,15 @@ class SpeakerManager(EmbeddingManager):
         if get_from_config_or_model_args_with_default(config, "use_speaker_embedding", False):
             if samples:
                 speaker_manager = SpeakerManager(data_items=samples)
-            if get_from_config_or_model_args_with_default(config, "speaker_file", None):
-                speaker_manager = SpeakerManager(
-                    speaker_id_file_path=get_from_config_or_model_args_with_default(config, "speaker_file", None)
-                )
-            if get_from_config_or_model_args_with_default(config, "speakers_file", None):
-                speaker_manager = SpeakerManager(
-                    speaker_id_file_path=get_from_config_or_model_args_with_default(config, "speakers_file", None)
-                )
+            if speaker_file := get_from_config_or_model_args_with_default(config, "speaker_file", None):
+                speaker_manager = SpeakerManager(speaker_id_file_path=speaker_file)
+            if speakers_file := get_from_config_or_model_args_with_default(config, "speakers_file", None):
+                speaker_manager = SpeakerManager(speaker_id_file_path=speakers_file)
 
         if get_from_config_or_model_args_with_default(config, "use_d_vector_file", False):
             speaker_manager = SpeakerManager()
-            if get_from_config_or_model_args_with_default(config, "d_vector_file", None):
-                speaker_manager = SpeakerManager(
-                    d_vectors_file_path=get_from_config_or_model_args_with_default(config, "d_vector_file", None)
-                )
+            if d_vector_file := get_from_config_or_model_args_with_default(config, "d_vector_file", None):
+                speaker_manager = SpeakerManager(d_vectors_file_path=d_vector_file)
         return speaker_manager
 
 
