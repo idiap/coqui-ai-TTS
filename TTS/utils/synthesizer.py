@@ -275,6 +275,7 @@ class Synthesizer(nn.Module):
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
     def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
+        """Run a voice conversion model."""
         start_time = time.time()
 
         if not isinstance(target_wav, list):

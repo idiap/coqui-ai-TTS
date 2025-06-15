@@ -1,6 +1,8 @@
 # Model API
-Model API provides you a set of functions that easily make your model compatible with the `Trainer`,
-`Synthesizer` and the Coqui Python API.
+Model API provides you a set of functions that easily make your model compatible
+with the [`Trainer`](trainer_api.md),
+{py:class}`~TTS.utils.synthesizer.Synthesizer` and the [Coqui Python
+API](../inference.md).
 
 ## Base Trainer Model
 

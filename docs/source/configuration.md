@@ -1,6 +1,10 @@
 # Configuration
 
-We use 👩‍✈️[Coqpit](https://github.com/idiap/coqui-ai-coqpit) for configuration management. It provides basic static type checking and serialization capabilities on top of native Python `dataclasses`. Here is how a simple configuration looks like with Coqpit.
+We use 👩‍✈️[Coqpit](https://github.com/idiap/coqui-ai-coqpit) for configuration
+management (PyPI package
+[`coqpit-config`](https://pypi.org/project/coqpit-config/)). It provides basic
+static type checking and serialization capabilities on top of native Python
+`dataclasses`. Here is how a simple configuration looks like with Coqpit.
 
 ```python
 from dataclasses import asdict, dataclass, field

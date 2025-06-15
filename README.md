@@ -251,8 +251,8 @@ Other available voice conversion models:
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
 
-For more details, see the
-[documentation](https://coqui-tts.readthedocs.io/en/latest/vc.html).
+For more details, see this
+[dedicated page](https://coqui-tts.readthedocs.io/en/latest/vc.html).
 
 #### Voice cloning by combining single speaker TTS model with the default VC model
 

@@ -14,7 +14,7 @@ large number of new features and bug fixes with many ongoing community
 contributions ([full
 changelog](https://github.com/idiap/coqui-ai-TTS/releases)). We welcome any
 contributions and bug reports on
-[Github](https://github.com/idiap/coqui-ai-TTS).
+[GitHub](https://github.com/idiap/coqui-ai-TTS).
 
 For general installation instructions see [this documentation](installation.md).
 If you previously tried to install the original package, e.g. with `pip install
@@ -46,7 +46,7 @@ or `TTS_HOME` environment variables.
   [Discussions](https://github.com/idiap/coqui-ai-TTS/discussions). Please give
   as many details as possible (error message, your TTS version, your TTS model
   and config.json etc.)
-- If you feel like it's a bug to be fixed, then prefer Github issues with the
+- If you feel like it's a bug to be fixed, then prefer GitHub issues with the
   same level of scrutiny.
 
 ## Training Coqui models

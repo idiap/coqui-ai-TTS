@@ -44,7 +44,7 @@ XTTS-v2 supports 17 languages:
 This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
 
 ## Contact
-Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Github](https://github.com/idiap/coqui-ai-TTS/discussions).
+Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [GitHub](https://github.com/idiap/coqui-ai-TTS/discussions).
 
 ## Inference
 

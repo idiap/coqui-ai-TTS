@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseVC(BaseTrainerModel):
-    """Base `vc` class. Every new `vc` model must inherit this.
+    """Base VC class. Every new voice conversion model must inherit this.
 
-    It defines common `vc` specific functions on top of `Model` implementation.
+    It defines common VC-specific functions on top of the :py:class:`~TTS.model.BaseTrainerModel`.
     """
 
     MODEL_TYPE = "vc"
@@ -49,18 +49,18 @@ class BaseVC(BaseTrainerModel):
         self._set_model_args(config)
 
     def _set_model_args(self, config: Coqpit) -> None:
-        """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
+        """Set up model args based on the config type (``ModelConfig`` or ``ModelArgs``).
 
-        `ModelArgs` has all the fields required to initialize the model architecture.
+        ``ModelArgs`` has all the fields required to initialize the model architecture.
 
-        `ModelConfig` has all the fields required for training, inference and containes `ModelArgs`.
+        ``ModelConfig`` has all the fields required for training, inference and containes ``ModelArgs``.
 
-        If the config is for training with a name like "*Config", then the model args are embeded in the
-        config.model_args
+        If the config is for training with a name like ``*Config``, then the model args are embeded in the
+        ``config.model_args``
 
-        If the config is for the model with a name like "*Args", then we assign the directly.
+        If the config is for the model with a name like ``*Args``, then we assign them directly.
         """
-        # don't use isintance not to import recursively
+        # don't use isinstance not to import recursively
         if "Config" in config.__class__.__name__:
             self.config = config
             self.args = config.model_args
@@ -70,15 +70,17 @@ class BaseVC(BaseTrainerModel):
             raise ValueError("config must be either a *Config or *Args")
 
     def init_multispeaker(self, config: Coqpit, data: list[Any] | None = None) -> None:
-        """Initialize a speaker embedding layer if needen and define expected embedding channel size for defining
-        `in_channels` size of the connected layers.
+        """Set up for multi-speaker use.
+
+        Initialize a speaker embedding layer if needed and define the expected
+        embedding channel size for defining ``in_channels`` size of the connected layers.
 
         This implementation yields 3 possible outcomes:
 
-        1. If `config.use_speaker_embedding` and `config.use_d_vector_file are False, do nothing.
-        2. If `config.use_d_vector_file` is True, set expected embedding channel size to `config.d_vector_dim` or 512.
-        3. If `config.use_speaker_embedding`, initialize a speaker embedding layer with channel size of
-        `config.d_vector_dim` or 512.
+        1. If ``config.use_speaker_embedding`` and ``config.use_d_vector_file`` are False, do nothing.
+        2. If ``config.use_d_vector_file`` is True, set expected embedding channel size to ``config.d_vector_dim`` or 512.
+        3. If ``config.use_speaker_embedding``, initialize a speaker embedding
+           layer with channel size of ``config.d_vector_dim`` or 512.
 
         You can override this function for new models.
 
@@ -103,7 +105,7 @@ class BaseVC(BaseTrainerModel):
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
     def get_aux_input(self, **kwargs: Any) -> dict[str, Any]:
-        """Prepare and return `aux_input` used by `forward()`"""
+        """Prepare and return ``aux_input`` used by ``forward()``"""
         return {"speaker_id": None, "style_wav": None, "d_vector": None, "language_id": None}
 
     def get_aux_input_from_test_sentences(self, sentence_info: str | list[str]) -> dict[str, Any]:
@@ -154,12 +156,12 @@ class BaseVC(BaseTrainerModel):
         }
 
     def format_batch(self, batch: dict[str, Any]) -> dict[str, Any]:
-        """Generic batch formatting for `VCDataset`.
+        """Generic batch formatting for ``VCDataset``.
 
         You must override this if you use a custom dataset.
 
         Args:
-            batch (dict): [description]
+            batch: [description]
 
         Returns:
             dict: [description]
@@ -372,12 +374,12 @@ class BaseVC(BaseTrainerModel):
         return aux_inputs
 
     def test_run(self, assets: dict) -> tuple[dict, dict]:
-        """Generic test run for `vc` models used by `Trainer`.
+        """Generic test run for ``vc`` models used by ``Trainer``.
 
         You can override this for a different behaviour.
 
         Args:
-            assets (dict): A dict of training assets. For `vc` models, it must include `{'audio_processor': ap}`.
+            assets (dict): A dict of training assets. For ``vc`` models, it must include ``{'audio_processor': ap}``.
 
         Returns:
             tuple[dict, dict]: Test figures and audios to be projected to Tensorboard.
@@ -415,7 +417,7 @@ class BaseVC(BaseTrainerModel):
             output_path = os.path.join(trainer.output_path, "speakers.pth")
             self.speaker_manager.save_ids_to_file(output_path)
             trainer.config.speakers_file = output_path
-            # some models don't have `model_args` set
+            # some models don't have ``model_args`` set
             if hasattr(trainer.config, "model_args"):
                 trainer.config.model_args.speakers_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
