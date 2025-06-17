@@ -259,7 +259,7 @@ class Synthesizer(nn.Module):
         """
         return self.seg.segment(text)
 
-    def save_wav(self, wav: list[int], path: str, pipe_out=None) -> None:
+    def save_wav(self, wav: list[int] | torch.Tensor | np.ndarray, path: str, pipe_out=None) -> None:
         """Save the waveform as a file.
 
         Args:
@@ -268,7 +268,7 @@ class Synthesizer(nn.Module):
             pipe_out (BytesIO, optional): Flag to stdout the generated TTS wav file for shell pipe.
         """
         # if tensor convert to numpy
-        if torch.is_tensor(wav):
+        if isinstance(wav, torch.Tensor):
             wav = wav.cpu().numpy()
         if isinstance(wav, list):
             wav = np.array(wav)
@@ -464,7 +464,7 @@ class Synthesizer(nn.Module):
                     # run vocoder model
                     # [1, T, C]
                     waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-                if torch.is_tensor(waveform) and waveform.device != torch.device("cpu") and not use_gl:
+                if isinstance(waveform, torch.Tensor) and waveform.device != torch.device("cpu") and not use_gl:
                     waveform = waveform.cpu()
                 if not use_gl:
                     waveform = waveform.numpy()
@@ -528,7 +528,7 @@ class Synthesizer(nn.Module):
                 # run vocoder model
                 # [1, T, C]
                 waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-            if torch.is_tensor(waveform) and waveform.device != torch.device("cpu"):
+            if isinstance(waveform, torch.Tensor) and waveform.device != torch.device("cpu"):
                 waveform = waveform.cpu()
             if not use_gl:
                 waveform = waveform.numpy()
