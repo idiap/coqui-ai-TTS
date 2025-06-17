@@ -213,6 +213,7 @@ lint.ignore = [
     "PLW2901", # TODO: enable
     "PLW0127", # TODO: enable
     "PLW0603", # TODO: enable
+    "UP038",  # deprecated rule
 ]
 
 [tool.ruff.lint.pylint]
