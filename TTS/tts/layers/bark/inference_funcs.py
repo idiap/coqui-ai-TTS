@@ -1,7 +1,6 @@
 import logging
 import re
 
-import librosa
 import numpy as np
 import torch
 import tqdm
@@ -23,26 +22,6 @@ def _detokenize(tokenizer, enc_text):
 
 def _normalize_whitespace(text):
     return re.sub(r"\s+", " ", text).strip()
-
-
-def zero_crossing_rate(audio, frame_length=1024, hop_length=512):
-    zero_crossings = np.sum(np.abs(np.diff(np.sign(audio))) / 2)
-    total_frames = 1 + int((len(audio) - frame_length) / hop_length)
-    return zero_crossings / total_frames
-
-
-def compute_spectral_contrast(audio_data, sample_rate, n_bands=6, fmin=200.0):
-    spectral_contrast = librosa.feature.spectral_contrast(y=audio_data, sr=sample_rate, n_bands=n_bands, fmin=fmin)
-    return np.mean(spectral_contrast)
-
-
-def compute_average_bass_energy(audio_data, sample_rate, max_bass_freq=250):
-    stft = librosa.stft(audio_data)
-    power_spectrogram = np.abs(stft) ** 2
-    frequencies = librosa.fft_frequencies(sr=sample_rate, n_fft=stft.shape[0])
-    bass_mask = frequencies <= max_bass_freq
-    bass_energy = power_spectrogram[np.ix_(bass_mask, np.arange(power_spectrogram.shape[1]))].mean()
-    return bass_energy
 
 
 def generate_text_semantic(
