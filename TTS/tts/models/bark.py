@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import torch
 import torchaudio
 from coqpit import Coqpit
@@ -71,10 +70,10 @@ class Bark(CloningMixin, BaseTTS):
         text: str,
         history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> torch.Tensor:
         """Generate semantic array from text.
 
         Args:
@@ -98,11 +97,11 @@ class Bark(CloningMixin, BaseTTS):
 
     def semantic_to_waveform(
         self,
-        semantic_tokens: np.ndarray,
+        semantic_tokens: torch.Tensor,
         history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-    ):
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from semantic input.
 
         Args:
@@ -136,10 +135,10 @@ class Bark(CloningMixin, BaseTTS):
         history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         text_temp: float = 0.7,
         waveform_temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from input text.
 
         Args:
@@ -159,10 +158,10 @@ class Bark(CloningMixin, BaseTTS):
             allow_early_stop=allow_early_stop,
             **kwargs,
         )
-        audio_arr, c, f = self.semantic_to_waveform(
+        audio_arr, coarse, fine = self.semantic_to_waveform(
             x_semantic, history_prompt=history_prompt, temp=waveform_temp, base=base
         )
-        return audio_arr, [x_semantic, c, f]
+        return audio_arr, x_semantic, coarse, fine
 
     def _generate_voice(self, speaker_wav: str | os.PathLike[Any]) -> dict[str, torch.Tensor]:
         """Generate a new voice from the given audio."""
@@ -170,7 +169,7 @@ class Bark(CloningMixin, BaseTTS):
         audio = convert_audio(audio, sr, self.config.sample_rate, self.encodec.channels)
         audio = audio.unsqueeze(0).to(self.device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             encoded_frames = self.encodec.encode(audio)
         codes = torch.cat([encoded[0] for encoded in encoded_frames], dim=-1).squeeze()  # [n_q, T]
 
@@ -188,7 +187,8 @@ class Bark(CloningMixin, BaseTTS):
         # semantic_tokens = self.text_to_semantic(
         #     text, max_gen_duration_s=seconds, top_k=50, top_p=0.95, temp=0.7
         # )  # not 100%
-        semantic_vectors = hubert_model.forward(audio[0], input_sample_hz=self.config.sample_rate)
+        with torch.inference_mode():
+            semantic_vectors = hubert_model.forward(audio[0], input_sample_hz=self.config.sample_rate)
         semantic_tokens = tokenizer.get_token(semantic_vectors)
         return {
             "semantic_prompt": semantic_tokens,
