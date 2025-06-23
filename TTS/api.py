@@ -489,6 +489,12 @@ class TTS(nn.Module):
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
         """
+        # TODO: This won't work for YourTTS
+        if hasattr(self.synthesizer.tts_model, "clone_voice"):
+            warnings.warn(
+                "This TTS model directly supports voice cloning, for better quality call it with "
+                "tts/tts_to_file(..., speaker_wav=...) instead."
+            )
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fp:
             # Lazy code... save it to a temp file to resample it while reading it for VC
             self.tts_to_file(
