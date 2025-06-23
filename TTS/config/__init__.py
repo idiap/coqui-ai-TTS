@@ -1,13 +1,13 @@
 import json
 import os
 import re
-from typing import Any, Union
+from typing import Any, Union, cast
 
 import fsspec
 import yaml
 from coqpit import Coqpit
 
-from TTS.config.shared_configs import *
+from TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 from TTS.utils.generic_utils import find_module
 
 
@@ -23,7 +23,7 @@ def read_json_with_comments(json_path):
     return json.loads(input_str)
 
 
-def register_config(model_name: str) -> Coqpit:
+def register_config(model_name: str) -> type[BaseTrainingConfig]:
     """Find the right config for the given model name.
 
     Args:
@@ -33,7 +33,7 @@ def register_config(model_name: str) -> Coqpit:
         ModuleNotFoundError: No matching config for the model name.
 
     Returns:
-        Coqpit: config class.
+        type[BaseTrainingConfig]: config class.
     """
     config_class = None
     config_name = model_name + "_config"
@@ -47,6 +47,9 @@ def register_config(model_name: str) -> Coqpit:
     for path in paths:
         try:
             config_class = find_module(path, config_name)
+            if not issubclass(config_class, BaseTrainingConfig):
+                msg = f"{config_class} is not a subclass of BaseTrainingConfig."
+                raise TypeError(msg)
         except ModuleNotFoundError:
             pass
     if config_class is None:
@@ -68,7 +71,7 @@ def _process_model_name(config_dict: dict) -> str:
     return model_name
 
 
-def load_config(config_path: str | os.PathLike[Any]) -> Coqpit:
+def load_config(config_path: str | os.PathLike[Any]) -> BaseTrainingConfig:
     """Import `json` or `yaml` files as TTS configs. First, load the input file as a `dict` and check the model name
     to find the corresponding Config class. Then initialize the Config.
 
@@ -91,11 +94,12 @@ def load_config(config_path: str | os.PathLike[Any]) -> Coqpit:
         try:
             with fsspec.open(config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except json.decoder.JSONDecodeError:
+        except json.JSONDecodeError:
             # backwards compat.
             data = read_json_with_comments(config_path)
     else:
-        raise TypeError(f" [!] Unknown config file type {ext}")
+        msg = f" [!] Unknown config file type {ext}"
+        raise TypeError(msg)
     config_dict.update(data)
     model_name = _process_model_name(config_dict)
     config_class = register_config(model_name.lower())

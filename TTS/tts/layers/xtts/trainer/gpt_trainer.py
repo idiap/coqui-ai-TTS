@@ -46,9 +46,9 @@ class GPTTrainerConfig(XttsConfig):
     lr: float = 5e-06
     training_seed: int = 1
     optimizer_wd_only_on_weights: bool = False
-    weighted_loss_attrs: dict = field(default_factory=lambda: {})
-    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: list[dict] = field(default_factory=lambda: [])
+    weighted_loss_attrs: dict = field(default_factory=dict)
+    weighted_loss_multipliers: dict = field(default_factory=dict)
+    test_sentences: list[dict] = field(default_factory=list)
     model_args: GPTArgs = field(default_factory=GPTArgs)
 
 

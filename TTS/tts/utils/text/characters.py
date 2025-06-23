@@ -1,12 +1,12 @@
 import logging
 from dataclasses import replace
 
-from TTS.tts.configs.shared_configs import CharactersConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig, CharactersConfig
 
 logger = logging.getLogger(__name__)
 
 
-def parse_symbols():
+def parse_symbols() -> dict[str, str]:
     return {
         "pad": _pad,
         "eos": _eos,
@@ -46,7 +46,9 @@ class BaseVocabulary:
         vocab (Dict): A dictionary of characters and their corresponding indices.
     """
 
-    def __init__(self, vocab: dict, pad: str = None, blank: str = None, bos: str = None, eos: str = None):
+    def __init__(
+        self, vocab: list[str] | None, pad: str = None, blank: str = None, bos: str = None, eos: str = None
+    ) -> None:
         self.vocab = vocab
         self.pad = pad
         self.blank = blank
@@ -78,21 +80,21 @@ class BaseVocabulary:
         return self.char_to_id(self.eos) if self.eos else len(self.vocab)
 
     @property
-    def vocab(self):
+    def vocab(self) -> list[str]:
         """Return the vocabulary dictionary."""
         return self._vocab
 
     @vocab.setter
-    def vocab(self, vocab):
+    def vocab(self, vocab: list[str] | None) -> None:
         """Set the vocabulary dictionary and character mapping dictionaries."""
-        self._vocab, self._char_to_id, self._id_to_char = None, None, None
+        self._vocab, self._char_to_id, self._id_to_char = [], {}, {}
         if vocab is not None:
             self._vocab = vocab
             self._char_to_id = {char: idx for idx, char in enumerate(self._vocab)}
             self._id_to_char = dict(enumerate(self._vocab))
 
     @staticmethod
-    def init_from_config(config, **kwargs):
+    def init_from_config(config: BaseTTSConfig, **kwargs) -> tuple["BaseVocabulary", BaseTTSConfig]:
         """Initialize from the given config."""
         if config.characters is not None and "vocab_dict" in config.characters and config.characters.vocab_dict:
             return (
@@ -119,7 +121,7 @@ class BaseVocabulary:
         )
 
     @property
-    def num_chars(self):
+    def num_chars(self) -> int:
         """Return number of tokens in the vocabulary."""
         return len(self._vocab)
 
@@ -128,7 +130,8 @@ class BaseVocabulary:
         try:
             return self._char_to_id[char]
         except KeyError as e:
-            raise KeyError(f" [!] {repr(char)} is not in the vocabulary.") from e
+            msg = f" [!] {repr(char)} is not in the vocabulary."
+            raise KeyError(msg) from e
 
     def id_to_char(self, idx: int) -> str:
         """Map an token ID to a character."""
@@ -136,13 +139,13 @@ class BaseVocabulary:
 
 
 class BaseCharacters:
-    """🐸BaseCharacters class
+    """🐸BaseCharacters class.
 
         Every new character class should inherit from this.
 
-        Characters are oredered as follows ```[PAD, EOS, BOS, BLANK, CHARACTERS, PUNCTUATIONS]```.
+        Characters are ordered as follows ```[PAD, EOS, BOS, BLANK, CHARACTERS, PUNCTUATIONS]```.
 
-        If you need a custom order, you need to define inherit from this class and override the ```_create_vocab``` method.
+        If you need a custom order, you need to inherit from this class and override the ```_create_vocab``` method.
 
         Args:
             characters (str):
@@ -178,6 +181,7 @@ class BaseCharacters:
         eos: str = None,
         bos: str = None,
         blank: str = None,
+        *,
         is_unique: bool = False,
         is_sorted: bool = True,
     ) -> None:
@@ -208,84 +212,84 @@ class BaseCharacters:
         return self.char_to_id(self.bos) if self.bos else len(self.vocab)
 
     @property
-    def characters(self):
+    def characters(self) -> str:
         return self._characters
 
     @characters.setter
-    def characters(self, characters):
+    def characters(self, characters: str) -> None:
         self._characters = characters
         self._create_vocab()
 
     @property
-    def punctuations(self):
+    def punctuations(self) -> str:
         return self._punctuations
 
     @punctuations.setter
-    def punctuations(self, punctuations):
+    def punctuations(self, punctuations: str) -> None:
         self._punctuations = punctuations
         self._create_vocab()
 
     @property
-    def pad(self):
+    def pad(self) -> str:
         return self._pad
 
     @pad.setter
-    def pad(self, pad):
+    def pad(self, pad: str) -> None:
         self._pad = pad
         self._create_vocab()
 
     @property
-    def eos(self):
+    def eos(self) -> str | None:
         return self._eos
 
     @eos.setter
-    def eos(self, eos):
+    def eos(self, eos: str | None) -> None:
         self._eos = eos
         self._create_vocab()
 
     @property
-    def bos(self):
+    def bos(self) -> str | None:
         return self._bos
 
     @bos.setter
-    def bos(self, bos):
+    def bos(self, bos: str | None) -> None:
         self._bos = bos
         self._create_vocab()
 
     @property
-    def blank(self):
+    def blank(self) -> str | None:
         return self._blank
 
     @blank.setter
-    def blank(self, blank):
+    def blank(self, blank: str | None) -> None:
         self._blank = blank
         self._create_vocab()
 
     @property
-    def vocab(self):
+    def vocab(self) -> list[str]:
         return self._vocab
 
     @vocab.setter
-    def vocab(self, vocab):
+    def vocab(self, vocab: list[str]) -> None:
         self._vocab = vocab
         self._char_to_id = {char: idx for idx, char in enumerate(self.vocab)}
         self._id_to_char = dict(enumerate(self.vocab))
 
     @property
-    def num_chars(self):
+    def num_chars(self) -> int:
         return len(self._vocab)
 
-    def _create_vocab(self):
+    def _create_vocab(self) -> None:
         _vocab = self._characters
         if self.is_unique:
             _vocab = list(set(_vocab))
         if self.is_sorted:
             _vocab = sorted(_vocab)
         _vocab = list(_vocab)
-        _vocab = [self._blank] + _vocab if self._blank is not None and len(self._blank) > 0 else _vocab
-        _vocab = [self._bos] + _vocab if self._bos is not None and len(self._bos) > 0 else _vocab
-        _vocab = [self._eos] + _vocab if self._eos is not None and len(self._eos) > 0 else _vocab
-        _vocab = [self._pad] + _vocab if self._pad is not None and len(self._pad) > 0 else _vocab
+        _vocab = [self._blank, *_vocab] if self._blank is not None and len(self._blank) > 0 else _vocab
+        _vocab = [self._bos, *_vocab] if self._bos is not None and len(self._bos) > 0 else _vocab
+        _vocab = [self._eos, *_vocab] if self._eos is not None and len(self._eos) > 0 else _vocab
+        _vocab = [self._pad, *_vocab] if self._pad is not None and len(self._pad) > 0 else _vocab
         self.vocab = _vocab + list(self._punctuations)
         if self.is_unique:
             duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
@@ -297,15 +301,14 @@ class BaseCharacters:
         try:
             return self._char_to_id[char]
         except KeyError as e:
-            raise KeyError(f" [!] {repr(char)} is not in the vocabulary.") from e
+            msg = f" [!] {repr(char)} is not in the vocabulary."
+            raise KeyError(msg) from e
 
     def id_to_char(self, idx: int) -> str:
         return self._id_to_char[idx]
 
-    def print_log(self, level: int = 0):
-        """
-        Prints the vocabulary in a nice format.
-        """
+    def print_log(self, level: int = 0) -> None:
+        """Print the vocabulary in a nice format."""
         indent = "\t" * level
         logger.info("%s| Characters: %s", indent, self._characters)
         logger.info("%s| Punctuations: %s", indent, self._punctuations)
@@ -317,7 +320,7 @@ class BaseCharacters:
         logger.info("%s| Num chars: %d", indent, self.num_chars)
 
     @staticmethod
-    def init_from_config(config: "Coqpit"):  # pylint: disable=unused-argument
+    def init_from_config(config: BaseTTSConfig) -> tuple["BaseCharacters", BaseTTSConfig]:
         """Init your character class from a config.
 
         Implement this method for your subclass.
@@ -344,7 +347,7 @@ class BaseCharacters:
 
 
 class IPAPhonemes(BaseCharacters):
-    """🐸IPAPhonemes class to manage `TTS.tts` model vocabulary
+    """🐸IPAPhonemes class to manage `TTS.tts` model vocabulary.
 
     Intended to be used with models using IPAPhonemes as input.
     It uses system defaults for the undefined class arguments.
@@ -383,14 +386,15 @@ class IPAPhonemes(BaseCharacters):
         eos: str = _eos,
         bos: str = _bos,
         blank: str = _blank,
+        *,
         is_unique: bool = False,
         is_sorted: bool = True,
     ) -> None:
-        super().__init__(characters, punctuations, pad, eos, bos, blank, is_unique, is_sorted)
+        super().__init__(characters, punctuations, pad, eos, bos, blank, is_unique=is_unique, is_sorted=is_sorted)
 
     @staticmethod
-    def init_from_config(config: "Coqpit"):
-        """Init a IPAPhonemes object from a model config
+    def init_from_config(config: BaseTTSConfig) -> tuple["IPAPhonemes", BaseTTSConfig]:
+        """Init a IPAPhonemes object from a model config.
 
         If characters are not defined in the config, it will be set to the default characters and the config
         will be updated.
@@ -422,7 +426,7 @@ class IPAPhonemes(BaseCharacters):
 
 
 class Graphemes(BaseCharacters):
-    """🐸Graphemes class to manage `TTS.tts` model vocabulary
+    """🐸Graphemes class to manage `TTS.tts` model vocabulary.
 
     Intended to be used with models using graphemes as input.
     It uses system defaults for the undefined class arguments.
@@ -458,14 +462,15 @@ class Graphemes(BaseCharacters):
         eos: str = _eos,
         bos: str = _bos,
         blank: str = _blank,
+        *,
         is_unique: bool = False,
         is_sorted: bool = True,
     ) -> None:
-        super().__init__(characters, punctuations, pad, eos, bos, blank, is_unique, is_sorted)
+        super().__init__(characters, punctuations, pad, eos, bos, blank, is_unique=is_unique, is_sorted=is_sorted)
 
     @staticmethod
-    def init_from_config(config: "Coqpit"):
-        """Init a Graphemes object from a model config
+    def init_from_config(config: BaseTTSConfig) -> tuple["Graphemes", BaseTTSConfig]:
+        """Init a Graphemes object from a model config.
 
         If characters are not defined in the config, it will be set to the default characters and the config
         will be updated.

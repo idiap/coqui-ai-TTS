@@ -137,9 +137,9 @@ class BaseVCConfig(BaseTrainingConfig):
     optimizer_params: dict = None
     # scheduler
     lr_scheduler: str = None
-    lr_scheduler_params: dict = field(default_factory=lambda: {})
+    lr_scheduler_params: dict = field(default_factory=dict)
     # testing
-    test_sentences: list[str] = field(default_factory=lambda: [])
+    test_sentences: list[str] = field(default_factory=list)
     # evaluation
     eval_split_max_size: int = None
     eval_split_size: float = 0.01
