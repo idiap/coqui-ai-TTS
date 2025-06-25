@@ -183,7 +183,7 @@ def tts():
             if api.is_multi_lingual
             else None
         )
-        # Handle empty language_id 
+        # Handle empty language_id
         if language_idx == "":
             language_idx = None
         style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
@@ -198,13 +198,15 @@ def tts():
         logger.info("Speaker idx: %s", speaker_idx)
         logger.info("Speaker wav: %s", speaker_wav)
         logger.info("Language idx: %s", language_idx)
-        
+
         try:
-            wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
+            wavs = api.tts(
+                text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav
+            )
         except Exception as e:
             logger.error("TTS synthesis failed: %s", str(e))
             return {"error": f"TTS synthesis failed: {str(e)}"}, 500
-            
+
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
