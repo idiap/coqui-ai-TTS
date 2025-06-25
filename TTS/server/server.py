@@ -175,20 +175,36 @@ def tts():
             if api.is_multi_speaker
             else None
         )
+        # Handle empty speaker_id for voice cloning scenarios
+        if speaker_idx == "":
+            speaker_idx = None
         language_idx = (
             request.headers.get("language-id") or request.values.get("language_id", args.language_idx)
             if api.is_multi_lingual
             else None
         )
+        # Handle empty language_id 
+        if language_idx == "":
+            language_idx = None
         style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
         style_wav = style_wav_uri_to_dict(style_wav)
         speaker_wav = request.headers.get("speaker-wav") or request.values.get("speaker_wav", "")
+
+        # Basic validation
+        if not text.strip():
+            return {"error": "Text parameter is required"}, 400
 
         logger.info("Model input: %s", text)
         logger.info("Speaker idx: %s", speaker_idx)
         logger.info("Speaker wav: %s", speaker_wav)
         logger.info("Language idx: %s", language_idx)
-        wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
+        
+        try:
+            wavs = api.tts(text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav)
+        except Exception as e:
+            logger.error("TTS synthesis failed: %s", str(e))
+            return {"error": f"TTS synthesis failed: {str(e)}"}, 500
+            
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
