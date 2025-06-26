@@ -113,10 +113,6 @@ class BaseTTS(BaseTrainerModel):
             self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
-    def get_aux_input(self, **kwargs) -> dict:
-        """Prepare and return `aux_input` used by `forward()`"""
-        return {"speaker_id": None, "style_wav": None, "d_vector": None, "language_id": None}
-
     def get_aux_input_from_test_sentences(self, sentence_info):
         if hasattr(self.config, "model_args"):
             config = self.config.model_args

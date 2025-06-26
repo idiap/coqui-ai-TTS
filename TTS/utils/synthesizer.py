@@ -86,12 +86,6 @@ class Synthesizer(nn.Module):
         self.tts_model: BaseTTS | None = None
         self.vocoder_model: BaseVocoder | None = None
         self.vc_model: BaseVC | None = None
-        self.speaker_manager = None
-        self.tts_speakers = {}
-        self.language_manager = None
-        self.num_languages = 0
-        self.tts_languages = {}
-        self.d_vector_dim = 0
         self.seg = self._get_segmenter("en")
         self.use_cuda = use_cuda
         if self.use_cuda:

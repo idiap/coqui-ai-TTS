@@ -680,10 +680,6 @@ class Vits(BaseTTS):
                     raise RuntimeError(" [!] The weights of Text Encoder was not reinit check it !")
             logger.info("Text Encoder was reinit.")
 
-    def get_aux_input(self, aux_input: dict):
-        sid, g, lid, _ = self._set_cond_input(aux_input)
-        return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
-
     def _freeze_layers(self):
         if self.args.freeze_encoder:
             for param in self.text_encoder.parameters():

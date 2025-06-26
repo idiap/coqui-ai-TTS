@@ -194,10 +194,6 @@ class AcousticModel(torch.nn.Module):
 
         return sid, g, lid, durations
 
-    def get_aux_input(self, aux_input: dict):
-        sid, g, lid, _ = self._set_cond_input(aux_input)
-        return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
-
     def _set_speaker_input(self, aux_input: dict):
         d_vectors = aux_input.get("d_vectors", None)
         speaker_ids = aux_input.get("speaker_ids", None)
