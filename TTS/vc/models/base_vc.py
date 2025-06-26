@@ -17,8 +17,6 @@ from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weights
 from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
-from TTS.tts.utils.synthesis import synthesis
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.audio.processor import AudioProcessor
 
 # pylint: skip-file
@@ -380,32 +378,7 @@ class BaseVC(BaseTrainerModel):
         Returns:
             tuple[dict, dict]: Test figures and audios to be projected to Tensorboard.
         """
-        logger.info("Synthesizing test sentences.")
-        test_audios = {}
-        test_figures = {}
-        test_sentences = self.config.test_sentences
-        aux_inputs = self._get_test_aux_input()
-        for idx, sen in enumerate(test_sentences):
-            if isinstance(sen, list):
-                aux_inputs = self.get_aux_input_from_test_sentences(sen)
-                sen = aux_inputs["text"]
-            outputs_dict = synthesis(
-                self,
-                sen,
-                self.config,
-                "cuda" in str(next(self.parameters()).device),
-                speaker_id=aux_inputs["speaker_id"],
-                d_vector=aux_inputs["d_vector"],
-                style_wav=aux_inputs["style_wav"],
-                use_griffin_lim=True,
-                do_trim_silence=False,
-            )
-            test_audios[f"{idx}-audio"] = outputs_dict["wav"]
-            test_figures[f"{idx}-prediction"] = plot_spectrogram(
-                outputs_dict["outputs"]["model_outputs"], self.ap, output_fig=False
-            )
-            test_figures[f"{idx}-alignment"] = plot_alignment(outputs_dict["outputs"]["alignments"], output_fig=False)
-        return test_figures, test_audios
+        raise NotImplementedError
 
     def on_init_start(self, trainer: Trainer) -> None:
         """Save the speaker.pth and language_ids.json at the beginning of the training. Also update both paths."""

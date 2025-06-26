@@ -14,7 +14,6 @@ from TTS.tts.layers.glow_tts.encoder import Encoder
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import generate_path, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
@@ -463,43 +462,6 @@ class GlowTTS(BaseTTS):
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    @torch.inference_mode()
-    def test_run(self, assets: dict) -> tuple[dict, dict]:
-        """Generic test run for `tts` models used by `Trainer`.
-
-        You can override this for a different behaviour.
-
-        Returns:
-            Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
-        """
-        logger.info("Synthesizing test sentences.")
-        test_audios = {}
-        test_figures = {}
-        test_sentences = self.config.test_sentences
-        aux_inputs = self._get_test_aux_input()
-        if len(test_sentences) == 0:
-            logger.warning("No test sentences provided.")
-        else:
-            for idx, sen in enumerate(test_sentences):
-                outputs = synthesis(
-                    self,
-                    sen,
-                    self.config,
-                    "cuda" in str(next(self.parameters()).device),
-                    speaker_id=aux_inputs["speaker_id"],
-                    d_vector=aux_inputs["d_vector"],
-                    style_wav=aux_inputs["style_wav"],
-                    use_griffin_lim=True,
-                    do_trim_silence=False,
-                )
-
-                test_audios[f"{idx}-audio"] = outputs["wav"]
-                test_figures[f"{idx}-prediction"] = plot_spectrogram(
-                    outputs["outputs"]["model_outputs"], self.ap, output_fig=False
-                )
-                test_figures[f"{idx}-alignment"] = plot_alignment(outputs["alignments"], output_fig=False)
-        return test_figures, test_audios
 
     def preprocess(self, y, y_lengths, y_max_length, attn=None):
         if y_max_length is not None:

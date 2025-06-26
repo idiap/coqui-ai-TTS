@@ -11,13 +11,18 @@ import torchaudio
 from coqpit import Coqpit
 from trainer.io import load_fsspec
 
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.layers.xtts.gpt import GPT
 from TTS.tts.layers.xtts.hifigan_decoder import HifiDecoder
 from TTS.tts.layers.xtts.stream_generator import init_stream_support
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
 from TTS.tts.layers.xtts.xtts_manager import LanguageManager, SpeakerManager
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.generic_utils import (
+    is_pytorch_at_least_2_4,
+    warn_synthesize_config_deprecated,
+    warn_synthesize_speaker_id_deprecated,
+)
 from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
@@ -383,21 +388,23 @@ class Xtts(CloningMixin, BaseTTS):
     def synthesize(
         self,
         text: str,
-        config: "XttsConfig",
-        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None,
-        language: str,
-        speaker_id: str | None = None,
+        config: BaseTTSConfig | None = None,
+        *,
+        speaker: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        language: str | None = None,
         **kwargs,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Synthesize speech with the given input text.
 
         Args:
             text (str): Input text.
-            config (XttsConfig): Config with inference parameters.
-            speaker_wav (list): List of paths to the reference speaker audio  files to be used for
-                cloning, should be >3 seconds long.
-            language (str): Language ID of the speaker.
+            config: DEPRECATED. Not used.
+            speaker: Custom speaker ID to cache or retrieve a voice.
+            speaker_wav: Path(s) to reference audio, should be >3 seconds long.
+            voice_dir: Folder for cached voices.
+            language (str): Language of the input text.
             **kwargs: Inference settings. See `inference()`.
 
         Returns:
@@ -406,28 +413,35 @@ class Xtts(CloningMixin, BaseTTS):
             as latents used at inference.
 
         """
+        if config is not None:
+            warn_synthesize_config_deprecated()
+        if (speaker_id := kwargs.pop("speaker_id", None)) is not None:
+            speaker = speaker_id
+            warn_synthesize_speaker_id_deprecated()
+        for key in ("use_griffin_lim", "do_trim_silence", "extra_aux_input"):
+            kwargs.pop(key, None)
         assert "zh-cn" if language == "zh" else language in self.config.languages, (
             f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
         )
         # Use generally found best tuning knobs for generation.
         settings = {
-            "temperature": config.temperature,
-            "length_penalty": config.length_penalty,
-            "repetition_penalty": config.repetition_penalty,
-            "top_k": config.top_k,
-            "top_p": config.top_p,
+            "temperature": self.config.temperature,
+            "length_penalty": self.config.length_penalty,
+            "repetition_penalty": self.config.repetition_penalty,
+            "top_k": self.config.top_k,
+            "top_p": self.config.top_p,
         }
         settings.update(kwargs)  # allow overriding of preset settings with kwargs
-        if speaker_id is not None and speaker_id in self.speaker_manager.speakers:
-            gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker_id].values()
+        if speaker is not None and speaker in self.speaker_manager.speakers:
+            gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker].values()
         else:
             voice_settings = {
-                "gpt_cond_len": config.gpt_cond_len,
-                "gpt_cond_chunk_len": config.gpt_cond_chunk_len,
-                "max_ref_length": config.max_ref_len,
-                "sound_norm_refs": config.sound_norm_refs,
+                "gpt_cond_len": self.config.gpt_cond_len,
+                "gpt_cond_chunk_len": self.config.gpt_cond_chunk_len,
+                "max_ref_length": self.config.max_ref_len,
+                "sound_norm_refs": self.config.sound_norm_refs,
             }
-            voice = self.clone_voice(speaker_wav, speaker_id, voice_dir, **voice_settings)
+            voice = self.clone_voice(speaker_wav, speaker, voice_dir, **voice_settings)
             gpt_cond_latent = voice["gpt_conditioning_latents"]
             speaker_embedding = voice["speaker_embedding"]
         return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)

@@ -22,12 +22,11 @@ config = BarkConfig()
 model = Bark.init_from_config(config)
 model.load_checkpoint(config, checkpoint_dir="path/to/model/dir/", eval=True)
 
-# with random speaker
-output_dict = model.synthesize(text, config, speaker_id="random", voice_dirs=None)
+# Random speaker
+output_dict = model.synthesize(text)
 
-# cloning a speaker.
-# It assumes that you have a speaker file in `bark_voices/speaker_n/speaker.wav` or `bark_voices/speaker_n/speaker.npz`
-output_dict = model.synthesize(text, config, speaker_id="ljspeech", voice_dirs="bark_voices/")
+# Cloning a speaker.
+output_dict = model.synthesize(text, speaker_wav="path/to/speaker.wav")
 ```
 
 Using 🐸TTS API:

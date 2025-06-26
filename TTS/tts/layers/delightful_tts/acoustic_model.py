@@ -421,12 +421,10 @@ class AcousticModel(torch.nn.Module):
     def inference(
         self,
         tokens: torch.Tensor,
-        speaker_idx: torch.Tensor,
-        p_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_vectors: torch.Tensor = None,
-        pitch_transform: Callable = None,
-        energy_transform: Callable = None,
+        speaker_idx: torch.Tensor | None,
+        d_vectors: torch.Tensor | None = None,
+        pitch_transform: Callable | None = None,
+        energy_transform: Callable | None = None,
     ) -> torch.Tensor:
         src_mask = ~sequence_mask(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
         src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)  # pylint: disable=unused-variable

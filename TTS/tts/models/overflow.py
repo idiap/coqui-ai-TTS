@@ -380,13 +380,3 @@ class Overflow(BaseTTS):
         figures, audios = self._create_logs(batch, outputs, self.ap)
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        logger.test_audios(steps, outputs[1], self.ap.sample_rate)
-        logger.test_figures(steps, outputs[0])

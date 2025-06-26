@@ -14,7 +14,6 @@ from TTS.tts.configs.vits_config import VitsConfig
 from TTS.tts.models import setup_model as setup_tts_model
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.models.vits import Vits
-from TTS.tts.utils.synthesis import synthesis, transfer_voice, trim_silence
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
 from TTS.utils.generic_utils import optional_to_str
@@ -318,13 +317,13 @@ class Synthesizer(nn.Module):
     def tts(
         self,
         text: str = "",
-        speaker_name: str = "",
+        speaker_name: str | None = "",
         language_name: str = "",
         speaker_wav=None,
         style_wav=None,
         style_text=None,
-        reference_wav=None,
-        reference_speaker_name=None,
+        source_wav=None,
+        source_speaker_name=None,
         split_sentences: bool = True,
         **kwargs,
     ) -> list[int]:
@@ -337,8 +336,8 @@ class Synthesizer(nn.Module):
             speaker_wav (Union[str, List[str]], optional): path to the speaker wav for voice cloning. Defaults to None.
             style_wav ([type], optional): style waveform for GST. Defaults to None.
             style_text ([type], optional): transcription of style_wav for Capacitron. Defaults to None.
-            reference_wav ([type], optional): reference waveform for voice conversion. Defaults to None.
-            reference_speaker_name ([type], optional): speaker id of reference waveform. Defaults to None.
+            source_wav ([type], optional): source waveform for voice conversion. Defaults to None.
+            source_speaker_name ([type], optional): speaker id of source waveform. Defaults to None.
             split_sentences (bool, optional): split the input text into sentences. Defaults to True.
             **kwargs: additional arguments to pass to the TTS model.
         Returns:
@@ -350,9 +349,9 @@ class Synthesizer(nn.Module):
         start_time = time.time()
         wavs = []
 
-        if not text and not reference_wav:
+        if not text and not speaker_wav:
             raise ValueError(
-                "You need to define either `text` (for sythesis) or a `reference_wav` (for voice conversion) to use the Coqui TTS API."
+                "You need to define either `text` (for sythesis) or a `speaker_wav` (for voice conversion) to use the Coqui TTS API."
             )
 
         if text:
@@ -362,78 +361,7 @@ class Synthesizer(nn.Module):
                 logger.info("Text split into sentences.")
             logger.info("Input: %s", sens)
 
-        # handle multi-speaker
         voice_dir = Path(d) if (d := kwargs.pop("voice_dir", None)) is not None else self.voice_dir
-        speaker_embedding = None
-        speaker_id = None
-        if self.tts_speakers_file or hasattr(self.tts_model.speaker_manager, "name_to_id"):
-            if speaker_name and isinstance(speaker_name, str) and not self.tts_config.model == "xtts":
-                if self.tts_config.use_d_vector_file:
-                    # get the average speaker embedding from the saved d_vectors.
-                    speaker_embedding = self.tts_model.speaker_manager.get_mean_embedding(
-                        speaker_name, num_samples=None, randomize=False
-                    )
-                    speaker_embedding = np.array(speaker_embedding)[None, :]  # [1 x embedding_dim]
-                else:
-                    # get speaker idx from the speaker name
-                    speaker_id = self.tts_model.speaker_manager.name_to_id[speaker_name]
-            # handle Neon models with single speaker.
-            elif len(self.tts_model.speaker_manager.name_to_id) == 1:
-                speaker_id = list(self.tts_model.speaker_manager.name_to_id.values())[0]
-            elif not speaker_name and not speaker_wav:
-                raise ValueError(
-                    " [!] Looks like you are using a multi-speaker model. "
-                    "You need to define either a `speaker_idx` or a `speaker_wav` to use a multi-speaker model."
-                )
-            else:
-                speaker_embedding = None
-        elif speaker_name and not hasattr(self.tts_model, "clone_voice"):
-            raise ValueError(
-                f" [!] Missing speakers.json file path for selecting speaker {speaker_name}."
-                "Define path for speaker.json if it is a multi-speaker model or remove defined speaker idx. "
-            )
-
-        # handle multi-lingual
-        language_id = None
-        if self.tts_languages_file or (
-            hasattr(self.tts_model, "language_manager")
-            and self.tts_model.language_manager is not None
-            and not self.tts_config.model == "xtts"
-        ):
-            if len(self.tts_model.language_manager.name_to_id) == 1:
-                language_id = list(self.tts_model.language_manager.name_to_id.values())[0]
-
-            elif language_name and isinstance(language_name, str):
-                try:
-                    language_id = self.tts_model.language_manager.name_to_id[language_name]
-                except KeyError as e:
-                    raise ValueError(
-                        f" [!] Looks like you use a multi-lingual model. "
-                        f"Language {language_name} is not in the available languages: "
-                        f"{self.tts_model.language_manager.name_to_id.keys()}."
-                    ) from e
-
-            elif not language_name:
-                raise ValueError(
-                    " [!] Look like you use a multi-lingual model. "
-                    "You need to define either a `language_name` or a `style_wav` to use a multi-lingual model."
-                )
-
-            else:
-                raise ValueError(
-                    f" [!] Missing language_ids.json file path for selecting language {language_name}."
-                    "Define path for language_ids.json if it is a multi-lingual model or remove defined language idx. "
-                )
-
-        # compute a new d_vector from the given clip.
-        if (
-            speaker_wav is not None
-            and self.tts_model.speaker_manager is not None
-            and hasattr(self.tts_model.speaker_manager, "encoder_ap")
-            and self.tts_model.speaker_manager.encoder_ap is not None
-        ):
-            speaker_embedding = self.tts_model.speaker_manager.compute_embedding_from_clip(speaker_wav)
-
         vocoder_device = "cpu"
         use_gl = self.vocoder_model is None
         if not use_gl:
@@ -441,33 +369,17 @@ class Synthesizer(nn.Module):
         if self.use_cuda:
             vocoder_device = "cuda"
 
-        if not reference_wav:  # not voice conversion
+        if not source_wav:  # not voice conversion
             for sen in sens:
-                if hasattr(self.tts_model, "synthesize"):
-                    outputs = self.tts_model.synthesize(
-                        text=sen,
-                        config=self.tts_config,
-                        speaker_id=speaker_name,
-                        voice_dir=voice_dir,
-                        d_vector=speaker_embedding,
-                        speaker_wav=speaker_wav,
-                        language=language_name,
-                        **kwargs,
-                    )
-                else:
-                    # synthesize voice
-                    outputs = synthesis(
-                        model=self.tts_model,
-                        text=sen,
-                        CONFIG=self.tts_config,
-                        use_cuda=self.use_cuda,
-                        speaker_id=speaker_id,
-                        style_wav=style_wav,
-                        style_text=style_text,
-                        use_griffin_lim=use_gl,
-                        d_vector=speaker_embedding,
-                        language_id=language_id,
-                    )
+                outputs = self.tts_model.synthesize(
+                    text=sen,
+                    speaker=speaker_name,
+                    voice_dir=voice_dir,
+                    speaker_wav=speaker_wav,
+                    language=language_name,
+                    use_griffin_lim=use_gl,
+                    **kwargs,
+                )
                 waveform = outputs["wav"]
                 if not use_gl:
                     mel_postnet_spec = outputs["outputs"]["model_outputs"][0].detach().cpu().numpy()
@@ -496,41 +408,13 @@ class Synthesizer(nn.Module):
 
                 # trim silence
                 if "do_trim_silence" in self.tts_config.audio and self.tts_config.audio["do_trim_silence"]:
-                    waveform = trim_silence(waveform, self.tts_model.ap)
+                    waveform = waveform[: self.tts_model.ap.find_endpoint(waveform)]
 
                 wavs += list(waveform)
                 wavs += [0] * 10000
         else:
-            # get the speaker embedding or speaker id for the reference wav file
-            reference_speaker_embedding = None
-            reference_speaker_id = None
-            if self.tts_speakers_file or hasattr(self.tts_model.speaker_manager, "name_to_id"):
-                if reference_speaker_name and isinstance(reference_speaker_name, str):
-                    if self.tts_config.use_d_vector_file:
-                        # get the speaker embedding from the saved d_vectors.
-                        reference_speaker_embedding = self.tts_model.speaker_manager.get_embeddings_by_name(
-                            reference_speaker_name
-                        )[0]
-                        reference_speaker_embedding = np.array(reference_speaker_embedding)[
-                            None, :
-                        ]  # [1 x embedding_dim]
-                    else:
-                        # get speaker idx from the speaker name
-                        reference_speaker_id = self.tts_model.speaker_manager.name_to_id[reference_speaker_name]
-                else:
-                    reference_speaker_embedding = self.tts_model.speaker_manager.compute_embedding_from_clip(
-                        reference_wav
-                    )
-            outputs = transfer_voice(
-                model=self.tts_model,
-                CONFIG=self.tts_config,
-                use_cuda=self.use_cuda,
-                reference_wav=reference_wav,
-                speaker_id=speaker_id,
-                d_vector=speaker_embedding,
-                use_griffin_lim=use_gl,
-                reference_speaker_id=reference_speaker_id,
-                reference_d_vector=reference_speaker_embedding,
+            outputs = self.tts_model.voice_conversion(
+                source_wav, speaker_wav, source_speaker=source_speaker_name, speaker=speaker_name
             )
             waveform = outputs
             if not use_gl:

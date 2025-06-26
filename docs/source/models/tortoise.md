@@ -15,11 +15,11 @@ config = TortoiseConfig()
 model = Tortoise.init_from_config(config)
 model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
 
-# with random speaker
-output_dict = model.synthesize(text, config, speaker_id="random", extra_voice_dirs=None, **kwargs)
+# Random speaker
+output_dict = model.synthesize(text)
 
-# cloning a speaker
-output_dict = model.synthesize(text, config, speaker_id="speaker_n", extra_voice_dirs="path/to/speaker_n/", **kwargs)
+# Cloning a speaker
+output_dict = model.synthesize(text, speaker_wav="path/to/speaker.wav")
 ```
 
 Using 🐸TTS API:

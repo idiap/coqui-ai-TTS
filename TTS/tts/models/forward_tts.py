@@ -208,7 +208,6 @@ class ForwardTTS(BaseTTS):
         speaker_manager: SpeakerManager = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
-        self._set_model_args(config)
 
         self.init_multispeaker(config)
 

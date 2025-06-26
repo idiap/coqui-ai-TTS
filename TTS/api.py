@@ -392,6 +392,7 @@ class TTS(nn.Module):
         *,
         speaker: str | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        source_speaker: str | None = None,
         **kwargs,
     ):
         """Convert source wav to target speaker.
@@ -405,18 +406,28 @@ class TTS(nn.Module):
             target_wav:
                 Path(s) to the target wav file(s).
             speaker:
-                Custom speaker ID to cache the cloned voice.
+                Custom target speaker ID to cache the cloned voice.
             voice_dir:
                 Cache folder for cloned voices.
+            source_speaker:
+                Source speaker ID. Only needed for embedding-based models like Vits.
             **kwargs:
                 Additional arguments for the model.
         """
-        if self.voice_converter is None:
-            msg = "The selected model does not support voice conversion."
-            raise RuntimeError(msg)
-        return self.voice_converter.voice_conversion(
-            source_wav=source_wav, target_wav=target_wav, speaker_id=speaker, voice_dir=voice_dir, **kwargs
-        )
+        if self.voice_converter is not None:
+            return self.voice_converter.voice_conversion(
+                source_wav=source_wav, target_wav=target_wav, speaker_id=speaker, voice_dir=voice_dir, **kwargs
+            )
+        if self.synthesizer is not None and hasattr(self.synthesizer.tts_model, "voice_conversion"):
+            return self.synthesizer.tts(
+                source_wav=source_wav,
+                source_speaker_name=source_speaker,
+                speaker_wav=target_wav,
+                speaker_name=speaker,
+                **kwargs,
+            )
+        msg = "The selected model does not support voice conversion."
+        raise RuntimeError(msg)
 
     def voice_conversion_to_file(
         self,
@@ -426,6 +437,7 @@ class TTS(nn.Module):
         file_path: str = "output.wav",
         speaker: str | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        source_speaker: str | None = None,
         pipe_out=None,
         **kwargs,
     ) -> str:
@@ -445,6 +457,8 @@ class TTS(nn.Module):
                 Custom speaker ID to cache the cloned voice.
             voice_dir:
                 Cache folder for cloned voices.
+            source_speaker:
+                Source speaker ID. Only needed for embedding-based models like Vits.
             pipe_out (BytesIO, optional):
                 Flag to stdout the generated TTS wav file for shell pipe.
             **kwargs:
@@ -453,7 +467,10 @@ class TTS(nn.Module):
         wav = self.voice_conversion(
             source_wav=source_wav, target_wav=target_wav, speaker=speaker, voice_dir=voice_dir, **kwargs
         )
-        self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
+        if self.voice_converter is not None:
+            self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
+        else:
+            self.synthesizer.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
         return file_path
 
     def tts_with_vc(

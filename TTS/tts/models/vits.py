@@ -31,7 +31,6 @@ from TTS.tts.utils.fairseq import rehash_fairseq_vits_checkpoint
 from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequence_mask
 from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment
@@ -1008,41 +1007,58 @@ class Vits(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference_voice_conversion(
-        self, reference_wav, speaker_id=None, d_vector=None, reference_speaker_id=None, reference_d_vector=None
+    def voice_conversion(
+        self,
+        source_wav,
+        target_wav,
+        source_speaker=None,
+        speaker=None,
+        # self, source_wav, speaker_id=None, d_vector=None, source_speaker_id=None, source_d_vector=None
     ):
         """Inference for voice conversion
 
         Args:
-            reference_wav (Tensor): Reference wavform. Tensor of shape [B, T]
+            source_wav (Tensor): Source wavform. Tensor of shape [B, T]
             speaker_id (Tensor): speaker_id of the target speaker. Tensor of shape [B]
             d_vector (Tensor): d_vector embedding of target speaker. Tensor of shape `[B, C]`
-            reference_speaker_id (Tensor): speaker_id of the reference_wav speaker. Tensor of shape [B]
-            reference_d_vector (Tensor): d_vector embedding of the reference_wav speaker. Tensor of shape `[B, C]`
+            source_speaker_id (Tensor): speaker_id of the source_wav speaker. Tensor of shape [B]
+            source_d_vector (Tensor): d_vector embedding of the source_wav speaker. Tensor of shape `[B, C]`
         """
+        speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker=speaker, speaker_wav=target_wav)
+        source_speaker_id, source_d_vector = self._get_speaker_id_or_dvector(
+            speaker=source_speaker, speaker_wav=source_wav
+        )
+        y = torch.tensor(
+            self.ap.load_wav(
+                source_wav, sr=self.args.encoder_sample_rate if self.args.encoder_sample_rate else self.ap.sample_rate
+            ),
+            dtype=torch.float,
+            device=self.device,
+        ).unsqueeze(0)
         # compute spectrograms
         y = wav_to_spec(
-            reference_wav,
+            y,
             self.config.audio.fft_size,
             self.config.audio.hop_length,
             self.config.audio.win_length,
             center=False,
         )
         y_lengths = torch.tensor([y.size(-1)]).to(y.device)
-        speaker_cond_src = reference_speaker_id if reference_speaker_id is not None else reference_d_vector
+        speaker_cond_src = source_speaker_id if source_speaker_id is not None else source_d_vector
         speaker_cond_tgt = speaker_id if speaker_id is not None else d_vector
-        wav, _, _ = self.voice_conversion(y, y_lengths, speaker_cond_src, speaker_cond_tgt)
-        return wav
+        wav, _, _ = self.inference_voice_conversion(y, y_lengths, speaker_cond_src, speaker_cond_tgt)
+        return wav.squeeze()
 
-    def voice_conversion(self, y, y_lengths, speaker_cond_src, speaker_cond_tgt):
+    @torch.inference_mode()
+    def inference_voice_conversion(self, y, y_lengths, speaker_cond_src, speaker_cond_tgt):
         """Forward pass for voice conversion
 
         TODO: create an end-point for voice conversion
 
         Args:
-            y (Tensor): Reference spectrograms. Tensor of shape [B, T, C]
-            y_lengths (Tensor): Length of each reference spectrogram. Tensor of shape [B]
-            speaker_cond_src (Tensor): Reference speaker ID. Tensor of shape [B,]
+            y (Tensor): Source spectrograms. Tensor of shape [B, T, C]
+            y_lengths (Tensor): Length of each source spectrogram. Tensor of shape [B]
+            speaker_cond_src (Tensor): Source speaker ID. Tensor of shape [B,]
             speaker_cond_tgt (Tensor): Target speaker ID. Tensor of shape [B,]
         """
         assert self.num_speakers > 0, "num_speakers have to be larger than 0."
@@ -1209,62 +1225,12 @@ class Vits(BaseTTS):
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
-    def get_aux_input_from_test_sentences(self, sentence_info):
-        if hasattr(self.config, "model_args"):
-            config = self.config.model_args
-        else:
-            config = self.config
-
-        # extract speaker and language info
-        text, speaker_name, style_wav, language_name = None, None, None, None
-
-        if isinstance(sentence_info, list):
-            if len(sentence_info) == 1:
-                text = sentence_info[0]
-            elif len(sentence_info) == 2:
-                text, speaker_name = sentence_info
-            elif len(sentence_info) == 3:
-                text, speaker_name, style_wav = sentence_info
-            elif len(sentence_info) == 4:
-                text, speaker_name, style_wav, language_name = sentence_info
-        else:
-            text = sentence_info
-
-        # get speaker  id/d_vector
-        speaker_id, d_vector, language_id = None, None, None
-        if hasattr(self, "speaker_manager"):
-            if config.use_d_vector_file:
-                if speaker_name is None:
-                    d_vector = self.speaker_manager.get_random_embedding()
-                else:
-                    d_vector = self.speaker_manager.get_mean_embedding(speaker_name, num_samples=None, randomize=False)
-            elif config.use_speaker_embedding:
-                if speaker_name is None:
-                    speaker_id = self.speaker_manager.get_random_id()
-                else:
-                    speaker_id = self.speaker_manager.name_to_id[speaker_name]
-
-        # get language id
-        if hasattr(self, "language_manager") and config.use_language_embedding and language_name is not None:
-            language_id = self.language_manager.name_to_id[language_name]
-
-        return {
-            "text": text,
-            "speaker_id": speaker_id,
-            "style_wav": style_wav,
-            "d_vector": d_vector,
-            "language_id": language_id,
-            "language_name": language_name,
-        }
-
     @torch.inference_mode()
-    def test_run(self, assets) -> tuple[dict, dict]:
-        """Generic test run for `tts` models used by `Trainer`.
-
-        You can override this for a different behaviour.
+    def test_run(self, assets) -> dict[str, Any]:
+        """Vits-specific test run method.
 
         Returns:
-            Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
+            Dictionary with test figures and audios to be projected to Tensorboard.
         """
         logger.info("Synthesizing test sentences.")
         test_audios = {}
@@ -1272,31 +1238,15 @@ class Vits(BaseTTS):
         test_sentences = self.config.test_sentences
         for idx, s_info in enumerate(test_sentences):
             aux_inputs = self.get_aux_input_from_test_sentences(s_info)
-            wav, alignment, _, _ = synthesis(
-                self,
+            outputs = self.synthesize(
                 aux_inputs["text"],
-                self.config,
-                "cuda" in str(next(self.parameters()).device),
-                speaker_id=aux_inputs["speaker_id"],
-                d_vector=aux_inputs["d_vector"],
-                style_wav=aux_inputs["style_wav"],
-                language_id=aux_inputs["language_id"],
+                speaker=aux_inputs.get("speaker", None),
+                language=aux_inputs.get("language", None),
                 use_griffin_lim=True,
-                do_trim_silence=False,
-            ).values()
-            test_audios[f"{idx}-audio"] = wav
-            test_figures[f"{idx}-alignment"] = plot_alignment(alignment.permute(2, 1, 0), output_fig=False)
+            )
+            test_audios[f"{idx}-audio"] = outputs["wav"]
+            test_figures[f"{idx}-alignment"] = plot_alignment(outputs["alignments"].permute(2, 1, 0), output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
-
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
-        logger.test_figures(steps, outputs["figures"])
 
     def format_batch(self, batch: dict) -> dict:
         """Compute speaker, langugage IDs and d_vector for the batch if necessary."""
