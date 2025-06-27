@@ -9,6 +9,7 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 
 from TTS.model import BaseTrainerModel
@@ -345,6 +346,69 @@ class BaseTTS(BaseTrainerModel):
                 pin_memory=False,
             )
         return loader
+
+    def _create_logs(
+        self, batch: dict[str, Any], outputs: dict[str, Any] | list[dict[str, Any]]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        raise NotImplementedError
+
+    @torch.inference_mode()
+    def train_log(
+        self,
+        batch: dict[str, Any],
+        outputs: dict[str, Any] | list[dict[str, Any]],
+        logger: BaseDashboardLogger,
+        assets: dict[str, Any],
+        steps: int,
+    ) -> None:
+        """Create visualizations and waveform examples.
+
+        For example, here you can plot spectrograms and generate sample
+        waveforms from these spectrograms to be projected onto Tensorboard.
+
+        Args:
+            batch: Model inputs used at the previous training step.
+            outputs: Model outputs generated at the previous training step.
+            logger: Logger instance.
+            assets: Training assets.
+        """
+        figures, audios = self._create_logs(batch, outputs)
+        logger.train_figures(steps, figures)
+        logger.train_audios(steps, audios, self.ap.sample_rate)
+
+    @torch.inference_mode()
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Perform a single evaluation step.
+
+        Run the model forward ... and compute losses. In most cases, you can
+        call `train_step()` with no changes.
+
+        Args:
+            batch: Input tensors.
+            criterion: Loss layer designed for the model.
+            optimizer_idx: Index of optimizer to use. 0 for the generator and 1 for the discriminator networks.
+
+        Returns:
+            Tuple[Dict, Dict]: Model outputs and computed losses.
+        """
+        if optimizer_idx is not None:
+            return self.train_step(batch, criterion, optimizer_idx)
+        return self.train_step(batch, criterion)
+
+    @torch.inference_mode()
+    def eval_log(
+        self,
+        batch: dict[str, Any],
+        outputs: dict[str, Any] | list[dict[str, Any]],
+        logger: BaseDashboardLogger,
+        assets: dict[str, Any],
+        steps: int,
+    ) -> None:
+        figures, audios = self._create_logs(batch, outputs)
+        logger.eval_figures(steps, figures)
+        logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
     def test_run(self, assets: dict) -> dict[str, Any]:

@@ -5,7 +5,6 @@ import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
-from trainer.io import load_fsspec
 
 from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.encoder import Encoder
@@ -722,7 +721,7 @@ class ForwardTTS(BaseTTS):
 
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs, ap):
+    def _create_logs(self, batch, outputs):
         """Create common logger outputs."""
         model_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
@@ -733,8 +732,8 @@ class ForwardTTS(BaseTTS):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "prediction": plot_spectrogram(pred_spec, ap, output_fig=False),
-            "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+            "prediction": plot_spectrogram(pred_spec, self.ap, output_fig=False),
+            "ground_truth": plot_spectrogram(gt_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
@@ -766,28 +765,8 @@ class ForwardTTS(BaseTTS):
             figures["alignment_hat"] = plot_alignment(alignments_hat.T, output_fig=False)
 
         # Sample audio
-        train_audio = ap.inv_melspectrogram(pred_spec.T)
+        train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
 
     def get_criterion(self):
         from TTS.tts.layers.losses import ForwardTTSLoss  # pylint: disable=import-outside-toplevel

@@ -252,7 +252,7 @@ class GAN(BaseVocoder):
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         # band-aid for older than v0.0.15 GAN models
         if "model_disc" in state:
-            self.model_g.load_checkpoint(config, checkpoint_path, eval)
+            self.model_g.load_checkpoint(config, checkpoint_path, eval=eval)
         else:
             self.load_state_dict(state["model"])
             if eval:

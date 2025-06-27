@@ -1,10 +1,11 @@
 import logging
 import os
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from torch import nn
-from trainer.io import load_fsspec
+from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
 from TTS.tts.layers.losses import NLLLoss
@@ -187,9 +188,6 @@ class Overflow(BaseTTS):
         loss_dict.update(self._training_stats(batch))
         return outputs, loss_dict
 
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
     def _format_aux_input(self, aux_input: dict, default_input_dict):
         """Set missing fields to their default value.
 
@@ -270,14 +268,17 @@ class Overflow(BaseTTS):
         return Overflow(new_config, ap, tokenizer, speaker_manager)
 
     def load_checkpoint(
-        self, config: Coqpit, checkpoint_path: str, eval: bool = False, strict: bool = True, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
-        self.load_state_dict(state["model"])
+        self,
+        config: Coqpit,
+        checkpoint_path: str | os.PathLike[Any],
+        *,
+        eval: bool = False,
+        strict: bool = True,
+        cache: bool = False,
+    ) -> None:
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
         if eval:
-            self.eval()
             self.decoder.store_inverse()
-            assert not self.training
 
     def on_init_start(self, trainer):
         """If the current dataset does not have normalisation statistics and initialisation transition_probability it computes them otherwise loads."""
@@ -325,8 +326,7 @@ class Overflow(BaseTTS):
         OverflowUtils.update_flat_start_transition(trainer.model, init_transition_prob)
         trainer.model.update_mean_std(statistics)
 
-    @torch.inference_mode()
-    def _create_logs(self, batch, outputs, ap):  # pylint: disable=no-self-use, unused-argument
+    def _create_logs(self, batch, outputs):
         alignments, transition_vectors = outputs["alignments"], outputs["transition_vectors"]
         means = torch.stack(outputs["means"], dim=1)
 
@@ -359,16 +359,17 @@ class Overflow(BaseTTS):
                 states[start:end], transition_probability_synthesising[start:end]
             )
 
-        audio = ap.inv_melspectrogram(inference_output["model_outputs"][0].T.cpu().numpy())
+        audio = self.ap.inv_melspectrogram(inference_output["model_outputs"][0].T.cpu().numpy())
         return figures, {"audios": audio}
 
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
-        """Log training progress."""
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
+    def eval_log(
+        self,
+        batch: dict[str, Any],
+        outputs: dict[str, Any] | list[dict[str, Any]],
+        logger: BaseDashboardLogger,
+        assets: dict[str, Any],
+        steps: int,
+    ) -> None:
         """Compute and log evaluation metrics."""
         # Plot model parameters histograms
         if isinstance(logger, TensorboardLogger):
@@ -376,7 +377,4 @@ class Overflow(BaseTTS):
             for tag, value in self.named_parameters():
                 tag = tag.replace(".", "/")
                 logger.writer.add_histogram(tag, value.data.cpu().numpy(), steps)
-
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
+        super().eval_log(batch, outputs, logger, assets, steps)

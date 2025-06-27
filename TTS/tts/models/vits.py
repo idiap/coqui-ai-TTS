@@ -1181,49 +1181,18 @@ class Vits(BaseTTS):
 
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def _log(self, ap, batch, outputs, name_prefix="train"):  # pylint: disable=unused-argument,no-self-use
+    def _create_logs(self, batch, outputs: list[dict[str, Any]]):
         y_hat = outputs[1]["model_outputs"]
         y = outputs[1]["waveform_seg"]
-        figures = plot_results(y_hat, y, ap, name_prefix)
+        figures = plot_results(y_hat, y, self.ap)
         sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
-        audios = {f"{name_prefix}/audio": sample_voice}
+        audios = {"audio": sample_voice}
 
         alignments = outputs[1]["alignments"]
         align_img = alignments[0].data.cpu().numpy().T
 
-        figures.update(
-            {
-                "alignment": plot_alignment(align_img, output_fig=False),
-            }
-        )
+        figures.update({"alignment": plot_alignment(align_img, output_fig=False)})
         return figures, audios
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use
-        """Create visualizations and waveform examples.
-
-        For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
-        be projected onto Tensorboard.
-
-        Args:
-            ap (AudioProcessor): audio processor used at training.
-            batch (Dict): Model inputs used at the previous training step.
-            outputs (Dict): Model outputs generated at the previoud training step.
-
-        Returns:
-            Tuple[Dict, np.ndarray]: training plots and output waveform.
-        """
-        figures, audios = self._log(self.ap, batch, outputs, "train")
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    @torch.inference_mode()
-    def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
-        return self.train_step(batch, criterion, optimizer_idx)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._log(self.ap, batch, outputs, "eval")
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
     def test_run(self, assets) -> dict[str, Any]:

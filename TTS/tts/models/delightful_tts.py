@@ -13,7 +13,6 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
-from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
@@ -767,10 +766,7 @@ class DelightfulTTS(BaseTTSE2E):
             return self.model_outputs_cache, loss_dict
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
-        return self.train_step(batch, criterion, optimizer_idx)
-
-    def _log(self, batch, outputs, name_prefix="train"):
+    def _create_logs(self, batch, outputs):
         figures, audios = {}, {}
 
         # encoder outputs
@@ -816,40 +812,18 @@ class DelightfulTTS(BaseTTSE2E):
         encoder_audio = mel_to_wav_numpy(
             mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=None), mel_basis=self.mel_basis, **self.config.audio
         )
-        audios[f"{name_prefix}/encoder_audio"] = encoder_audio
+        audios["encoder_audio"] = encoder_audio
 
         # vocoder outputs
         y_hat = outputs[1]["model_outputs"]
         y = outputs[1]["waveform_seg"]
 
-        vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap, name_prefix=name_prefix)
+        vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap)
         figures.update(vocoder_figures)
 
         sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
-        audios[f"{name_prefix}/vocoder_audio"] = sample_voice
+        audios["vocoder_audio"] = sample_voice
         return figures, audios
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use, unused-argument
-        """Create visualizations and waveform examples.
-
-        For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
-        be projected onto Tensorboard.
-
-        Args:
-            batch (Dict): Model inputs used at the previous training step.
-            outputs (Dict): Model outputs generated at the previous training step.
-
-        Returns:
-            Tuple[Dict, np.ndarray]: training plots and output waveform.
-        """
-        figures, audios = self._log(batch=batch, outputs=outputs, name_prefix="vocoder/")
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._log(batch=batch, outputs=outputs, name_prefix="vocoder/")
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     def plot_outputs(self, text, wav, alignment, outputs):
         figures = {}
@@ -1211,15 +1185,6 @@ class DelightfulTTS(BaseTTSE2E):
         speaker_manager = SpeakerManager.init_from_config(config.model_args, samples)
         ap = AudioProcessor.init_from_config(config=config)
         return DelightfulTTS(config=new_config, tokenizer=tokenizer, speaker_manager=speaker_manager, ap=ap)
-
-    def load_checkpoint(self, config, checkpoint_path, eval=False):
-        """Load model from a checkpoint created by the 👟"""
-        # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
 
     def get_state_dict(self):
         """Custom state dict of the model with all the necessary components for inference."""

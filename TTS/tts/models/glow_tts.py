@@ -1,12 +1,13 @@
 import logging
 import math
+import os
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
 from torch.nn import functional as F
-from trainer.io import load_fsspec
 
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.glow_tts.decoder import Decoder
@@ -420,7 +421,7 @@ class GlowTTS(BaseTTS):
                 )
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs, ap):
+    def _create_logs(self, batch, outputs):
         alignments = outputs["alignments"]
         text_input = batch["text_input"][:1] if batch["text_input"] is not None else None
         text_lengths = batch["text_lengths"]
@@ -440,28 +441,14 @@ class GlowTTS(BaseTTS):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "prediction": plot_spectrogram(pred_spec, ap, output_fig=False),
-            "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+            "prediction": plot_spectrogram(pred_spec, self.ap, output_fig=False),
+            "ground_truth": plot_spectrogram(gt_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
         # Sample audio
-        train_audio = ap.inv_melspectrogram(pred_spec.T)
+        train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    @torch.inference_mode()
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     def preprocess(self, y, y_lengths, y_max_length, attn=None):
         if y_max_length is not None:
@@ -475,13 +462,18 @@ class GlowTTS(BaseTTS):
     def store_inverse(self):
         self.decoder.store_inverse()
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
-        self.load_state_dict(state["model"])
+    def load_checkpoint(
+        self,
+        config: Coqpit,
+        checkpoint_path: str | os.PathLike[Any],
+        *,
+        eval: bool = False,
+        strict: bool = True,
+        cache: bool = False,
+    ) -> None:
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
         if eval:
-            self.eval()
             self.store_inverse()
-            assert not self.training
 
     @staticmethod
     def get_criterion():

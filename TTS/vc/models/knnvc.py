@@ -162,7 +162,15 @@ class KNNVC(CloningMixin, BaseVC):
         out_feats = synth_set[best.indices].mean(dim=1)
         return out_feats.unsqueeze(0)
 
-    def load_checkpoint(self, vc_config: KNNVCConfig, _vc_checkpoint: str | os.PathLike[Any]) -> None:
+    def load_checkpoint(
+        self,
+        config: Coqpit,
+        checkpoint_path: str | os.PathLike[Any],
+        *,
+        eval: bool = False,
+        strict: bool = True,
+        cache: bool = False,
+    ) -> None:
         """kNN-VC does not use checkpoints."""
 
     def forward(self) -> None: ...
