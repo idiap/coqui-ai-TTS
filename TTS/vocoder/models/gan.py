@@ -276,13 +276,13 @@ class GAN(BaseVocoder):
         Returns:
             List: optimizers.
         """
-        optimizer1 = get_optimizer(
-            self.config.optimizer, self.config.optimizer_params, self.config.lr_gen, self.model_g
-        )
-        optimizer2 = get_optimizer(
+        optimizer_d = get_optimizer(
             self.config.optimizer, self.config.optimizer_params, self.config.lr_disc, self.model_d
         )
-        return [optimizer2, optimizer1]
+        optimizer_g = get_optimizer(
+            self.config.optimizer, self.config.optimizer_params, self.config.lr_gen, self.model_g
+        )
+        return [optimizer_d, optimizer_g]
 
     def get_lr(self) -> list:
         """Set the initial learning rates for each optimizer.
@@ -301,9 +301,9 @@ class GAN(BaseVocoder):
         Returns:
             List: Schedulers, one for each optimizer.
         """
-        scheduler1 = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[0])
-        scheduler2 = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
-        return [scheduler2, scheduler1]
+        scheduler_d = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[0])
+        scheduler_g = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
+        return [scheduler_d, scheduler_g]
 
     @staticmethod
     def format_batch(batch: list) -> dict:
