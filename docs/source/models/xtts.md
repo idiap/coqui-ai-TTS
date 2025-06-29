@@ -75,6 +75,11 @@ You can do inference using one of the available speakers using the following com
 ```
 
 #### Clone a voice
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
+
 You can clone a speaker voice using a single or multiple references:
 
 ##### Single reference

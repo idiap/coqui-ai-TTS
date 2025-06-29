@@ -10,7 +10,11 @@ It is architecturally very similar to Google's [AudioLM](https://arxiv.org/abs/2
 - 👑[serp-ai](https://github.com/serp-ai/bark-with-voice-clone) for controlled voice cloning.
 
 
-## Example Use
+## Example use
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
 
 ```python
 text = "Hello, my name is Manmay , how are you?"
@@ -39,19 +43,16 @@ from TTS.api import TTS
 tts = TTS("tts_models/multilingual/multi-dataset/bark").to("cuda")
 
 
-# Cloning a new speaker
-# This expects to find a mp3 or wav file like `bark_voices/new_speaker/speaker.wav`
-# It computes the cloning values and stores in `bark_voices/new_speaker/speaker.npz`
+# Clone voice and cache it with the custom ID `ljspeech`.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="bark_voices/",
+                speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
                 speaker="ljspeech")
 
 
 # When you run it again it uses the stored values to generate the voice.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="bark_voices/",
                 speaker="ljspeech")
 
 
@@ -63,19 +64,18 @@ tts.tts_to_file("hello world", file_path="out.wav")
 Using 🐸TTS Command line:
 
 ```console
-# cloning the `ljspeech` voice
+# Clone the `ljspeech` voice and cache it under that ID for later reuse without reference audio.
 tts --model_name  tts_models/multilingual/multi-dataset/bark \
---text "This is an example." \
---out_path "output.wav" \
---voice_dir bark_voices/ \
---speaker_idx "ljspeech"
+    --text "This is an example." \
+    --out_path "output.wav" \
+    --speaker_wav tests/data/ljspeech/wavs/*.wav
+    --speaker_idx "ljspeech"
 
 # Random voice generation
 tts --model_name  tts_models/multilingual/multi-dataset/bark \
---text "This is an example." \
---out_path "output.wav"
+    --text "This is an example." \
+    --out_path "output.wav"
 ```
-
 
 ## Important resources & papers
 - Original Repo: https://github.com/suno-ai/bark

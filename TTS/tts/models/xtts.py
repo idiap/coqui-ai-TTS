@@ -23,7 +23,6 @@ from TTS.utils.generic_utils import (
     warn_synthesize_config_deprecated,
     warn_synthesize_speaker_id_deprecated,
 )
-from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +182,7 @@ class XttsArgs(Coqpit):
     duration_const: int = 102400
 
 
-class Xtts(CloningMixin, BaseTTS):
+class Xtts(BaseTTS):
     """XTTS model implementation.
 
     ❗ Currently it only supports inference.

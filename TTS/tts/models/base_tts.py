@@ -12,6 +12,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 
+from TTS.config import get_from_config_or_model_args
 from TTS.model import BaseTrainerModel
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import TTSDataset
@@ -21,13 +22,14 @@ from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
 from TTS.tts.utils.synthesis import inv_spectrogram
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
+from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
 
 # pylint: skip-file
 
 
-class BaseTTS(BaseTrainerModel):
+class BaseTTS(CloningMixin, BaseTrainerModel):
     """Base `tts` class. Every new `tts` model must inherit this.
 
     It defines common `tts` specific functions on top of `Model` implementation.
@@ -500,29 +502,61 @@ class BaseTTS(BaseTrainerModel):
         self,
         speaker: str | None,
         speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
-        if self.speaker_manager is not None:
-            if len(self.speaker_manager.name_to_id) == 1:
-                speaker_id = list(self.speaker_manager.name_to_id.values())[0]
+        """Return speaker ID or d-vector, depending on the model.
+
+        Considers the following cases:
+        - Return speaker ID for embedding-based models.
+        - Return d-vector for d-vector-based models with preset speakers.
+        - Compute d-vector from `speaker_wav` if model has a speaker encoder.
+          The result may be cached in `voice_dir` if a custom `speaker` name is specified.
+
+        Returns:
+            Tuple of (speaker id, d-vector), one of which is None, depending on the model.
+        """
+        if self.speaker_manager is None:
+            return None, None
+
+        if len(self.speaker_manager.name_to_id) == 1:
+            speaker_id = list(self.speaker_manager.name_to_id.values())[0]
+            return torch.tensor(speaker_id, device=self.device), None
+
+        speaker_exists = True
+        if get_from_config_or_model_args(self.config, "use_d_vector_file") and speaker is not None:
+            if speaker in self.speaker_manager.embedding_names:
+                d_vector = self.speaker_manager.get_mean_embedding(speaker, num_samples=None, randomize=False)
+                d_vector = torch.tensor(d_vector, dtype=torch.float, device=self.device).unsqueeze(0)
+                return None, d_vector  # [1 x embedding_dim]
+            speaker_exists = False
+
+        if get_from_config_or_model_args(self.config, "use_speaker_embedding") and speaker is not None:
+            if speaker in self.speaker_manager.name_to_id:
+                speaker_id = self.speaker_manager.name_to_id[speaker]
                 return torch.tensor(speaker_id, device=self.device), None
-            if speaker is not None:
-                if self.config.use_d_vector_file:
-                    # get the average speaker embedding from the saved d_vectors.
-                    d_vector = self.speaker_manager.get_mean_embedding(speaker, num_samples=None, randomize=False)
-                    d_vector = torch.tensor(d_vector, dtype=torch.float, device=self.device).unsqueeze(0)
-                    return None, d_vector  # [1 x embedding_dim]
-                else:
-                    speaker_id = self.speaker_manager.name_to_id[speaker]
-                    return torch.tensor(speaker_id, device=self.device), None
-            if speaker_wav is not None and self.speaker_manager.encoder is not None:
-                d_vector = self.speaker_manager.compute_embedding_from_clip(speaker_wav)
-                return None, torch.tensor(d_vector, dtype=torch.float, device=self.device).unsqueeze(0)
-            msg = (
-                "Looks like you are using a multi-speaker model. "
-                "You need to define either a `speaker_idx` or a `speaker_wav`."
-            )
-            raise ValueError(msg)
-        return None, None
+            speaker_exists = False
+
+        if self.speaker_manager.encoder is not None and (speaker is not None or speaker_wav is not None):
+            d_vector = self.clone_voice(speaker_wav, speaker, voice_dir)["d_vector"]
+            return None, torch.tensor(d_vector, dtype=torch.float, device=self.device).unsqueeze(0)
+
+        if not speaker_exists:
+            msg = f"{speaker} is not a valid speaker of the model."
+            raise KeyError(msg)
+
+        msg = (
+            "Looks like you are using a multi-speaker model. "
+            "You need to pass either a speaker name or a reference audio file."
+        )
+        raise ValueError(msg)
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **kwargs
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        d_vector = self.speaker_manager.compute_embedding_from_clip(speaker_wav)
+        voice = {"d_vector": d_vector}
+        metadata = {"name": self.speaker_manager.encoder.__class__.__name__}
+        return voice, metadata
 
     def synthesize(
         self,
@@ -562,7 +596,7 @@ class BaseTTS(BaseTrainerModel):
             warn_synthesize_speaker_id_deprecated()
         text_inputs = self.tokenizer.text_to_ids(text, language=language)
         language_id = self._get_language_id(language)
-        _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav)
+        _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav, voice_dir)
         text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
         if language_id is not None:
             language_id = torch.tensor(language_id, device=self.device)

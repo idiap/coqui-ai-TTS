@@ -349,10 +349,12 @@ class Synthesizer(nn.Module):
         start_time = time.time()
         wavs = []
 
-        if not text and not speaker_wav:
-            raise ValueError(
-                "You need to define either `text` (for sythesis) or a `speaker_wav` (for voice conversion) to use the Coqui TTS API."
+        if not text and not speaker_wav and not speaker_name:
+            msg = (
+                "You need to define at least either `text` (for synthesis) or a "
+                "`speaker_wav` or cached `speaker` name (for voice conversion) to use the Coqui TTS API."
             )
+            raise ValueError(msg)
 
         if text:
             sens = [text]
@@ -414,7 +416,7 @@ class Synthesizer(nn.Module):
                 wavs += [0] * 10000
         else:
             outputs = self.tts_model.voice_conversion(
-                source_wav, speaker_wav, source_speaker=source_speaker_name, speaker=speaker_name
+                source_wav, speaker_wav, source_speaker=source_speaker_name, speaker=speaker_name, voice_dir=voice_dir
             )
             waveform = outputs
             if not use_gl:

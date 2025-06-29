@@ -34,7 +34,6 @@ from TTS.utils.generic_utils import (
     warn_synthesize_config_deprecated,
     warn_synthesize_speaker_id_deprecated,
 )
-from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +326,7 @@ class TortoiseArgs(Coqpit):
     duration_const: int = 102400
 
 
-class Tortoise(CloningMixin, BaseTTS):
+class Tortoise(BaseTTS):
     """Tortoise model class.
 
     Currently only supports inference.

@@ -26,7 +26,6 @@ from TTS.tts.layers.bark.model import GPT
 from TTS.tts.layers.bark.model_fine import FineGPT
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
-from TTS.utils.voices import CloningMixin
 
 
 @dataclass
@@ -35,7 +34,7 @@ class BarkAudioConfig(Coqpit):
     output_sample_rate: int = 24000
 
 
-class Bark(CloningMixin, BaseTTS):
+class Bark(BaseTTS):
     def __init__(
         self,
         config: Coqpit,

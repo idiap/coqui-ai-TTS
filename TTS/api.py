@@ -424,6 +424,7 @@ class TTS(nn.Module):
                 source_speaker_name=source_speaker,
                 speaker_wav=target_wav,
                 speaker_name=speaker,
+                voice_dir=voice_dir,
                 **kwargs,
             )
         msg = "The selected model does not support voice conversion."

@@ -1010,24 +1010,23 @@ class Vits(BaseTTS):
     def voice_conversion(
         self,
         source_wav,
-        target_wav,
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None,
+        *,
         source_speaker=None,
         speaker=None,
-        # self, source_wav, speaker_id=None, d_vector=None, source_speaker_id=None, source_d_vector=None
+        voice_dir: str | os.PathLike[Any] | None = None,
     ):
         """Inference for voice conversion
 
         Args:
-            source_wav (Tensor): Source wavform. Tensor of shape [B, T]
-            speaker_id (Tensor): speaker_id of the target speaker. Tensor of shape [B]
-            d_vector (Tensor): d_vector embedding of target speaker. Tensor of shape `[B, C]`
-            source_speaker_id (Tensor): speaker_id of the source_wav speaker. Tensor of shape [B]
-            source_d_vector (Tensor): d_vector embedding of the source_wav speaker. Tensor of shape `[B, C]`
+            source_wav: Path to source audio file.
+            target_wav: Path(s) to target audio file(s).
+            source_speaker: Source speaker name.
+            speaker: Target speaker name.
+            voice_dir: Directory to cache voices.
         """
-        speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker=speaker, speaker_wav=target_wav)
-        source_speaker_id, source_d_vector = self._get_speaker_id_or_dvector(
-            speaker=source_speaker, speaker_wav=source_wav
-        )
+        speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, target_wav, voice_dir)
+        source_speaker_id, source_d_vector = self._get_speaker_id_or_dvector(source_speaker, source_wav, voice_dir)
         y = torch.tensor(
             self.ap.load_wav(
                 source_wav, sr=self.args.encoder_sample_rate if self.args.encoder_sample_rate else self.ap.sample_rate
@@ -1052,8 +1051,6 @@ class Vits(BaseTTS):
     @torch.inference_mode()
     def inference_voice_conversion(self, y, y_lengths, speaker_cond_src, speaker_cond_tgt):
         """Forward pass for voice conversion
-
-        TODO: create an end-point for voice conversion
 
         Args:
             y (Tensor): Source spectrograms. Tensor of shape [B, T, C]

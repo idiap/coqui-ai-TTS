@@ -895,7 +895,7 @@ class DelightfulTTS(BaseTTSE2E):
         text_inputs = self.tokenizer.text_to_ids(text, language=None)
         text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
 
-        _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav)
+        _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav, voice_dir)
 
         # synthesize voice
         outputs = self.inference(
