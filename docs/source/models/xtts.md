@@ -4,12 +4,11 @@ XTTS has important model changes that make cross-language voice cloning and mult
 There is no need for an excessive amount of training data that spans countless hours.
 
 ## Features
-- Voice cloning.
-- Cross-language voice cloning.
+- [Voice cloning](../cloning.md), including cross-language.
 - Multi-lingual speech generation.
 - 24khz sampling rate.
-- Streaming inference with < 200ms latency. (See [Streaming inference](#streaming-manually))
-- Fine-tuning support. (See [Training](#training))
+- [Streaming inference](#streaming-manually) with < 200ms latency.
+- [Fine-tuning](#training) support.
 
 ## Updates with v2
 - Improved voice cloning.
@@ -44,7 +43,7 @@ XTTS-v2 supports 17 languages:
 This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
 
 ## Contact
-Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Github](https://github.com/idiap/coqui-ai-TTS/discussions).
+Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [GitHub](https://github.com/idiap/coqui-ai-TTS/discussions).
 
 ## Inference
 

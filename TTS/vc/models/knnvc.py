@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchaudio
 from coqpit import Coqpit
 
+from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.knnvc_config import KNNVCConfig
 from TTS.vc.layers.freevc.wavlm import get_wavlm
 from TTS.vc.models.base_vc import BaseVC
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 PathOrTensor: TypeAlias = str | os.PathLike[Any] | torch.Tensor
 
 
-class KNNVC(BaseVC):
+class KNNVC(CloningMixin, BaseVC):
     """
     Paper::
         https://arxiv.org/abs/2305.18975
@@ -167,15 +168,33 @@ class KNNVC(BaseVC):
     def forward(self) -> None: ...
     def inference(self) -> None: ...
 
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(speaker_wav, list):
+            speaker_wav = [speaker_wav]
+        matching_set = self.get_matching_set(speaker_wav)
+        voice = {"matching_set": matching_set}
+        metadata = {"name": "wavlm", "layer": self.config.wavlm_layer}
+        return voice, metadata
+
     @torch.inference_mode()
     def voice_conversion(
         self,
         source: PathOrTensor,
-        target: list[PathOrTensor],
+        target: list[PathOrTensor] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
         topk: int | None = None,
     ) -> torch.Tensor:
-        if not isinstance(target, list):
+        if target is not None and not isinstance(target, list):
             target = [target]
         source_features = self.get_features(source)
-        matching_set = self.get_matching_set(target)
+
+        if target is None or all(isinstance(x, (str, os.PathLike)) for x in target):
+            voice = self.clone_voice(target, speaker_id, voice_dir)
+            matching_set = voice["matching_set"]
+        else:
+            matching_set = self.get_matching_set(target)
         return self.match(source_features, matching_set, topk=topk)

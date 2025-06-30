@@ -22,7 +22,7 @@ def validate_numpy_array(value: Any):
         pass
     elif isinstance(value, list):
         value = np.array(value)
-    elif torch.is_tensor(value):
+    elif isinstance(value, torch.Tensor):
         value = value.cpu().numpy()
     else:
         raise TypeError("Value must be a numpy array, a torch tensor or a list")

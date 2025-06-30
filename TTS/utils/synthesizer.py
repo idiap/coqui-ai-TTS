@@ -12,6 +12,7 @@ from torch import nn
 from TTS.config import load_config
 from TTS.tts.configs.vits_config import VitsConfig
 from TTS.tts.models import setup_model as setup_tts_model
+from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.models.vits import Vits
 from TTS.tts.utils.synthesis import synthesis, transfer_voice, trim_silence
 from TTS.utils.audio import AudioProcessor
@@ -19,8 +20,10 @@ from TTS.utils.audio.numpy_transforms import save_wav
 from TTS.utils.generic_utils import optional_to_str
 from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models import setup_model as setup_vc_model
+from TTS.vc.models.base_vc import BaseVC
 from TTS.vc.models.openvoice import OpenVoice
 from TTS.vocoder.models import setup_model as setup_vocoder_model
+from TTS.vocoder.models.base_vocoder import BaseVocoder
 from TTS.vocoder.utils.generic_utils import interpolate_vocoder_input
 
 logger = logging.getLogger(__name__)
@@ -80,9 +83,9 @@ class Synthesizer(nn.Module):
         model_dir = optional_to_str(model_dir)
         self.use_cuda = use_cuda
 
-        self.tts_model = None
-        self.vocoder_model = None
-        self.vc_model = None
+        self.tts_model: BaseTTS | None = None
+        self.vocoder_model: BaseVocoder | None = None
+        self.vc_model: BaseVC | None = None
         self.speaker_manager = None
         self.tts_speakers = {}
         self.language_manager = None
@@ -91,26 +94,36 @@ class Synthesizer(nn.Module):
         self.d_vector_dim = 0
         self.seg = self._get_segmenter("en")
         self.use_cuda = use_cuda
-        self.voice_dir = voice_dir
         if self.use_cuda:
             assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
+        self.checkpoint_dir = None
         if tts_checkpoint:
             self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
+            self.checkpoint_dir = Path(self.tts_checkpoint)
 
         if vc_checkpoint and model_dir == "":
             self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
+            self.checkpoint_dir = Path(self.vc_checkpoint)
 
         if vocoder_checkpoint:
             self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
 
         if model_dir:
+            path = Path(model_dir)
+            self.checkpoint_dir = path if path.is_dir() else path.parent
             if "fairseq" in model_dir:
                 self._load_fairseq_from_dir(model_dir, use_cuda)
             elif "openvoice" in model_dir:
                 self._load_openvoice_from_dir(Path(model_dir), use_cuda)
             else:
                 self._load_tts_from_dir(model_dir, use_cuda)
+
+        if self.checkpoint_dir is None:
+            msg = "Need to initialize a TTS or VC model via tts_checkpoint/vc_checkpoint/model_dir"
+            raise RuntimeError(msg)
+
+        self.voice_dir = Path(voice_dir) if voice_dir is not None else self.checkpoint_dir / "voices"
 
     @staticmethod
     def _get_segmenter(lang: str):
@@ -259,7 +272,7 @@ class Synthesizer(nn.Module):
         """
         return self.seg.segment(text)
 
-    def save_wav(self, wav: list[int], path: str, pipe_out=None) -> None:
+    def save_wav(self, wav: list[int] | torch.Tensor | np.ndarray, path: str, pipe_out=None) -> None:
         """Save the waveform as a file.
 
         Args:
@@ -268,18 +281,36 @@ class Synthesizer(nn.Module):
             pipe_out (BytesIO, optional): Flag to stdout the generated TTS wav file for shell pipe.
         """
         # if tensor convert to numpy
-        if torch.is_tensor(wav):
+        if isinstance(wav, torch.Tensor):
             wav = wav.cpu().numpy()
         if isinstance(wav, list):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
+    def voice_conversion(
+        self,
+        source_wav: str,
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
+    ) -> list[int]:
+        """Run a voice conversion model."""
         start_time = time.time()
+        if self.vc_model is None:
+            msg = "Voice conversion model not loaded"
+            raise RuntimeError(msg)
+        if target_wav is None and speaker_id is None:
+            msg = "Need to specify at least one of `target_wav` and `speaker_id`"
+            raise RuntimeError(msg)
 
-        if not isinstance(target_wav, list):
+        voice_dir = Path(voice_dir) if voice_dir is not None else self.voice_dir
+        if target_wav is not None and not isinstance(target_wav, list):
             target_wav = [target_wav]
-        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
+        output = self.vc_model.voice_conversion(
+            source_wav, target_wav, speaker_id=speaker_id, voice_dir=voice_dir, **kwargs
+        )
         if self.vocoder_model is not None:
             output = self.vocoder_model.inference(output)
 
@@ -319,6 +350,9 @@ class Synthesizer(nn.Module):
         Returns:
             List[int]: [description]
         """
+        if self.tts_model is None:
+            msg = "Text-to-speech model not loaded"
+            raise RuntimeError(msg)
         start_time = time.time()
         wavs = []
 
@@ -335,9 +369,7 @@ class Synthesizer(nn.Module):
             logger.info("Input: %s", sens)
 
         # handle multi-speaker
-        if "voice_dir" in kwargs:
-            self.voice_dir = kwargs["voice_dir"]
-            kwargs.pop("voice_dir")
+        voice_dir = Path(d) if (d := kwargs.pop("voice_dir", None)) is not None else self.voice_dir
         speaker_embedding = None
         speaker_id = None
         if self.tts_speakers_file or hasattr(self.tts_model.speaker_manager, "name_to_id"):
@@ -361,12 +393,11 @@ class Synthesizer(nn.Module):
                 )
             else:
                 speaker_embedding = None
-        else:
-            if speaker_name and self.voice_dir is None:
-                raise ValueError(
-                    f" [!] Missing speakers.json file path for selecting speaker {speaker_name}."
-                    "Define path for speaker.json if it is a multi-speaker model or remove defined speaker idx. "
-                )
+        elif speaker_name and not hasattr(self.tts_model, "clone_voice"):
+            raise ValueError(
+                f" [!] Missing speakers.json file path for selecting speaker {speaker_name}."
+                "Define path for speaker.json if it is a multi-speaker model or remove defined speaker idx. "
+            )
 
         # handle multi-lingual
         language_id = None
@@ -423,7 +454,7 @@ class Synthesizer(nn.Module):
                         text=sen,
                         config=self.tts_config,
                         speaker_id=speaker_name,
-                        voice_dirs=self.voice_dir,
+                        voice_dir=voice_dir,
                         d_vector=speaker_embedding,
                         speaker_wav=speaker_wav,
                         language=language_name,
@@ -463,7 +494,7 @@ class Synthesizer(nn.Module):
                     # run vocoder model
                     # [1, T, C]
                     waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-                if torch.is_tensor(waveform) and waveform.device != torch.device("cpu") and not use_gl:
+                if isinstance(waveform, torch.Tensor) and waveform.device != torch.device("cpu") and not use_gl:
                     waveform = waveform.cpu()
                 if not use_gl:
                     waveform = waveform.numpy()
@@ -527,7 +558,7 @@ class Synthesizer(nn.Module):
                 # run vocoder model
                 # [1, T, C]
                 waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-            if torch.is_tensor(waveform) and waveform.device != torch.device("cpu"):
+            if isinstance(waveform, torch.Tensor) and waveform.device != torch.device("cpu"):
                 waveform = waveform.cpu()
             if not use_gl:
                 waveform = waveform.numpy()

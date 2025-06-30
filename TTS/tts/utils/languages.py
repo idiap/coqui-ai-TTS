@@ -1,7 +1,6 @@
 import os
 from typing import Any, Optional
 
-import fsspec
 import numpy as np
 import torch
 from coqpit import Coqpit
@@ -97,19 +96,6 @@ class LanguageManager(BaseIDManager):
             # Fall back to parse language IDs from the config
             return LanguageManager(config=config)
         return None
-
-
-def _set_file_path(path):
-    """Find the language_ids.json under the given path or the above it.
-    Intended to band aid the different paths returned in restored and continued training."""
-    path_restore = os.path.join(os.path.dirname(path), "language_ids.json")
-    path_continue = os.path.join(path, "language_ids.json")
-    fs = fsspec.get_mapper(path).fs
-    if fs.exists(path_restore):
-        return path_restore
-    if fs.exists(path_continue):
-        return path_continue
-    return None
 
 
 def get_language_balancer_weights(items: list):

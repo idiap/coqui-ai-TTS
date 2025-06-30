@@ -17,6 +17,7 @@ from trainer.io import load_fsspec
 from TTS.tts.layers.vits.networks import PosteriorEncoder
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.audio.torch_transforms import wav_to_spec
+from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models.base_vc import BaseVC
 from TTS.vc.models.freevc import Generator, ResidualCouplingBlock
@@ -87,7 +88,7 @@ class ReferenceEncoder(nn.Module):
         return L
 
 
-class OpenVoice(BaseVC):
+class OpenVoice(CloningMixin, BaseVC):
     """
     OpenVoice voice conversion model (inference only).
 
@@ -268,9 +269,11 @@ class OpenVoice(BaseVC):
             "z_hat": z_hat,
         }
 
-    def load_audio(self, wav: str | npt.NDArray[np.float32] | torch.Tensor | list[float]) -> torch.Tensor:
+    def load_audio(
+        self, wav: str | os.PathLike[Any] | npt.NDArray[np.float32] | torch.Tensor | list[float]
+    ) -> torch.Tensor:
         """Read and format the input audio."""
-        if isinstance(wav, str):
+        if isinstance(wav, (str, os.PathLike)):
             out = torch.from_numpy(librosa.load(wav, sr=self.config.audio.input_sample_rate)[0])
         elif isinstance(wav, np.ndarray):
             out = torch.from_numpy(wav)
@@ -280,7 +283,7 @@ class OpenVoice(BaseVC):
             out = wav
         return out.to(self.device).float()
 
-    def extract_se(self, audio: str | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def extract_se(self, audio: str | os.PathLike[Any] | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         y = self.load_audio(audio)
         y = y.to(self.device)
         y = y.unsqueeze(0)
@@ -296,8 +299,31 @@ class OpenVoice(BaseVC):
 
         return g, spec
 
+    def _extract_target_se(self, tgt: list[str | os.PathLike[Any] | torch.Tensor]) -> torch.Tensor:
+        tgt_ses = []
+        for tg in tgt:
+            tgt_se, _ = self.extract_se(tg)
+            tgt_ses.append(tgt_se)
+        return torch.stack(tgt_ses).mean(dim=0)
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(speaker_wav, list):
+            speaker_wav = [speaker_wav]
+        voice = {"speaker_embedding": self._extract_target_se(speaker_wav)}
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
+
     @torch.inference_mode()
-    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]) -> npt.NDArray[np.float32]:
+    def voice_conversion(
+        self,
+        src: str | os.PathLike[Any] | torch.Tensor,
+        tgt: list[str | os.PathLike[Any] | torch.Tensor] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+    ) -> npt.NDArray[np.float32]:
         """
         Voice conversion pass of the model.
 
@@ -309,11 +335,10 @@ class OpenVoice(BaseVC):
             Output numpy array.
         """
         src_se, src_spec = self.extract_se(src)
-        tgt_ses = []
-        for tg in tgt:
-            tgt_se, _ = self.extract_se(tg)
-            tgt_ses.append(tgt_se)
-        tgt_se = torch.stack(tgt_ses).mean(dim=0)
+        if tgt is None or all(isinstance(x, (str, os.PathLike)) for x in tgt):
+            tgt_se = self.clone_voice(tgt, speaker_id, voice_dir)["speaker_embedding"]
+        else:
+            tgt_se = self._extract_target_se(tgt)
 
         aux_input = {"g_src": src_se, "g_tgt": tgt_se}
         audio = self.inference(src_spec, aux_input)

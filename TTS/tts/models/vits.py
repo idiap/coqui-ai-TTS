@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field, replace
 from itertools import chain
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -474,10 +474,10 @@ class Vits(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
-        language_manager: LanguageManager = None,
+        ap: Union["AudioProcessor", None] = None,
+        tokenizer: Union["TTSTokenizer", None] = None,
+        speaker_manager: SpeakerManager | None = None,
+        language_manager: LanguageManager | None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager, language_manager)
 
@@ -799,22 +799,22 @@ class Vits(BaseTTS):
 
     def forward(  # pylint: disable=dangerous-default-value
         self,
-        x: torch.tensor,
-        x_lengths: torch.tensor,
-        y: torch.tensor,
-        y_lengths: torch.tensor,
-        waveform: torch.tensor,
-        aux_input={"d_vectors": None, "speaker_ids": None, "language_ids": None},
+        x: torch.Tensor,
+        x_lengths: torch.Tensor,
+        y: torch.Tensor,
+        y_lengths: torch.Tensor,
+        waveform: torch.Tensor,
+        aux_input: dict[str, Any] = {"d_vectors": None, "speaker_ids": None, "language_ids": None},
     ) -> dict:
         """Forward pass of the model.
 
         Args:
-            x (torch.tensor): Batch of input character sequence IDs.
-            x_lengths (torch.tensor): Batch of input character sequence lengths.
-            y (torch.tensor): Batch of input spectrograms.
-            y_lengths (torch.tensor): Batch of input spectrogram lengths.
-            waveform (torch.tensor): Batch of ground truth waveforms per sample.
-            aux_input (dict, optional): Auxiliary inputs for multi-speaker and multi-lingual training.
+            x: Batch of input character sequence IDs.
+            x_lengths: Batch of input character sequence lengths.
+            y: Batch of input spectrograms.
+            y_lengths: Batch of input spectrogram lengths.
+            waveform: Batch of ground truth waveforms per sample.
+            aux_input: Auxiliary inputs for multi-speaker and multi-lingual training.
                 Defaults to {"d_vectors": None, "speaker_ids": None, "language_ids": None}.
 
         Returns:

@@ -1,9 +1,11 @@
 """Coqui TTS Python API."""
 
 import logging
+import os
 import tempfile
 import warnings
 from pathlib import Path
+from typing import Any
 
 from torch import nn
 
@@ -108,12 +110,11 @@ class TTS(nn.Module):
 
     @property
     def is_multi_speaker(self) -> bool:
-        if (
-            self.synthesizer is not None
-            and hasattr(self.synthesizer.tts_model, "speaker_manager")
-            and self.synthesizer.tts_model.speaker_manager
-        ):
-            return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
+        if self.synthesizer is not None:
+            if hasattr(self.synthesizer.tts_model, "clone_voice"):
+                return True
+            if hasattr(self.synthesizer.tts_model, "speaker_manager") and self.synthesizer.tts_model.speaker_manager:
+                return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
         return False
 
     @property
@@ -135,13 +136,13 @@ class TTS(nn.Module):
         return False
 
     @property
-    def speakers(self) -> list[str]:
+    def speakers(self) -> list[str] | None:
         if not self.is_multi_speaker:
             return None
         return self.synthesizer.tts_model.speaker_manager.speaker_names
 
     @property
-    def languages(self) -> list[str]:
+    def languages(self) -> list[str] | None:
         if not self.is_multi_lingual:
             return None
         return self.synthesizer.tts_model.language_manager.language_names
@@ -221,7 +222,6 @@ class TTS(nn.Module):
 
         TODO: Add tests
         """
-        self.synthesizer = None
         self.model_name = model_name
 
         model_path, config_path, vocoder_path, vocoder_config_path, model_dir = self.download_model_by_name(
@@ -270,7 +270,7 @@ class TTS(nn.Module):
         self,
         speaker: str | None = None,
         language: str | None = None,
-        speaker_wav: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         emotion: str | None = None,
         **kwargs,
     ) -> None:
@@ -292,7 +292,7 @@ class TTS(nn.Module):
         text: str,
         speaker: str | None = None,
         language: str | None = None,
-        speaker_wav: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         emotion: str | None = None,
         split_sentences: bool = True,
         **kwargs,
@@ -316,9 +316,12 @@ class TTS(nn.Module):
                 Split text into sentences, synthesize them separately and concatenate the file audio.
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
-            kwargs (dict, optional):
+            **kwargs (optional):
                 Additional arguments for the model.
         """
+        if self.synthesizer is None:
+            msg = "The selected model does not support speech synthesis."
+            raise RuntimeError(msg)
         self._check_arguments(speaker=speaker, language=language, speaker_wav=speaker_wav, emotion=emotion, **kwargs)
         wav = self.synthesizer.tts(
             text=text,
@@ -335,7 +338,7 @@ class TTS(nn.Module):
         text: str,
         speaker: str | None = None,
         language: str | None = None,
-        speaker_wav: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         emotion: str | None = None,
         pipe_out=None,
         file_path: str = "output.wav",
@@ -366,7 +369,7 @@ class TTS(nn.Module):
                 Split text into sentences, synthesize them separately and concatenate the file audio.
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
-            kwargs (dict, optional):
+            **kwargs (optional):
                 Additional arguments for the model.
         """
         self._check_arguments(speaker=speaker, language=language, speaker_wav=speaker_wav, **kwargs)
@@ -384,42 +387,72 @@ class TTS(nn.Module):
 
     def voice_conversion(
         self,
-        source_wav: str,
-        target_wav: str | list[str],
+        source_wav: str | os.PathLike[Any],
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        *,
+        speaker: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
     ):
-        """Voice conversion with FreeVC. Convert source wav to target speaker.
+        """Convert source wav to target speaker.
 
-        Args:``
-            source_wav (str):
+        Target speaker voices can be cached by assigning a ``speaker`` argument
+        for later reuse without ``target_wav``.
+
+        Args:
+            source_wav:
                 Path to the source wav file.
-            target_wav (str):`
-                Path to the target wav file.
+            target_wav:
+                Path(s) to the target wav file(s).
+            speaker:
+                Custom speaker ID to cache the cloned voice.
+            voice_dir:
+                Cache folder for cloned voices.
+            **kwargs:
+                Additional arguments for the model.
         """
         if self.voice_converter is None:
             msg = "The selected model does not support voice conversion."
             raise RuntimeError(msg)
-        return self.voice_converter.voice_conversion(source_wav=source_wav, target_wav=target_wav)
+        return self.voice_converter.voice_conversion(
+            source_wav=source_wav, target_wav=target_wav, speaker_id=speaker, voice_dir=voice_dir, **kwargs
+        )
 
     def voice_conversion_to_file(
         self,
-        source_wav: str,
-        target_wav: str | list[str],
+        source_wav: str | os.PathLike[Any],
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        *,
         file_path: str = "output.wav",
+        speaker: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
         pipe_out=None,
+        **kwargs,
     ) -> str:
-        """Voice conversion with FreeVC. Convert source wav to target speaker.
+        """Convert source wav to target speaker.
+
+        Target speaker voices can be cached by assigning a ``speaker`` argument
+        for later reuse without ``target_wav``.
 
         Args:
-            source_wav (str):
+            source_wav:
                 Path to the source wav file.
-            target_wav (str):
+            target_wav:
                 Path to the target wav file.
-            file_path (str, optional):
+            file_path:
                 Output file path. Defaults to "output.wav".
+            speaker:
+                Custom speaker ID to cache the cloned voice.
+            voice_dir:
+                Cache folder for cloned voices.
             pipe_out (BytesIO, optional):
                 Flag to stdout the generated TTS wav file for shell pipe.
+            **kwargs:
+                Additional arguments for the model.
         """
-        wav = self.voice_conversion(source_wav=source_wav, target_wav=target_wav)
+        wav = self.voice_conversion(
+            source_wav=source_wav, target_wav=target_wav, speaker=speaker, voice_dir=voice_dir, **kwargs
+        )
         self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
         return file_path
 
@@ -428,7 +461,7 @@ class TTS(nn.Module):
         text: str,
         *,
         language: str | None = None,
-        speaker_wav: str | list[str],
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]],
         speaker: str | None = None,
         split_sentences: bool = True,
     ):
@@ -456,6 +489,12 @@ class TTS(nn.Module):
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
         """
+        # TODO: This won't work for YourTTS
+        if hasattr(self.synthesizer.tts_model, "clone_voice"):
+            warnings.warn(
+                "This TTS model directly supports voice cloning, for better quality call it with "
+                "tts/tts_to_file(..., speaker_wav=...) instead."
+            )
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fp:
             # Lazy code... save it to a temp file to resample it while reading it for VC
             self.tts_to_file(
@@ -471,7 +510,7 @@ class TTS(nn.Module):
         text: str,
         *,
         language: str | None = None,
-        speaker_wav: str | list[str],
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]],
         file_path: str = "output.wav",
         speaker: str | None = None,
         split_sentences: bool = True,

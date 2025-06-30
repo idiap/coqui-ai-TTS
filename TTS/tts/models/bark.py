@@ -1,24 +1,30 @@
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-import numpy as np
+import torch
+import torchaudio
 from coqpit import Coqpit
 from encodec import EncodecModel
+from encodec.utils import convert_audio
 from transformers import BertTokenizer
 
+from TTS.tts.layers.bark.hubert.hubert_manager import HubertManager
+from TTS.tts.layers.bark.hubert.kmeans_hubert import CustomHubert
+from TTS.tts.layers.bark.hubert.tokenizer import HubertTokenizer
 from TTS.tts.layers.bark.inference_funcs import (
     codec_decode,
     generate_coarse,
     generate_fine,
     generate_text_semantic,
-    generate_voice,
-    load_voice,
 )
 from TTS.tts.layers.bark.load_model import load_model
 from TTS.tts.layers.bark.model import GPT
 from TTS.tts.layers.bark.model_fine import FineGPT
 from TTS.tts.models.base_tts import BaseTTS
+from TTS.utils.voices import CloningMixin
 
 
 @dataclass
@@ -27,7 +33,7 @@ class BarkAudioConfig(Coqpit):
     output_sample_rate: int = 24000
 
 
-class Bark(BaseTTS):
+class Bark(CloningMixin, BaseTTS):
     def __init__(
         self,
         config: Coqpit,
@@ -56,20 +62,18 @@ class Bark(BaseTTS):
             ckpt_path=self.config.LOCAL_MODEL_PATHS["fine"], device=self.device, config=self.config, model_type="fine"
         )
 
-    def train_step(
-        self,
-    ):
+    def train_step(self):
         pass
 
     def text_to_semantic(
         self,
         text: str,
-        history_prompt: str | None = None,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> torch.Tensor:
         """Generate semantic array from text.
 
         Args:
@@ -93,11 +97,11 @@ class Bark(BaseTTS):
 
     def semantic_to_waveform(
         self,
-        semantic_tokens: np.ndarray,
-        history_prompt: str | None = None,
+        semantic_tokens: torch.Tensor,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-    ):
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from semantic input.
 
         Args:
@@ -128,13 +132,13 @@ class Bark(BaseTTS):
     def generate_audio(
         self,
         text: str,
-        history_prompt: str | None = None,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         text_temp: float = 0.7,
         waveform_temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from input text.
 
         Args:
@@ -154,43 +158,66 @@ class Bark(BaseTTS):
             allow_early_stop=allow_early_stop,
             **kwargs,
         )
-        audio_arr, c, f = self.semantic_to_waveform(
+        audio_arr, coarse, fine = self.semantic_to_waveform(
             x_semantic, history_prompt=history_prompt, temp=waveform_temp, base=base
         )
-        return audio_arr, [x_semantic, c, f]
+        return audio_arr, x_semantic, coarse, fine
 
-    def generate_voice(self, audio, speaker_id, voice_dir):
-        """Generate a voice from the given audio.
+    def _generate_voice(self, speaker_wav: str | os.PathLike[Any]) -> dict[str, torch.Tensor]:
+        """Generate a new voice from the given audio."""
+        audio, sr = torchaudio.load(speaker_wav)
+        audio = convert_audio(audio, sr, self.config.sample_rate, self.encodec.channels)
+        audio = audio.unsqueeze(0).to(self.device)
 
-        Args:
-            audio (str): Path to the audio file.
-            speaker_id (str): Speaker name.
-            voice_dir (str): Path to the directory to save the generate voice.
-        """
-        if voice_dir is not None:
-            voice_dirs = [voice_dir]
-            try:
-                _ = load_voice(self, speaker_id, voice_dirs)
-            except (KeyError, FileNotFoundError):
-                output_path = os.path.join(voice_dir, speaker_id + ".npz")
-                os.makedirs(voice_dir, exist_ok=True)
-                generate_voice(audio, self, output_path)
+        with torch.inference_mode():
+            encoded_frames = self.encodec.encode(audio)
+        codes = torch.cat([encoded[0] for encoded in encoded_frames], dim=-1).squeeze()  # [n_q, T]
 
-    def _set_voice_dirs(self, voice_dirs):
-        def_voice_dir = None
-        if isinstance(self.config.DEF_SPEAKER_DIR, str):
-            os.makedirs(self.config.DEF_SPEAKER_DIR, exist_ok=True)
-            if os.path.isdir(self.config.DEF_SPEAKER_DIR):
-                def_voice_dir = self.config.DEF_SPEAKER_DIR
-        _voice_dirs = [def_voice_dir] if def_voice_dir is not None else []
-        if voice_dirs is not None:
-            if isinstance(voice_dirs, str):
-                voice_dirs = [voice_dirs]
-            _voice_dirs = voice_dirs + _voice_dirs
-        return _voice_dirs
+        # generate semantic tokens
+        # Load the HuBERT model
+        hubert_manager = HubertManager()
+        hubert_manager.make_sure_tokenizer_installed(model_path=self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"])
+
+        hubert_model = CustomHubert().to(self.device)
+
+        # Load the CustomTokenizer model
+        tokenizer = HubertTokenizer.load_from_checkpoint(
+            self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"], map_location=self.device
+        )
+        # semantic_tokens = self.text_to_semantic(
+        #     text, max_gen_duration_s=seconds, top_k=50, top_p=0.95, temp=0.7
+        # )  # not 100%
+        with torch.inference_mode():
+            semantic_vectors = hubert_model.forward(audio[0], input_sample_hz=self.config.sample_rate)
+        semantic_tokens = tokenizer.get_token(semantic_vectors)
+        return {
+            "semantic_prompt": semantic_tokens,
+            "coarse_prompt": codes[:2, :],
+            "fine_prompt": codes,
+        }
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if isinstance(speaker_wav, list):
+            warnings.warn(
+                "Bark supports only a single reference audio file, but list was provided. Using only first file."
+            )
+            speaker_wav = speaker_wav[0]
+        voice = self._generate_voice(speaker_wav)
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
 
     # TODO: remove config from synthesize
-    def synthesize(self, text, config, speaker_id="random", voice_dirs=None, **kwargs):  # pylint: disable=unused-argument
+    def synthesize(
+        self,
+        text: str,
+        config: "BarkConfig",
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
+    ):  # pylint: disable=unused-argument
         """Synthesize speech with the given input text.
 
         Args:
@@ -210,16 +237,15 @@ class Bark(BaseTTS):
             `conditioning_latents` as latents used at inference.
 
         """
-        speaker_id = "random" if speaker_id is None else speaker_id
-        voice_dirs = self._set_voice_dirs(voice_dirs)
-        history_prompt = load_voice(self, speaker_id, voice_dirs)
+        history_prompt = None, None, None
+        if speaker_wav is not None or speaker_id is not None:
+            voice = self.clone_voice(speaker_wav, speaker_id, voice_dir)
+            history_prompt = (voice["semantic_prompt"], voice["coarse_prompt"], voice["fine_prompt"])
         outputs = self.generate_audio(text, history_prompt=history_prompt, **kwargs)
-        return_dict = {
+        return {
             "wav": outputs[0],
             "text_inputs": text,
         }
-
-        return return_dict
 
     def eval_step(self): ...
 

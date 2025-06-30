@@ -27,23 +27,26 @@
     In 🐸TTS, a model class is a self-sufficient implementation of a model directing all the interactions with the other
     components. It is enough to implement the API provided by the `BaseModel` class to comply.
 
-    A model interacts with the `Trainer API` for training, `Synthesizer API` for inference and testing.
+    A model interacts with the [Trainer
+    API](https://github.com/idiap/coqui-ai-Trainer) for training, and the
+    {py:class}`~TTS.utils.synthesizer.Synthesizer` API for inference and
+    testing.
 
-    A 🐸TTS model must return a dictionary by the `forward()` and `inference()` functions. This dictionary must `model_outputs` key that is considered as the main model output by the `Trainer` and `Synthesizer`.
+    A 🐸TTS model must return a dictionary by the `forward()` and `inference()` functions. This dictionary must `model_outputs` key that is considered as the main model output by the `Trainer` and {py:class}`~TTS.utils.synthesizer.Synthesizer`.
 
-    You can place your `tts` model implementation under `TTS/tts/models/new_model.py` then inherit and implement the `BaseTTS`.
+    You can place your `tts` model implementation under `TTS/tts/models/new_model.py` then inherit and implement {py:class}`~TTS.tts.models.base_tts.BaseTTS``.
 
     There is also the `callback` interface by which you can manipulate both the model and the `Trainer` states. Callbacks give you
     an infinite flexibility to add custom behaviours for your model and training routines.
 
-    For more details, see [BaseTTS](../main_classes/model_api.md#base-tts-model)
+    For more details, see {py:class}`~TTS.tts.models.base_tts.BaseTTS`
     and [`trainer.callbacks`](https://github.com/idiap/coqui-ai-Trainer/blob/main/trainer/callbacks.py).
 
 6. Optionally, define `MyModelArgs`.
 
     `MyModelArgs` is a 👨‍✈️Coqpit class that sets all the class arguments of the `MyModel`. `MyModelArgs` must have
     all the fields necessary to instantiate the `MyModel`. However, for training, you need to pass `MyModelConfig` to
-    the model.
+    the model, which would contain `MyModelArgs` in a `model_args` field.
 
 7. Test `MyModel`.
 
@@ -54,9 +57,11 @@
 
 8. Define `MyModelConfig`.
 
-    Place `MyModelConfig` file under `TTS/models/configs`. It is enough to inherit the `BaseTTSConfig` to make your
-    config compatible with the `Trainer`. You should also include `MyModelArgs` as a field if defined. The rest of the fields should define the model
-    specific values and parameters.
+    Place `MyModelConfig` file under `TTS/models/configs`. It is enough to
+    inherit the {py:class}`~TTS.tts.configs.shared_configs.BaseTTSConfig` to
+    make your config compatible with the `Trainer`. You should also include
+    `MyModelArgs` as a field if defined. The rest of the fields should define
+    the model specific values and parameters.
 
 9. Write Docstrings.
 

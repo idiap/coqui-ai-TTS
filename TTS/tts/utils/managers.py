@@ -13,7 +13,7 @@ from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 
-def load_file(path: str | os.PathLike[Any]):
+def load_file(path: str | os.PathLike[Any]) -> Any:
     path = str(path)
     if path.endswith(".json"):
         with fsspec.open(path, "r") as f:
@@ -49,16 +49,16 @@ class BaseIDManager:
             self.load_ids_from_file(id_file_path)
 
     @staticmethod
-    def _load_json(json_file_path: str | os.PathLike[Any]) -> dict:
+    def _load_json(json_file_path: str | os.PathLike[Any]) -> dict[str, Any]:
         with fsspec.open(str(json_file_path), "r") as f:
             return json.load(f)
 
     @staticmethod
-    def _save_json(json_file_path: str | os.PathLike[Any], data: dict) -> None:
+    def _save_json(json_file_path: str | os.PathLike[Any], data: dict[str, Any]) -> None:
         with fsspec.open(str(json_file_path), "w") as f:
             json.dump(data, f, indent=4)
 
-    def set_ids_from_data(self, items: list, parse_key: str) -> None:
+    def set_ids_from_data(self, items: list[dict[str, Any]], parse_key: str) -> None:
         """Set IDs from data samples.
 
         Args:
@@ -96,7 +96,7 @@ class BaseIDManager:
         return None
 
     @staticmethod
-    def parse_ids_from_data(items: list, parse_key: str) -> tuple[dict]:
+    def parse_ids_from_data(items: list[dict[str, Any]], parse_key: str) -> dict[str, int]:
         """Parse IDs from data samples retured by `load_tts_samples()`.
 
         Args:
@@ -158,24 +158,24 @@ class EmbeddingManager(BaseIDManager):
             self.init_encoder(encoder_model_path, encoder_config_path, use_cuda)
 
     @property
-    def num_embeddings(self):
+    def num_embeddings(self) -> int:
         """Get number of embeddings."""
         return len(self.embeddings)
 
     @property
-    def num_names(self):
+    def num_names(self) -> int:
         """Get number of embeddings."""
         return len(self.embeddings_by_names)
 
     @property
-    def embedding_dim(self):
+    def embedding_dim(self) -> int:
         """Dimensionality of embeddings. If embeddings are not loaded, returns zero."""
         if self.embeddings:
             return len(self.embeddings[list(self.embeddings.keys())[0]]["embedding"])
         return 0
 
     @property
-    def embedding_names(self):
+    def embedding_names(self) -> list[str]:
         """Get embedding names."""
         return list(self.embeddings_by_names.keys())
 
@@ -188,7 +188,9 @@ class EmbeddingManager(BaseIDManager):
         save_file(self.embeddings, file_path)
 
     @staticmethod
-    def read_embeddings_from_file(file_path: str | os.PathLike[Any]):
+    def read_embeddings_from_file(
+        file_path: str | os.PathLike[Any],
+    ) -> tuple[dict[str, int], list[str], Any, dict[str, Any]]:
         """Load embeddings from a json file.
 
         Args:
@@ -264,7 +266,7 @@ class EmbeddingManager(BaseIDManager):
         """
         return self.embeddings_by_names[idx]
 
-    def get_embeddings_by_names(self) -> dict:
+    def get_embeddings_by_names(self) -> dict[str, Any]:
         """Get all embeddings by names.
 
         Returns:
@@ -278,7 +280,7 @@ class EmbeddingManager(BaseIDManager):
                 embeddings_by_names[x["name"]].append(x["embedding"])
         return embeddings_by_names
 
-    def get_mean_embedding(self, idx: str, num_samples: int = None, randomize: bool = False) -> np.ndarray:
+    def get_mean_embedding(self, idx: str, num_samples: int | None = None, randomize: bool = False) -> np.ndarray:
         """Get mean embedding of a idx.
 
         Args:
@@ -313,11 +315,11 @@ class EmbeddingManager(BaseIDManager):
 
         return None
 
-    def get_clips(self) -> list:
+    def get_clips(self) -> list[str]:
         return sorted(self.embeddings.keys())
 
     def init_encoder(
-        self, model_path: str | os.PathLike[Any], config_path: str | os.PathLike[Any], use_cuda=False
+        self, model_path: str | os.PathLike[Any], config_path: str | os.PathLike[Any], use_cuda: bool = False
     ) -> None:
         """Initialize a speaker encoder model.
 
@@ -345,7 +347,7 @@ class EmbeddingManager(BaseIDManager):
             list: Computed embedding.
         """
 
-        def _compute(wav_file: str):
+        def _compute(wav_file: str | os.PathLike[Any]):
             waveform = self.encoder_ap.load_wav(wav_file, sr=self.encoder_ap.sample_rate)
             if not self.encoder_config.model_params.get("use_torch_spec", False):
                 m_input = self.encoder_ap.melspectrogram(waveform)

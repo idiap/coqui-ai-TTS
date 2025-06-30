@@ -1,7 +1,10 @@
 import logging
+import os
+from typing import Any
 
 import librosa
 import numpy as np
+import numpy.typing as npt
 import torch
 from coqpit import Coqpit
 from torch import nn
@@ -15,6 +18,7 @@ import TTS.vc.layers.freevc.modules as modules
 from TTS.tts.layers.vits.discriminator import DiscriminatorS
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.freevc_config import FreeVCConfig
 from TTS.vc.layers.freevc.commons import init_weights, rand_slice_segments
 from TTS.vc.layers.freevc.mel_processing import mel_spectrogram_torch
@@ -229,7 +233,7 @@ class SpeakerEncoder(torch.nn.Module):
         return embed
 
 
-class FreeVC(BaseVC):
+class FreeVC(CloningMixin, BaseVC):
     """
 
     Paper::
@@ -417,9 +421,9 @@ class FreeVC(BaseVC):
         c = c.transpose(1, 2)
         return c
 
-    def load_audio(self, wav):
+    def load_audio(self, wav: str | os.PathLike[Any] | npt.NDArray[np.float32] | torch.Tensor | list[float]):
         """Read and format the input audio."""
-        if isinstance(wav, str):
+        if isinstance(wav, (str, os.PathLike)):
             wav, _ = librosa.load(wav, sr=self.config.audio.input_sample_rate)
         if isinstance(wav, np.ndarray):
             wav = torch.from_numpy(wav).to(self.device)
@@ -429,8 +433,47 @@ class FreeVC(BaseVC):
             wav = torch.from_numpy(np.array(wav)).to(self.device)
         return wav.float()
 
+    def _extract_target_se(self, speaker_wav: list[str | os.PathLike[Any] | torch.Tensor]):
+        target_ses = []
+        for wav in speaker_wav:
+            wav_tgt = self.load_audio(wav).cpu().numpy()
+            wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
+
+            if self.config.model_args.use_spk:
+                target_ses.append(self.enc_spk_ex.embed_utterance(wav_tgt)[None, :, None])
+            else:
+                wav_tgt = torch.from_numpy(wav_tgt).unsqueeze(0).to(self.device)
+                mel_tgt = mel_spectrogram_torch(
+                    wav_tgt,
+                    self.config.audio.filter_length,
+                    self.config.audio.n_mel_channels,
+                    self.config.audio.input_sample_rate,
+                    self.config.audio.hop_length,
+                    self.config.audio.win_length,
+                    self.config.audio.mel_fmin,
+                    self.config.audio.mel_fmax,
+                )
+                target_ses.append(self.enc_spk.embed_utterance(mel_tgt.transpose(1, 2)).unsqueeze(-1))
+        return torch.stack(target_ses).mean(dim=0)
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(speaker_wav, list):
+            speaker_wav = [speaker_wav]
+        voice = {"speaker_embedding": self._extract_target_se(speaker_wav)}
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
+
     @torch.inference_mode()
-    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]):
+    def voice_conversion(
+        self,
+        src: str | torch.Tensor,
+        tgt: list[str | os.PathLike[Any] | torch.Tensor] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+    ):
         """
         Voice conversion pass of the model.
 
@@ -447,28 +490,10 @@ class FreeVC(BaseVC):
         c = self.extract_wavlm_features(wav_src[None, :])
 
         # tgt
-        g_tgts = []
-        for tg in tgt:
-            wav_tgt = self.load_audio(tg).cpu().numpy()
-            wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
-
-            if self.config.model_args.use_spk:
-                g_tgts.append(self.enc_spk_ex.embed_utterance(wav_tgt)[None, :, None])
-            else:
-                wav_tgt = torch.from_numpy(wav_tgt).unsqueeze(0).to(self.device)
-                mel_tgt = mel_spectrogram_torch(
-                    wav_tgt,
-                    self.config.audio.filter_length,
-                    self.config.audio.n_mel_channels,
-                    self.config.audio.input_sample_rate,
-                    self.config.audio.hop_length,
-                    self.config.audio.win_length,
-                    self.config.audio.mel_fmin,
-                    self.config.audio.mel_fmax,
-                )
-                g_tgts.append(self.enc_spk.embed_utterance(mel_tgt.transpose(1, 2)).unsqueeze(-1))
-
-        g_tgt = torch.stack(g_tgts).mean(dim=0)
+        if tgt is None or all(isinstance(x, (str, os.PathLike)) for x in tgt):
+            g_tgt = self.clone_voice(tgt, speaker_id, voice_dir)["speaker_embedding"]
+        else:
+            g_tgt = self._extract_target_se(tgt)
         audio = self.inference(c, g=g_tgt)
         return audio[0][0].data.cpu().float().numpy()
 
