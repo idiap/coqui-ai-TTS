@@ -227,7 +227,7 @@ class Synthesizer(nn.Module):
 
     def _set_speaker_encoder_paths_from_tts_config(self):
         """Set the encoder paths from the tts model config for models with speaker encoders."""
-        if hasattr(self.tts_config, "model_args") and hasattr(
+        if self.tts_config.model_args is not None and hasattr(
             self.tts_config.model_args, "speaker_encoder_config_path"
         ):
             self.encoder_checkpoint = self.tts_config.model_args.speaker_encoder_model_path

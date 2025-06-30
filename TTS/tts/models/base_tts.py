@@ -56,24 +56,24 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def _set_model_args(self, config: Coqpit):
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
 
-        `ModelArgs` has all the fields reuqired to initialize the model architecture.
+        `ModelArgs` has all the fields required to initialize the model architecture.
 
-        `ModelConfig` has all the fields required for training, inference and containes `ModelArgs`.
+        `ModelConfig` has all the fields required for training, inference and contains `ModelArgs`.
 
         If the config is for training with a name like "*Config", then the model args are embeded in the
         config.model_args
 
-        If the config is for the model with a name like "*Args", then we assign the directly.
+        If the config is for the model with a name like "*Args", then we assign them directly.
         """
-        # don't use isintance not to import recursively
+        # don't use isinstance not to import recursively
         if "Config" in config.__class__.__name__:
             config_num_chars = (
-                self.config.model_args.num_chars if hasattr(self.config, "model_args") else self.config.num_chars
+                self.config.model_args.num_chars if self.config.model_args is not None else self.config.num_chars
             )
             num_chars = config_num_chars if self.tokenizer is None else self.tokenizer.characters.num_chars
             if "characters" in config:
                 self.config.num_chars = num_chars
-                if hasattr(self.config, "model_args"):
+                if self.config.model_args is not None:
                     config.model_args.num_chars = num_chars
                     self.args = self.config.model_args
             else:
@@ -120,10 +120,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             self.speaker_embedding.weight.data.normal_(0, 0.3)
 
     def get_aux_input_from_test_sentences(self, sentence_info: str | list[str]) -> dict[str, Any]:
-        if hasattr(self.config, "model_args"):
-            config = self.config.model_args
-        else:
-            config = self.config
+        config = self.config.model_args if self.config.model_args is not None else self.config
 
         # extract speaker and language info
         text, speaker, style_wav, language = None, None, None, None
@@ -282,7 +279,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         else:
             # setup multi-speaker attributes
             if self.speaker_manager is not None:
-                if hasattr(config, "model_args"):
+                if config.model_args is not None:
                     speaker_id_mapping = (
                         self.speaker_manager.name_to_id if config.model_args.use_speaker_embedding else None
                     )
@@ -464,7 +461,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             self.speaker_manager.save_ids_to_file(output_path)
             trainer.config.speakers_file = output_path
             # some models don't have `model_args` set
-            if hasattr(trainer.config, "model_args"):
+            if getattr(trainer.config, "model_args", None) is not None:
                 trainer.config.model_args.speakers_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
             logger.info("`speakers.pth` is saved to: %s", output_path)
@@ -474,7 +471,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             output_path = os.path.join(trainer.output_path, "language_ids.json")
             self.language_manager.save_ids_to_file(output_path)
             trainer.config.language_ids_file = output_path
-            if hasattr(trainer.config, "model_args"):
+            if getattr(trainer.config, "model_args", None) is not None:
                 trainer.config.model_args.language_ids_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
             logger.info("`language_ids.json` is saved to: %s", output_path)

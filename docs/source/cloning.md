@@ -3,7 +3,7 @@
 Some TTS models can only synthesize speech for a fixed set of voices they were
 trained on. Others also support _voice cloning_, i.e., they can generate a new
 voice on-the-fly from a provided reference audio file. These Coqui TTS models
-allow voice cloning:
+allow voice cloning (the model config will contain `supports_cloning=True`):
 
 - [YourTTS](models/vits.md) (and other d-vector based models)
 - [XTTS](models/xtts.md)
