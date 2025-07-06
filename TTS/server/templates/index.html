@@ -141,20 +141,29 @@
                 do_tts(e)
             }
         })
-        function synthesize(text, speaker_id = "", style_wav = "", speaker_wav = "", language_id = "") {
-            fetch(`/api/tts?text=${encodeURIComponent(text)}&speaker_id=${encodeURIComponent(speaker_id)}&style_wav=${encodeURIComponent(style_wav)}&speaker_wav=${encodeURIComponent(speaker_wav)}&language_id=${encodeURIComponent(language_id)}`, { cache: 'no-cache' })
+        function synthesize(text, speaker_id, style_wav, speaker_wav, language_id) {
+            const url = new URL('/api/tts', window.location.origin);
+            if (text) url.searchParams.append('text', text);
+            if (speaker_id) url.searchParams.append('speaker_id', speaker_id);
+            if (style_wav) url.searchParams.append('style_wav', style_wav);
+            if (speaker_wav) url.searchParams.append('speaker_wav', speaker_wav);
+            if (language_id) url.searchParams.append('language_id', language_id);
+
+            fetch(url, { cache: 'no-cache' })
                 .then(function (res) {
-                    if (!res.ok) throw Error(res.statusText)
-                    return res.blob()
-                }).then(function (blob) {
-                    q('#message').textContent = ''
-                    q('#speak-button').disabled = false
-                    q('#audio').src = URL.createObjectURL(blob)
-                    q('#audio').hidden = false
-                }).catch(function (err) {
-                    q('#message').textContent = 'Error: ' + err.message
-                    q('#speak-button').disabled = false
+                    if (!res.ok) throw Error(res.statusText);
+                    return res.blob();
                 })
+                .then(function (blob) {
+                    q('#message').textContent = '';
+                    q('#speak-button').disabled = false;
+                    q('#audio').src = URL.createObjectURL(blob);
+                    q('#audio').hidden = false;
+                })
+                .catch(function (err) {
+                    q('#message').textContent = 'Error: ' + err.message;
+                    q('#speak-button').disabled = false;
+                });
         }
     </script>
 
