@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class TTS(nn.Module):
-    """TODO: Add voice conversion and Capacitron support."""
+    """Coqui Python API."""
 
     def __init__(
         self,
@@ -111,7 +111,7 @@ class TTS(nn.Module):
     @property
     def is_multi_speaker(self) -> bool:
         if self.synthesizer is not None:
-            if hasattr(self.synthesizer.tts_model, "clone_voice"):
+            if self.synthesizer.tts_model.config.supports_cloning:
                 return True
             if hasattr(self.synthesizer.tts_model, "speaker_manager") and self.synthesizer.tts_model.speaker_manager:
                 return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
@@ -139,7 +139,12 @@ class TTS(nn.Module):
     def speakers(self) -> list[str] | None:
         if not self.is_multi_speaker:
             return None
-        return self.synthesizer.tts_model.speaker_manager.speaker_names
+        speakers = []
+        if self.synthesizer.tts_model.config.supports_cloning:
+            speakers.extend(self.synthesizer.tts_model.get_voices(self.synthesizer.voice_dir).keys())
+        if self.synthesizer.tts_model.speaker_manager is not None:
+            speakers.extend(self.synthesizer.tts_model.speaker_manager.speaker_names)
+        return speakers
 
     @property
     def languages(self) -> list[str] | None:
@@ -276,11 +281,9 @@ class TTS(nn.Module):
     ) -> None:
         """Check if the arguments are valid for the model."""
         # check for the coqui tts models
-        if self.is_multi_speaker and (speaker is None and speaker_wav is None):
-            raise ValueError("Model is multi-speaker but no `speaker` is provided.")
         if self.is_multi_lingual and language is None:
             raise ValueError("Model is multi-lingual but no `language` is provided.")
-        if not self.is_multi_speaker and speaker is not None and "voice_dir" not in kwargs:
+        if not self.is_multi_speaker and speaker is not None:
             raise ValueError("Model is not multi-speaker but `speaker` is provided.")
         if not self.is_multi_lingual and language is not None:
             raise ValueError("Model is not multi-lingual but `language` is provided.")
@@ -507,8 +510,7 @@ class TTS(nn.Module):
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
         """
-        # TODO: This won't work for YourTTS
-        if hasattr(self.synthesizer.tts_model, "clone_voice"):
+        if self.synthesizer.tts_model.config.supports_cloning:
             warnings.warn(
                 "This TTS model directly supports voice cloning, for better quality call it with "
                 "tts/tts_to_file(..., speaker_wav=...) instead."

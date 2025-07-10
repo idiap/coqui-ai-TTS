@@ -111,7 +111,6 @@ api = TTS(
 
 # TODO: set this from SpeakerManager
 use_gst = api.synthesizer.tts_config.get("use_gst", False)
-supports_cloning = api.synthesizer.tts_config.get("model", "") in ["xtts", "bark"]
 
 app = Flask(__name__)
 
@@ -145,7 +144,7 @@ def index():
         speaker_ids=api.speakers,
         language_ids=api.languages,
         use_gst=use_gst,
-        supports_cloning=supports_cloning,
+        supports_cloning=api.synthesizer.tts_config.supports_cloning,
     )
 
 
@@ -290,7 +289,7 @@ def openai_tts():
     speaker_wav = None
     if speaker_idx is not None:
         voice_path = Path(speaker_idx)
-        if voice_path.exists() and supports_cloning:
+        if voice_path.exists() and api.synthesizer.tts_config.supports_cloning:
             speaker_wav = str(voice_path) if voice_path.is_file() else [str(w) for w in voice_path.glob("*.wav")]
             speaker_idx = None
 
