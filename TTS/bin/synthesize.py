@@ -385,7 +385,7 @@ def main(arg_list: list[str] | None = None) -> None:
             logger.info(api.speakers)
             sys.exit(0)
 
-        # query langauge ids of a multi-lingual model.
+        # query language ids of a multi-lingual model.
         if args.list_language_idxs:
             if not api.is_multi_lingual:
                 logger.info("Monolingual model.")
@@ -395,14 +395,6 @@ def main(arg_list: list[str] | None = None) -> None:
             )
             logger.info(api.languages)
             sys.exit(0)
-
-        # check the arguments against a multi-speaker model.
-        if api.is_multi_speaker and (not args.speaker_idx and not args.speaker_wav):
-            logger.error(
-                "Looks like you use a multi-speaker model. Define `--speaker_idx` to "
-                "select the target speaker. You can list the available speakers for this model by `--list_speaker_idxs`."
-            )
-            sys.exit(1)
 
         # RUN THE SYNTHESIS
         if args.text:
@@ -428,6 +420,8 @@ def main(arg_list: list[str] | None = None) -> None:
                 source_wav=args.source_wav,
                 target_wav=args.target_wav,
                 file_path=args.out_path,
+                speaker=args.speaker_idx,
+                voice_dir=args.voice_dir,
                 pipe_out=pipe_out,
             )
             logger.info("Saved VC output to %s", args.out_path)

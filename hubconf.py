@@ -6,8 +6,7 @@ dependencies = [
     "anyascii",
     "pypinyin",
     "coqpit-config",
-    "mecab-python3",
-    "unidic-lite",
+    "fugashi",
 ]
 import torch
 

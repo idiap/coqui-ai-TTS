@@ -46,9 +46,9 @@ class GPTTrainerConfig(XttsConfig):
     lr: float = 5e-06
     training_seed: int = 1
     optimizer_wd_only_on_weights: bool = False
-    weighted_loss_attrs: dict = field(default_factory=lambda: {})
-    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: list[dict] = field(default_factory=lambda: [])
+    weighted_loss_attrs: dict = field(default_factory=dict)
+    weighted_loss_multipliers: dict = field(default_factory=dict)
+    test_sentences: list[dict] = field(default_factory=list)
     model_args: GPTArgs = field(default_factory=GPTArgs)
 
 
@@ -232,9 +232,8 @@ class GPTTrainer(BaseTTS):
             for idx, s_info in enumerate(self.config.test_sentences):
                 wav = self.xtts.synthesize(
                     s_info["text"],
-                    self.config,
-                    s_info["speaker_wav"],
-                    s_info["language"],
+                    speaker_wav=s_info["speaker_wav"],
+                    language=s_info["language"],
                     gpt_cond_len=3,
                 )["wav"]
                 test_audios[f"{idx}-audio"] = wav
@@ -318,7 +317,7 @@ class GPTTrainer(BaseTTS):
     def eval_step(self, batch, criterion):
         # ignore masking for more consistent evaluation
         batch["cond_idxs"] = None
-        return self.train_step(batch, criterion)
+        return super().eval_step(batch, criterion)
 
     def on_train_epoch_start(self, trainer):
         trainer.model.eval()  # the whole model to eval
@@ -476,6 +475,7 @@ class GPTTrainer(BaseTTS):
         self,
         config,
         checkpoint_path,
+        *,
         eval=False,
         strict=True,
         cache_storage="/tmp/tts_cache",
@@ -492,7 +492,6 @@ class GPTTrainer(BaseTTS):
         if eval:
             self.xtts.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=False)
             self.eval()
-            assert not self.training
 
     @staticmethod
     def init_from_config(config: "GPTTrainerConfig", samples: list[list] | list[dict] = None):

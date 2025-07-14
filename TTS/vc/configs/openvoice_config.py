@@ -176,8 +176,8 @@ class OpenVoiceConfig(BaseVCConfig):
 
     # sampler params
     use_weighted_sampler: bool = False  # TODO: move it to the base config
-    weighted_sampler_attrs: dict = field(default_factory=lambda: {})
-    weighted_sampler_multipliers: dict = field(default_factory=lambda: {})
+    weighted_sampler_attrs: dict = field(default_factory=dict)
+    weighted_sampler_multipliers: dict = field(default_factory=dict)
 
     # overrides
     r: int = 1  # DO NOT CHANGE

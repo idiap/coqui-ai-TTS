@@ -312,7 +312,13 @@ def train(
             if global_step % c.save_step == 0:
                 # save model
                 save_checkpoint(
-                    c, model, optimizer, None, global_step, epoch, c.output_log_path, criterion=criterion.state_dict()
+                    c,
+                    model,
+                    c.output_log_path,
+                    current_step=global_step,
+                    epoch=epoch,
+                    optimizer=optimizer,
+                    criterion=criterion.state_dict(),
                 )
 
             end_time = time.time()
@@ -339,11 +345,10 @@ def train(
                 best_loss,
                 c,
                 model,
-                optimizer,
-                None,
-                global_step,
-                epoch,
                 c.output_log_path,
+                current_step=global_step,
+                epoch=epoch,
+                optimizer=optimizer,
                 criterion=criterion.state_dict(),
             )
             model.train()

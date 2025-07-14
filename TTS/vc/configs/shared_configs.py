@@ -134,14 +134,14 @@ class BaseVCConfig(BaseTrainingConfig):
     datasets: list[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
     # optimizer
     optimizer: str = "radam"
-    optimizer_params: dict = None
+    optimizer_params: dict | None = None
     # scheduler
-    lr_scheduler: str = None
-    lr_scheduler_params: dict = field(default_factory=lambda: {})
+    lr_scheduler: str | None = None
+    lr_scheduler_params: dict = field(default_factory=dict)
     # testing
-    test_sentences: list[str] = field(default_factory=lambda: [])
+    test_sentences: list[str] | list[list[str]] = field(default_factory=list)
     # evaluation
-    eval_split_max_size: int = None
+    eval_split_max_size: int | None = None
     eval_split_size: float = 0.01
     # weighted samplers
     use_speaker_weighted_sampler: bool = False

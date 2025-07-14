@@ -176,9 +176,9 @@ python3 TTS/server/server.py --list_models #To get the list of available models
 python3 TTS/server/server.py --model_name tts_models/en/vctk/vits # To start a server
 ```
 
-You can then enjoy the TTS server [here](http://[::1]:5002/)
-More details about the docker images (like GPU support) can be found
-[here](https://coqui-tts.readthedocs.io/en/latest/docker_images.html)
+You can then enjoy the TTS server [here](http://localhost:5002/). More details,
+like GPU support and a Docker Compose configuration, can be found [in the
+documentation](https://coqui-tts.readthedocs.io/en/latest/docker_images.html).
 
 
 ## Synthesizing speech by 🐸TTS
@@ -223,6 +223,10 @@ tts.tts_to_file(
 )
 ```
 
+From version 0.27.0 you can [cache cloned
+voices](https://coqui-tts.readthedocs.io/en/latest/cloning.html) with a custom
+`speaker` ID, so you only need to pass audio files in `speaker_wav` once.
+
 #### Single speaker model
 
 ```python
@@ -251,8 +255,8 @@ Other available voice conversion models:
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
 
-For more details, see the
-[documentation](https://coqui-tts.readthedocs.io/en/latest/vc.html).
+For more details, see this
+[dedicated page](https://coqui-tts.readthedocs.io/en/latest/vc.html).
 
 #### Voice cloning by combining single speaker TTS model with the default VC model
 

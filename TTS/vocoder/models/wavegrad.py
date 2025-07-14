@@ -1,4 +1,6 @@
+import os
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import torch
@@ -8,7 +10,6 @@ from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from trainer.io import load_fsspec
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.vocoder.datasets import WaveGradDataset
@@ -217,12 +218,17 @@ class Wavegrad(BaseVocoder):
         self.out_conv = weight_norm(self.out_conv)
         self.y_conv = weight_norm(self.y_conv)
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
+    def load_checkpoint(
+        self,
+        config: Coqpit,
+        checkpoint_path: str | os.PathLike[Any],
+        *,
+        eval: bool = False,
+        strict: bool = True,
+        cache: bool = False,
+    ) -> None:
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
         if eval:
-            self.eval()
-            assert not self.training
             if self.config.model_params.use_weight_norm:
                 self.remove_weight_norm()
             betas = np.linspace(

@@ -15,7 +15,7 @@ def test_train(tmp_path):
     output_path = tmp_path / "train_outputs"
 
     dataset_config_en = BaseDatasetConfig(
-        formatter="ljspeech",
+        formatter="ljspeech_test",
         meta_file_train="metadata.csv",
         meta_file_val="metadata.csv",
         path="tests/data/ljspeech",
@@ -23,7 +23,7 @@ def test_train(tmp_path):
     )
 
     dataset_config_pt = BaseDatasetConfig(
-        formatter="ljspeech",
+        formatter="ljspeech_test",
         meta_file_train="metadata.csv",
         meta_file_val="metadata.csv",
         path="tests/data/ljspeech",
@@ -45,8 +45,8 @@ def test_train(tmp_path):
         print_step=1,
         print_eval=True,
         test_sentences=[
-            ["Be a voice, not an echo.", "ljspeech", None, "en"],
-            ["Be a voice, not an echo.", "ljspeech", None, "pt-br"],
+            ["Be a voice, not an echo.", "ljspeech-1", None, "en"],
+            ["Be a voice, not an echo.", "ljspeech-2", None, "pt-br"],
         ],
         datasets=[dataset_config_en, dataset_config_pt],
     )
@@ -92,7 +92,7 @@ def test_train(tmp_path):
     continue_config_path = continue_path / "config.json"
     continue_restore_path, _ = get_last_checkpoint(continue_path)
     out_wav_path = tmp_path / "output.wav"
-    speaker_id = "ljspeech"
+    speaker_id = "ljspeech-1"
     language_id = "en"
     continue_speakers_path = continue_path / "speakers.json"
     continue_languages_path = continue_path / "language_ids.json"

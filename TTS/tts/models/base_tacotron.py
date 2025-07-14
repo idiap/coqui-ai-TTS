@@ -1,6 +1,7 @@
 import copy
 import logging
 from abc import abstractmethod
+from typing import Any
 
 import torch
 from coqpit import Coqpit
@@ -11,9 +12,7 @@ from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.synthesis import synthesis
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input
 from TTS.utils.training import gradual_training_scheduler
 
@@ -93,6 +92,34 @@ class BaseTacotron(BaseTTS):
     def inference(self):
         pass
 
+    def synthesize(
+        self, *args, language: str | None = None, style_wav=None, style_text=None, **kwargs
+    ) -> dict[str, Any]:
+        # GST or Capacitron processing
+        # TODO: need to handle the case of setting both gst and capacitron to true somewhere
+        def _compute_style_mel(style_wav):
+            return torch.tensor(
+                self.ap.melspectrogram(self.ap.load_wav(style_wav, sr=self.ap.sample_rate)),
+                dtype=torch.float,
+                device=self.device,
+            ).unsqueeze(0)
+
+        style_mel, style_text = None, None
+        if self.config.has("gst") and self.config.gst and style_wav is not None:
+            style_mel = style_wav if isinstance(style_wav, dict) else _compute_style_mel(style_wav)
+
+        if self.config.has("capacitron_vae") and self.config.use_capacitron_vae and style_wav is not None:
+            style_mel = _compute_style_mel(style_wav)
+            style_mel = style_mel.transpose(1, 2)  # [1, time, depth]
+
+        if not isinstance(style_mel, dict):
+            if style_text is not None:
+                style_text = torch.tensor(
+                    self.tokenizer.text_to_ids(style_text, language=language), dtype=torch.long, device=self.device
+                ).unsqueeze(0)
+        extra_aux_input = {"style_mel": style_mel, "style_text": style_text}
+        return super().synthesize(*args, language=language, extra_aux_input=extra_aux_input, **kwargs)
+
     def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         """Load model checkpoint and set up internals.
 
@@ -133,55 +160,6 @@ class BaseTacotron(BaseTTS):
         tokenizer = TTSTokenizer.init_from_config(config)
         speaker_manager = SpeakerManager.init_from_config(config)
         return BaseTacotron(config, ap, tokenizer, speaker_manager)
-
-    ##########################
-    # TEST AND LOG FUNCTIONS #
-    ##########################
-
-    def test_run(self, assets: dict) -> tuple[dict, dict]:
-        """Generic test run for `tts` models used by `Trainer`.
-
-        You can override this for a different behaviour.
-
-        Args:
-            assets (dict): A dict of training assets. For `tts` models, it must include `{'audio_processor': ap}`.
-
-        Returns:
-            Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
-        """
-        logger.info("Synthesizing test sentences.")
-        test_audios = {}
-        test_figures = {}
-        test_sentences = self.config.test_sentences
-        aux_inputs = self._get_test_aux_input()
-        for idx, sen in enumerate(test_sentences):
-            outputs_dict = synthesis(
-                self,
-                sen,
-                self.config,
-                "cuda" in str(next(self.parameters()).device),
-                speaker_id=aux_inputs["speaker_id"],
-                d_vector=aux_inputs["d_vector"],
-                style_wav=aux_inputs["style_wav"],
-                use_griffin_lim=True,
-                do_trim_silence=False,
-            )
-            test_audios[f"{idx}-audio"] = outputs_dict["wav"]
-            test_figures[f"{idx}-prediction"] = plot_spectrogram(
-                outputs_dict["outputs"]["model_outputs"], self.ap, output_fig=False
-            )
-            test_figures[f"{idx}-alignment"] = plot_alignment(outputs_dict["outputs"]["alignments"], output_fig=False)
-        return {"figures": test_figures, "audios": test_audios}
-
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
-        logger.test_figures(steps, outputs["figures"])
 
     #############################
     # COMMON COMPUTE FUNCTIONS

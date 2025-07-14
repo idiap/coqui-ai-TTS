@@ -20,6 +20,7 @@ if is_pytorch_at_least_2_4():
 
     import numpy as np
     import torch
+    from packaging import version
 
     from TTS.config.shared_configs import BaseDatasetConfig
     from TTS.tts.configs.xtts_config import XttsConfig
@@ -27,16 +28,6 @@ if is_pytorch_at_least_2_4():
     from TTS.utils.radam import RAdam
 
     torch.serialization.add_safe_globals([dict, defaultdict, RAdam])
-
-    # Bark
-    torch.serialization.add_safe_globals(
-        [
-            np._core.multiarray.scalar,
-            np.dtype,
-            np.dtypes.Float64DType,
-            _codecs.encode,  # TODO: safe by default from Pytorch 2.5
-        ]
-    )
 
     # XTTS
     torch.serialization.add_safe_globals([BaseDatasetConfig, XttsConfig, XttsAudioConfig, XttsArgs])

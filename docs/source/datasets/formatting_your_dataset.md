@@ -123,9 +123,10 @@ def formatter(root_path, manifest_file, **kwargs):  # pylint: disable=unused-arg
 train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True, formatter=formatter)
 ```
 
-See `TTS.tts.datasets.TTSDataset`, a generic `Dataset` implementation for the `tts` models.
+See {py:class}`~TTS.tts.datasets.TTSDataset`, a generic Pytorch `Dataset` implementation for the `tts` models.
 
 See `TTS.vocoder.datasets.*`, for different `Dataset` implementations for the `vocoder` models.
 
-See `TTS.utils.audio.AudioProcessor` that includes all the audio processing and feature extraction functions used in a
-`Dataset` implementation. Feel free to add things as you need.
+See {py:class}`~TTS.utils.audio.AudioProcessor`, which includes all the audio
+processing and feature extraction functions used in a `Dataset` implementation.
+Feel free to add things as you need.

@@ -1,8 +1,10 @@
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import chain
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -11,10 +13,10 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
-from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import F0Dataset, TTSDataset, _parse_sample, get_attribute_balancer_weights
 from TTS.tts.layers.delightful_tts.acoustic_model import AcousticModel
 from TTS.tts.layers.losses import (
@@ -29,7 +31,6 @@ from TTS.tts.models.base_tts import BaseTTSE2E
 from TTS.tts.models.vits import load_audio
 from TTS.tts.utils.helpers import average_over_durations, compute_attn_prior, rand_segments, segment, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.synthesis import embedding_to_torch, id_to_torch, numpy_to_torch
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
 from TTS.utils.audio.numpy_transforms import build_mel_basis, compute_f0
@@ -37,6 +38,7 @@ from TTS.utils.audio.numpy_transforms import db_to_amp as db_to_amp_numpy
 from TTS.utils.audio.numpy_transforms import mel_to_wav as mel_to_wav_numpy
 from TTS.utils.audio.processor import AudioProcessor
 from TTS.utils.audio.torch_transforms import wav_to_mel, wav_to_spec
+from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 from TTS.vocoder.layers.losses import MultiScaleSTFTLoss
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
@@ -405,9 +407,6 @@ class DelightfulTTS(BaseTTSE2E):
         speaker_manager: SpeakerManager = None,
     ):
         super().__init__(config=config, ap=ap, tokenizer=tokenizer, speaker_manager=speaker_manager)
-        self.ap = ap
-
-        self._set_model_args(config)
         self.init_multispeaker(config)
         self.binary_loss_weight = None
 
@@ -619,16 +618,14 @@ class DelightfulTTS(BaseTTSE2E):
 
     @torch.inference_mode()
     def inference(
-        self, x, aux_input={"d_vectors": None, "speaker_ids": None}, pitch_transform=None, energy_transform=None
+        self, x, aux_input={"d_vectors": None, "speaker_ids": None, "pitch_transform": None, "energy_transform": None}
     ):
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
-            d_vectors=aux_input["d_vectors"],
-            speaker_idx=aux_input["speaker_ids"],
-            pitch_transform=pitch_transform,
-            energy_transform=energy_transform,
-            p_control=None,
-            d_control=None,
+            d_vectors=aux_input.get("d_vectors", None),
+            speaker_idx=aux_input.get("speaker_ids", None),
+            pitch_transform=aux_input.get("pitch_transform", None),
+            energy_transform=aux_input.get("energy_transform", None),
         )
         vocoder_input = encoder_outputs["model_outputs"].transpose(1, 2)  # [B, T_max2, C_mel] -> [B, C_mel, T_max2]
         if encoder_outputs["spk_emb"] is not None:
@@ -769,10 +766,7 @@ class DelightfulTTS(BaseTTSE2E):
             return self.model_outputs_cache, loss_dict
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
-        return self.train_step(batch, criterion, optimizer_idx)
-
-    def _log(self, batch, outputs, name_prefix="train"):
+    def _create_logs(self, batch, outputs):
         figures, audios = {}, {}
 
         # encoder outputs
@@ -818,75 +812,18 @@ class DelightfulTTS(BaseTTSE2E):
         encoder_audio = mel_to_wav_numpy(
             mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=None), mel_basis=self.mel_basis, **self.config.audio
         )
-        audios[f"{name_prefix}/encoder_audio"] = encoder_audio
+        audios["encoder_audio"] = encoder_audio
 
         # vocoder outputs
         y_hat = outputs[1]["model_outputs"]
         y = outputs[1]["waveform_seg"]
 
-        vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap, name_prefix=name_prefix)
+        vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap)
         figures.update(vocoder_figures)
 
         sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
-        audios[f"{name_prefix}/vocoder_audio"] = sample_voice
+        audios["vocoder_audio"] = sample_voice
         return figures, audios
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=no-self-use, unused-argument
-        """Create visualizations and waveform examples.
-
-        For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
-        be projected onto Tensorboard.
-
-        Args:
-            batch (Dict): Model inputs used at the previous training step.
-            outputs (Dict): Model outputs generated at the previous training step.
-
-        Returns:
-            Tuple[Dict, np.ndarray]: training plots and output waveform.
-        """
-        figures, audios = self._log(batch=batch, outputs=outputs, name_prefix="vocoder/")
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._log(batch=batch, outputs=outputs, name_prefix="vocoder/")
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    def get_aux_input_from_test_sentences(self, sentence_info):
-        if hasattr(self.config, "model_args"):
-            config = self.config.model_args
-        else:
-            config = self.config
-
-        # extract speaker and language info
-        text, speaker_name, style_wav = None, None, None
-
-        if isinstance(sentence_info, list):
-            if len(sentence_info) == 1:
-                text = sentence_info[0]
-            elif len(sentence_info) == 2:
-                text, speaker_name = sentence_info
-            elif len(sentence_info) == 3:
-                text, speaker_name, style_wav = sentence_info
-        else:
-            text = sentence_info
-
-        # get speaker  id/d_vector
-        speaker_id, d_vector = None, None
-        if hasattr(self, "speaker_manager"):
-            if config.use_d_vector_file:
-                if speaker_name is None:
-                    d_vector = self.speaker_manager.get_random_embedding()
-                else:
-                    d_vector = self.speaker_manager.get_mean_embedding(speaker_name, num_samples=None, randomize=False)
-            elif config.use_speaker_embedding:
-                if speaker_name is None:
-                    speaker_id = self.speaker_manager.get_random_id()
-                else:
-                    speaker_id = self.speaker_manager.name_to_id[speaker_name]
-
-        return {"text": text, "speaker_id": speaker_id, "style_wav": style_wav, "d_vector": d_vector}
 
     def plot_outputs(self, text, wav, alignment, outputs):
         figures = {}
@@ -925,72 +862,60 @@ class DelightfulTTS(BaseTTSE2E):
     def synthesize(
         self,
         text: str,
-        speaker_id: str = None,
-        d_vector: torch.tensor = None,
-        pitch_transform=None,
+        config: BaseTTSConfig | None = None,
+        *,
+        speaker: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        pitch_transform: Callable | None = None,
         **kwargs,
-    ):  # pylint: disable=unused-argument
-        # TODO: add cloning support with ref_waveform
-        device = next(self.parameters()).device
+    ) -> dict[str, Any]:
+        """Synthesize speech with the given input text.
+
+        Args:
+            text (str): Input text.
+            config: DEPRECATED. Not used.
+            speaker: Custom speaker ID to cache or retrieve a voice.
+            speaker_wav: Path(s) to reference audio.
+            voice_dir: Folder for cached voices.
+            **kwargs: Model specific inference settings used by `generate_audio()` and
+                      `TTS.tts.layers.bark.inference_funcs.generate_text_semantic()`.
+
+        Returns:
+            A dictionary of the output values with `wav` as output waveform.
+
+        """
+        if config is not None:
+            warn_synthesize_config_deprecated()
+        if (speaker_id := kwargs.pop("speaker_id", None)) is not None:
+            speaker = speaker_id
+            warn_synthesize_speaker_id_deprecated()
 
         # convert text to sequence of token IDs
-        text_inputs = np.asarray(
-            self.tokenizer.text_to_ids(text, language=None),
-            dtype=np.int32,
-        )
+        text_inputs = self.tokenizer.text_to_ids(text, language=None)
+        text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
 
-        # set speaker inputs
-        _speaker_id = None
-        if speaker_id is not None and self.args.use_speaker_embedding:
-            if isinstance(speaker_id, str) and self.args.use_speaker_embedding:
-                # get the speaker id for the speaker embedding layer
-                _speaker_id = self.speaker_manager.name_to_id[speaker_id]
-                _speaker_id = id_to_torch(_speaker_id, device=device)
-
-        if speaker_id is not None and self.args.use_d_vector_file:
-            # get the average d_vector for the speaker
-            d_vector = self.speaker_manager.get_mean_embedding(speaker_id, num_samples=None, randomize=False)
-        d_vector = embedding_to_torch(d_vector, device=device)
-
-        text_inputs = numpy_to_torch(text_inputs, torch.long, device=device)
-        text_inputs = text_inputs.unsqueeze(0)
+        _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav, voice_dir)
 
         # synthesize voice
         outputs = self.inference(
             text_inputs,
-            aux_input={"d_vectors": d_vector, "speaker_ids": _speaker_id},
-            pitch_transform=pitch_transform,
-            # energy_transform=energy_transform
+            aux_input={"d_vectors": d_vector, "speaker_ids": _speaker_id, "pitch_transform": pitch_transform},
         )
 
         # collect outputs
         wav = outputs["model_outputs"][0].data.cpu().numpy()
-        alignments = outputs["alignments"]
-        return_dict = {
+        return {
             "wav": wav,
-            "alignments": alignments,
+            "alignments": outputs["alignments"],
             "text_inputs": text_inputs,
             "outputs": outputs,
         }
-        return return_dict
 
     def synthesize_with_gl(self, text: str, speaker_id, d_vector):
-        device = next(self.parameters()).device
-
         # convert text to sequence of token IDs
-        text_inputs = np.asarray(
-            self.tokenizer.text_to_ids(text, language=None),
-            dtype=np.int32,
-        )
-        # pass tensors to backend
-        if speaker_id is not None:
-            speaker_id = id_to_torch(speaker_id, device=device)
-
-        if d_vector is not None:
-            d_vector = embedding_to_torch(d_vector, device=device)
-
-        text_inputs = numpy_to_torch(text_inputs, torch.long, device=device)
-        text_inputs = text_inputs.unsqueeze(0)
+        text_inputs = self.tokenizer.text_to_ids(text, language=None)
+        text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
 
         # synthesize voice
         outputs = self.inference_spec_decoder(
@@ -1012,13 +937,11 @@ class DelightfulTTS(BaseTTSE2E):
         return return_dict
 
     @torch.inference_mode()
-    def test_run(self, assets) -> tuple[dict, dict]:
-        """Generic test run for `tts` models used by `Trainer`.
-
-        You can override this for a different behaviour.
+    def test_run(self, assets) -> dict[str, Any]:
+        """DelightfulTTS-specific test run method.
 
         Returns:
-            Tuple[Dict, Dict]: Test figures and audios to be projected to Tensorboard.
+            Dictionary with test figures and audios to be projected to Tensorboard.
         """
         logger.info("Synthesizing test sentences.")
         test_audios = {}
@@ -1026,32 +949,21 @@ class DelightfulTTS(BaseTTSE2E):
         test_sentences = self.config.test_sentences
         for idx, s_info in enumerate(test_sentences):
             aux_inputs = self.get_aux_input_from_test_sentences(s_info)
+            speaker_id, d_vector = self._get_speaker_id_or_dvector(aux_inputs["speaker"])
             outputs = self.synthesize(
                 aux_inputs["text"],
-                config=self.config,
-                speaker_id=aux_inputs["speaker_id"],
-                d_vector=aux_inputs["d_vector"],
+                speaker=aux_inputs["speaker"],
             )
             outputs_gl = self.synthesize_with_gl(
                 aux_inputs["text"],
-                speaker_id=aux_inputs["speaker_id"],
-                d_vector=aux_inputs["d_vector"],
+                speaker_id=speaker_id,
+                d_vector=d_vector,
             )
             # speaker_name = self.speaker_manager.speaker_names[aux_inputs["speaker_id"]]
             test_audios[f"{idx}-audio"] = outputs["wav"].T
             test_audios[f"{idx}-audio_encoder"] = outputs_gl["wav"].T
             test_figures[f"{idx}-alignment"] = plot_alignment(outputs["alignments"], output_fig=False)
         return {"figures": test_figures, "audios": test_audios}
-
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        logger.test_audios(steps, outputs["audios"], self.config.audio.sample_rate)
-        logger.test_figures(steps, outputs["figures"])
 
     def format_batch(self, batch: dict) -> dict:
         """Compute speaker, langugage IDs and d_vector for the batch if necessary."""
@@ -1273,15 +1185,6 @@ class DelightfulTTS(BaseTTSE2E):
         speaker_manager = SpeakerManager.init_from_config(config.model_args, samples)
         ap = AudioProcessor.init_from_config(config=config)
         return DelightfulTTS(config=new_config, tokenizer=tokenizer, speaker_manager=speaker_manager, ap=ap)
-
-    def load_checkpoint(self, config, checkpoint_path, eval=False):
-        """Load model from a checkpoint created by the 👟"""
-        # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
 
     def get_state_dict(self):
         """Custom state dict of the model with all the necessary components for inference."""

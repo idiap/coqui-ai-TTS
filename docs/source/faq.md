@@ -4,6 +4,29 @@ worth checking before going deeper.
 
 ## Using Coqui
 
+### What is the Coqui fork about and how to install it?
+
+The original Coqui package ([`TTS`](https://pypi.org/project/TTS/) on PyPI) had
+its last release in December 2023. It is strongly recommended to install this
+fork ([`coqui-tts`](https://pypi.org/project/coqui-tts/) on PyPI) instead for
+compatibility with recent Python and dependency versions. It also includes a
+large number of new features and bug fixes with many ongoing community
+contributions ([full
+changelog](https://github.com/idiap/coqui-ai-TTS/releases)). We welcome any
+contributions and bug reports on
+[GitHub](https://github.com/idiap/coqui-ai-TTS).
+
+For general installation instructions see [this documentation](installation.md).
+If you previously tried to install the original package, e.g. with `pip install
+TTS`, you have to start with a new virtual environment or at least remove any
+trace of the original packages, they cannot be installed together:
+
+```bash
+pip uninstall TTS trainer coqpit
+pip cache purge
+pip install coqui-tts
+```
+
 ### Where does Coqui store downloaded models?
 
 The path to downloaded models is printed when running `tts --list_models`.
@@ -23,7 +46,7 @@ or `TTS_HOME` environment variables.
   [Discussions](https://github.com/idiap/coqui-ai-TTS/discussions). Please give
   as many details as possible (error message, your TTS version, your TTS model
   and config.json etc.)
-- If you feel like it's a bug to be fixed, then prefer Github issues with the
+- If you feel like it's a bug to be fixed, then prefer GitHub issues with the
   same level of scrutiny.
 
 ## Training Coqui models
@@ -32,6 +55,11 @@ or `TTS_HOME` environment variables.
 - [See this page](datasets/what_makes_a_good_dataset.md)
 
 ### How should I choose the right model?
+
+```{note} This section is out-of-date and does not contain information about
+more recent models available in Coqui.
+```
+
 - First, train Tacotron. It is smaller and faster to experiment with. If it performs poorly, try Tacotron2.
 - Tacotron models produce the most natural voice if your dataset is not too noisy.
 - If both models do not perform well and especially the attention does not align, then try AlignTTS or GlowTTS.
@@ -93,13 +121,13 @@ or `TTS_HOME` environment variables.
 [tutorial](tutorial_for_nervous_beginners.md).
 
 ### How can I train in a different language?
-- Check steps 2, 3, 4, 5 above.
+Check steps 2, 3, 4, 5 above.
 
 ### How can I train multi-GPUs?
-- Check step 5 above.
+Check step 5 above.
 
 ### How can I check model performance?
-- You can inspect model training and performance using ```tensorboard```. It will show you loss, attention alignment, model output. Go with the order below to measure the model performance.
+You can inspect model training and performance using ```tensorboard```. It will show you loss, attention alignment, model output. Go with the order below to measure the model performance.
 1. Check ground truth spectrograms. If they do not look as they are supposed to, then check audio processing parameters in ```config.json```.
 2. Check train and eval losses and make sure that they all decrease smoothly in time.
 3. Check model spectrograms. Especially, training outputs should look similar to ground truth spectrograms after ~10K iterations.
@@ -127,14 +155,33 @@ Keep in mind that the approach above only validates the model robustness. It is 
 The best approach is to pick a set of promising models and run a Mean-Opinion-Score study asking actual people to score the models.
 
 ### My model does not learn. How can I debug?
-- Go over the steps under "How can I check model performance?"
+Go over the steps under "How can I check model performance?"
 
 ### Attention does not align. How can I make it work?
-- Check the 4th step under "How can I check model performance?"
+Check the 4th step under "How can I check model performance?"
 
 ### How can I test a trained model?
-- The best way is to use `tts` or `tts-server` commands. For details check [here](inference.md).
-- If you need to code your own ```TTS.utils.synthesizer.Synthesizer``` class.
+The best way is to use `tts` or `tts-server` commands. For details check [here](inference.md).
+
+### Difference between `--continue_path` and `--restore_path`?
+
+These are similar arguments to resume training from a checkpoint. They should be
+used as follows:
+
+`--continue_path <CHECKPOINT_DIR>`:
+- To continue a training/fine-tuning run that got interrupted, e.g. because a
+  job failed or reached a time limit.
+- `<CHECKPOINT_DIR>` points to a folder and Coqui will resume training from the
+  latest checkpoint in there and also use it to save new ones.
+- Coqui restores optimizer, LR scheduler state etc. to the previous values.
+
+`--restore_path <CHECKPOINT>`:
+- `<CHECKPOINT>` points to a specific model checkpoint file, but future checkpoints
+  are saved to a new folder under `output_path`.
+- To start a new training run based off the given checkpoint, e.g. to
+  [fine-tune](training/finetuning.md) an already trained model on a new dataset.
+- Learning rate etc. are not restored from the checkpoint, you
+  can specify new values in the config to change the defaults.
 
 ### My Tacotron model does not stop - I see "Decoder stopped with 'max_decoder_steps" - Stopnet does not work.
 - In general, all of the above relates to the `stopnet`. It is the part of the model telling the `decoder` when to stop.

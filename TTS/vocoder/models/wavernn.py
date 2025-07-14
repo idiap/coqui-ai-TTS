@@ -9,7 +9,6 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from trainer.io import load_fsspec
 
 from TTS.tts.utils.visual import plot_spectrogram
 from TTS.utils.audio import AudioProcessor
@@ -526,13 +525,6 @@ class Wavernn(BaseVocoder):
             unfolded[start:end] += y[i]
 
         return unfolded
-
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
 
     def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         mels = batch["input"]

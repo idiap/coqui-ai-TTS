@@ -4,12 +4,11 @@ XTTS has important model changes that make cross-language voice cloning and mult
 There is no need for an excessive amount of training data that spans countless hours.
 
 ## Features
-- Voice cloning.
-- Cross-language voice cloning.
+- [Voice cloning](../cloning.md), including cross-language.
 - Multi-lingual speech generation.
 - 24khz sampling rate.
-- Streaming inference with < 200ms latency. (See [Streaming inference](#streaming-manually))
-- Fine-tuning support. (See [Training](#training))
+- [Streaming inference](#streaming-manually) with < 200ms latency.
+- [Fine-tuning](#training) support.
 
 ## Updates with v2
 - Improved voice cloning.
@@ -44,7 +43,7 @@ XTTS-v2 supports 17 languages:
 This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
 
 ## Contact
-Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Github](https://github.com/idiap/coqui-ai-TTS/discussions).
+Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [GitHub](https://github.com/idiap/coqui-ai-TTS/discussions).
 
 ## Inference
 
@@ -76,6 +75,11 @@ You can do inference using one of the available speakers using the following com
 ```
 
 #### Clone a voice
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
+
 You can clone a speaker voice using a single or multiple references:
 
 ##### Single reference
@@ -311,9 +315,11 @@ If you are not able to acess the video you need to follow the steps:
 #### Run demo locally
 
 To run the demo locally you need to do the following steps:
-1. Install   🐸 TTS following the instructions available [here](https://coqui-tts.readthedocs.io/en/latest/installation.html).
-2. Install the Gradio demo requirements with the command `python3 -m pip install -r TTS/demos/xtts_ft_demo/requirements.txt`
-3. Run the Gradio demo using the command `python3 TTS/demos/xtts_ft_demo/xtts_demo.py`
+1. Install   🐸 TTS following the instructions available
+[here](https://coqui-tts.readthedocs.io/en/latest/installation.html), e.g. `pip
+install coqui-tts`
+2. Install the Gradio demo requirements with the command `pip install gradio faster_whisper`
+3. Run the Gradio demo using the command `python3 -m TTS.demos.xtts_ft_demo.xtts_demo`
 4. Follow the steps presented in the [tutorial video](https://www.youtube.com/watch?v=8tpDiiouGxc&feature=youtu.be) to be able to fine-tune and test the fine-tuned model.
 
 

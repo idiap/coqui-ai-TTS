@@ -1,5 +1,7 @@
 # Training a model
 
+## Single-speaker training
+
 1. Decide the model you want to use.
 
     Each model has a different set of pros and cons that define the run-time efficiency and the voice quality. It is up to you to decide what model serves your needs. Other than referring to the papers, one easy way is to test the 🐸TTS
@@ -7,18 +9,26 @@
 
 2. Understand the configuration, its fields and values.
 
-    For instance, if you want to train a `Tacotron` model then see the `TacotronConfig` class and make sure you understand it.
+    For instance, if you want to train a
+    {py:class}`~TTS.tts.models.tacotron.Tacotron` model then see the
+    {py:class}`~TTS.tts.configs.tacotron_config.TacotronConfig` class and make sure you understand it.
 
 3. Check the recipes.
 
-    Recipes are located under `TTS/recipes/`. They do not promise perfect models but they provide a good start point.
-    A recipe for `GlowTTS` using `LJSpeech` dataset looks like below. Let's be creative and call this `train_glowtts.py`.
+    Recipes are located under `TTS/recipes/`. They do not promise perfect models
+    but they provide a good start point. A recipe for
+    {py:class}`~TTS.tts.models.glow_tts.GlowTTS` using the [LJ Speech
+    dataset](https://keithito.com/LJ-Speech-Dataset/) looks like below. Let's be
+    creative and call this `train_glowtts.py`.
 
     ```{literalinclude} ../../../recipes/ljspeech/glow_tts/train_glowtts.py
     ```
 
-    You need to change fields of the `BaseDatasetConfig` to match your dataset and then update `GlowTTSConfig`
-    fields as you need.
+    You need to change fields of the
+    {py:class}`~TTS.config.shared_configs.BaseDatasetConfig` to match your
+    dataset and then update
+    {py:class}`~TTS.tts.configs.glow_tts_config.GlowTTSConfig` fields as you
+    need.
 
  4. Run the training.
 
@@ -128,18 +138,31 @@
 
 8. Return to the step 1 and reiterate for training a `vocoder` model.
 
-    In the example above, we trained a `GlowTTS` model, but the same workflow applies to all the other 🐸TTS models.
+    In the example above, we trained a
+    {py:class}`~TTS.tts.models.glow_tts.GlowTTS` model, but the same workflow
+    applies to all the other 🐸TTS models.
 
 
-## Multi-speaker Training
+## Multi-speaker training
 
 Training a multi-speaker model is mostly the same as training a single-speaker model.
-You need to specify a couple of configuration parameters, initiate a `SpeakerManager` instance and pass it to the model.
+You need to specify a couple of configuration parameters, initialize a
+{py:class}`~TTS.tts.utils.speakers.SpeakerManager` instance and pass it to the model.
 
-The configuration parameters define whether you want to train the model with a speaker-embedding layer or pre-computed
-d-vectors. For using d-vectors, you first need to compute the d-vectors using the `SpeakerEncoder`.
+The configuration parameters define whether you want to train the model with a
+speaker-embedding layer or pre-computed d-vectors. For using d-vectors, you
+first need to compute the d-vectors using a speaker encoder model.
 
 The same Glow-TTS model above can be trained on a multi-speaker VCTK dataset with the script below.
 
 ```{literalinclude} ../../../recipes/vctk/glow_tts/train_glow_tts.py
+```
+
+## Resume training
+
+If you want to continue a training/fine-tuning run that got interrupted, e.g.
+because a job failed or reached a time limit:
+
+```bash
+$ python train_glowtts.py --continue_path path/to/previous/run/folder/
 ```

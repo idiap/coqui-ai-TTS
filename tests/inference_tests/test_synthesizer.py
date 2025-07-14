@@ -16,7 +16,7 @@ class SynthesizerTest(unittest.TestCase):
         config = load_config(os.path.join(get_tests_input_path(), "dummy_model_config.json"))
         model = setup_model(config)
         output_path = os.path.join(get_tests_input_path())
-        save_checkpoint(config, model, None, None, 10, 1, output_path)
+        save_checkpoint(config, model, output_path, current_step=10, epoch=1)
 
     def test_in_out(self):
         self._create_random_model()

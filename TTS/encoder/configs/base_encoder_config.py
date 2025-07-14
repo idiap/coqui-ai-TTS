@@ -24,7 +24,7 @@ class BaseEncoderConfig(BaseTrainingConfig):
         }
     )
 
-    audio_augmentation: dict = field(default_factory=lambda: {})
+    audio_augmentation: dict = field(default_factory=dict)
 
     # training params
     epochs: int = 10000

@@ -475,7 +475,6 @@ class GPT(nn.Module):
         return loss_text.mean(), loss_mel.mean(), mel_logits
 
     def inference(self, cond_latents, text_inputs, **hf_generate_kwargs):
-        self.compute_embeddings(cond_latents, text_inputs)
         return self.generate(cond_latents, text_inputs, **hf_generate_kwargs)
 
     def compute_embeddings(
@@ -523,12 +522,15 @@ class GPT(nn.Module):
         return gen[:, gpt_inputs.shape[1] :]
 
     def get_generator(self, fake_inputs, **hf_generate_kwargs):
+        stop_token_tensor = torch.tensor(self.stop_audio_token, device=fake_inputs.device, dtype=torch.long)
+        attention_mask = _prepare_attention_mask_for_generation(fake_inputs, stop_token_tensor, stop_token_tensor)
         return self.gpt_inference.generate_stream(
             fake_inputs,
             bos_token_id=self.start_audio_token,
             pad_token_id=self.stop_audio_token,
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + fake_inputs.shape[-1],
+            attention_mask=attention_mask,
             do_stream=True,
             **hf_generate_kwargs,
         )

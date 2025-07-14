@@ -3,6 +3,8 @@ import importlib
 import logging
 import os
 import re
+import unicodedata
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO, TypeVar
@@ -35,14 +37,27 @@ def to_camel(text):
     return text
 
 
-def find_module(module_path: str, module_name: str) -> object:
+def slugify(text: str) -> str:
+    """Convert a string (e.g. speaker IDs) into a safe filename base."""
+    # Normalize to ASCII (e.g., Zoë -> Zoe)
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_str = normalized.encode("ascii", "ignore").decode("ascii")
+
+    # Replace unsafe characters with underscores
+    safe = re.sub(r"[^\w\-]", "_", ascii_str)
+
+    # Collapse repeated underscores
+    return re.sub(r"_+", "_", safe).strip("_")
+
+
+def find_module(module_path: str, module_name: str) -> type[Any]:
     module_name = module_name.lower()
     module = importlib.import_module(module_path + "." + module_name)
     class_name = to_camel(module_name)
     return getattr(module, class_name)
 
 
-def import_class(module_path: str) -> object:
+def import_class(module_path: str) -> type[Any]:
     """Import a class from a module path.
 
     Args:
@@ -149,3 +164,17 @@ def is_pytorch_at_least_2_4() -> bool:
 def optional_to_str(x: Any | None) -> str:
     """Convert input to string, using empty string if input is None."""
     return "" if x is None else str(x)
+
+
+def warn_synthesize_config_deprecated() -> None:
+    warnings.warn(
+        "The `config` argument of synthesize() is deprecated and will be removed soon. You can safely leave it out.",
+        DeprecationWarning,
+    )
+
+
+def warn_synthesize_speaker_id_deprecated() -> None:
+    warnings.warn(
+        "The `speaker_id` argument of synthesize() is deprecated and will be removed soon. Use `speaker` instead.",
+        DeprecationWarning,
+    )
