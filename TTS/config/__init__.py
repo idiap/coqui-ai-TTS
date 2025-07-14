@@ -117,7 +117,7 @@ def check_config_and_model_args(config, arg_name, value):
 
     TODO: Remove this in the future with a unified approach.
     """
-    if hasattr(config, "model_args"):
+    if getattr(config, "model_args", None) is not None:
         if arg_name in config.model_args:
             return config.model_args[arg_name] == value
     if hasattr(config, arg_name):
@@ -127,7 +127,7 @@ def check_config_and_model_args(config, arg_name, value):
 
 def get_from_config_or_model_args(config, arg_name):
     """Get the given argument from `config.model_args` if exist or in `config`."""
-    if hasattr(config, "model_args"):
+    if getattr(config, "model_args", None) is not None:
         if arg_name in config.model_args:
             return config.model_args[arg_name]
     return config[arg_name]
@@ -135,7 +135,7 @@ def get_from_config_or_model_args(config, arg_name):
 
 def get_from_config_or_model_args_with_default(config, arg_name, def_val):
     """Get the given argument from `config.model_args` if exist or in `config`."""
-    if hasattr(config, "model_args"):
+    if getattr(config, "model_args", None) is not None:
         if arg_name in config.model_args:
             return config.model_args[arg_name]
     if hasattr(config, arg_name):

@@ -49,7 +49,8 @@ class VoiceMetadata:
 class CloningMixin:
     """Add voice cloning with caching support.
 
-    To be used as a mixin in :py:class:`~TTS.tts.models.base_tts.BaseTTS`-derived models.
+    To be used as a mixin in :py:class:`~TTS.tts.models.base_tts.BaseTTS` and
+    :py:class:`~TTS.vc.models.base_vc.BaseVC`-derived models.
     """
 
     def _create_voice_metadata(

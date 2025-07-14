@@ -66,6 +66,7 @@ class XttsConfig(BaseTTSConfig):
     """
 
     model: str = "xtts"
+    _supports_cloning: bool = True
     # model specific params
     model_args: XttsArgs = field(default_factory=XttsArgs)
     audio: XttsAudioConfig = field(default_factory=XttsAudioConfig)

@@ -12,7 +12,6 @@ from torch.nn import Conv1d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
-from trainer.io import load_fsspec
 
 import TTS.vc.layers.freevc.modules as modules
 from TTS.tts.layers.vits.discriminator import DiscriminatorS
@@ -503,11 +502,5 @@ class FreeVC(CloningMixin, BaseVC):
     def init_from_config(config: FreeVCConfig) -> "FreeVC":
         model = FreeVC(config)
         return model
-
-    def load_checkpoint(self, config, checkpoint_path, eval=False, strict=True, cache=False):
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"], strict=strict)
-        if eval:
-            self.eval()
 
     def train_step(): ...

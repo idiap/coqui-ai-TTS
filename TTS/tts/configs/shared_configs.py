@@ -1,8 +1,14 @@
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from coqpit import Coqpit, check_argument
 
-from TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
+from TTS.config import (
+    BaseAudioConfig,
+    BaseDatasetConfig,
+    BaseTrainingConfig,
+    get_from_config_or_model_args_with_default,
+)
 
 
 @dataclass
@@ -156,6 +162,12 @@ class BaseTTSConfig(BaseTrainingConfig):
         audio (BaseAudioConfig):
             Audio processor config object instance.
 
+        model_args:
+            Model class arguments.
+
+        _supports_cloning:
+            Whether voice cloning is supported. Accessed via `supports_cloning` property.
+
         use_phonemes (bool):
             enable / disable phoneme use.
 
@@ -291,6 +303,8 @@ class BaseTTSConfig(BaseTrainingConfig):
     """
 
     audio: BaseAudioConfig = field(default_factory=BaseAudioConfig)
+    model_args: Coqpit | None = None
+    _supports_cloning: bool = False
     # phoneme settings
     use_phonemes: bool = False
     phonemizer: str = None
@@ -339,3 +353,10 @@ class BaseTTSConfig(BaseTrainingConfig):
     language_weighted_sampler_alpha: float = 1.0
     use_length_weighted_sampler: bool = False
     length_weighted_sampler_alpha: float = 1.0
+
+    @property
+    def supports_cloning(self) -> bool:
+        return self._supports_cloning or (
+            Path(get_from_config_or_model_args_with_default(self, "speaker_encoder_model_path", "")).is_file()
+            and Path(get_from_config_or_model_args_with_default(self, "speaker_encoder_config_path", "")).is_file()
+        )

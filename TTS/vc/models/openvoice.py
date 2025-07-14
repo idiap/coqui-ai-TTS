@@ -12,7 +12,6 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from torch.nn import functional as F
-from trainer.io import load_fsspec
 
 from TTS.tts.layers.vits.networks import PosteriorEncoder
 from TTS.tts.utils.speakers import SpeakerManager
@@ -196,8 +195,9 @@ class OpenVoice(CloningMixin, BaseVC):
 
     def load_checkpoint(
         self,
-        config: OpenVoiceConfig,
+        config: Coqpit,
         checkpoint_path: str | os.PathLike[Any],
+        *,
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,
@@ -211,10 +211,8 @@ class OpenVoice(CloningMixin, BaseVC):
         self.config.audio.fft_size = config_org["data"]["filter_length"]
         self.config.audio.hop_length = config_org["data"]["hop_length"]
         self.config.audio.win_length = config_org["data"]["win_length"]
-        state = load_fsspec(str(checkpoint_path), map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"], strict=strict)
-        if eval:
-            self.eval()
+
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
 
     def forward(self) -> None: ...
     def train_step(self) -> None: ...

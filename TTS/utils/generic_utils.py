@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import unicodedata
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO, TypeVar
@@ -163,3 +164,17 @@ def is_pytorch_at_least_2_4() -> bool:
 def optional_to_str(x: Any | None) -> str:
     """Convert input to string, using empty string if input is None."""
     return "" if x is None else str(x)
+
+
+def warn_synthesize_config_deprecated() -> None:
+    warnings.warn(
+        "The `config` argument of synthesize() is deprecated and will be removed soon. You can safely leave it out.",
+        DeprecationWarning,
+    )
+
+
+def warn_synthesize_speaker_id_deprecated() -> None:
+    warnings.warn(
+        "The `speaker_id` argument of synthesize() is deprecated and will be removed soon. Use `speaker` instead.",
+        DeprecationWarning,
+    )

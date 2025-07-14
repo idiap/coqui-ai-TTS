@@ -16,6 +16,7 @@ TEXT = "hello world"
 
 TTS_MODELS = [
     "tts_models/multilingual/multi-dataset/xtts_v2",
+    "tts_models/multilingual/multi-dataset/your_tts",
     "tts_models/multilingual/multi-dataset/bark",
     "tts_models/en/multi-dataset/tortoise-v2",
 ]
@@ -24,6 +25,7 @@ VC_MODELS = [
     "voice_conversion_models/multilingual/multi-dataset/knnvc",
     "voice_conversion_models/multilingual/vctk/freevc24",
     "voice_conversion_models/multilingual/multi-dataset/openvoice_v2",
+    "tts_models/multilingual/multi-dataset/your_tts",
 ]
 
 MARKED_VC_MODELS = [
@@ -38,7 +40,7 @@ MARKED_VC_MODELS = [
 @pytest.mark.parametrize("model_name", TTS_MODELS)
 def test_clone_tts(model_name, tmp_path):
     api = TTS(model_name)
-    language = "en" if "xtts" in model_name else None
+    language = "en" if "xtts" in model_name or "your_tts" in model_name else None
     with pytest.raises(FileNotFoundError, match=f"{SPEAKER}.pth"):
         api.tts_to_file(
             TEXT,

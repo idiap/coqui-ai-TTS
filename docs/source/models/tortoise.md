@@ -5,7 +5,11 @@ the final audio signal. The important downside is that Tortoise is very slow com
 
 Big thanks to 👑[@manmay-nakhashi](https://github.com/manmay-nakhashi) who helped us implement Tortoise in 🐸TTS.
 
-Example use:
+## Example use
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
 
 ```python
 from TTS.tts.configs.tortoise_config import TortoiseConfig
@@ -15,11 +19,11 @@ config = TortoiseConfig()
 model = Tortoise.init_from_config(config)
 model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
 
-# with random speaker
-output_dict = model.synthesize(text, config, speaker_id="random", extra_voice_dirs=None, **kwargs)
+# Random speaker
+output_dict = model.synthesize(text)
 
-# cloning a speaker
-output_dict = model.synthesize(text, config, speaker_id="speaker_n", extra_voice_dirs="path/to/speaker_n/", **kwargs)
+# Cloning a speaker
+output_dict = model.synthesize(text, speaker_wav="path/to/speaker.wav")
 ```
 
 Using 🐸TTS API:
@@ -28,19 +32,18 @@ Using 🐸TTS API:
 from TTS.api import TTS
 tts = TTS("tts_models/en/multi-dataset/tortoise-v2")
 
-# cloning `lj` voice from `TTS/tts/utils/assets/tortoise/voices/lj`
+# Clone voice and cache it with the custom ID `lj`
 # with custom inference settings overriding defaults.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="path/to/tortoise/voices/dir/",
+                speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
                 speaker="lj",
                 num_autoregressive_samples=1,
                 diffusion_iterations=10)
 
-# Using presets with the same voice
+# Using presets with the same voice after it is cached.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="path/to/tortoise/voices/dir/",
                 speaker="lj",
                 preset="ultra_fast")
 
@@ -52,11 +55,11 @@ tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
 Using 🐸TTS Command line:
 
 ```console
-# cloning the `lj` voice
+# Cloning the `lj` voice and cache it under that ID for later reuse without reference audio.
 tts --model_name  tts_models/en/multi-dataset/tortoise-v2 \
 --text "This is an example." \
 --out_path "output.wav" \
---voice_dir path/to/tortoise/voices/dir/ \
+--speaker_wav tests/data/ljspeech/wavs/*.wav \
 --speaker_idx "lj"
 
 # Random voice generation

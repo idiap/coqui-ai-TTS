@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class TTS(nn.Module):
-    """TODO: Add voice conversion and Capacitron support."""
+    """Coqui Python API."""
 
     def __init__(
         self,
@@ -111,7 +111,7 @@ class TTS(nn.Module):
     @property
     def is_multi_speaker(self) -> bool:
         if self.synthesizer is not None:
-            if hasattr(self.synthesizer.tts_model, "clone_voice"):
+            if self.synthesizer.tts_model.config.supports_cloning:
                 return True
             if hasattr(self.synthesizer.tts_model, "speaker_manager") and self.synthesizer.tts_model.speaker_manager:
                 return self.synthesizer.tts_model.speaker_manager.num_speakers > 1
@@ -139,7 +139,12 @@ class TTS(nn.Module):
     def speakers(self) -> list[str] | None:
         if not self.is_multi_speaker:
             return None
-        return self.synthesizer.tts_model.speaker_manager.speaker_names
+        speakers = []
+        if self.synthesizer.tts_model.config.supports_cloning:
+            speakers.extend(self.synthesizer.tts_model.get_voices(self.synthesizer.voice_dir).keys())
+        if self.synthesizer.tts_model.speaker_manager is not None:
+            speakers.extend(self.synthesizer.tts_model.speaker_manager.speaker_names)
+        return speakers
 
     @property
     def languages(self) -> list[str] | None:
@@ -276,11 +281,9 @@ class TTS(nn.Module):
     ) -> None:
         """Check if the arguments are valid for the model."""
         # check for the coqui tts models
-        if self.is_multi_speaker and (speaker is None and speaker_wav is None):
-            raise ValueError("Model is multi-speaker but no `speaker` is provided.")
         if self.is_multi_lingual and language is None:
             raise ValueError("Model is multi-lingual but no `language` is provided.")
-        if not self.is_multi_speaker and speaker is not None and "voice_dir" not in kwargs:
+        if not self.is_multi_speaker and speaker is not None:
             raise ValueError("Model is not multi-speaker but `speaker` is provided.")
         if not self.is_multi_lingual and language is not None:
             raise ValueError("Model is not multi-lingual but `language` is provided.")
@@ -392,6 +395,7 @@ class TTS(nn.Module):
         *,
         speaker: str | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        source_speaker: str | None = None,
         **kwargs,
     ):
         """Convert source wav to target speaker.
@@ -405,18 +409,29 @@ class TTS(nn.Module):
             target_wav:
                 Path(s) to the target wav file(s).
             speaker:
-                Custom speaker ID to cache the cloned voice.
+                Custom target speaker ID to cache the cloned voice.
             voice_dir:
                 Cache folder for cloned voices.
+            source_speaker:
+                Source speaker ID. Only needed for embedding-based models like Vits.
             **kwargs:
                 Additional arguments for the model.
         """
-        if self.voice_converter is None:
-            msg = "The selected model does not support voice conversion."
-            raise RuntimeError(msg)
-        return self.voice_converter.voice_conversion(
-            source_wav=source_wav, target_wav=target_wav, speaker_id=speaker, voice_dir=voice_dir, **kwargs
-        )
+        if self.voice_converter is not None:
+            return self.voice_converter.voice_conversion(
+                source_wav=source_wav, target_wav=target_wav, speaker_id=speaker, voice_dir=voice_dir, **kwargs
+            )
+        if self.synthesizer is not None and hasattr(self.synthesizer.tts_model, "voice_conversion"):
+            return self.synthesizer.tts(
+                source_wav=source_wav,
+                source_speaker_name=source_speaker,
+                speaker_wav=target_wav,
+                speaker_name=speaker,
+                voice_dir=voice_dir,
+                **kwargs,
+            )
+        msg = "The selected model does not support voice conversion."
+        raise RuntimeError(msg)
 
     def voice_conversion_to_file(
         self,
@@ -426,6 +441,7 @@ class TTS(nn.Module):
         file_path: str = "output.wav",
         speaker: str | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        source_speaker: str | None = None,
         pipe_out=None,
         **kwargs,
     ) -> str:
@@ -445,6 +461,8 @@ class TTS(nn.Module):
                 Custom speaker ID to cache the cloned voice.
             voice_dir:
                 Cache folder for cloned voices.
+            source_speaker:
+                Source speaker ID. Only needed for embedding-based models like Vits.
             pipe_out (BytesIO, optional):
                 Flag to stdout the generated TTS wav file for shell pipe.
             **kwargs:
@@ -453,7 +471,10 @@ class TTS(nn.Module):
         wav = self.voice_conversion(
             source_wav=source_wav, target_wav=target_wav, speaker=speaker, voice_dir=voice_dir, **kwargs
         )
-        self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
+        if self.voice_converter is not None:
+            self.voice_converter.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
+        else:
+            self.synthesizer.save_wav(wav=wav, path=file_path, pipe_out=pipe_out)
         return file_path
 
     def tts_with_vc(
@@ -489,8 +510,7 @@ class TTS(nn.Module):
                 Setting it False uses more VRAM and possibly hit model specific text length or VRAM limits. Only
                 applicable to the 🐸TTS models. Defaults to True.
         """
-        # TODO: This won't work for YourTTS
-        if hasattr(self.synthesizer.tts_model, "clone_voice"):
+        if self.synthesizer.tts_model.config.supports_cloning:
             warnings.warn(
                 "This TTS model directly supports voice cloning, for better quality call it with "
                 "tts/tts_to_file(..., speaker_wav=...) instead."

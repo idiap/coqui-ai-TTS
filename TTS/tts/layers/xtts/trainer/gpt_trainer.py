@@ -232,9 +232,8 @@ class GPTTrainer(BaseTTS):
             for idx, s_info in enumerate(self.config.test_sentences):
                 wav = self.xtts.synthesize(
                     s_info["text"],
-                    self.config,
-                    s_info["speaker_wav"],
-                    s_info["language"],
+                    speaker_wav=s_info["speaker_wav"],
+                    language=s_info["language"],
                     gpt_cond_len=3,
                 )["wav"]
                 test_audios[f"{idx}-audio"] = wav
@@ -318,7 +317,7 @@ class GPTTrainer(BaseTTS):
     def eval_step(self, batch, criterion):
         # ignore masking for more consistent evaluation
         batch["cond_idxs"] = None
-        return self.train_step(batch, criterion)
+        return super().eval_step(batch, criterion)
 
     def on_train_epoch_start(self, trainer):
         trainer.model.eval()  # the whole model to eval
@@ -476,6 +475,7 @@ class GPTTrainer(BaseTTS):
         self,
         config,
         checkpoint_path,
+        *,
         eval=False,
         strict=True,
         cache_storage="/tmp/tts_cache",
@@ -492,7 +492,6 @@ class GPTTrainer(BaseTTS):
         if eval:
             self.xtts.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=False)
             self.eval()
-            assert not self.training
 
     @staticmethod
     def init_from_config(config: "GPTTrainerConfig", samples: list[list] | list[dict] = None):

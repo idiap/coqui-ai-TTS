@@ -46,6 +46,7 @@ class BarkConfig(BaseTTSConfig):
     """
 
     model: str = "bark"
+    _supports_cloning: bool = True
     audio: BarkAudioConfig = field(default_factory=BarkAudioConfig)
     num_chars: int = 0
     semantic_config: GPTConfig = field(default_factory=GPTConfig)
