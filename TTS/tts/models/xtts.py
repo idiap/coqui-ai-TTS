@@ -423,27 +423,26 @@ class Xtts(BaseTTS):
             f" ❗ Language {language} is not supported. Supported languages are {self.config.languages}"
         )
         # Use generally found best tuning knobs for generation.
-        settings = {
+        voice_settings = {
+            key: kwargs.pop(key, self.config[key])
+            for key in ["gpt_cond_len", "gpt_cond_chunk_len", "max_ref_len", "sound_norm_refs"]
+        }
+        voice_settings["max_ref_length"] = voice_settings.pop("max_ref_len")
+        inference_settings = {
             "temperature": self.config.temperature,
             "length_penalty": self.config.length_penalty,
             "repetition_penalty": self.config.repetition_penalty,
             "top_k": self.config.top_k,
             "top_p": self.config.top_p,
         }
-        settings.update(kwargs)  # allow overriding of preset settings with kwargs
+        inference_settings.update(kwargs)  # allow overriding of preset settings with kwargs
         if speaker is not None and speaker in self.speaker_manager.speakers:
             gpt_cond_latent, speaker_embedding = self.speaker_manager.speakers[speaker].values()
         else:
-            voice_settings = {
-                "gpt_cond_len": self.config.gpt_cond_len,
-                "gpt_cond_chunk_len": self.config.gpt_cond_chunk_len,
-                "max_ref_length": self.config.max_ref_len,
-                "sound_norm_refs": self.config.sound_norm_refs,
-            }
             voice = self.clone_voice(speaker_wav, speaker, voice_dir, **voice_settings)
             gpt_cond_latent = voice["gpt_conditioning_latents"]
             speaker_embedding = voice["speaker_embedding"]
-        return self.inference(text, language, gpt_cond_latent, speaker_embedding, **settings)
+        return self.inference(text, language, gpt_cond_latent, speaker_embedding, **inference_settings)
 
     @torch.inference_mode()
     def inference(
