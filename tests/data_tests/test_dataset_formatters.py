@@ -2,7 +2,7 @@ import os
 import unittest
 
 from tests import get_tests_input_path
-from TTS.tts.datasets.formatters import common_voice
+from TTS.tts.datasets.formatters import common_voice, register_formatter
 
 
 class TestTTSFormatters(unittest.TestCase):
@@ -17,12 +17,10 @@ class TestTTSFormatters(unittest.TestCase):
         assert items[-1]["audio_file"] == os.path.join(get_tests_input_path(), "clips", "common_voice_en_19737074.wav")
 
     def test_custom_formatter_with_existing_name(self):
-        from TTS.tts.datasets import add_formatter
-
         def custom_formatter(root_path, meta_file, ignored_speakers=None):
             return []
 
-        add_formatter("custom_formatter", custom_formatter)
+        register_formatter("custom_formatter", custom_formatter)
 
         with self.assertRaises(ValueError):
-            add_formatter("custom_formatter", custom_formatter)
+            register_formatter("custom_formatter", custom_formatter)

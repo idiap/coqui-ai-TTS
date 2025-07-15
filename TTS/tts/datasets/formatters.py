@@ -5,10 +5,38 @@ import re
 import xml.etree.ElementTree as ET
 from glob import glob
 from pathlib import Path
+from typing import Any, Protocol
 
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+class Formatter(Protocol):
+    def __call__(
+        self,
+        root_path: str | os.PathLike[Any],
+        meta_file: str | os.PathLike[Any],
+        ignored_speakers: list[str] | None,
+        **kwargs,
+    ) -> list[dict[str, Any]]: ...
+
+
+_FORMATTER_REGISTRY: dict[str, Formatter] = {}
+
+
+def register_formatter(name: str, formatter: Formatter) -> None:
+    """Add a formatter function to the registry.
+
+    Args:
+        name: Name of the formatter.
+        formatter: Formatter function.
+    """
+    if name.lower() in _FORMATTER_REGISTRY:
+        msg = f"Formatter {name} already exists."
+        raise ValueError(msg)
+    _FORMATTER_REGISTRY[name.lower()] = formatter
+
 
 ########################
 # DATASETS
@@ -659,3 +687,35 @@ def bel_tts_formatter(root_path, meta_file, **kwargs):  # pylint: disable=unused
             text = cols[1]
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
     return items
+
+
+### Registrations
+register_formatter("cml_tts", cml_tts)
+register_formatter("coqui", coqui)
+register_formatter("tweb", tweb)
+register_formatter("mozilla", mozilla)
+register_formatter("mozilla_de", mozilla_de)
+register_formatter("mailabs", mailabs)
+register_formatter("ljspeech", ljspeech)
+register_formatter("ljspeech_test", ljspeech_test)
+register_formatter("thorsten", thorsten)
+register_formatter("sam_accenture", sam_accenture)
+register_formatter("ruslan", ruslan)
+register_formatter("css10", css10)
+register_formatter("nancy", nancy)
+register_formatter("common_voice", common_voice)
+register_formatter("libri_tts", libri_tts)
+register_formatter("custom_turkish", custom_turkish)
+register_formatter("brspeech", brspeech)
+register_formatter("vctk", vctk)
+register_formatter("vctk_old", vctk_old)
+register_formatter("synpaflex", synpaflex)
+register_formatter("open_bible", open_bible)
+register_formatter("mls", mls)
+register_formatter("voxceleb2", voxceleb2)
+register_formatter("voxceleb1", voxceleb1)
+register_formatter("emotion", emotion)
+register_formatter("baker", baker)
+register_formatter("kokoro", kokoro)
+register_formatter("kss", kss)
+register_formatter("bel_tts_formatter", bel_tts_formatter)
