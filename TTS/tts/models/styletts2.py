@@ -9,6 +9,7 @@ Adapted from the original code: https://github.com/yl4579/StyleTTS2
 
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import librosa
@@ -16,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
+import yaml
 from coqpit import Coqpit
 from torch.utils.data import DataLoader
 
@@ -522,3 +524,231 @@ class StyleTTS2(BaseTTS):
     ) -> DataLoader:
         """Get data loader for StyleTTS 2."""
         # TODO: Implement StyleTTS 2 specific data loader
+
+    @classmethod
+    def load_from_original_checkpoint(
+        cls,
+        checkpoint_dir: str | os.PathLike[Any],
+        device: str = "cpu",
+    ) -> "StyleTTS2":
+        """Load a StyleTTS 2 model from original checkpoint and convert to Coqui format.
+
+        Args:
+            checkpoint_dir: Directory containing config.yml and .pth checkpoint file
+            device: Device to load the model on
+
+        Returns:
+            StyleTTS2 model with weights loaded from original checkpoint
+        """
+        # Load original config
+        checkpoint_dir = Path(checkpoint_dir)
+        config_path = checkpoint_dir / "config.yml"
+        with open(config_path) as f:
+            orig_config = yaml.safe_load(f)
+
+        # Find checkpoint file
+        checkpoint_files = list(checkpoint_dir.glob("*.pth"))
+        if not checkpoint_files:
+            raise FileNotFoundError(f"No .pth checkpoint file found in {checkpoint_dir}")
+
+        checkpoint_path = checkpoint_files[0]
+        logger.info("Loading checkpoint from %s", checkpoint_path)
+
+        # Load checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        orig_state_dict = checkpoint["net"]
+
+        # Convert original config to Coqui config
+        coqui_config = cls._convert_original_config(orig_config)
+
+        # Initialize model with converted config
+        model = cls(coqui_config)
+
+        # Store original parameters for verification
+        original_params = {name: param.clone() for name, param in model.named_parameters()}
+
+        # Convert and load state dict
+        converted_state_dict = cls._convert_state_dict(orig_state_dict)
+        model.load_state_dict(converted_state_dict, strict=False)
+
+        # Verify that all parameters have changed after loading (ignore slm_discriminator)
+        unchanged_params = []
+        for name, param in model.named_parameters():
+            if (
+                not name.startswith(("slm_discriminator.", "prosodic_text_encoder.plbert.pooler.bias"))
+                and name in original_params
+                and torch.equal(param, original_params[name])
+            ):
+                unchanged_params.append(name)
+
+        assert len(unchanged_params) == 0, f"Parameters not updated after loading: {unchanged_params}"
+
+        logger.info("Successfully loaded StyleTTS 2 model from original checkpoint")
+        return model, coqui_config
+
+    @staticmethod
+    def _convert_original_config(orig_config: dict) -> StyleTTS2Config:
+        """Convert original StyleTTS 2 config to Coqui TTS config format.
+
+        Args:
+            orig_config: Original StyleTTS 2 configuration dict
+
+        Returns:
+            StyleTTS2Config compatible with Coqui TTS
+        """
+        model_params = orig_config.get("model_params", {})
+        preprocess_params = orig_config.get("preprocess_params", {})
+
+        # Create Coqui config
+        config = StyleTTS2Config()
+        config._supports_cloning = model_params.get("multispeaker", False)
+
+        # Maps original to Coqui config keys
+        key_map = [
+            ("n_token", "num_chars"),
+            ("hidden_dim", "hidden_channels"),
+            ("style_dim", "style_dim"),
+            ("max_dur", "max_duration"),
+            ("n_layer", "acoustic_text_encoder_layers"),
+            ("n_layer", "duration_predictor_layers"),
+        ]
+        for old_key, new_key in key_map:
+            if old_key in model_params:
+                config.model_args[new_key] = model_params[old_key]
+
+        # Audio config from preprocessing params
+        spect_params = preprocess_params.get("spect_params", {})
+        config.audio.update(
+            {
+                "sample_rate": preprocess_params["sr"],
+                "hop_length": spect_params["hop_length"],
+                "win_length": spect_params["win_length"],
+                "fft_size": spect_params["n_fft"],
+                "num_mels": model_params["n_mels"],
+            }
+        )
+
+        # Diffusion config
+        diff_config = model_params.get("diffusion", {})
+        config.model_args.diffusion_embedding_mask_prob = diff_config["embedding_mask_proba"]
+        if diff_config:
+            transformer_config = diff_config.get("transformer", {})
+            config.model_args.diffusion_transformer_layers = transformer_config.get("num_layers", 3)
+            config.model_args.diffusion_transformer_head_features = transformer_config["head_features"]
+            config.model_args.diffusion_transformer_multiplier = transformer_config["multiplier"]
+            config.model_args.diffusion_transformer_heads = transformer_config["num_heads"]
+            dist_config = diff_config.get("dist", {})
+            config.model_args.diffusion_dist_mean = dist_config["mean"]
+            config.model_args.diffusion_dist_std = dist_config["std"]
+            config.model_args.diffusion_dist_sigma_data = dist_config["sigma_data"]
+
+        # Decoder config
+        decoder_config = model_params.get("decoder", {})
+        config.model_args.decoder_config.generator_type = decoder_config.pop("type")
+        config.model_args.decoder_config.update(**decoder_config)
+
+        # SLM config
+        slm_config = model_params.get("slm", {})
+        if slm_config:
+            config.model_args.slm_model_name = slm_config.get("model", "microsoft/wavlm-base-plus")
+            config.model_args.slm_sample_rate = slm_config.get("sr", 16000)
+
+        # Phonemizer configuration
+        config.use_phonemes = True
+        config.phoneme_language = "en-us"
+        config.text_cleaner = "phoneme_cleaners"
+        config.phonemizer = "espeak"
+        config.enable_eos_bos_chars = False  # synthesize() adds a single leading pad token instead
+        config.characters = _create_styletts2_character_config()
+
+        return config
+
+    @staticmethod
+    def _convert_state_dict(orig_state_dict: dict[str, Any]) -> dict[str, Any]:
+        """Convert original StyleTTS 2 state dict to Coqui format.
+
+        Args:
+            orig_state_dict: Original state dict from StyleTTS 2 checkpoint
+
+        Returns:
+            Converted state dict compatible with Coqui model
+        """
+        converted_state_dict = {}
+
+        # Mapping from original keys to Coqui keys
+        key_mapping = {
+            "text_encoder": "acoustic_text_encoder",
+            "bert_encoder": "prosodic_text_encoder.plbert_projection",
+            "bert": "prosodic_text_encoder.plbert",
+            "style_encoder": "acoustic_style_encoder",
+            "predictor_encoder": "prosodic_style_encoder",
+            "predictor": "duration_predictor",
+            "decoder": "decoder",
+            "diffusion": "style_diffusion",
+            "mpd": "slm_discriminator.mpd",
+            "msd": "slm_discriminator.msd",
+            "mwd": "slm_discriminator.mwd",
+            "wd": "slm_discriminator.wd",
+        }
+
+        for orig_key, param in orig_state_dict.items():
+            if orig_key in key_mapping:
+                new_key = key_mapping[orig_key]
+                if orig_key in [
+                    "text_encoder",
+                    "style_encoder",
+                    "predictor_encoder",
+                    "bert_encoder",
+                    "bert",
+                    "diffusion",
+                ]:
+                    converted = {}
+                    for key, value in param.items():
+                        key = key.removeprefix("module.")
+                        converted[f"{new_key}.{key}"] = value
+                    converted_state_dict.update(converted)
+                elif orig_key == "decoder":
+                    converted_state_dict.update(StyleTTS2._convert_decoder_weights(param, new_key))
+                elif orig_key == "predictor":
+                    converted_state_dict.update(StyleTTS2._convert_predictor_weights(param, new_key))
+                else:
+                    if isinstance(param, dict):
+                        for sub_key, sub_param in param.items():
+                            converted_state_dict[f"{new_key}.{sub_key}"] = sub_param
+                    else:
+                        converted_state_dict[new_key] = param
+            else:
+                logger.warning("Unmapped key in original checkpoint: %s", orig_key)
+        return converted_state_dict
+
+    @staticmethod
+    def _convert_decoder_weights(orig_weights: dict, prefix: str) -> dict:
+        converted = {}
+        for key, param in orig_weights.items():
+            key = key.replace("module.", "")
+            if key.startswith("N_conv."):
+                energy_key = key.replace("N_conv.", "energy_conv.")
+                converted[f"{prefix}.{energy_key}"] = param
+            elif key.startswith("asr_res."):
+                text_key = key.replace("asr_res.", "text_residual.")
+                converted[f"{prefix}.{text_key}"] = param
+            else:
+                converted[f"{prefix}.{key}"] = param
+        return converted
+
+    @staticmethod
+    def _convert_predictor_weights(orig_weights: dict, prefix: str) -> dict:
+        converted = {}
+        for key, param in orig_weights.items():
+            key = key.replace("module.", "")
+            if key.startswith(("shared.", "F0.", "F0_proj.")):
+                converted[f"prosody_predictor.{key}"] = param
+            elif key.startswith("N."):
+                key = key.replace("N.", "energy.")
+                converted[f"prosody_predictor.{key}"] = param
+            elif key.startswith("N_proj."):
+                key = key.replace("N_proj.", "energy_proj.")
+                converted[f"prosody_predictor.{key}"] = param
+            else:
+                converted[f"{prefix}.{key}"] = param
+        return converted
