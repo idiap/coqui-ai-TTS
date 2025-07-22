@@ -9,6 +9,7 @@ Adapted from the original code: https://github.com/yl4579/StyleTTS2
 
 import logging
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -752,3 +753,103 @@ class StyleTTS2(BaseTTS):
             else:
                 converted[f"{prefix}.{key}"] = param
         return converted
+
+
+class StyleTTS2Characters(BaseCharacters):
+    """Character class for use with the original StyleTTS 2  model.
+
+    The original StyleTTS2 uses this ordering: [PAD, PUNCTUATIONS, LETTERS, IPA_LETTERS]
+    This differs from Coqui's default ordering: [PAD, EOS, BOS, BLANK, CHARACTERS, PUNCTUATIONS]
+
+    This class overrides _create_vocab to match the original ordering.
+    """
+
+    def __init__(
+        self,
+        characters: str | None = None,
+        punctuations: str | None = None,
+        pad: str | None = None,
+        eos: str | None = None,
+        bos: str | None = None,
+        blank: str | None = None,
+        *,
+        is_unique: bool = False,
+        is_sorted: bool = False,
+    ) -> None:
+        super().__init__(characters, punctuations, pad, eos, bos, blank, is_unique=is_unique, is_sorted=is_sorted)
+
+    def _create_vocab(self) -> None:
+        """Create vocabulary with StyleTTS2 ordering: [PAD, PUNCTUATIONS, LETTERS, IPA_LETTERS]"""
+        _vocab = []
+
+        if self.pad is not None and len(self.pad) > 0:
+            _vocab.append(self.pad)
+
+        if self.punctuations is not None and len(self.punctuations) > 0:
+            punct_chars = list(self.punctuations)
+            if self.is_unique:
+                seen = set()
+                punct_chars = [x for x in punct_chars if not (x in seen or seen.add(x))]
+            _vocab.extend(punct_chars)
+
+        if self.characters is not None and len(self.characters) > 0:
+            char_list = list(self.characters)
+            if self.is_unique:
+                seen = set()
+                char_list = [x for x in char_list if not (x in seen or seen.add(x))]
+            if self.is_sorted:
+                char_list = sorted(char_list)
+            _vocab.extend(char_list)
+
+        self.vocab = _vocab
+        if self.is_unique:
+            self._check_duplicate_chars()
+
+    @staticmethod
+    def init_from_config(config: BaseTTSConfig) -> tuple["StyleTTS2Characters", BaseTTSConfig]:
+        """Init a StyleTTS2Characters object from a model config."""
+
+        if config.characters is not None:
+            return (
+                StyleTTS2Characters(
+                    characters=config.characters.characters,
+                    punctuations=config.characters.punctuations,
+                    pad=config.characters.pad,
+                    eos=config.characters.eos,
+                    bos=config.characters.bos,
+                    blank=config.characters.blank,
+                    is_unique=config.characters.is_unique,
+                    is_sorted=config.characters.is_sorted,
+                ),
+                config,
+            )
+
+        # Return default character set
+        characters = StyleTTS2Characters()
+        new_config = replace(config, characters=characters.to_config())
+        return characters, new_config
+
+
+def _create_styletts2_character_config():
+    """Create a CharactersConfig that matches the original StyleTTS2 character set."""
+
+    # Original character set from StyleTTS2 text_utils.py
+    _pad = "$"
+    _punctuation = ';:,.!?¡¿—…"«»“” '
+    _letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    # NB: The ¦ replaces a duplicate ' to have the same amount of tokens as the original model.
+    _letters_ipa = (
+        "ɑɐɒæɓʙβɔɕçɗɖðʤəɘɚɛɜɝɞɟʄɡɠɢʛɦɧħɥʜɨɪʝɭɬɫɮʟɱɯɰŋɳɲɴøɵɸθœɶʘɹɺɾɻʀʁɽʂʃʈʧʉʊʋⱱʌɣɤʍχʎʏʑʐʒʔʡʕʢǀǁǂǃˈˌːˑʼʴʰʱʲʷˠˤ˞↓↑→↗↘'̩¦ᵻ"
+    )
+
+    return CharactersConfig(
+        characters=_letters + _letters_ipa,
+        punctuations=_punctuation,
+        pad=_pad,
+        eos=_pad,
+        bos=_pad,
+        blank=None,
+        characters_class="TTS.tts.models.styletts2.StyleTTS2Characters",
+        is_unique=True,
+        is_sorted=False,
+    )

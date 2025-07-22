@@ -219,10 +219,13 @@ class BaseCharacters(BaseVocabulary):
         _vocab = [self.pad, *_vocab] if self.pad is not None and len(self.pad) > 0 else _vocab
         self.vocab = _vocab + list(self.punctuations)
         if self.is_unique:
-            duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
-            assert len(self.vocab) == len(self._char_to_id) == len(self._id_to_char), (
-                f" [!] There are duplicate characters in the character set. {duplicates}"
-            )
+            self._check_duplicate_chars()
+
+    def _check_duplicate_chars(self) -> None:
+        duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
+        msg = f" [!] There are duplicate characters in the character set. {duplicates}"
+        if len(self.vocab) != len(self._char_to_id) or len(self.vocab) != len(self._id_to_char):
+            raise ValueError(msg)
 
     def print_log(self, level: int = 0) -> None:
         """Print the vocabulary in a nice format."""
