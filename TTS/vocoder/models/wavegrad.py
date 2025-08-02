@@ -1,5 +1,6 @@
+import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -9,7 +10,6 @@ from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from trainer.io import load_fsspec
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.vocoder.datasets import WaveGradDataset
@@ -25,10 +25,10 @@ class WavegradArgs(Coqpit):
     use_weight_norm: bool = False
     y_conv_channels: int = 32
     x_conv_channels: int = 768
-    dblock_out_channels: List[int] = field(default_factory=lambda: [128, 128, 256, 512])
-    ublock_out_channels: List[int] = field(default_factory=lambda: [512, 512, 256, 128, 128])
-    upsample_factors: List[int] = field(default_factory=lambda: [4, 4, 4, 2, 2])
-    upsample_dilations: List[List[int]] = field(
+    dblock_out_channels: list[int] = field(default_factory=lambda: [128, 128, 256, 512])
+    ublock_out_channels: list[int] = field(default_factory=lambda: [512, 512, 256, 128, 128])
+    upsample_factors: list[int] = field(default_factory=lambda: [4, 4, 4, 2, 2])
+    upsample_dilations: list[list[int]] = field(
         default_factory=lambda: [[1, 2, 1, 2], [1, 2, 1, 2], [1, 2, 4, 8], [1, 2, 4, 8], [1, 2, 4, 8]]
     )
 
@@ -123,7 +123,7 @@ class Wavegrad(BaseVocoder):
         beta = np.load(path, allow_pickle=True).item()["beta"]  # pylint: disable=unexpected-keyword-arg
         self.compute_noise_level(beta)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, y_n=None):
         """
         Shapes:
@@ -219,13 +219,16 @@ class Wavegrad(BaseVocoder):
         self.y_conv = weight_norm(self.y_conv)
 
     def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
+        self,
+        config: Coqpit,
+        checkpoint_path: str | os.PathLike[Any],
+        *,
+        eval: bool = False,
+        strict: bool = True,
+        cache: bool = False,
+    ) -> None:
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
         if eval:
-            self.eval()
-            assert not self.training
             if self.config.model_params.use_weight_norm:
                 self.remove_weight_norm()
             betas = np.linspace(
@@ -242,7 +245,7 @@ class Wavegrad(BaseVocoder):
             )
             self.compute_noise_level(betas)
 
-    def train_step(self, batch: Dict, criterion: Dict) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         # format data
         x = batch["input"]
         y = batch["waveform"]
@@ -258,20 +261,30 @@ class Wavegrad(BaseVocoder):
         return {"model_output": noise_hat}, {"loss": loss}
 
     def train_log(  # pylint: disable=no-self-use
-        self, batch: Dict, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, np.ndarray]:
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
+    ) -> tuple[dict, np.ndarray]:
         pass
 
-    @torch.no_grad()
-    def eval_step(self, batch: Dict, criterion: nn.Module) -> Tuple[Dict, Dict]:
+    @torch.inference_mode()
+    def eval_step(self, batch: dict, criterion: nn.Module) -> tuple[dict, dict]:
         return self.train_step(batch, criterion)
 
     def eval_log(  # pylint: disable=no-self-use
-        self, batch: Dict, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         pass
 
-    def test(self, assets: Dict, test_loader: "DataLoader", outputs=None):  # pylint: disable=unused-argument
+    def test(self, assets: dict, test_loader: "DataLoader", outputs=None):  # pylint: disable=unused-argument
         # setup noise schedule and inference
         ap = assets["audio_processor"]
         noise_schedule = self.config["test_noise_schedule"]
@@ -302,13 +315,22 @@ class Wavegrad(BaseVocoder):
         return torch.nn.L1Loss()
 
     @staticmethod
-    def format_batch(batch: Dict) -> Dict:
+    def format_batch(batch: dict) -> dict:
         # return a whole audio segment
         m, y = batch[0], batch[1]
         y = y.unsqueeze(1)
         return {"input": m, "waveform": y}
 
-    def get_data_loader(self, config: Coqpit, assets: Dict, is_eval: True, samples: List, verbose: bool, num_gpus: int):
+    def get_data_loader(
+        self,
+        config: Coqpit,
+        assets: dict,
+        is_eval: True,
+        samples: list,
+        verbose: bool,
+        num_gpus: int,
+        rank: int | None = None,
+    ):
         ap = assets["audio_processor"]
         dataset = WaveGradDataset(
             ap=ap,

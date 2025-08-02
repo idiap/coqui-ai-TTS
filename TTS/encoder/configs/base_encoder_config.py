@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List
 
 from coqpit import MISSING
 
@@ -12,9 +11,9 @@ class BaseEncoderConfig(BaseTrainingConfig):
 
     model: str = None
     audio: BaseAudioConfig = field(default_factory=BaseAudioConfig)
-    datasets: List[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
+    datasets: list[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
     # model params
-    model_params: Dict = field(
+    model_params: dict = field(
         default_factory=lambda: {
             "model_name": "lstm",
             "input_dim": 80,
@@ -25,7 +24,7 @@ class BaseEncoderConfig(BaseTrainingConfig):
         }
     )
 
-    audio_augmentation: Dict = field(default_factory=lambda: {})
+    audio_augmentation: dict = field(default_factory=dict)
 
     # training params
     epochs: int = 10000
@@ -33,7 +32,7 @@ class BaseEncoderConfig(BaseTrainingConfig):
     grad_clip: float = 3.0
     lr: float = 0.0001
     optimizer: str = "radam"
-    optimizer_params: Dict = field(default_factory=lambda: {"betas": [0.9, 0.999], "weight_decay": 0})
+    optimizer_params: dict = field(default_factory=lambda: {"betas": [0.9, 0.999], "weight_decay": 0})
     lr_decay: bool = False
     warmup_steps: int = 4000
 
@@ -56,6 +55,6 @@ class BaseEncoderConfig(BaseTrainingConfig):
     def check_values(self):
         super().check_values()
         c = asdict(self)
-        assert (
-            c["model_params"]["input_dim"] == self.audio.num_mels
-        ), " [!] model input dimendion must be equal to melspectrogram dimension."
+        assert c["model_params"]["input_dim"] == self.audio.num_mels, (
+            " [!] model input dimendion must be equal to melspectrogram dimension."
+        )

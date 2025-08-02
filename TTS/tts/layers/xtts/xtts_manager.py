@@ -1,9 +1,11 @@
 import torch
 
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+
 
 class SpeakerManager:
     def __init__(self, speaker_file_path=None):
-        self.speakers = torch.load(speaker_file_path, weights_only=True)
+        self.speakers = torch.load(speaker_file_path, weights_only=is_pytorch_at_least_2_4())
 
     @property
     def name_to_id(self):

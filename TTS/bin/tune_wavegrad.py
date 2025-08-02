@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 from itertools import product as cartesian_product
 
 import numpy as np
@@ -17,7 +18,7 @@ from TTS.vocoder.datasets.wavegrad_dataset import WaveGradDataset
 from TTS.vocoder.models import setup_model
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, help="Path to model checkpoint.")

@@ -1,7 +1,6 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-import fsspec
 import numpy as np
 import torch
 from coqpit import Coqpit
@@ -27,8 +26,8 @@ class LanguageManager(BaseIDManager):
 
     def __init__(
         self,
-        language_ids_file_path: str = "",
-        config: Coqpit = None,
+        language_ids_file_path: str | os.PathLike[Any] = "",
+        config: Coqpit | None = None,
     ):
         super().__init__(id_file_path=language_ids_file_path)
 
@@ -40,11 +39,11 @@ class LanguageManager(BaseIDManager):
         return len(list(self.name_to_id.keys()))
 
     @property
-    def language_names(self) -> List:
+    def language_names(self) -> list:
         return list(self.name_to_id.keys())
 
     @staticmethod
-    def parse_language_ids_from_config(c: Coqpit) -> Dict:
+    def parse_language_ids_from_config(c: Coqpit) -> dict:
         """Set language id from config.
 
         Args:
@@ -70,13 +69,13 @@ class LanguageManager(BaseIDManager):
         self.name_to_id = self.parse_language_ids_from_config(c)
 
     @staticmethod
-    def parse_ids_from_data(items: List, parse_key: str) -> Any:
+    def parse_ids_from_data(items: list, parse_key: str) -> Any:
         raise NotImplementedError
 
-    def set_ids_from_data(self, items: List, parse_key: str) -> Any:
+    def set_ids_from_data(self, items: list, parse_key: str) -> Any:
         raise NotImplementedError
 
-    def save_ids_to_file(self, file_path: str) -> None:
+    def save_ids_to_file(self, file_path: str | os.PathLike[Any]) -> None:
         """Save language IDs to a json file.
 
         Args:
@@ -97,19 +96,6 @@ class LanguageManager(BaseIDManager):
             # Fall back to parse language IDs from the config
             return LanguageManager(config=config)
         return None
-
-
-def _set_file_path(path):
-    """Find the language_ids.json under the given path or the above it.
-    Intended to band aid the different paths returned in restored and continued training."""
-    path_restore = os.path.join(os.path.dirname(path), "language_ids.json")
-    path_continue = os.path.join(path, "language_ids.json")
-    fs = fsspec.get_mapper(path).fs
-    if fs.exists(path_restore):
-        return path_restore
-    if fs.exists(path_continue):
-        return path_continue
-    return None
 
 
 def get_language_balancer_weights(items: list):

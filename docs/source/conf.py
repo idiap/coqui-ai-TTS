@@ -52,6 +52,7 @@ extensions = [
     "sphinx_inline_tabs",
 ]
 
+suppress_warnings = ["autosectionlabel.*"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -67,6 +68,8 @@ myst_enable_extensions = [
     "linkify",
 ]
 
+myst_heading_anchors = 4
+
 # 'sphinxcontrib.katex',
 # 'sphinx.ext.autosectionlabel',
 
@@ -81,7 +84,7 @@ language = "en"
 autodoc_inherit_docstrings = False
 
 # Disable displaying type annotations, these can be very verbose
-autodoc_typehints = "none"
+autodoc_typehints = "description"
 
 # Enable overriding of function signatures in the first line of the docstring.
 autodoc_docstring_signature = True

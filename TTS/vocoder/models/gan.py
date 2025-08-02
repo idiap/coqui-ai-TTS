@@ -1,5 +1,4 @@
 from inspect import signature
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -65,7 +64,7 @@ class GAN(BaseVocoder):
         """
         return self.model_g.inference(x)
 
-    def train_step(self, batch: Dict, criterion: Dict, optimizer_idx: int) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: dict, optimizer_idx: int) -> tuple[dict, dict]:
         """Compute model outputs and the loss values. `optimizer_idx` selects the generator or the discriminator for
         network on the current pass.
 
@@ -185,7 +184,7 @@ class GAN(BaseVocoder):
             outputs = {"model_outputs": self.y_hat_g}
         return outputs, loss_dict
 
-    def _log(self, name: str, ap: AudioProcessor, batch: Dict, outputs: Dict) -> Tuple[Dict, Dict]:
+    def _log(self, name: str, ap: AudioProcessor, batch: dict, outputs: dict) -> tuple[dict, dict]:
         """Logging shared by the training and evaluation.
 
         Args:
@@ -205,22 +204,32 @@ class GAN(BaseVocoder):
         return figures, audios
 
     def train_log(
-        self, batch: Dict, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, np.ndarray]:
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
+    ) -> tuple[dict, np.ndarray]:
         """Call `_log()` for training."""
         figures, audios = self._log("eval", self.ap, batch, outputs)
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
-    @torch.no_grad()
-    def eval_step(self, batch: Dict, criterion: nn.Module, optimizer_idx: int) -> Tuple[Dict, Dict]:
+    @torch.inference_mode()
+    def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int) -> tuple[dict, dict]:
         """Call `train_step()` with `no_grad()`"""
         self.train_disc = True  # Avoid a bug in the Training with the missing discriminator loss
         return self.train_step(batch, criterion, optimizer_idx)
 
     def eval_log(
-        self, batch: Dict, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, np.ndarray]:
+        self,
+        batch: dict,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
+    ) -> tuple[dict, np.ndarray]:
         """Call `_log()` for evaluation."""
         figures, audios = self._log("eval", self.ap, batch, outputs)
         logger.eval_figures(steps, figures)
@@ -243,7 +252,7 @@ class GAN(BaseVocoder):
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         # band-aid for older than v0.0.15 GAN models
         if "model_disc" in state:
-            self.model_g.load_checkpoint(config, checkpoint_path, eval)
+            self.model_g.load_checkpoint(config, checkpoint_path, eval=eval)
         else:
             self.load_state_dict(state["model"])
             if eval:
@@ -259,7 +268,7 @@ class GAN(BaseVocoder):
         """
         self.train_disc = trainer.total_steps_done >= self.config.steps_to_start_discriminator
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         """Initiate and return the GAN optimizers based on the config parameters.
 
         It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
@@ -267,15 +276,15 @@ class GAN(BaseVocoder):
         Returns:
             List: optimizers.
         """
-        optimizer1 = get_optimizer(
-            self.config.optimizer, self.config.optimizer_params, self.config.lr_gen, self.model_g
-        )
-        optimizer2 = get_optimizer(
+        optimizer_d = get_optimizer(
             self.config.optimizer, self.config.optimizer_params, self.config.lr_disc, self.model_d
         )
-        return [optimizer2, optimizer1]
+        optimizer_g = get_optimizer(
+            self.config.optimizer, self.config.optimizer_params, self.config.lr_gen, self.model_g
+        )
+        return [optimizer_d, optimizer_g]
 
-    def get_lr(self) -> List:
+    def get_lr(self) -> list:
         """Set the initial learning rates for each optimizer.
 
         Returns:
@@ -283,7 +292,7 @@ class GAN(BaseVocoder):
         """
         return [self.config.lr_disc, self.config.lr_gen]
 
-    def get_scheduler(self, optimizer) -> List:
+    def get_scheduler(self, optimizer) -> list:
         """Set the schedulers for each optimizer.
 
         Args:
@@ -292,12 +301,12 @@ class GAN(BaseVocoder):
         Returns:
             List: Schedulers, one for each optimizer.
         """
-        scheduler1 = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[0])
-        scheduler2 = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
-        return [scheduler2, scheduler1]
+        scheduler_d = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[0])
+        scheduler_g = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
+        return [scheduler_d, scheduler_g]
 
     @staticmethod
-    def format_batch(batch: List) -> Dict:
+    def format_batch(batch: list) -> dict:
         """Format the batch for training.
 
         Args:
@@ -316,12 +325,12 @@ class GAN(BaseVocoder):
     def get_data_loader(  # pylint: disable=no-self-use, unused-argument
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: True,
-        samples: List,
+        samples: list,
         verbose: bool,
         num_gpus: int,
-        rank: int = None,  # pylint: disable=unused-argument
+        rank: int | None = None,  # pylint: disable=unused-argument
     ):
         """Initiate and return the GAN dataloader.
 

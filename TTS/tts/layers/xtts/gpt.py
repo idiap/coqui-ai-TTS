@@ -1,6 +1,5 @@
 # ported from: https://github.com/neonbjb/tortoise-tts
 
-import functools
 import random
 
 import torch
@@ -8,80 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import GPT2Config
 
+from TTS.tts.layers.tortoise.autoregressive import (
+    ConditioningEncoder,
+    LearnedPositionEmbeddings,
+    _prepare_attention_mask_for_generation,
+    build_hf_gpt_transformer,
+)
 from TTS.tts.layers.xtts.gpt_inference import GPT2InferenceModel
-from TTS.tts.layers.xtts.latent_encoder import ConditioningEncoder
 from TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
-
-
-def null_position_embeddings(range, dim):
-    return torch.zeros((range.shape[0], range.shape[1], dim), device=range.device)
-
-
-class LearnedPositionEmbeddings(nn.Module):
-    def __init__(self, seq_len, model_dim, init=0.02, relative=False):
-        super().__init__()
-        # nn.Embedding
-        self.emb = torch.nn.Embedding(seq_len, model_dim)
-        # Initializing this way is standard for GPT-2
-        self.emb.weight.data.normal_(mean=0.0, std=init)
-        self.relative = relative
-        self.seq_len = seq_len
-
-    def forward(self, x):
-        sl = x.shape[1]
-        if self.relative:
-            start = random.randint(sl, self.seq_len) - sl
-            return self.emb(torch.arange(start, start + sl, device=x.device))
-        else:
-            return self.emb(torch.arange(0, sl, device=x.device))
-
-    def get_fixed_embedding(self, ind, dev):
-        return self.emb(torch.tensor([ind], device=dev)).unsqueeze(0)
-
-
-def build_hf_gpt_transformer(
-    layers,
-    model_dim,
-    heads,
-    max_mel_seq_len,
-    max_text_seq_len,
-    max_prompt_len,
-    checkpointing,
-):
-    """
-    GPT-2 implemented by the HuggingFace library.
-    """
-    from transformers import GPT2Config, GPT2Model
-
-    gpt_config = GPT2Config(
-        vocab_size=256,  # Unused.
-        n_positions=max_mel_seq_len + max_text_seq_len + max_prompt_len,
-        n_ctx=max_mel_seq_len + max_text_seq_len + max_prompt_len,
-        n_embd=model_dim,
-        n_layer=layers,
-        n_head=heads,
-        gradient_checkpointing=checkpointing,
-        use_cache=not checkpointing,
-    )
-    gpt = GPT2Model(gpt_config)
-    # Override the built in positional embeddings
-    del gpt.wpe
-    gpt.wpe = functools.partial(null_position_embeddings, dim=model_dim)
-    # Built-in token embeddings are unused.
-    del gpt.wte
-
-    mel_pos_emb = (
-        LearnedPositionEmbeddings(max_mel_seq_len, model_dim)
-        if max_mel_seq_len != -1
-        else functools.partial(null_position_embeddings, dim=model_dim)
-    )
-    text_pos_emb = (
-        LearnedPositionEmbeddings(max_text_seq_len, model_dim)
-        if max_mel_seq_len != -1
-        else functools.partial(null_position_embeddings, dim=model_dim)
-    )
-    # gpt = torch.compile(gpt, mode="reduce-overhead", fullgraph=True)
-    return gpt, mel_pos_emb, text_pos_emb, None, None
 
 
 class GPT(nn.Module):
@@ -148,13 +81,13 @@ class GPT(nn.Module):
             self.mel_layer_pos_embedding,
             self.text_layer_pos_embedding,
         ) = build_hf_gpt_transformer(
-            layers,
-            model_dim,
-            heads,
-            self.max_mel_tokens,
-            self.max_text_tokens,
-            self.max_prompt_tokens,
-            checkpointing,
+            layers=layers,
+            model_dim=model_dim,
+            heads=heads,
+            max_mel_seq_len=self.max_mel_tokens,
+            max_text_seq_len=self.max_text_tokens,
+            max_prompt_len=self.max_prompt_tokens,
+            checkpointing=checkpointing,
         )
         if train_solo_embeddings:
             self.mel_solo_embedding = nn.Parameter(torch.randn(1, 1, model_dim) * 0.02, requires_grad=True)
@@ -302,19 +235,6 @@ class GPT(nn.Module):
         else:
             return first_logits
 
-    def get_conditioning(self, speech_conditioning_input):
-        speech_conditioning_input = (
-            speech_conditioning_input.unsqueeze(1)
-            if len(speech_conditioning_input.shape) == 3
-            else speech_conditioning_input
-        )
-        conds = []
-        for j in range(speech_conditioning_input.shape[1]):
-            conds.append(self.conditioning_encoder(speech_conditioning_input[:, j]))
-        conds = torch.stack(conds, dim=1)
-        conds = conds.mean(dim=1)
-        return conds
-
     def get_prompts(self, prompt_codes):
         """
         Create a prompt from the mel codes. This is used to condition the model on the mel codes.
@@ -353,6 +273,7 @@ class GPT(nn.Module):
         """
         cond_input: (b, 80, s) or (b, 1, 80, s)
         conds: (b, 1024, s)
+        output: (b, 1024, 32)
         """
         conds = None
         if not return_latent:
@@ -426,12 +347,12 @@ class GPT(nn.Module):
             audio_codes = F.pad(audio_codes, (0, max_mel_len - audio_codes.shape[-1]))
 
         # 💖 Lovely assertions
-        assert (
-            max_mel_len <= audio_codes.shape[-1]
-        ), f" ❗ max_mel_len ({max_mel_len}) > audio_codes.shape[-1] ({audio_codes.shape[-1]})"
-        assert (
-            max_text_len <= text_inputs.shape[-1]
-        ), f" ❗ max_text_len ({max_text_len}) > text_inputs.shape[-1] ({text_inputs.shape[-1]})"
+        assert max_mel_len <= audio_codes.shape[-1], (
+            f" ❗ max_mel_len ({max_mel_len}) > audio_codes.shape[-1] ({audio_codes.shape[-1]})"
+        )
+        assert max_text_len <= text_inputs.shape[-1], (
+            f" ❗ max_text_len ({max_text_len}) > text_inputs.shape[-1] ({text_inputs.shape[-1]})"
+        )
 
         # Append stop token to text inputs
         text_inputs = F.pad(text_inputs[:, :max_text_len], (0, 1), value=self.stop_text_token)
@@ -533,9 +454,9 @@ class GPT(nn.Module):
             mel_targets[idx, l + 1 :] = -1
 
         # check if stoptoken is in every row of mel_targets
-        assert (mel_targets == self.stop_audio_token).sum() >= mel_targets.shape[
-            0
-        ], f" ❗ mel_targets does not contain stop token ({self.stop_audio_token}) in every row."
+        assert (mel_targets == self.stop_audio_token).sum() >= mel_targets.shape[0], (
+            f" ❗ mel_targets does not contain stop token ({self.stop_audio_token}) in every row."
+        )
 
         # ignore the loss for the segment used for conditioning
         # coin flip for the segment to be ignored
@@ -554,7 +475,6 @@ class GPT(nn.Module):
         return loss_text.mean(), loss_mel.mean(), mel_logits
 
     def inference(self, cond_latents, text_inputs, **hf_generate_kwargs):
-        self.compute_embeddings(cond_latents, text_inputs)
         return self.generate(cond_latents, text_inputs, **hf_generate_kwargs)
 
     def compute_embeddings(
@@ -586,12 +506,15 @@ class GPT(nn.Module):
         **hf_generate_kwargs,
     ):
         gpt_inputs = self.compute_embeddings(cond_latents, text_inputs)
+        stop_token_tensor = torch.tensor(self.stop_audio_token, device=gpt_inputs.device, dtype=torch.long)
+        attention_mask = _prepare_attention_mask_for_generation(gpt_inputs, stop_token_tensor, stop_token_tensor)
         gen = self.gpt_inference.generate(
             gpt_inputs,
             bos_token_id=self.start_audio_token,
             pad_token_id=self.stop_audio_token,
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + gpt_inputs.shape[-1],
+            attention_mask=attention_mask,
             **hf_generate_kwargs,
         )
         if "return_dict_in_generate" in hf_generate_kwargs:
@@ -599,12 +522,15 @@ class GPT(nn.Module):
         return gen[:, gpt_inputs.shape[1] :]
 
     def get_generator(self, fake_inputs, **hf_generate_kwargs):
+        stop_token_tensor = torch.tensor(self.stop_audio_token, device=fake_inputs.device, dtype=torch.long)
+        attention_mask = _prepare_attention_mask_for_generation(fake_inputs, stop_token_tensor, stop_token_tensor)
         return self.gpt_inference.generate_stream(
             fake_inputs,
             bos_token_id=self.start_audio_token,
             pad_token_id=self.stop_audio_token,
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + fake_inputs.shape[-1],
+            attention_mask=attention_mask,
             do_stream=True,
             **hf_generate_kwargs,
         )

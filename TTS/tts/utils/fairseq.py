@@ -1,8 +1,10 @@
 import torch
 
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+
 
 def rehash_fairseq_vits_checkpoint(checkpoint_file):
-    chk = torch.load(checkpoint_file, map_location=torch.device("cpu"), weights_only=True)["model"]
+    chk = torch.load(checkpoint_file, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4())["model"]
     new_chk = {}
     for k, v in chk.items():
         if "enc_p." in k:

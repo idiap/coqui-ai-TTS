@@ -1,5 +1,3 @@
-from typing import Dict
-
 from TTS.tts.utils.text.belarusian.phonemizer import belarusian_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -34,7 +32,7 @@ class BEL_Phonemizer(BasePhonemizer):
         return self.phonemize_be(text, separator)
 
     @staticmethod
-    def supported_languages() -> Dict:
+    def supported_languages() -> dict:
         return {"be": "Belarusian"}
 
     def version(self) -> str:

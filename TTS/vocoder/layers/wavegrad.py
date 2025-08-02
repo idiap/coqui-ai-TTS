@@ -74,7 +74,7 @@ def shif_and_scale(x, scale, shift):
 class UBlock(nn.Module):
     def __init__(self, input_size, hidden_size, factor, dilation):
         super().__init__()
-        assert isinstance(dilation, (list, tuple))
+        assert isinstance(dilation, list | tuple)
         assert len(dilation) == 4
 
         self.factor = factor

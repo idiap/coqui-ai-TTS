@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+
+# TODO: use Trainer
 
 import logging
 import os
 import sys
 import time
-import traceback
 import warnings
+from dataclasses import dataclass, field
 
 import torch
 from torch.utils.data import DataLoader
-from trainer.generic_utils import count_parameters, remove_experiment_folder
-from trainer.io import copy_model_files, save_best_model, save_checkpoint
+from trainer import TrainerArgs, TrainerConfig
+from trainer.generic_utils import count_parameters, get_experiment_folder_path, get_git_branch
+from trainer.io import copy_model_files, get_last_checkpoint, save_best_model, save_checkpoint
+from trainer.logging import BaseDashboardLogger, ConsoleLogger, logger_factory
 from trainer.torch import NoamLR
 from trainer.trainer_utils import get_optimizer
 
+from TTS.config import load_config, register_config
+from TTS.encoder.configs.base_encoder_config import BaseEncoderConfig
 from TTS.encoder.dataset import EncoderDataset
 from TTS.encoder.utils.generic_utils import setup_encoder_model
-from TTS.encoder.utils.training import init_training
 from TTS.encoder.utils.visual import plot_embeddings
 from TTS.tts.datasets import load_tts_samples
+from TTS.tts.utils.text.characters import parse_symbols
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 from TTS.utils.samplers import PerfectBatchSampler
@@ -34,7 +39,77 @@ print(" > Using CUDA: ", use_cuda)
 print(" > Number of GPUs: ", num_gpus)
 
 
-def setup_loader(ap: AudioProcessor, is_val: bool = False):
+@dataclass
+class TrainArgs(TrainerArgs):
+    config_path: str | None = field(default=None, metadata={"help": "Path to the config file."})
+
+
+def process_args(
+    args, config: BaseEncoderConfig | None = None
+) -> tuple[BaseEncoderConfig, str, str, ConsoleLogger, BaseDashboardLogger | None]:
+    """Process parsed comand line arguments and initialize the config if not provided.
+    Args:
+        args (argparse.Namespace or dict like): Parsed input arguments.
+        config (Coqpit): Model config. If none, it is generated from `args`. Defaults to None.
+    Returns:
+        c (Coqpit): Config paramaters.
+        out_path (str): Path to save models and logging.
+        audio_path (str): Path to save generated test audios.
+        c_logger (TTS.utils.console_logger.ConsoleLogger): Class that does
+            logging to the console.
+        dashboard_logger (WandbLogger or TensorboardLogger): Class that does the dashboard Logging
+    TODO:
+        - Interactive config definition.
+    """
+    coqpit_overrides = None
+    if isinstance(args, tuple):
+        args, coqpit_overrides = args
+    if args.continue_path:
+        # continue a previous training from its output folder
+        experiment_path = args.continue_path
+        args.config_path = os.path.join(args.continue_path, "config.json")
+        args.restore_path, best_model = get_last_checkpoint(args.continue_path)
+        if not args.best_path:
+            args.best_path = best_model
+    # init config if not already defined
+    if config is None:
+        if args.config_path:
+            # init from a file
+            config = load_config(args.config_path)
+        else:
+            # init from console args
+            from TTS.config.shared_configs import BaseTrainingConfig  # pylint: disable=import-outside-toplevel
+
+            config_base = BaseTrainingConfig()
+            config_base.parse_known_args(coqpit_overrides)
+            config = register_config(config_base.model)()
+    # override values from command-line args
+    config.parse_known_args(coqpit_overrides, relaxed_parser=True)
+    experiment_path = args.continue_path
+    if not experiment_path:
+        experiment_path = get_experiment_folder_path(config.output_path, config.run_name)
+    audio_path = os.path.join(experiment_path, "test_audios")
+    config.output_log_path = experiment_path
+    # setup rank 0 process in distributed training
+    dashboard_logger = None
+    if args.rank == 0:
+        new_fields = {}
+        if args.restore_path:
+            new_fields["restore_path"] = args.restore_path
+        new_fields["github_branch"] = get_git_branch()
+        # if model characters are not set in the config file
+        # save the default set to the config file for future
+        # compatibility.
+        if config.has("characters") and config.characters is None:
+            used_characters = parse_symbols()
+            new_fields["characters"] = used_characters
+        copy_model_files(config, experiment_path, new_fields)
+        dashboard_logger = logger_factory(config, experiment_path)
+    c_logger = ConsoleLogger()
+    return config, experiment_path, audio_path, c_logger, dashboard_logger
+
+
+def setup_loader(c: TrainerConfig, ap: AudioProcessor, is_val: bool = False):
     num_utter_per_class = c.num_utter_per_class if not is_val else c.eval_num_utter_per_class
     num_classes_in_batch = c.num_classes_in_batch if not is_val else c.eval_num_classes_in_batch
 
@@ -84,10 +159,10 @@ def setup_loader(ap: AudioProcessor, is_val: bool = False):
     return loader, classes, dataset.get_map_classid_to_classname()
 
 
-def evaluation(model, criterion, data_loader, global_step):
+def evaluation(c: BaseEncoderConfig, model, criterion, data_loader, global_step, dashboard_logger: BaseDashboardLogger):
     eval_loss = 0
     for _, data in enumerate(data_loader):
-        with torch.no_grad():
+        with torch.inference_mode():
             # setup input data
             inputs, labels = data
 
@@ -128,7 +203,17 @@ def evaluation(model, criterion, data_loader, global_step):
     return eval_avg_loss
 
 
-def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader, global_step):
+def train(
+    c: BaseEncoderConfig,
+    model,
+    optimizer,
+    scheduler,
+    criterion,
+    data_loader,
+    eval_data_loader,
+    global_step,
+    dashboard_logger: BaseDashboardLogger,
+):
     model.train()
     best_loss = {"train_loss": None, "eval_loss": float("inf")}
     avg_loader_time = 0
@@ -219,37 +304,39 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
 
             if global_step % c.print_step == 0:
                 print(
-                    "   | > Step:{}  Loss:{:.5f}  GradNorm:{:.5f}  "
-                    "StepTime:{:.2f}  LoaderTime:{:.2f}  AvGLoaderTime:{:.2f}  LR:{:.6f}".format(
-                        global_step, loss.item(), grad_norm, step_time, loader_time, avg_loader_time, current_lr
-                    ),
+                    f"   | > Step:{global_step}  Loss:{loss.item():.5f}  GradNorm:{grad_norm:.5f}  "
+                    f"StepTime:{step_time:.2f}  LoaderTime:{loader_time:.2f}  AvGLoaderTime:{avg_loader_time:.2f}  LR:{current_lr:.6f}",
                     flush=True,
                 )
 
             if global_step % c.save_step == 0:
                 # save model
                 save_checkpoint(
-                    c, model, optimizer, None, global_step, epoch, OUT_PATH, criterion=criterion.state_dict()
+                    c,
+                    model,
+                    c.output_log_path,
+                    current_step=global_step,
+                    epoch=epoch,
+                    optimizer=optimizer,
+                    criterion=criterion.state_dict(),
                 )
 
             end_time = time.time()
 
         print("")
         print(
-            ">>> Epoch:{}  AvgLoss: {:.5f} GradNorm:{:.5f}  "
-            "EpochTime:{:.2f} AvGLoaderTime:{:.2f} ".format(
-                epoch, tot_loss / len(data_loader), grad_norm, epoch_time, avg_loader_time
-            ),
+            f">>> Epoch:{epoch}  AvgLoss: {tot_loss / len(data_loader):.5f} GradNorm:{grad_norm:.5f}  "
+            f"EpochTime:{epoch_time:.2f} AvGLoaderTime:{avg_loader_time:.2f} ",
             flush=True,
         )
         # evaluation
         if c.run_eval:
             model.eval()
-            eval_loss = evaluation(model, criterion, eval_data_loader, global_step)
+            eval_loss = evaluation(c, model, criterion, eval_data_loader, global_step, dashboard_logger)
             print("\n\n")
             print("--> EVAL PERFORMANCE")
             print(
-                "   | > Epoch:{}  AvgLoss: {:.5f} ".format(epoch, eval_loss),
+                f"   | > Epoch:{epoch}  AvgLoss: {eval_loss:.5f} ",
                 flush=True,
             )
             # save the best checkpoint
@@ -258,11 +345,10 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
                 best_loss,
                 c,
                 model,
-                optimizer,
-                None,
-                global_step,
-                epoch,
-                OUT_PATH,
+                c.output_log_path,
+                current_step=global_step,
+                epoch=epoch,
+                optimizer=optimizer,
                 criterion=criterion.state_dict(),
             )
             model.train()
@@ -270,7 +356,13 @@ def train(model, optimizer, scheduler, criterion, data_loader, eval_data_loader,
     return best_loss, global_step
 
 
-def main(args):  # pylint: disable=redefined-outer-name
+def main(arg_list: list[str] | None = None):
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+
+    train_config = TrainArgs()
+    parser = train_config.init_argparse(arg_prefix="")
+    args, overrides = parser.parse_known_args(arg_list)
+    c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = process_args((args, overrides))
     # pylint: disable=global-variable-undefined
     global meta_data_train
     global meta_data_eval
@@ -284,9 +376,9 @@ def main(args):  # pylint: disable=redefined-outer-name
     # pylint: disable=redefined-outer-name
     meta_data_train, meta_data_eval = load_tts_samples(c.datasets, eval_split=True)
 
-    train_data_loader, train_classes, map_classid_to_classname = setup_loader(ap, is_val=False)
+    train_data_loader, train_classes, map_classid_to_classname = setup_loader(c, ap, is_val=False)
     if c.run_eval:
-        eval_data_loader, _, _ = setup_loader(ap, is_val=True)
+        eval_data_loader, _, _ = setup_loader(c, ap, is_val=True)
     else:
         eval_data_loader = None
 
@@ -301,7 +393,7 @@ def main(args):  # pylint: disable=redefined-outer-name
         criterion, args.restore_step = model.load_checkpoint(
             c, args.restore_path, eval=False, use_cuda=use_cuda, criterion=criterion
         )
-        print(" > Model restored from step %d" % args.restore_step, flush=True)
+        print(f" > Model restored from step {args.restore_step}", flush=True)
     else:
         args.restore_step = 0
 
@@ -311,30 +403,30 @@ def main(args):  # pylint: disable=redefined-outer-name
         scheduler = None
 
     num_params = count_parameters(model)
-    print("\n > Model has {} parameters".format(num_params), flush=True)
+    print(f"\n > Model has {num_params} parameters", flush=True)
 
     if use_cuda:
         model = model.cuda()
         criterion.cuda()
 
     global_step = args.restore_step
-    _, global_step = train(model, optimizer, scheduler, criterion, train_data_loader, eval_data_loader, global_step)
+    _, global_step = train(
+        c, model, optimizer, scheduler, criterion, train_data_loader, eval_data_loader, global_step, dashboard_logger
+    )
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
-
-    args, c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = init_training()
-
-    try:
-        main(args)
-    except KeyboardInterrupt:
-        remove_experiment_folder(OUT_PATH)
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)  # pylint: disable=protected-access
-    except Exception:  # pylint: disable=broad-except
-        remove_experiment_folder(OUT_PATH)
-        traceback.print_exc()
-        sys.exit(1)
+    main()
+    # try:
+    #     main()
+    # except KeyboardInterrupt:
+    #     remove_experiment_folder(OUT_PATH)
+    #     try:
+    #         sys.exit(0)
+    #     except SystemExit:
+    #         os._exit(0)  # pylint: disable=protected-access
+    # except Exception:  # pylint: disable=broad-except
+    #     remove_experiment_folder(OUT_PATH)
+    #     traceback.print_exc()
+    #     sys.exit(1)

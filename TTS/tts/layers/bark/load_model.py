@@ -11,13 +11,8 @@ import tqdm
 from TTS.tts.layers.bark.model import GPT, GPTConfig
 from TTS.tts.layers.bark.model_fine import FineGPT, FineGPTConfig
 
-if (
-    torch.cuda.is_available()
-    and hasattr(torch.cuda, "amp")
-    and hasattr(torch.cuda.amp, "autocast")
-    and torch.cuda.is_bf16_supported()
-):
-    autocast = functools.partial(torch.cuda.amp.autocast, dtype=torch.bfloat16)
+if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+    autocast = functools.partial(torch.autocast, device_type="cuda", dtype=torch.bfloat16)
 else:
 
     @contextlib.contextmanager
@@ -28,13 +23,6 @@ else:
 # hold models in global scope to lazy load
 
 logger = logging.getLogger(__name__)
-
-
-if not hasattr(torch.nn.functional, "scaled_dot_product_attention"):
-    logger.warning(
-        "torch version does not support flash attention. You will get significantly faster"
-        + " inference speed by upgrade torch to newest version / nightly."
-    )
 
 
 def _md5(fname):
@@ -92,10 +80,10 @@ def clear_cuda_cache():
 
 
 def load_model(ckpt_path, device, config, model_type="text"):
-    logger.info(f"loading {model_type} model from {ckpt_path}...")
+    logger.info("Loading %s model from %s...", model_type, ckpt_path)
 
     if device == "cpu":
-        logger.warning("No GPU being used. Careful, Inference might be extremely slow!")
+        logger.warning("No GPU being used. Careful, inference might be extremely slow!")
     if model_type == "text":
         ConfigClass = GPTConfig
         ModelClass = GPT
@@ -112,13 +100,19 @@ def load_model(ckpt_path, device, config, model_type="text"):
         and os.path.exists(ckpt_path)
         and _md5(ckpt_path) != config.REMOTE_MODEL_PATHS[model_type]["checksum"]
     ):
-        logger.warning(f"found outdated {model_type} model, removing...")
+        logger.warning(
+            ("Found outdated %s model (local file does not match checksum of %s), removing..."),
+            model_type,
+            config.REMOTE_MODEL_PATHS[model_type]["path"].replace("tree", "resolve"),
+        )
         os.remove(ckpt_path)
     if not os.path.exists(ckpt_path):
-        logger.info(f"{model_type} model not found, downloading...")
-        _download(config.REMOTE_MODEL_PATHS[model_type]["path"], ckpt_path, config.CACHE_DIR)
+        # The URL in the config is a 404 and needs to be fixed
+        download_url = config.REMOTE_MODEL_PATHS[model_type]["path"].replace("tree", "resolve")
+        logger.info("%s model not found, downloading from %s into %s", model_type, download_url, ckpt_path)
+        _download(download_url, ckpt_path, config.CACHE_DIR)
 
-    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     # this is a hack
     model_args = checkpoint["model_args"]
     if "input_vocab_size" not in model_args:
@@ -152,7 +146,7 @@ def load_model(ckpt_path, device, config, model_type="text"):
     model.load_state_dict(state_dict, strict=False)
     n_params = model.get_num_params()
     val_loss = checkpoint["best_val_loss"].item()
-    logger.info(f"model loaded: {round(n_params/1e6,1)}M params, {round(val_loss,3)} loss")
+    logger.info("Model loaded: %.1fM params, %.3f loss", n_params / 1e6, val_loss)
     model.eval()
     model.to(device)
     del checkpoint, state_dict

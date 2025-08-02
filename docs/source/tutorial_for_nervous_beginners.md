@@ -1,24 +1,40 @@
-# Tutorial For Nervous Beginners
+# Tutorial for nervous beginners
 
-## Installation
+First [install](installation.md) Coqui TTS.
 
-User friendly installation. Recommended only for synthesizing voice.
+## Synthesizing Speech
 
-```bash
-$ pip install coqui-tts
-```
-
-Developer friendly installation.
+You can run `tts` and synthesize speech directly on the terminal.
 
 ```bash
-$ git clone https://github.com/idiap/coqui-ai-TTS
-$ cd coqui-ai-TTS
-$ pip install -e .
+$ tts -h # see the help
+$ tts --list_models  # list the available models.
 ```
+
+![cli.gif](https://github.com/idiap/coqui-ai-TTS/raw/main/images/tts_cli.gif)
+
+
+You can call `tts-server` to start a local demo server that you can open on
+your favorite web browser and 🗣️ (make sure to install the additional
+dependencies with `pip install coqui-tts[server]`).
+
+```bash
+$ tts-server -h # see the help
+$ tts-server --list_models  # list the available models.
+```
+![server.gif](https://github.com/idiap/coqui-ai-TTS/raw/main/images/demo_server.gif)
+
+See [this page](inference.md) for more details on synthesizing speech with the
+CLI, server or Python API.
 
 ## Training a `tts` Model
 
-A breakdown of a simple script that trains a GlowTTS model on the LJspeech dataset. See the comments for more details.
+```{note} XTTS has separate fine-tuning scripts, see [here](models/xtts.md#training).
+```
+
+A breakdown of a simple script that trains a GlowTTS model on the LJspeech
+dataset. For a more in-depth guide to training and fine-tuning also see [this
+page](training/index.md).
 
 ### Pure Python Way
 
@@ -99,25 +115,3 @@ We still support running training from CLI like in the old days. The same traini
 ```
 
 ❗️ Note that you can also use ```train_vocoder.py``` as the ```tts``` models above.
-
-## Synthesizing Speech
-
-You can run `tts` and synthesize speech directly on the terminal.
-
-```bash
-$ tts -h # see the help
-$ tts --list_models  # list the available models.
-```
-
-![cli.gif](https://github.com/idiap/coqui-ai-TTS/raw/main/images/tts_cli.gif)
-
-
-You can call `tts-server` to start a local demo server that you can open on
-your favorite web browser and 🗣️ (make sure to install the additional
-dependencies with `pip install coqui-tts[server]`).
-
-```bash
-$ tts-server -h # see the help
-$ tts-server --list_models  # list the available models.
-```
-![server.gif](https://github.com/idiap/coqui-ai-TTS/raw/main/images/demo_server.gif)

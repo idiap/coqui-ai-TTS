@@ -4,14 +4,15 @@ on:
     types: [published]
 defaults:
   run:
-    shell:
-      bash
+    shell: bash
+
 jobs:
-  build-sdist:
-    name: Build source distribution
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
       - name: Verify tag matches version
         run: |
           set -ex
@@ -20,37 +21,23 @@ jobs:
           if [[ "v$version" != "$tag" ]]; then
             exit 1
           fi
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.9
-      - run: |
-          python -m pip install -U pip setuptools build
-      - run: |
-          python -m build
-      - run: |
-          pip install dist/*.tar.gz
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Test installation of sdist and wheel
+        run: |
+          uv venv --no-project
+          uv pip install dist/*.tar.gz
+          uv pip install dist/*.whl
       - uses: actions/upload-artifact@v4
         with:
-          name: build-sdist
-          path: dist/*.tar.gz
-  build-wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-wheels-${{ matrix.os }}
-          path: ./wheelhouse/*.whl
+          name: build
+          path: dist/*
   publish-artifacts:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [build-sdist, build-wheels]
+    needs: [build]
     environment:
       name: release
       url: https://pypi.org/p/coqui-tts
@@ -59,9 +46,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: dist
-          pattern: build-*
-          merge-multiple: true
+          path: "dist/"
+          name: build
       - run: |
           ls -lh dist/
       - name: Publish package distributions to PyPI

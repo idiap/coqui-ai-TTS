@@ -13,14 +13,10 @@ from TTS.tts.models.vits import (
     Vits,
     VitsArgs,
     VitsAudioConfig,
-    amp_to_db,
-    db_to_amp,
     load_audio,
-    spec_to_mel,
-    wav_to_mel,
-    wav_to_spec,
 )
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.audio.torch_transforms import amp_to_db, db_to_amp, spec_to_mel, wav_to_mel, wav_to_spec
 
 LANG_FILE = os.path.join(get_tests_input_path(), "language_ids.json")
 SPEAKER_ENCODER_CONFIG = os.path.join(get_tests_input_path(), "test_speaker_encoder_config.json")
@@ -107,21 +103,6 @@ class TestVits(unittest.TestCase):
         self.assertNotEqual(model.language_manager, None)
         self.assertEqual(model.embedded_language_dim, args.embedded_language_dim)
         assertHasAttr(self, model, "emb_l")
-
-    def test_get_aux_input(self):
-        aux_input = {"speaker_ids": None, "style_wav": None, "d_vectors": None, "language_ids": None}
-        args = VitsArgs()
-        model = Vits(args)
-        aux_out = model.get_aux_input(aux_input)
-
-        speaker_id = torch.randint(10, (1,))
-        language_id = torch.randint(10, (1,))
-        d_vector = torch.rand(1, 128)
-        aux_input = {"speaker_ids": speaker_id, "style_wav": None, "d_vectors": d_vector, "language_ids": language_id}
-        aux_out = model.get_aux_input(aux_input)
-        self.assertEqual(aux_out["speaker_ids"].shape, speaker_id.shape)
-        self.assertEqual(aux_out["language_ids"].shape, language_id.shape)
-        self.assertEqual(aux_out["d_vectors"].shape, d_vector.unsqueeze(0).transpose(2, 1).shape)
 
     def test_voice_conversion(self):
         num_speakers = 10
@@ -377,8 +358,8 @@ class TestVits(unittest.TestCase):
             name = item1[0]
             param = item1[1]
             param_ref = item2[1]
-            assert (param != param_ref).any(), "param {} with shape {} not updated!! \n{}\n{}".format(
-                name, param.shape, param, param_ref
+            assert (param != param_ref).any(), (
+                f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
             )
             count = count + 1
 

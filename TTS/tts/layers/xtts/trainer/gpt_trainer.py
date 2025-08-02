@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -18,24 +17,10 @@ from TTS.tts.layers.xtts.dvae import DiscreteVAE
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
+from TTS.tts.models.xtts import Xtts, XttsArgs
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class GPTTrainerConfig(XttsConfig):
-    lr: float = 5e-06
-    training_seed: int = 1
-    optimizer_wd_only_on_weights: bool = False
-    weighted_loss_attrs: dict = field(default_factory=lambda: {})
-    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: List[dict] = field(default_factory=lambda: [])
-
-
-@dataclass
-class XttsAudioConfig(XttsAudioConfig):
-    dvae_sample_rate: int = 22050
 
 
 @dataclass
@@ -49,11 +34,22 @@ class GPTArgs(XttsArgs):
     max_wav_length: int = 255995  # ~11.6 seconds
     max_text_length: int = 200
     tokenizer_file: str = ""
-    mel_norm_file: str = "https://coqui.gateway.scarf.sh/v0.14.0_models/mel_norms.pth"
+    mel_norm_file: str = "https://github.com/coqui-ai/TTS/releases/download/v0.14.0_models/mel_norms.pth"
     dvae_checkpoint: str = ""
     xtts_checkpoint: str = ""
     gpt_checkpoint: str = ""  # if defined it will replace the gpt weights on xtts model
     vocoder: str = ""  # overide vocoder key on the config to avoid json write issues
+
+
+@dataclass
+class GPTTrainerConfig(XttsConfig):
+    lr: float = 5e-06
+    training_seed: int = 1
+    optimizer_wd_only_on_weights: bool = False
+    weighted_loss_attrs: dict = field(default_factory=dict)
+    weighted_loss_multipliers: dict = field(default_factory=dict)
+    test_sentences: list[dict] = field(default_factory=list)
+    model_args: GPTArgs = field(default_factory=GPTArgs)
 
 
 def callback_clearml_load_save(operation_type, model_info):
@@ -91,7 +87,9 @@ class GPTTrainer(BaseTTS):
 
         # load GPT if available
         if self.args.gpt_checkpoint:
-            gpt_checkpoint = torch.load(self.args.gpt_checkpoint, map_location=torch.device("cpu"), weights_only=True)
+            gpt_checkpoint = torch.load(
+                self.args.gpt_checkpoint, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
+            )
             # deal with coqui Trainer exported model
             if "model" in gpt_checkpoint.keys() and "config" in gpt_checkpoint.keys():
                 logger.info("Coqui Trainer checkpoint detected! Converting it!")
@@ -184,7 +182,9 @@ class GPTTrainer(BaseTTS):
 
         self.dvae.eval()
         if self.args.dvae_checkpoint:
-            dvae_checkpoint = torch.load(self.args.dvae_checkpoint, map_location=torch.device("cpu"), weights_only=True)
+            dvae_checkpoint = torch.load(
+                self.args.dvae_checkpoint, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
+            )
             self.dvae.load_state_dict(dvae_checkpoint, strict=False)
             logger.info("DVAE weights restored from: %s", self.args.dvae_checkpoint)
         else:
@@ -196,10 +196,6 @@ class GPTTrainer(BaseTTS):
         self.torch_mel_spectrogram_dvae = TorchMelSpectrogram(
             mel_norm_file=self.args.mel_norm_file, sampling_rate=config.audio.dvae_sample_rate
         )
-
-    @property
-    def device(self):
-        return next(self.parameters()).device
 
     def forward(self, text_inputs, text_lengths, audio_codes, wav_lengths, cond_mels, cond_idxs, cond_lens):
         """
@@ -225,8 +221,8 @@ class GPTTrainer(BaseTTS):
         )
         return losses
 
-    @torch.no_grad()
-    def test_run(self, assets) -> Tuple[Dict, Dict]:  # pylint: disable=W0613
+    @torch.inference_mode()
+    def test_run(self, assets) -> tuple[dict, dict]:  # pylint: disable=W0613
         test_audios = {}
         if self.config.test_sentences:
             # init gpt for inference mode
@@ -236,12 +232,11 @@ class GPTTrainer(BaseTTS):
             for idx, s_info in enumerate(self.config.test_sentences):
                 wav = self.xtts.synthesize(
                     s_info["text"],
-                    self.config,
-                    s_info["speaker_wav"],
-                    s_info["language"],
+                    speaker_wav=s_info["speaker_wav"],
+                    language=s_info["language"],
                     gpt_cond_len=3,
                 )["wav"]
-                test_audios["{}-audio".format(idx)] = wav
+                test_audios[f"{idx}-audio"] = wav
 
             # delete inference layers
             del self.xtts.gpt.gpt_inference
@@ -249,11 +244,15 @@ class GPTTrainer(BaseTTS):
         return {"audios": test_audios}
 
     def test_log(
-        self, outputs: dict, logger: "Logger", assets: dict, steps: int  # pylint: disable=unused-argument
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.args.output_sample_rate)
 
-    def format_batch(self, batch: Dict) -> Dict:
+    def format_batch(self, batch: dict) -> dict:
         return batch
 
     @torch.no_grad()  # torch no grad to avoid gradients from the pre-processing and DVAE codes extraction
@@ -318,7 +317,7 @@ class GPTTrainer(BaseTTS):
     def eval_step(self, batch, criterion):
         # ignore masking for more consistent evaluation
         batch["cond_idxs"] = None
-        return self.train_step(batch, criterion)
+        return super().eval_step(batch, criterion)
 
     def on_train_epoch_start(self, trainer):
         trainer.model.eval()  # the whole model to eval
@@ -335,7 +334,7 @@ class GPTTrainer(BaseTTS):
 
             WeightsFileHandler.add_pre_callback(callback_clearml_load_save)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         x,
@@ -355,12 +354,12 @@ class GPTTrainer(BaseTTS):
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: bool,
-        samples: Union[List[Dict], List[List]],
+        samples: list[dict] | list[list],
         verbose: bool,
         num_gpus: int,
-        rank: int = None,
+        rank: int | None = None,
     ) -> "DataLoader":  # pylint: disable=W0613
         if is_eval and not config.run_eval:
             loader = None
@@ -400,7 +399,7 @@ class GPTTrainer(BaseTTS):
                 )
         return loader
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         """Initiate and return the optimizer based on the config parameters."""
         # ToDo: deal with multi GPU training
         if self.config.optimizer_wd_only_on_weights:
@@ -431,7 +430,7 @@ class GPTTrainer(BaseTTS):
                     v.is_norm = isinstance(m, norm_modules)
                     v.is_emb = isinstance(m, emb_modules)
 
-                    fpn = "%s.%s" % (mn, k) if mn else k  # full param name
+                    fpn = f"{mn}.{k}" if mn else k  # full param name
                     all_param_names.add(fpn)
                     param_map[fpn] = v
                     if v.is_bias or v.is_norm or v.is_emb:
@@ -464,7 +463,7 @@ class GPTTrainer(BaseTTS):
             parameters=self.xtts.gpt.parameters(),
         )
 
-    def get_scheduler(self, optimizer) -> List:
+    def get_scheduler(self, optimizer) -> list:
         """Set the scheduler for the optimizer.
 
         Args:
@@ -476,6 +475,7 @@ class GPTTrainer(BaseTTS):
         self,
         config,
         checkpoint_path,
+        *,
         eval=False,
         strict=True,
         cache_storage="/tmp/tts_cache",
@@ -492,10 +492,9 @@ class GPTTrainer(BaseTTS):
         if eval:
             self.xtts.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=False)
             self.eval()
-            assert not self.training
 
     @staticmethod
-    def init_from_config(config: "GPTTrainerConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "GPTTrainerConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

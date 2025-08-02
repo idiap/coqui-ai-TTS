@@ -5,7 +5,6 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from packaging.version import Version
 
@@ -104,7 +103,7 @@ class ESpeak(BasePhonemizer):
     def __init__(
         self,
         language: str,
-        backend: Optional[str] = None,
+        backend: str | None = None,
         punctuations: str = Punctuation.default_puncs(),
         keep_puncs: bool = True,
     ):
@@ -184,7 +183,7 @@ class ESpeak(BasePhonemizer):
             else:
                 args.append("--ipa=1")
         if tie:
-            args.append("--tie=%s" % tie)
+            args.append(f"--tie={tie}")
 
         tmp = tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8")
         tmp.write(text)

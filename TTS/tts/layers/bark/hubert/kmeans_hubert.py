@@ -7,12 +7,13 @@ License: MIT
 
 # Modified code from https://github.com/lucidrains/audiolm-pytorch/blob/main/audiolm_pytorch/hubert_kmeans.py
 
-
 import torch
 from einops import pack, unpack
 from torch import nn
 from torchaudio.functional import resample
 from transformers import HubertModel
+
+from TTS.utils.generic_utils import exists
 
 
 def round_down_nearest_multiple(num, divisor):
@@ -24,14 +25,6 @@ def curtail_to_multiple(t, mult, from_left=False):
     rounded_seq_len = round_down_nearest_multiple(data_len, mult)
     seq_slice = slice(None, rounded_seq_len) if not from_left else slice(-rounded_seq_len, None)
     return t[..., seq_slice]
-
-
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    return val if exists(val) else d
 
 
 class CustomHubert(nn.Module):

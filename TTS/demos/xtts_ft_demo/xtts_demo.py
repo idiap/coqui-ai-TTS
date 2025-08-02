@@ -104,7 +104,7 @@ logging.basicConfig(
 
 def read_logs():
     sys.stdout.flush()
-    with open(sys.stdout.log_file, "r") as f:
+    with open(sys.stdout.log_file) as f:
         return f.read()
 
 
@@ -196,11 +196,15 @@ if __name__ == "__main__":
                 ],
             )
             progress_data = gr.Label(label="Progress:")
-            logs = gr.Textbox(
+
+            # Read logs every 1 second
+            timer = gr.Timer(1)
+            logs_tts_train = gr.Textbox(
+                value=read_logs,
+                every=timer,
                 label="Logs:",
                 interactive=False,
             )
-            demo.load(read_logs, None, logs, every=1)
 
             prompt_compute_btn = gr.Button(value="Step 1 - Create dataset")
 
@@ -275,11 +279,16 @@ if __name__ == "__main__":
                 value=args.max_audio_length,
             )
             progress_train = gr.Label(label="Progress:")
+
+            # Read logs every 1 second
+            timer = gr.Timer(1)
             logs_tts_train = gr.Textbox(
+                value=read_logs,
+                every=timer,
                 label="Logs:",
                 interactive=False,
             )
-            demo.load(read_logs, None, logs_tts_train, every=1)
+
             train_btn = gr.Button(value="Step 2 - Run the training")
 
             def train_model(

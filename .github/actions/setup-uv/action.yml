@@ -1,0 +1,12 @@
+name: Setup uv
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.5.17"
+        enable-cache: true
+        cache-dependency-glob: "**/pyproject.toml"
+        python-version: ${{ matrix.python-version }}

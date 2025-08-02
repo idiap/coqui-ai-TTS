@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from coqpit import Coqpit
 
@@ -47,7 +46,7 @@ class FreeVCAudioConfig(Coqpit):
     win_length: int = field(default=1280)
     n_mel_channels: int = field(default=80)
     mel_fmin: float = field(default=0.0)
-    mel_fmax: Optional[float] = field(default=None)
+    mel_fmax: float | None = field(default=None)
 
 
 @dataclass
@@ -122,11 +121,11 @@ class FreeVCArgs(Coqpit):
     kernel_size: int = field(default=3)
     p_dropout: float = field(default=0.1)
     resblock: str = field(default="1")
-    resblock_kernel_sizes: List[int] = field(default_factory=lambda: [3, 7, 11])
-    resblock_dilation_sizes: List[List[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
-    upsample_rates: List[int] = field(default_factory=lambda: [10, 8, 2, 2])
+    resblock_kernel_sizes: list[int] = field(default_factory=lambda: [3, 7, 11])
+    resblock_dilation_sizes: list[list[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
+    upsample_rates: list[int] = field(default_factory=lambda: [10, 8, 2, 2])
     upsample_initial_channel: int = field(default=512)
-    upsample_kernel_sizes: List[int] = field(default_factory=lambda: [16, 16, 4, 4])
+    upsample_kernel_sizes: list[int] = field(default_factory=lambda: [16, 16, 4, 4])
     n_layers_q: int = field(default=3)
     use_spectral_norm: bool = field(default=False)
     gin_channels: int = field(default=256)
@@ -229,7 +228,7 @@ class FreeVCConfig(BaseVCConfig):
             If true, language embedding is used. Defaults to `False`.
 
     Note:
-        Check :class:`TTS.tts.configs.shared_configs.BaseTTSConfig` for the inherited parameters.
+        Check :class:`TTS.tts.configs.shared_configs.BaseVCConfig` for the inherited parameters.
 
     Example:
 
@@ -254,8 +253,8 @@ class FreeVCConfig(BaseVCConfig):
 
     # sampler params
     use_weighted_sampler: bool = False  # TODO: move it to the base config
-    weighted_sampler_attrs: dict = field(default_factory=lambda: {})
-    weighted_sampler_multipliers: dict = field(default_factory=lambda: {})
+    weighted_sampler_attrs: dict = field(default_factory=dict)
+    weighted_sampler_multipliers: dict = field(default_factory=dict)
 
     # overrides
     r: int = 1  # DO NOT CHANGE
@@ -269,7 +268,7 @@ class FreeVCConfig(BaseVCConfig):
 
     # use d-vectors
     use_d_vector_file: bool = False
-    d_vector_file: List[str] = None
+    d_vector_file: list[str] = None
     d_vector_dim: int = None
 
     def __post_init__(self):

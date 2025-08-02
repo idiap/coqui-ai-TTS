@@ -1,4 +1,4 @@
-# Mary-TTS API Support for Coqui-TTS
+# Mary-TTS API support for Coqui TTS
 
 ## What is Mary-TTS?
 
@@ -39,5 +39,25 @@ You can enter the same URLs in your browser and check-out the results there as w
 
 ### How it works and limitations
 
-A classic Mary-TTS server would usually show all installed locales and voices via the corresponding endpoints and accept the parameters `LOCALE` and `VOICE` for processing. For Coqui-TTS we usually start the server with one specific locale and model and thus cannot return all available options. Instead we return the active locale and use the model name as "voice". Since we only have one active model and always want to return a WAV-file, we currently ignore all other processing parameters except `INPUT_TEXT`. Since the gender is not defined for models in Coqui-TTS we always return `u` (undefined).
-We think that this is an acceptable compromise, since users are often only interested in one specific voice anyways, but the API might get extended in the future to support multiple languages and voices at the same time.
+#### Single-speaker models
+
+A classic Mary-TTS server would usually show all installed locales and voices
+via the corresponding endpoints and accept the parameters `LOCALE` and `VOICE`
+for processing. For Coqui-TTS we usually start the server with one specific
+locale and model and thus cannot return all available options. Instead, for
+single-speaker models, we return the active locale and use the model name as
+"voice". Since we only have one active model and always want to return a
+WAV-file, we currently ignore all other processing parameters except
+`INPUT_TEXT`. Since the gender is not defined for models in Coqui-TTS we always
+return `u` (undefined). We think that this is an acceptable compromise, since
+users are often only interested in one specific voice anyways, but the API might
+get extended in the future to support multiple languages and voices at the same
+time.
+
+#### Multi-speaker models
+
+For multi-speaker models, a specific speaker ID can be passed with the `VOICE`
+parameter. The `/voices` endpoint will return all available speaker IDs.
+Alternatively, the server can be started with e.g. `tts-server --model_name
+tts_models/en/vctk/vits --speaker_idx p376` to set a default speaker that will
+be used if the `VOICE` parameter is left out.

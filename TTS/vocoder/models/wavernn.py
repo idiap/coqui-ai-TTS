@@ -1,7 +1,6 @@
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -10,13 +9,13 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from trainer.io import load_fsspec
 
 from TTS.tts.utils.visual import plot_spectrogram
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import mulaw_decode
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 from TTS.vocoder.layers.losses import WaveRNNLoss
+from TTS.vocoder.layers.upsample import Stretch2d
 from TTS.vocoder.models.base_vocoder import BaseVocoder
 from TTS.vocoder.utils.distribution import sample_from_discretized_mix_logistic, sample_from_gaussian
 
@@ -64,19 +63,6 @@ class MelResNet(nn.Module):
             x = f(x)
         x = self.conv_out(x)
         return x
-
-
-class Stretch2d(nn.Module):
-    def __init__(self, x_scale, y_scale):
-        super().__init__()
-        self.x_scale = x_scale
-        self.y_scale = y_scale
-
-    def forward(self, x):
-        b, c, h, w = x.size()
-        x = x.unsqueeze(-1).unsqueeze(3)
-        x = x.repeat(1, 1, 1, self.y_scale, 1, self.x_scale)
-        return x.view(b, c, h * self.y_scale, w * self.x_scale)
 
 
 class UpsampleNetwork(nn.Module):
@@ -183,7 +169,7 @@ class WavernnArgs(Coqpit):
     num_res_blocks: int = 10
     use_aux_net: bool = True
     use_upsample_net: bool = True
-    upsample_factors: List[int] = field(default_factory=lambda: [4, 8, 8])
+    upsample_factors: list[int] = field(default_factory=lambda: [4, 8, 8])
     mode: str = "mold"  # mold [string], gauss [string], bits [int]
     mulaw: bool = True  # apply mulaw if mode is bits
     pad: int = 2
@@ -238,9 +224,9 @@ class Wavernn(BaseVocoder):
         self.aux_dims = self.args.res_out_dims // 4
 
         if self.args.use_upsample_net:
-            assert (
-                np.cumprod(self.args.upsample_factors)[-1] == config.audio.hop_length
-            ), " [!] upsample scales needs to be equal to hop_length"
+            assert np.cumprod(self.args.upsample_factors)[-1] == config.audio.hop_length, (
+                " [!] upsample scales needs to be equal to hop_length"
+            )
             self.upsample = UpsampleNetwork(
                 self.args.feat_dims,
                 self.args.upsample_factors,
@@ -319,7 +305,7 @@ class Wavernn(BaseVocoder):
         rnn1 = self.get_gru_cell(self.rnn1)
         rnn2 = self.get_gru_cell(self.rnn2)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             if isinstance(mels, np.ndarray):
                 mels = torch.FloatTensor(mels).to(str(next(self.parameters()).device))
 
@@ -540,16 +526,7 @@ class Wavernn(BaseVocoder):
 
         return unfolded
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
-
-    def train_step(self, batch: Dict, criterion: Dict) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         mels = batch["input"]
         waveform = batch["waveform"]
         waveform_coarse = batch["waveform_coarse"]
@@ -564,13 +541,16 @@ class Wavernn(BaseVocoder):
         loss_dict = criterion(y_hat, waveform_coarse)
         return {"model_output": y_hat}, loss_dict
 
-    def eval_step(self, batch: Dict, criterion: Dict) -> Tuple[Dict, Dict]:
+    def eval_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         return self.train_step(batch, criterion)
 
     @torch.no_grad()
     def test(
-        self, assets: Dict, test_loader: "DataLoader", output: Dict  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, Dict]:
+        self,
+        assets: dict,
+        test_loader: "DataLoader",
+        output: dict,  # pylint: disable=unused-argument
+    ) -> tuple[dict, dict]:
         ap = self.ap
         figures = {}
         audios = {}
@@ -591,14 +571,18 @@ class Wavernn(BaseVocoder):
         return figures, audios
 
     def test_log(
-        self, outputs: Dict, logger: "Logger", assets: Dict, steps: int  # pylint: disable=unused-argument
-    ) -> Tuple[Dict, np.ndarray]:
+        self,
+        outputs: dict,
+        logger: "Logger",
+        assets: dict,
+        steps: int,  # pylint: disable=unused-argument
+    ) -> tuple[dict, np.ndarray]:
         figures, audios = outputs
         logger.eval_figures(steps, figures)
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @staticmethod
-    def format_batch(batch: Dict) -> Dict:
+    def format_batch(batch: dict) -> dict:
         waveform = batch[0]
         mels = batch[1]
         waveform_coarse = batch[2]
@@ -607,11 +591,12 @@ class Wavernn(BaseVocoder):
     def get_data_loader(  # pylint: disable=no-self-use
         self,
         config: Coqpit,
-        assets: Dict,
+        assets: dict,
         is_eval: True,
-        samples: List,
+        samples: list,
         verbose: bool,
         num_gpus: int,
+        rank: int | None = None,
     ):
         ap = self.ap
         dataset = WaveRNNDataset(

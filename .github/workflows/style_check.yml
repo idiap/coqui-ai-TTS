@@ -4,26 +4,31 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [3.9]
-        experimental: [false]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
-          cache: 'pip'
-          cache-dependency-path: 'requirements*'
-      - name: Install/upgrade dev dependencies
-        run: python3 -m pip install -r requirements.dev.txt
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
       - name: Lint check
         run: make lint

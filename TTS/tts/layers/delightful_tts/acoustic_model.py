@@ -1,17 +1,17 @@
 ### credit: https://github.com/dunky11/voicesmith
 import logging
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
 from coqpit import Coqpit
+from monotonic_alignment_search import maximum_path
 from torch import nn
 
 from TTS.tts.layers.delightful_tts.conformer import Conformer
 from TTS.tts.layers.delightful_tts.encoders import (
     PhonemeLevelProsodyEncoder,
     UtteranceLevelProsodyEncoder,
-    get_mask_from_lengths,
 )
 from TTS.tts.layers.delightful_tts.energy_adaptor import EnergyAdaptor
 from TTS.tts.layers.delightful_tts.networks import EmbeddingPadded, positional_encoding
@@ -19,7 +19,7 @@ from TTS.tts.layers.delightful_tts.phoneme_prosody_predictor import PhonemeProso
 from TTS.tts.layers.delightful_tts.pitch_adaptor import PitchAdaptor
 from TTS.tts.layers.delightful_tts.variance_predictor import VariancePredictor
 from TTS.tts.layers.generic.aligner import AlignmentNetwork
-from TTS.tts.utils.helpers import generate_path, maximum_path, sequence_mask
+from TTS.tts.utils.helpers import expand_encoder_outputs, generate_attention, sequence_mask
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class AcousticModel(torch.nn.Module):
             self._init_d_vector()
 
     @staticmethod
-    def _set_cond_input(aux_input: Dict):
+    def _set_cond_input(aux_input: dict):
         """Set the speaker conditioning input based on the multi-speaker mode."""
         sid, g, lid, durations = None, None, None, None
         if "speaker_ids" in aux_input and aux_input["speaker_ids"] is not None:
@@ -194,11 +194,7 @@ class AcousticModel(torch.nn.Module):
 
         return sid, g, lid, durations
 
-    def get_aux_input(self, aux_input: Dict):
-        sid, g, lid, _ = self._set_cond_input(aux_input)
-        return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
-
-    def _set_speaker_input(self, aux_input: Dict):
+    def _set_speaker_input(self, aux_input: dict):
         d_vectors = aux_input.get("d_vectors", None)
         speaker_ids = aux_input.get("speaker_ids", None)
 
@@ -230,42 +226,6 @@ class AcousticModel(torch.nn.Module):
             raise ValueError("[!] Speaker embedding layer already initialized before d_vector settings.")
         self.embedded_speaker_dim = self.args.d_vector_dim
 
-    @staticmethod
-    def generate_attn(dr, x_mask, y_mask=None):
-        """Generate an attention mask from the linear scale durations.
-
-        Args:
-            dr (Tensor): Linear scale durations.
-            x_mask (Tensor): Mask for the input (character) sequence.
-            y_mask (Tensor): Mask for the output (spectrogram) sequence. Compute it from the predicted durations
-                if None. Defaults to None.
-
-        Shapes
-           - dr: :math:`(B, T_{en})`
-           - x_mask: :math:`(B, T_{en})`
-           - y_mask: :math:`(B, T_{de})`
-        """
-        # compute decode mask from the durations
-        if y_mask is None:
-            y_lengths = dr.sum(1).long()
-            y_lengths[y_lengths < 1] = 1
-            y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(dr.dtype)
-        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        attn = generate_path(dr, attn_mask.squeeze(1)).to(dr.dtype)
-        return attn
-
-    def _expand_encoder_with_durations(
-        self,
-        o_en: torch.FloatTensor,
-        dr: torch.IntTensor,
-        x_mask: torch.IntTensor,
-        y_lengths: torch.IntTensor,
-    ):
-        y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en.dtype)
-        attn = self.generate_attn(dr, x_mask, y_mask)
-        o_en_ex = torch.einsum("kmn, kjm -> kjn", [attn.float(), o_en])
-        return y_mask, o_en_ex, attn.transpose(1, 2)
-
     def _forward_aligner(
         self,
         x: torch.FloatTensor,
@@ -273,7 +233,7 @@ class AcousticModel(torch.nn.Module):
         x_mask: torch.IntTensor,
         y_mask: torch.IntTensor,
         attn_priors: torch.FloatTensor,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+    ) -> tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """Aligner forward pass.
 
         1. Compute a mask to apply to the attention map.
@@ -334,13 +294,13 @@ class AcousticModel(torch.nn.Module):
         use_ground_truth: bool = True,
         d_vectors: torch.Tensor = None,
         speaker_idx: torch.Tensor = None,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         sid, g, lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
             {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
         )  # pylint: disable=unused-variable
 
-        src_mask = get_mask_from_lengths(src_lens)  # [B, T_src]
-        mel_mask = get_mask_from_lengths(mel_lens)  # [B, T_mel]
+        src_mask = ~sequence_mask(src_lens)  # [B, T_src]
+        mel_mask = ~sequence_mask(mel_lens)  # [B, T_mel]
 
         # Token embeddings
         token_embeddings = self.src_word_emb(tokens)  # [B, T_src, C_hidden]
@@ -419,8 +379,8 @@ class AcousticModel(torch.nn.Module):
         encoder_outputs = encoder_outputs.transpose(1, 2) + pitch_emb + energy_emb
         log_duration_prediction = self.duration_predictor(x=encoder_outputs_res.detach(), mask=src_mask)
 
-        mel_pred_mask, encoder_outputs_ex, alignments = self._expand_encoder_with_durations(
-            o_en=encoder_outputs, y_lengths=mel_lens, dr=dr, x_mask=~src_mask[:, None]
+        encoder_outputs_ex, alignments, mel_pred_mask = expand_encoder_outputs(
+            encoder_outputs, y_lengths=mel_lens, duration=dr, x_mask=~src_mask[:, None]
         )
 
         x = self.decoder(
@@ -434,7 +394,7 @@ class AcousticModel(torch.nn.Module):
         dr = torch.log(dr + 1)
 
         dr_pred = torch.exp(log_duration_prediction) - 1
-        alignments_dp = self.generate_attn(dr_pred, src_mask.unsqueeze(1), mel_pred_mask)  # [B, T_max, T_max2']
+        alignments_dp = generate_attention(dr_pred, src_mask.unsqueeze(1), mel_pred_mask)  # [B, T_max, T_max2']
 
         return {
             "model_outputs": x,
@@ -447,7 +407,7 @@ class AcousticModel(torch.nn.Module):
             "p_prosody_pred": p_prosody_pred,
             "p_prosody_ref": p_prosody_ref,
             "alignments_dp": alignments_dp,
-            "alignments": alignments,  # [B, T_de, T_en]
+            "alignments": alignments.transpose(1, 2),  # [B, T_de, T_en]
             "aligner_soft": aligner_soft,
             "aligner_mas": aligner_mas,
             "aligner_durations": aligner_durations,
@@ -457,18 +417,16 @@ class AcousticModel(torch.nn.Module):
             "spk_emb": speaker_embedding,
         }
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(
         self,
         tokens: torch.Tensor,
-        speaker_idx: torch.Tensor,
-        p_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_vectors: torch.Tensor = None,
-        pitch_transform: Callable = None,
-        energy_transform: Callable = None,
+        speaker_idx: torch.Tensor | None,
+        d_vectors: torch.Tensor | None = None,
+        pitch_transform: Callable | None = None,
+        energy_transform: Callable | None = None,
     ) -> torch.Tensor:
-        src_mask = get_mask_from_lengths(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
+        src_mask = ~sequence_mask(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
         src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)  # pylint: disable=unused-variable
         sid, g, lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
             {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
@@ -535,11 +493,11 @@ class AcousticModel(torch.nn.Module):
         duration_pred = torch.round(duration_pred)  # -> [B, T_src]
         mel_lens = duration_pred.sum(1)  # -> [B,]
 
-        _, encoder_outputs_ex, alignments = self._expand_encoder_with_durations(
-            o_en=encoder_outputs, y_lengths=mel_lens, dr=duration_pred.squeeze(1), x_mask=~src_mask[:, None]
+        encoder_outputs_ex, alignments, _ = expand_encoder_outputs(
+            encoder_outputs, y_lengths=mel_lens, duration=duration_pred.squeeze(1), x_mask=~src_mask[:, None]
         )
 
-        mel_mask = get_mask_from_lengths(
+        mel_mask = ~sequence_mask(
             torch.tensor([encoder_outputs_ex.shape[2]], dtype=torch.int64, device=encoder_outputs_ex.device)
         )
 
@@ -556,7 +514,7 @@ class AcousticModel(torch.nn.Module):
         x = self.to_mel(x)
         outputs = {
             "model_outputs": x,
-            "alignments": alignments,
+            "alignments": alignments.transpose(1, 2),
             # "pitch": pitch_emb_pred,
             "durations": duration_pred,
             "pitch": pitch_pred,

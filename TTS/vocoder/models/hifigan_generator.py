@@ -178,6 +178,8 @@ class HifiganGenerator(torch.nn.Module):
         conv_pre_weight_norm=True,
         conv_post_weight_norm=True,
         conv_post_bias=True,
+        cond_in_each_up_layer=False,
+        pre_linear=None,
     ):
         r"""HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
 
@@ -197,12 +199,17 @@ class HifiganGenerator(torch.nn.Module):
                 for each consecutive upsampling layer.
             upsample_factors (List[int]): upsampling factors (stride) for each upsampling layer.
             inference_padding (int): constant padding applied to the input at inference time. Defaults to 5.
+            pre_linear (int): If not None, add nn.Linear(pre_linear, in_channels) before the convolutions.
         """
         super().__init__()
         self.inference_padding = inference_padding
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_factors)
+        self.cond_in_each_up_layer = cond_in_each_up_layer
+
         # initial upsampling layers
+        if pre_linear is not None:
+            self.lin_pre = nn.Linear(pre_linear, in_channels)
         self.conv_pre = weight_norm(Conv1d(in_channels, upsample_initial_channel, 7, 1, padding=3))
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
@@ -236,6 +243,12 @@ class HifiganGenerator(torch.nn.Module):
         if not conv_post_weight_norm:
             remove_parametrizations(self.conv_post, "weight")
 
+        if self.cond_in_each_up_layer:
+            self.conds = nn.ModuleList()
+            for i in range(len(self.ups)):
+                ch = upsample_initial_channel // (2 ** (i + 1))
+                self.conds.append(nn.Conv1d(cond_channels, ch, 1))
+
     def forward(self, x, g=None):
         """
         Args:
@@ -249,12 +262,19 @@ class HifiganGenerator(torch.nn.Module):
             x: [B, C, T]
             Tensor: [B, 1, T]
         """
+        if hasattr(self, "lin_pre"):
+            x = self.lin_pre(x)
+            x = x.permute(0, 2, 1)
         o = self.conv_pre(x)
         if hasattr(self, "cond_layer"):
             o = o + self.cond_layer(g)
         for i in range(self.num_upsamples):
             o = F.leaky_relu(o, LRELU_SLOPE)
             o = self.ups[i](o)
+
+            if self.cond_in_each_up_layer:
+                o = o + self.conds[i](g)
+
             z_sum = None
             for j in range(self.num_kernels):
                 if z_sum is None:
@@ -267,7 +287,7 @@ class HifiganGenerator(torch.nn.Module):
         o = torch.tanh(o)
         return o
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, c):
         """
         Args:
@@ -293,9 +313,7 @@ class HifiganGenerator(torch.nn.Module):
         remove_parametrizations(self.conv_pre, "weight")
         remove_parametrizations(self.conv_post, "weight")
 
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:

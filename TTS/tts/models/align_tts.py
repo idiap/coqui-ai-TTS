@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
 
 import torch
 from coqpit import Coqpit
+from monotonic_alignment_search import maximum_path
 from torch import nn
-from trainer.io import load_fsspec
 
 from TTS.tts.layers.align_tts.mdn import MDNBlock
 from TTS.tts.layers.feed_forward.decoder import Decoder
@@ -12,7 +11,7 @@ from TTS.tts.layers.feed_forward.duration_predictor import DurationPredictor
 from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.helpers import generate_path, maximum_path, sequence_mask
+from TTS.tts.utils.helpers import expand_encoder_outputs, generate_attention, sequence_mask
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
@@ -168,35 +167,6 @@ class AlignTTS(BaseTTS):
         dr_mas = torch.sum(attn, -1)
         return dr_mas.squeeze(1), log_p
 
-    @staticmethod
-    def generate_attn(dr, x_mask, y_mask=None):
-        # compute decode mask from the durations
-        if y_mask is None:
-            y_lengths = dr.sum(1).long()
-            y_lengths[y_lengths < 1] = 1
-            y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(dr.dtype)
-        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        attn = generate_path(dr, attn_mask.squeeze(1)).to(dr.dtype)
-        return attn
-
-    def expand_encoder_outputs(self, en, dr, x_mask, y_mask):
-        """Generate attention alignment map from durations and
-        expand encoder outputs
-
-        Examples::
-            - encoder output: [a,b,c,d]
-            - durations: [1, 3, 2, 1]
-
-            - expanded: [a, b, b, b, c, c, d]
-            - attention map: [[0, 0, 0, 0, 0, 0, 1],
-                             [0, 0, 0, 0, 1, 1, 0],
-                             [0, 1, 1, 1, 0, 0, 0],
-                             [1, 0, 0, 0, 0, 0, 0]]
-        """
-        attn = self.generate_attn(dr, x_mask, y_mask)
-        o_en_ex = torch.matmul(attn.squeeze(1).transpose(1, 2), en.transpose(1, 2)).transpose(1, 2)
-        return o_en_ex, attn
-
     def format_durations(self, o_dr_log, x_mask):
         o_dr = (torch.exp(o_dr_log) - 1) * x_mask * self.length_scale
         o_dr[o_dr < 1] = 1.0
@@ -242,9 +212,8 @@ class AlignTTS(BaseTTS):
         return o_en, o_en_dp, x_mask, g
 
     def _forward_decoder(self, o_en, o_en_dp, dr, x_mask, y_lengths, g):
-        y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en_dp.dtype)
         # expand o_en with durations
-        o_en_ex, attn = self.expand_encoder_outputs(o_en, dr, x_mask, y_mask)
+        o_en_ex, attn, y_mask = expand_encoder_outputs(o_en, dr, x_mask, y_lengths)
         # positional encoding
         if hasattr(self, "pos_encoder"):
             o_en_ex = self.pos_encoder(o_en_ex, y_mask)
@@ -262,9 +231,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(
-        self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None
-    ):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None):  # pylint: disable=unused-argument
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -281,7 +248,7 @@ class AlignTTS(BaseTTS):
             o_en, o_en_dp, x_mask, g = self._forward_encoder(x, x_lengths, g)
             dr_mas, mu, log_sigma, logp = self._forward_mdn(o_en, y, y_lengths, x_mask)
             y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).to(o_en_dp.dtype)
-            attn = self.generate_attn(dr_mas, x_mask, y_mask)
+            attn = generate_attention(dr_mas, x_mask, y_mask)
         elif phase == 1:
             # train decoder
             o_en, o_en_dp, x_mask, g = self._forward_encoder(x, x_lengths, g)
@@ -317,7 +284,7 @@ class AlignTTS(BaseTTS):
         }
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, x, aux_input={"d_vectors": None}):  # pylint: disable=unused-argument
         """
         Shapes:
@@ -362,7 +329,7 @@ class AlignTTS(BaseTTS):
 
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs, ap):  # pylint: disable=no-self-use
+    def _create_logs(self, batch, outputs):
         model_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
         mel_input = batch["mel_input"]
@@ -372,38 +339,14 @@ class AlignTTS(BaseTTS):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "prediction": plot_spectrogram(pred_spec, ap, output_fig=False),
-            "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+            "prediction": plot_spectrogram(pred_spec, self.ap, output_fig=False),
+            "ground_truth": plot_spectrogram(gt_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
         # Sample audio
-        train_audio = ap.inv_melspectrogram(pred_spec.T)
+        train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
-
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    def load_checkpoint(
-        self, config, checkpoint_path, eval=False, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
 
     def get_criterion(self):
         from TTS.tts.layers.losses import AlignTTSLoss  # pylint: disable=import-outside-toplevel
@@ -432,7 +375,7 @@ class AlignTTS(BaseTTS):
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)
 
     @staticmethod
-    def init_from_config(config: "AlignTTSConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "AlignTTSConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

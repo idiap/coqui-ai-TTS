@@ -2,13 +2,14 @@ import logging
 import os
 import sys
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any
 
 import numpy as np
 
 from TTS.tts.datasets.dataset import *
-from TTS.tts.datasets.formatters import *
+from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
     """Split a dataset into train and eval. Consider speaker distribution in multi-speaker training.
 
     Args:
-        items (List[List]):
+        items (list[list]):
             A list of samples. Each sample is a list of `[audio_path, text, speaker_id]`.
 
         eval_split_max_size (int):
@@ -37,10 +38,8 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
         else:
             eval_split_size = int(len(items) * eval_split_size)
 
-    assert (
-        eval_split_size > 0
-    ), " [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {}".format(
-        1 / len(items)
+    assert eval_split_size > 0, (
+        f" [!] You do not have enough samples for the evaluation set. You can work around this setting the 'eval_split_size' parameter to a minimum of {1 / len(items)}"
     )
     np.random.seed(0)
     np.random.shuffle(items)
@@ -71,18 +70,18 @@ def add_extra_keys(metadata, language, dataset_name):
 
 
 def load_tts_samples(
-    datasets: Union[List[Dict], Dict],
+    datasets: list[dict] | dict,
     eval_split=True,
     formatter: Callable = None,
     eval_split_max_size=None,
     eval_split_size=0.01,
-) -> Tuple[List[List], List[List]]:
-    """Parse the dataset from the datasets config, load the samples as a List and load the attention alignments if provided.
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse the dataset from the datasets config, load the samples as a list and load the attention alignments if provided.
     If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
     on the dataset name.
 
     Args:
-        datasets (List[Dict], Dict): A list of datasets or a single dataset dictionary. If multiple datasets are
+        datasets (list[dict], dict): A list of datasets or a single dataset dictionary. If multiple datasets are
             in the list, they are all merged.
 
         eval_split (bool, optional): If true, create a evaluation split. If an eval split provided explicitly, generate
@@ -101,7 +100,7 @@ def load_tts_samples(
             If > 1, represents the absolute number of evaluation samples. Defaults to 0.01 (1%).
 
     Returns:
-        Tuple[List[List], List[List]: training and evaluation splits of the dataset.
+        tuple[list[dict], list[dict]]: training and evaluation splits of the dataset.
     """
     meta_data_train_all = []
     meta_data_eval_all = [] if eval_split else None
@@ -153,7 +152,7 @@ def load_tts_samples(
 
 def load_attention_mask_meta_data(metafile_path):
     """Load meta data file created by compute_attention_masks.py"""
-    with open(metafile_path, "r", encoding="utf-8") as f:
+    with open(metafile_path, encoding="utf-8") as f:
         lines = f.readlines()
 
     meta_data = []
@@ -163,10 +162,12 @@ def load_attention_mask_meta_data(metafile_path):
     return meta_data
 
 
-def _get_formatter_by_name(name):
+def _get_formatter_by_name(name: str) -> Formatter:
     """Returns the respective preprocessing function."""
-    thismodule = sys.modules[__name__]
-    return getattr(thismodule, name.lower())
+    if name.lower() not in _FORMATTER_REGISTRY:
+        msg = f"{name} formatter not found. If it is a custom formatter, make sure to call register_formatter() first."
+        raise ValueError(msg)
+    return _FORMATTER_REGISTRY[name.lower()]
 
 
 def find_unique_chars(data_samples):

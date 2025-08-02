@@ -1,6 +1,5 @@
 # Adopted from https://github.com/photosynthesis-team/piq
 
-from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -24,11 +23,11 @@ def _reduce(x: torch.Tensor, reduction: str = "mean") -> torch.Tensor:
 
 
 def _validate_input(
-    tensors: List[torch.Tensor],
-    dim_range: Tuple[int, int] = (0, -1),
-    data_range: Tuple[float, float] = (0.0, -1.0),
+    tensors: list[torch.Tensor],
+    dim_range: tuple[int, int] = (0, -1),
+    data_range: tuple[float, float] = (0.0, -1.0),
     # size_dim_range: Tuple[float, float] = (0., -1.),
-    size_range: Optional[Tuple[int, int]] = None,
+    size_range: tuple[int, int] | None = None,
 ) -> None:
     r"""Check that input(-s)  satisfies the requirements
     Args:
@@ -44,22 +43,22 @@ def _validate_input(
     x = tensors[0]
 
     for t in tensors:
-        assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
+        assert isinstance(t, torch.Tensor), f"Expected torch.Tensor, got {type(t)}"
         assert t.device == x.device, f"Expected tensors to be on {x.device}, got {t.device}"
 
         if size_range is None:
             assert t.size() == x.size(), f"Expected tensors with same size, got {t.size()} and {x.size()}"
         else:
-            assert (
-                t.size()[size_range[0] : size_range[1]] == x.size()[size_range[0] : size_range[1]]
-            ), f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+            assert t.size()[size_range[0] : size_range[1]] == x.size()[size_range[0] : size_range[1]], (
+                f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+            )
 
         if dim_range[0] == dim_range[1]:
             assert t.dim() == dim_range[0], f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
         elif dim_range[0] < dim_range[1]:
-            assert (
-                dim_range[0] <= t.dim() <= dim_range[1]
-            ), f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+            assert dim_range[0] <= t.dim() <= dim_range[1], (
+                f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+            )
 
         if data_range[0] < data_range[1]:
             assert data_range[0] <= t.min(), f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
@@ -89,13 +88,13 @@ def ssim(
     y: torch.Tensor,
     kernel_size: int = 11,
     kernel_sigma: float = 1.5,
-    data_range: Union[int, float] = 1.0,
+    data_range: int | float = 1.0,
     reduction: str = "mean",
     full: bool = False,
     downsample: bool = True,
     k1: float = 0.01,
     k2: float = 0.03,
-) -> List[torch.Tensor]:
+) -> list[torch.Tensor]:
     r"""Interface of Structural Similarity (SSIM) index.
     Inputs supposed to be in range ``[0, data_range]``.
     To match performance with skimage and tensorflow set ``'downsample' = True``.
@@ -218,7 +217,7 @@ class SSIMLoss(_Loss):
         k2: float = 0.03,
         downsample: bool = True,
         reduction: str = "mean",
-        data_range: Union[int, float] = 1.0,
+        data_range: int | float = 1.0,
     ) -> None:
         super().__init__()
 
@@ -270,7 +269,7 @@ def _ssim_per_channel(
     kernel: torch.Tensor,
     k1: float = 0.01,
     k2: float = 0.03,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
     r"""Calculate Structural Similarity (SSIM) index for X and Y per channel.
 
     Args:
@@ -286,8 +285,7 @@ def _ssim_per_channel(
     """
     if x.size(-1) < kernel.size(-1) or x.size(-2) < kernel.size(-2):
         raise ValueError(
-            f"Kernel size can't be greater than actual input size. Input size: {x.size()}. "
-            f"Kernel size: {kernel.size()}"
+            f"Kernel size can't be greater than actual input size. Input size: {x.size()}. Kernel size: {kernel.size()}"
         )
 
     c1 = k1**2
@@ -321,7 +319,7 @@ def _ssim_per_channel_complex(
     kernel: torch.Tensor,
     k1: float = 0.01,
     k2: float = 0.03,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
     r"""Calculate Structural Similarity (SSIM) index for Complex X and Y per channel.
 
     Args:
@@ -338,8 +336,7 @@ def _ssim_per_channel_complex(
     n_channels = x.size(1)
     if x.size(-2) < kernel.size(-1) or x.size(-3) < kernel.size(-2):
         raise ValueError(
-            f"Kernel size can't be greater than actual input size. Input size: {x.size()}. "
-            f"Kernel size: {kernel.size()}"
+            f"Kernel size can't be greater than actual input size. Input size: {x.size()}. Kernel size: {kernel.size()}"
         )
 
     c1 = k1**2

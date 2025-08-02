@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 
@@ -101,17 +100,7 @@ class GlowTTSConfig(BaseTTSConfig):
     model: str = "glow_tts"
 
     # model params
-    num_chars: int = None
-    encoder_type: str = "rel_pos_transformer"
-    encoder_params: dict = field(
-        default_factory=lambda: {
-            "kernel_size": 3,
-            "dropout_p": 0.1,
-            "num_layers": 6,
-            "num_heads": 2,
-            "hidden_channels_ffn": 768,
-        }
-    )
+    num_chars: int | None = None
     use_encoder_prenet: bool = True
     hidden_channels_enc: int = 192
     hidden_channels_dec: int = 192
@@ -121,7 +110,6 @@ class GlowTTSConfig(BaseTTSConfig):
     mean_only: bool = True
     out_channels: int = 80
     num_flow_blocks_dec: int = 12
-    inference_noise_scale: float = 0.33
     kernel_size_dec: int = 5
     dilation_rate: int = 1
     num_block_layers: int = 4
@@ -147,15 +135,15 @@ class GlowTTSConfig(BaseTTSConfig):
     data_dep_init_steps: int = 10
 
     # inference params
-    style_wav_for_test: str = None
+    style_wav_for_test: str | None = None
     inference_noise_scale: float = 0.0
     length_scale: float = 1.0
 
     # multi-speaker settings
     use_speaker_embedding: bool = False
-    speakers_file: str = None
+    speakers_file: str | None = None
     use_d_vector_file: bool = False
-    d_vector_file: str = False
+    d_vector_file: str | None = None
 
     # optimizer parameters
     optimizer: str = "RAdam"
@@ -171,7 +159,7 @@ class GlowTTSConfig(BaseTTSConfig):
     r: int = 1  # DO NOT CHANGE - TODO: make this immutable once coqpit implements it.
 
     # testing
-    test_sentences: List[str] = field(
+    test_sentences: list[str] | list[list[str]] = field(
         default_factory=lambda: [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
             "Be a voice, not an echo.",

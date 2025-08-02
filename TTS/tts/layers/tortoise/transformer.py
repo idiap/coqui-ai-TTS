@@ -1,22 +1,19 @@
+from typing import TypeVar
+
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 from torch import nn
 
+from TTS.utils.generic_utils import exists
+
 # helpers
+_T = TypeVar("_T")
 
 
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    return val if exists(val) else d
-
-
-def cast_tuple(val, depth=1):
+def cast_tuple(val: tuple[_T] | list[_T] | _T, depth: int = 1) -> tuple[_T]:
     if isinstance(val, list):
-        val = tuple(val)
+        return tuple(val)
     return val if isinstance(val, tuple) else (val,) * depth
 
 
@@ -46,9 +43,9 @@ def route_args(router, args, depth):
 class SequentialSequence(nn.Module):
     def __init__(self, layers, args_route={}, layer_dropout=0.0):
         super().__init__()
-        assert all(
-            len(route) == len(layers) for route in args_route.values()
-        ), "each argument route map must have the same depth as the number of sequential layers"
+        assert all(len(route) == len(layers) for route in args_route.values()), (
+            "each argument route map must have the same depth as the number of sequential layers"
+        )
         self.layers = layers
         self.args_route = args_route
         self.layer_dropout = layer_dropout

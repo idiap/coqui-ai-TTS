@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 
 from trainer import Trainer, TrainerArgs
@@ -16,16 +17,16 @@ class TrainVocoderArgs(TrainerArgs):
     config_path: str = field(default=None, metadata={"help": "Path to the config file."})
 
 
-def main():
+def main(arg_list: list[str] | None = None):
     """Run `tts` model training directly by a `config.json` file."""
-    setup_logger("TTS", level=logging.INFO, screen=True, formatter=ConsoleFormatter())
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
     # init trainer args
     train_args = TrainVocoderArgs()
     parser = train_args.init_argparse(arg_prefix="")
 
     # override trainer args from comman-line args
-    args, config_overrides = parser.parse_known_args()
+    args, config_overrides = parser.parse_known_args(arg_list)
     train_args.parse_args(args)
 
     # load config.json and register
@@ -75,6 +76,7 @@ def main():
         parse_command_line_args=False,
     )
     trainer.fit()
+    sys.exit(0)
 
 
 if __name__ == "__main__":

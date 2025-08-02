@@ -1,4 +1,13 @@
-dependencies = ["torch", "gdown", "pysbd", "gruut", "anyascii", "pypinyin", "coqpit", "mecab-python3", "unidic-lite"]
+dependencies = [
+    "torch",
+    "gdown",
+    "pysbd",
+    "gruut",
+    "anyascii",
+    "pypinyin",
+    "coqpit-config",
+    "fugashi",
+]
 import torch
 
 from TTS.utils.manage import ModelManager
@@ -39,5 +48,5 @@ def tts(model_name="tts_models/en/ljspeech/tacotron2-DCA", vocoder_name=None, us
 
 
 if __name__ == "__main__":
-    synthesizer = torch.hub.load("coqui-ai/TTS:dev", "tts", source="github")
+    synthesizer = torch.hub.load("idiap/coqui-ai-TTS:dev", "tts", source="github")
     synthesizer.tts("This is a test!")

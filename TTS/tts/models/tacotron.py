@@ -1,10 +1,5 @@
-# coding: utf-8
-
-from typing import Dict, List, Tuple, Union
-
 import torch
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
@@ -219,7 +214,7 @@ class Tacotron(BaseTacotron):
         )
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, text_input, aux_input=None):
         aux_input = self._format_aux_input(aux_input)
         inputs = self.embedding(text_input)
@@ -281,7 +276,7 @@ class Tacotron(BaseTacotron):
             loss_dict["capacitron_vae_beta_loss"].backward()
             optimizer.first_step()
 
-    def train_step(self, batch: Dict, criterion: torch.nn.Module) -> Tuple[Dict, Dict]:
+    def train_step(self, batch: dict, criterion: torch.nn.Module) -> tuple[dict, dict]:
         """Perform a single training step by fetching the right set of samples from the batch.
 
         Args:
@@ -310,7 +305,7 @@ class Tacotron(BaseTacotron):
             alignment_lengths = mel_lengths // self.decoder.r
 
         # compute loss
-        with autocast(enabled=False):  # use float32 for the criterion
+        with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
             loss_dict = criterion(
                 outputs["model_outputs"].float(),
                 outputs["decoder_outputs"].float(),
@@ -333,7 +328,7 @@ class Tacotron(BaseTacotron):
         loss_dict["align_error"] = align_error
         return outputs, loss_dict
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         if self.use_capacitron_vae:
             return CapacitronOptimizer(self.config, self.named_parameters())
         return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
@@ -352,7 +347,7 @@ class Tacotron(BaseTacotron):
                         model_params_to_clip.append(param)
             torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)
 
-    def _create_logs(self, batch, outputs, ap):
+    def _create_logs(self, batch, outputs):
         postnet_outputs = outputs["model_outputs"]
         decoder_outputs = outputs["decoder_outputs"]
         alignments = outputs["alignments"]
@@ -367,10 +362,10 @@ class Tacotron(BaseTacotron):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "pred_linear_spec": plot_spectrogram(pred_linear_spec, ap, output_fig=False),
-            "real_linear_spec": plot_spectrogram(gt_linear_spec, ap, output_fig=False),
-            "pred_mel_spec": plot_spectrogram(pred_mel_spec, ap, output_fig=False),
-            "real_mel_spec": plot_spectrogram(gt_mel_spec, ap, output_fig=False),
+            "pred_linear_spec": plot_spectrogram(pred_linear_spec, self.ap, output_fig=False),
+            "real_linear_spec": plot_spectrogram(gt_linear_spec, self.ap, output_fig=False),
+            "pred_mel_spec": plot_spectrogram(pred_mel_spec, self.ap, output_fig=False),
+            "real_mel_spec": plot_spectrogram(gt_mel_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
@@ -378,26 +373,11 @@ class Tacotron(BaseTacotron):
             figures["alignment_backward"] = plot_alignment(alignments_backward[0].data.cpu().numpy(), output_fig=False)
 
         # Sample audio
-        audio = ap.inv_spectrogram(pred_linear_spec.T)
+        audio = self.ap.inv_spectrogram(pred_linear_spec.T)
         return figures, {"audio": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
     @staticmethod
-    def init_from_config(config: "TacotronConfig", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "TacotronConfig", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:
