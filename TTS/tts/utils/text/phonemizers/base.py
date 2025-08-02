@@ -66,6 +66,11 @@ class BasePhonemizer(abc.ABC):
         """The name of the backend"""
         ...
 
+    @property
+    def version_after_name(self):
+        """Returns colon plus version that should be after name, otherwise empty string if phonemizer versioning is not in use"""
+        return ""
+
     @classmethod
     @abc.abstractmethod
     def is_available(cls):
