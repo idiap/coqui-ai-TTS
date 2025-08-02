@@ -53,9 +53,10 @@ class Pygoruut(BasePhonemizer):
             self.punctuations = punctuations
         self.pygoruut = pygoruut.pygoruut.Pygoruut(version=version)
 
-    def name(self):
-        return "pygoruut:" + self.version()
-
+    @staticmethod
+    def name():
+        return "pygoruut"
+    
     def phonemize_goruut(self, text: str, separator: str = "|", tie=False, language=None) -> str:  # pylint: disable=unused-argument
         """Convert input text to phonemes.
 
