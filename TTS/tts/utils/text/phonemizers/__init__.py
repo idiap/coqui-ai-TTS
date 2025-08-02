@@ -83,6 +83,8 @@ def get_phonemizer_by_name(name: str, **kwargs) -> BasePhonemizer:
         return Gruut(**kwargs)
     if name == "pygoruut":
         return Pygoruut(**kwargs)
+    if name.startswith("pygoruut:"):
+        return Pygoruut(version=name[9:], **kwargs)
     if name == "zh_cn_phonemizer":
         if ZH_CN_Phonemizer is None:
             raise ValueError("You need to install ZH phonemizer dependencies. Try `pip install coqui-tts[zh]`.")
@@ -106,3 +108,4 @@ def get_phonemizer_by_name(name: str, **kwargs) -> BasePhonemizer:
 
 if __name__ == "__main__":
     print(DEF_LANG_TO_PHONEMIZER)
+
