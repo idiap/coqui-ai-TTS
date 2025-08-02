@@ -51,7 +51,7 @@ class Pygoruut(BasePhonemizer):
             self.punctuations = "\x00"
         else:
             self.punctuations = punctuations
-        self.pygoruut = pygoruut.pygoruut.Pygoruut(version=version)
+        self.pygoruut = pygoruut.pygoruut.Pygoruut(version=version, writeable_bin_dir='')
 
     @staticmethod
     def name():
