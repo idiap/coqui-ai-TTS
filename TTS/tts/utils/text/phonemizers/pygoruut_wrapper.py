@@ -116,6 +116,10 @@ class Pygoruut(BasePhonemizer):
         """Return true"""
         return True
 
+    @property
+    def version_after_name(self):
+        """Returns colon plus version that should be after name, otherwise empty string if phonemizer versioning is not in use"""
+        return ":" + self.version()
 
 if __name__ == "__main__":
     e = Pygoruut(language="en")
