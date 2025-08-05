@@ -241,6 +241,7 @@ _abbreviations = {
             # Hindi doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
+    "vi": [],  # Vietnamese doesn't use abbreviations like English
 }
 
 
@@ -540,6 +541,7 @@ def _expand_currency(m, lang="en", currency="USD"):
         "hu": ", ",
         "ko": ", ",
         "hi": ", ",
+        "vi": ", ",
     }
 
     if amount.is_integer():
