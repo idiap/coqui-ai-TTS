@@ -449,6 +449,18 @@ _symbols_multilingual = {
             ("°", " डिग्री "),
         ]
     ],
+    "vi": [
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        for x in [
+            ("&", " và "),
+            ("@", " ở "),
+            ("%", " phần trăm "),
+            ("#", " số "),
+            ("$", " đô la "),
+            ("£", " bảng "),
+            ("°", " độ "),
+        ]
+    ],
 }
 
 
