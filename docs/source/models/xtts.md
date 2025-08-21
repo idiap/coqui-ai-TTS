@@ -210,9 +210,9 @@ pip install deepspeed
 ```python
 import os
 import torch
-import torchaudio
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
+from TTS.utils.audio.torch_transforms import save_wav
 
 print("Loading model...")
 config = XttsConfig()
@@ -232,7 +232,7 @@ out = model.inference(
     speaker_embedding,
     temperature=0.7, # Add custom parameters here
 )
-torchaudio.save("xtts.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
+save_wav(out["wav"], "xtts.wav", 24000)
 ```
 
 You can also use the Coqui speakers:
@@ -251,9 +251,9 @@ Streaming inference is typically slower than regular inference, but it allows to
 import os
 import time
 import torch
-import torchaudio
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
+from TTS.utils.audio.torch_transforms import save_wav
 
 print("Loading model...")
 config = XttsConfig()
@@ -281,7 +281,7 @@ for i, chunk in enumerate(chunks):
     print(f"Received chunk {i} of audio length {chunk.shape[-1]}")
     wav_chuncks.append(chunk)
 wav = torch.cat(wav_chuncks, dim=0)
-torchaudio.save("xtts_streaming.wav", wav.squeeze().unsqueeze(0).cpu(), 24000)
+save_wav(wav, "xtts_streaming.wav", 24000)
 ```
 
 
@@ -342,9 +342,9 @@ After training you can do inference following the code bellow.
 ```python
 import os
 import torch
-import torchaudio
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
+from TTS.utils.audio.torch_transforms import save_wav
 
 # Add here the xtts_config path
 CONFIG_PATH = "recipes/ljspeech/xtts_v1/run/training/GPT_XTTS_LJSpeech_FT-October-23-2023_10+36AM-653f2e75/config.json"
@@ -376,7 +376,7 @@ out = model.inference(
     speaker_embedding,
     temperature=0.7, # Add custom parameters here
 )
-torchaudio.save(OUTPUT_WAV_PATH, torch.tensor(out["wav"]).unsqueeze(0), 24000)
+save_wav(out["wav"], OUTPUT_WAV_PATH, 24000)
 ```
 
 

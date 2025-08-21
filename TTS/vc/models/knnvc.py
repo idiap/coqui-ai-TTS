@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchaudio
 from coqpit import Coqpit
 
+from TTS.utils.audio.torch_transforms import load_wav
 from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.knnvc_config import KNNVCConfig
 from TTS.vc.layers.freevc.wavlm import get_wavlm
@@ -69,14 +70,9 @@ class KNNVC(CloningMixin, BaseVC):
             x: torch.Tensor = audio
             sr = self.config.audio.sample_rate
             if x.dim() == 1:
-                x = x[None]
+                x = x.unsqueeze(0)
         else:
-            x, sr = torchaudio.load(audio, normalize=True)
-
-        if not sr == self.config.audio.sample_rate:
-            logger.info("Resampling %d to %d in %s", sr, self.config.audio.sample_rate, audio)
-            x = torchaudio.functional.resample(x, orig_freq=sr, new_freq=self.config.audio.sample_rate)
-            sr = self.config.audio.sample_rate
+            x, sr = load_wav(audio, sample_rate=self.config.audio.sample_rate)
 
         # trim silence from front and back
         if vad_trigger_level > 1e-3:

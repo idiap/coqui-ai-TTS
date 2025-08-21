@@ -3,12 +3,12 @@ import os
 
 import pandas
 import torch
-import torchaudio
 from faster_whisper import WhisperModel
 from tqdm import tqdm
 
 # torch.set_num_threads(1)
 from TTS.tts.layers.xtts.tokenizer import multilingual_cleaners
+from TTS.utils.audio.torch_transforms import load_wav, save_wav
 
 torch.set_num_threads(16)
 
@@ -67,11 +67,7 @@ def format_audio_list(
         tqdm_object = tqdm(audio_files)
 
     for audio_path in tqdm_object:
-        wav, sr = torchaudio.load(audio_path)
-        # stereo to mono if needed
-        if wav.size(0) != 1:
-            wav = torch.mean(wav, dim=0, keepdim=True)
-
+        wav, sr = load_wav(audio_path)
         wav = wav.squeeze()
         audio_total_size += wav.size(-1) / sr
 
@@ -123,15 +119,15 @@ def format_audio_list(
                 # Average the current word end and next word start
                 word_end = min((word.end + next_word_start) / 2, word.end + buffer)
 
-                absoulte_path = os.path.join(out_path, audio_file)
-                os.makedirs(os.path.dirname(absoulte_path), exist_ok=True)
+                absolute_path = os.path.join(out_path, audio_file)
+                os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
                 i += 1
                 first_word = True
 
                 audio = wav[int(sr * sentence_start) : int(sr * word_end)].unsqueeze(0)
                 # if the audio is too short ignore it (i.e < 0.33 seconds)
                 if audio.size(-1) >= sr / 3:
-                    torchaudio.save(absoulte_path, audio, sr)
+                    save_wav(audio, absolute_path, sr)
                 else:
                     continue
 

@@ -3,16 +3,9 @@ import logging
 import torch
 import torchaudio
 
+from TTS.utils.audio.torch_transforms import load_wav, save_wav
+
 logger = logging.getLogger(__name__)
-
-
-def read_audio(path):
-    wav, sr = torchaudio.load(path)
-
-    if wav.size(0) > 1:
-        wav = wav.mean(dim=0, keepdim=True)
-
-    return wav.squeeze(0), sr
 
 
 def resample_wav(wav, sr, new_sr):
@@ -57,7 +50,8 @@ def remove_silence(
 
     # read ground truth wav and resample the audio for the VAD
     try:
-        wav, gt_sample_rate = read_audio(audio_path)
+        wav, gt_sample_rate = load_wav(audio_path)
+        wav = wav.squeeze(0)
     except Exception:
         logger.exception("Failed to read %s", audio_path)
         return None, False
@@ -88,5 +82,5 @@ def remove_silence(
         is_speech = False
 
     # save
-    torchaudio.save(out_path, wav[None, :], gt_sample_rate)
+    save_wav(wav, out_path, gt_sample_rate)
     return out_path, is_speech

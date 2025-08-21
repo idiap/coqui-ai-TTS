@@ -18,6 +18,7 @@ from TTS.tts.layers.xtts.stream_generator import init_stream_support
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
 from TTS.tts.layers.xtts.xtts_manager import LanguageManager, SpeakerManager
 from TTS.tts.models.base_tts import BaseTTS
+from TTS.utils.audio.torch_transforms import load_wav
 from TTS.utils.generic_utils import (
     is_pytorch_at_least_2_4,
     warn_synthesize_config_deprecated,
@@ -81,14 +82,7 @@ def load_audio(audiopath, sampling_rate):
     # better load setting following: https://github.com/faroit/python_audio_loading_benchmark
 
     # torchaudio should chose proper backend to load audio depending on platform
-    audio, lsr = torchaudio.load(audiopath)
-
-    # stereo to mono if needed
-    if audio.size(0) != 1:
-        audio = torch.mean(audio, dim=0, keepdim=True)
-
-    if lsr != sampling_rate:
-        audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
+    audio, _ = load_wav(audiopath, sampling_rate)
 
     # Check some assumptions about audio range. This should be automatically fixed in load_wav_to_torch, but might not be in some edge cases, where we should squawk.
     # '10' is arbitrarily chosen since it seems like audio will often "overdrive" the [-1,1] bounds.
