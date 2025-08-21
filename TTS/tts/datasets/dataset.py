@@ -8,9 +8,9 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchaudio
 import tqdm
 from torch.utils.data import Dataset
+from torchcodec.decoders import AudioDecoder
 
 from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
 from TTS.utils.audio import AudioProcessor
@@ -57,7 +57,8 @@ def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
         raise RuntimeError(msg)
 
     try:
-        return torchaudio.info(audiopath).num_frames
+        metadata = AudioDecoder(audiopath).metadata
+        return round(metadata.duration_seconds_from_header * metadata.sample_rate)
     except RuntimeError as e:
         msg = f"Failed to decode {audiopath}"
         raise RuntimeError(msg) from e

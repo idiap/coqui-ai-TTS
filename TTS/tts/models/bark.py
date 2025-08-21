@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import torch
-import torchaudio
 from coqpit import Coqpit
 from encodec import EncodecModel
 from encodec.utils import convert_audio
@@ -25,6 +24,7 @@ from TTS.tts.layers.bark.load_model import load_model
 from TTS.tts.layers.bark.model import GPT
 from TTS.tts.layers.bark.model_fine import FineGPT
 from TTS.tts.models.base_tts import BaseTTS
+from TTS.utils.audio.torch_transforms import load_wav
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 
 
@@ -166,7 +166,7 @@ class Bark(BaseTTS):
 
     def _generate_voice(self, speaker_wav: str | os.PathLike[Any]) -> dict[str, torch.Tensor]:
         """Generate a new voice from the given audio."""
-        audio, sr = torchaudio.load(speaker_wav)
+        audio, sr = load_wav(speaker_wav)
         audio = convert_audio(audio, sr, self.config.sample_rate, self.encodec.channels)
         audio = audio.unsqueeze(0).to(self.device)
 

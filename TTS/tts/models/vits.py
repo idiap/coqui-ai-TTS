@@ -34,7 +34,7 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment
-from TTS.utils.audio.torch_transforms import spec_to_mel, wav_to_mel, wav_to_spec
+from TTS.utils.audio.torch_transforms import load_wav, spec_to_mel, wav_to_mel, wav_to_spec
 from TTS.utils.samplers import BucketBatchSampler
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
@@ -61,17 +61,6 @@ def get_module_weights_sum(mdl: nn.Module):
             value = w.data.sum().item()
             dict_sums[name] = value
     return dict_sums
-
-
-def load_audio(file_path):
-    """Load the audio file normalized in [-1, 1]
-
-    Return Shapes:
-        - x: :math:`[1, T]`
-    """
-    x, sr = torchaudio.load(file_path)
-    assert (x > 1).sum() + (x < -1).sum() == 0
-    return x, sr
 
 
 #############################
@@ -105,7 +94,7 @@ class VitsDataset(TTSDataset):
         item = self.samples[idx]
         raw_text = item["text"]
 
-        wav, _ = load_audio(item["audio_file"])
+        wav, _ = load_wav(item["audio_file"])
         if self.model_args.encoder_sample_rate is not None:
             if wav.size(1) % self.model_args.encoder_sample_rate != 0:
                 wav = wav[:, : -int(wav.size(1) % self.model_args.encoder_sample_rate)]

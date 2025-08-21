@@ -1,14 +1,64 @@
 import logging
+import os
+from typing import Any
 
 import librosa
+import numpy as np
 import torch
+import torchaudio
 from torch import nn
+from torchcodec.decoders import AudioDecoder
+from torchcodec.encoders import AudioEncoder
 
 logger = logging.getLogger(__name__)
 
 
 hann_window = {}
 mel_basis = {}
+
+
+def load_wav(path: str | os.PathLike[Any], sample_rate: int | None = None) -> tuple[torch.Tensor, int]:
+    """Read an audio file using torchcodec and optionally resample.
+
+    Args:
+        path: Path to the audio file.
+        sample_rate: Sampling rate for resampling.
+
+    Returns:
+        Tuple of (audio tensor, sampling rate)
+    """
+    samples = AudioDecoder(path).get_all_samples()
+    audio = samples.data
+
+    # Stereo to mono if needed
+    if audio.size(0) != 1:
+        logger.warning("Found multi-channel audio. Converting to mono: %s", path)
+        audio = torch.mean(audio, dim=0, keepdim=True)
+
+    # Resample if needed
+    if sample_rate is not None and samples.sample_rate != sample_rate:
+        logger.info("Resampling from %d Hz to %d Hz in %s", samples.sample_rate, sample_rate, path)
+        audio = torchaudio.functional.resample(audio, orig_freq=samples.sample_rate, new_freq=sample_rate)
+    else:
+        sample_rate = samples.sample_rate
+    return audio, sample_rate
+
+
+def save_wav(wav: torch.Tensor | np.ndarray | list[float], path: str | os.PathLike[Any], sample_rate: int) -> None:
+    """Save waveform to a file using torchcodec.
+
+    Args:
+        wav: waveform tensor or Numpy array.
+        path: Output file path.
+        sample_rate: Sampling rate of the waveform.
+    """
+    if isinstance(wav, list):
+        wav = torch.tensor(wav)
+    elif isinstance(wav, np.ndarray):
+        wav = torch.from_numpy(wav)
+    assert wav.max() <= 1 and wav.min() >= -1
+    encoder = AudioEncoder(wav, sample_rate=sample_rate)
+    encoder.to_file(path)
 
 
 def amp_to_db(x: torch.Tensor, *, spec_gain: float = 1.0, clip_val: float = 1e-5) -> torch.Tensor:

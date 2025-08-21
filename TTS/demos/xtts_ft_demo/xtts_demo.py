@@ -7,12 +7,12 @@ import traceback
 
 import gradio as gr
 import torch
-import torchaudio
 
 from TTS.demos.xtts_ft_demo.utils.formatter import format_audio_list
 from TTS.demos.xtts_ft_demo.utils.gpt_train import train_gpt
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
+from TTS.utils.audio.torch_transforms import save_wav
 
 
 def clear_gpu_cache():
@@ -66,7 +66,7 @@ def run_tts(lang, tts_text, speaker_audio_file):
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fp:
         out["wav"] = torch.tensor(out["wav"]).unsqueeze(0)
         out_path = fp.name
-        torchaudio.save(out_path, out["wav"], 24000)
+        save_wav(out["wav"], out_path, 24000)
 
     return "Speech generated !", out_path, speaker_audio_file
 

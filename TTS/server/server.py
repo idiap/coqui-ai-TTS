@@ -16,6 +16,8 @@ from urllib.parse import parse_qs
 import torch
 import torchaudio
 
+from TTS.utils.audio.torch_transforms import load_wav
+
 try:
     from flask import Flask, render_template, render_template_string, request, send_file
 except ImportError as e:
@@ -319,7 +321,7 @@ def openai_tts():
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)
         out.seek(0)
-        waveform, sample_rate = torchaudio.load(out)
+        waveform, sample_rate = load_wav(out)
 
         mimetypes = {
             "wav": "audio/wav",
