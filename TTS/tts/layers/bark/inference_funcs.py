@@ -76,7 +76,10 @@ def generate_text_semantic(
         )
     else:
         semantic_history = None
-    encoded_text = torch.LongTensor(_tokenize(model.tokenizer, text)) + model.config.TEXT_ENCODING_OFFSET
+    encoded_text = (
+        torch.tensor(_tokenize(model.tokenizer, text), device=model.device, dtype=torch.long)
+        + model.config.TEXT_ENCODING_OFFSET
+    )
     if len(encoded_text) > 256:
         p = (len(encoded_text) - 256) / len(encoded_text) * 100
         logger.warning("warning, text too long, lopping of last %.1f%%", p)
@@ -99,11 +102,9 @@ def generate_text_semantic(
         )
     else:
         semantic_history = torch.full((256,), model.config.SEMANTIC_PAD_TOKEN, dtype=torch.int64)
-    x = (
-        torch.cat([encoded_text, semantic_history, torch.tensor([model.config.SEMANTIC_INFER_TOKEN])])
-        .unsqueeze(0)
-        .to(model.device)
-    )
+    x = torch.cat(
+        [encoded_text, semantic_history, torch.tensor([model.config.SEMANTIC_INFER_TOKEN], device=model.device)]
+    ).unsqueeze(0)
     assert x.shape[1] == 256 + 256 + 1
 
     n_tot_steps = 768
