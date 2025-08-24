@@ -1,9 +1,11 @@
+import logging
 import os
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 import torchaudio
 from coqpit import Coqpit
@@ -25,7 +27,14 @@ from TTS.tts.layers.bark.load_model import load_model
 from TTS.tts.layers.bark.model import GPT
 from TTS.tts.layers.bark.model_fine import FineGPT
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
+from TTS.utils.generic_utils import (
+    is_pytorch_at_least_2_4,
+    slugify,
+    warn_synthesize_config_deprecated,
+    warn_synthesize_speaker_id_deprecated,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -208,6 +217,46 @@ class Bark(BaseTTS):
         voice = self._generate_voice(speaker_wav)
         metadata = {"name": self.config["model"]}
         return voice, metadata
+
+    def get_voices(self, voice_dir: str | os.PathLike[Any]) -> dict[str, Path]:
+        """Return all available voices in the given directory.
+
+        Args:
+            voice_dir: Directory to search for voices.
+
+        Returns:
+            Dictionary mapping a speaker ID to its voice file.
+        """
+        # For Bark we overwrite the base method to also allow loading the npz
+        # files included with the original model.
+        return {path.stem: path for path in Path(voice_dir).iterdir() if path.suffix in (".npz", ".pth")}
+
+    def load_voice_file(
+        self,
+        speaker_id: str,
+        voice_dir: str | os.PathLike[Any],
+    ) -> dict[str, Any]:
+        """Load the voice for the given speaker.
+
+        Args:
+            speaker_id:
+                Speaker ID to load.
+            voice_dir:
+                Directory where to look for the voice.
+        """
+        # For Bark we overwrite the base method to also allow loading the npz
+        # files included with the original model.
+        voices = self.get_voices(voice_dir)
+        if speaker_id not in voices:
+            msg = f"Voice file `{slugify(speaker_id)}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
+            raise FileNotFoundError(msg)
+        if voices[speaker_id].suffix == ".npz":
+            np_voice = np.load(voices[speaker_id])
+            voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
+        else:
+            voice = torch.load(voices[speaker_id], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
+        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id])
+        return voice
 
     def synthesize(
         self,
