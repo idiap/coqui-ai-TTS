@@ -1,4 +1,4 @@
-ARG BASE=nvidia/cuda:11.8.0-base-ubuntu22.04
+ARG BASE=nvidia/cuda:12.8.1-base-ubuntu24.04
 FROM ${BASE}
 
 RUN apt-get update && \
@@ -17,7 +17,7 @@ RUN pip3 install -U pip setuptools wheel
 RUN pip3 install llvmlite --ignore-installed
 
 # Install Dependencies:
-RUN pip3 install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
+RUN pip3 install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu128
 RUN rm -rf /root/.cache/pip
 
 # Copy TTS repository contents:
