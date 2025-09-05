@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 
 from TTS.tts.datasets.dataset import *
-from TTS.tts.datasets.formatters import *
+from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
 
 logger = logging.getLogger(__name__)
 
@@ -162,15 +162,12 @@ def load_attention_mask_meta_data(metafile_path):
     return meta_data
 
 
-def _get_formatter_by_name(name):
+def _get_formatter_by_name(name: str) -> Formatter:
     """Returns the respective preprocessing function."""
-    thismodule = sys.modules[__name__]
-    if not hasattr(thismodule, name.lower()):
-        msg = (
-            f"{name} formatter not found. If it is a custom formatter, pass the function to load_tts_samples() instead."
-        )
+    if name.lower() not in _FORMATTER_REGISTRY:
+        msg = f"{name} formatter not found. If it is a custom formatter, make sure to call register_formatter() first."
         raise ValueError(msg)
-    return getattr(thismodule, name.lower())
+    return _FORMATTER_REGISTRY[name.lower()]
 
 
 def find_unique_chars(data_samples):

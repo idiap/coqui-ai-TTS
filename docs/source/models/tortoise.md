@@ -18,6 +18,7 @@ from TTS.tts.models.tortoise import Tortoise
 config = TortoiseConfig()
 model = Tortoise.init_from_config(config)
 model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
+model.to("cuda")
 
 # Random speaker
 output_dict = model.synthesize(text)
@@ -30,7 +31,7 @@ Using 🐸TTS API:
 
 ```python
 from TTS.api import TTS
-tts = TTS("tts_models/en/multi-dataset/tortoise-v2")
+tts = TTS("tts_models/en/multi-dataset/tortoise-v2").to("cuda")
 
 # Clone voice and cache it with the custom ID `lj`
 # with custom inference settings overriding defaults.
