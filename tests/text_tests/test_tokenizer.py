@@ -12,7 +12,7 @@ class TestTTSTokenizer(unittest.TestCase):
     def setUp(self):
         self.tokenizer = TTSTokenizer(use_phonemes=False, characters=Graphemes())
 
-        self.ph = ESpeak("tr", backend="espeak")
+        self.ph = ESpeak("tr", backend="espeak-ng")
         self.tokenizer_ph = TTSTokenizer(use_phonemes=True, characters=IPAPhonemes(), phonemizer=self.ph)
 
     def test_encode_decode_graphemes(self):
@@ -49,7 +49,7 @@ class TestTTSTokenizer(unittest.TestCase):
         text = "Bu bir Örnek."
         self.tokenizer_ph.use_eos_bos = True
         self.tokenizer_ph.add_blank = True
-        text_ph = "<BOS><BLNK>b<BLNK>ʊ<BLNK> <BLNK>b<BLNK>ɪ<BLNK>r<BLNK> <BLNK>œ<BLNK>r<BLNK>n<BLNK>ˈ<BLNK>ɛ<BLNK>c<BLNK>.<BLNK><EOS>"
+        text_ph = "<BOS><BLNK>b<BLNK>ʊ<BLNK> <BLNK>b<BLNK>ɪ<BLNK>r<BLNK> <BLNK>œ<BLNK>r<BLNK>n<BLNK>ˈ<BLNK>ɛ<BLNK>k<BLNK>.<BLNK><EOS>"
         ids = self.tokenizer_ph.text_to_ids(text)
         text_hat = self.tokenizer_ph.ids_to_text(ids)
         self.assertEqual(text_ph, text_hat)
@@ -92,7 +92,7 @@ class TestTTSTokenizer(unittest.TestCase):
             text_cleaner: str = "phoneme_cleaners"
 
         tokenizer_ph, _ = TTSTokenizer.init_from_config(TokenizerConfig())
-        tokenizer_ph.phonemizer.backend = "espeak"
+        tokenizer_ph.phonemizer.backend = "espeak-ng"
         text = "Bu bir Örnek."
         text_ph = "<BOS>" + self.ph.phonemize(text, separator="") + "<EOS>"
         ids = tokenizer_ph.text_to_ids(text)
