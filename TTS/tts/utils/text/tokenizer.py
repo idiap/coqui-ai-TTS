@@ -110,7 +110,7 @@ class TTSTokenizer:
         # TODO: text cleaner should pick the right routine based on the language
         logger.debug("Tokenizer input text: %s", text)
         if self.text_cleaner is not None:
-            text = self.text_cleaner(text)
+            text = self.text_cleaner(text, lang=language)
             logger.debug("Cleaned text: %s", text)
         if self.use_phonemes:
             text = self.phonemizer.phonemize(text, separator="", language=language)
