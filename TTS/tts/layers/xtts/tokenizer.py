@@ -19,6 +19,9 @@ from tokenizers import Tokenizer
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_spacy_lang(lang):
     if lang == "zh":
         return Chinese()
@@ -627,7 +630,7 @@ class VoiceBpeTokenizer:
             print(
                 f"[!] Warning: The text length exceeds the character limit of {limit} for language '{lang}', this might cause truncated audio."
             )
-            logging.warning(f"- The offending text that goes over the limit is {txt}")
+            logger.warning(f"- The offending text that goes over the limit is {txt}")
 
     def preprocess_text(self, txt, lang):
         if lang in {"ar", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
