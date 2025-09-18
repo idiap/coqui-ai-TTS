@@ -2,6 +2,7 @@ import os
 import re
 import textwrap
 from functools import cached_property
+import logging
 
 import pypinyin
 import torch
@@ -626,7 +627,7 @@ class VoiceBpeTokenizer:
             print(
                 f"[!] Warning: The text length exceeds the character limit of {limit} for language '{lang}', this might cause truncated audio."
             )
-            print(f"- The offending text that goes over the limit is {txt}")
+            logging.warning(f"- The offending text that goes over the limit is {txt}")
 
     def preprocess_text(self, txt, lang):
         if lang in {"ar", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
