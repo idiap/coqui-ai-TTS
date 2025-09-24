@@ -105,6 +105,7 @@ repository are also still a useful source of information.
 - Attention methods: [Guided Attention](https://arxiv.org/abs/1710.08969),
   [Forward Backward Decoding](https://arxiv.org/abs/1907.09006),
   [Graves Attention](https://arxiv.org/abs/1910.10288),
+  [Double Decoder Consistency](https://web.archive.org/web/20220814030038/https://erogol.com/solving-attention-problems-of-tts-models-with-double-decoder-consistency),
   [Dynamic Convolutional Attention](https://arxiv.org/pdf/1910.10288.pdf),
   [Alignment Network](https://arxiv.org/abs/2108.10447)
 - Speaker encoders: [GE2E](https://arxiv.org/abs/1710.10467),
