@@ -1,9 +1,11 @@
 import unittest
 
+import pytest
 from packaging.version import Version
 
 from TTS.tts.utils.text.phonemizers import ESpeak, Gruut, JA_JP_Phonemizer, ZH_CN_Phonemizer
 from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
+from TTS.tts.utils.text.phonemizers.espeak_wrapper import _is_tool
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
 
 EXAMPLE_TEXTs = [
@@ -38,6 +40,7 @@ EXPECTED_ESPEAKNG_PHONEMES = [
 ]
 
 
+@pytest.mark.skipif(not _is_tool("espeak"), reason="espeak not installed")
 class TestEspeakPhonemizer(unittest.TestCase):
     def setUp(self):
         self.phonemizer = ESpeak(language="en-us", backend="espeak")

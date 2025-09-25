@@ -4,6 +4,7 @@ import os
 import re
 import tarfile
 import zipfile
+from contextlib import nullcontext
 from pathlib import Path
 from shutil import copyfile, rmtree
 from typing import Any, TypedDict
@@ -50,7 +51,6 @@ LICENSE_URLS = {
 
 
 class ModelManager:
-    tqdm_progress = None
     """Manage TTS models defined in .models.json.
     It provides an interface to list and download
     models defines in '.model.json'
@@ -559,13 +559,12 @@ class ModelManager:
         try:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            if progress_bar:
-                ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
             temp_zip_name = output_folder / file_url.split("/")[-1]
-            with open(temp_zip_name, "wb") as file:
+            with open(temp_zip_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                        pbar.update(len(data))
                     file.write(data)
             with zipfile.ZipFile(temp_zip_name) as z:
                 z.extractall(output_folder)
@@ -594,13 +593,12 @@ class ModelManager:
         try:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            if progress_bar:
-                ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
             temp_tar_name = output_folder / file_url.split("/")[-1]
-            with open(temp_tar_name, "wb") as file:
+            with open(temp_tar_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                        pbar.update(len(data))
                     file.write(data)
             with tarfile.open(temp_tar_name) as t:
                 t.extractall(output_folder)
@@ -630,10 +628,9 @@ class ModelManager:
             file_path = output_folder / base_filename
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            with open(file_path, "wb") as f:
-                if progress_bar:
-                    ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
+            with open(file_path, "wb") as f, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                        pbar.update(len(data))
                     f.write(data)
