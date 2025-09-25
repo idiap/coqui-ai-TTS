@@ -25,7 +25,7 @@
 ## 📣 News
 - **Fork of the [original, unmaintained repository](https://github.com/coqui-ai/TTS). New PyPI package: [coqui-tts](https://pypi.org/project/coqui-tts)**
 - 0.25.0: [OpenVoice](https://github.com/myshell-ai/OpenVoice) models now available for voice conversion.
-- 0.24.2: Prebuilt wheels are now also published for Mac and Windows (in addition to Linux as before) for easier installation across platforms.
+- 0.24.2: Prebuilt wheels are now also published for macOS and Windows (in addition to Linux as before) for easier installation across platforms.
 - 0.20.0: XTTSv2 is here with 17 languages and better performance across the board. XTTS can stream with <200ms latency.
 - 0.19.0: XTTS fine-tuning code is out. Check the [example recipes](https://github.com/idiap/coqui-ai-TTS/tree/dev/recipes/ljspeech).
 - 0.14.1: You can use [Fairseq models in ~1100 languages](https://github.com/facebookresearch/fairseq/tree/main/examples/mms) with 🐸TTS.
@@ -105,7 +105,7 @@ repository are also still a useful source of information.
 - Attention methods: [Guided Attention](https://arxiv.org/abs/1710.08969),
   [Forward Backward Decoding](https://arxiv.org/abs/1907.09006),
   [Graves Attention](https://arxiv.org/abs/1910.10288),
-  [Double Decoder Consistency](https://erogol.com/solving-attention-problems-of-tts-models-with-double-decoder-consistency/),
+  [Double Decoder Consistency](https://web.archive.org/web/20220814030038/https://erogol.com/solving-attention-problems-of-tts-models-with-double-decoder-consistency),
   [Dynamic Convolutional Attention](https://arxiv.org/pdf/1910.10288.pdf),
   [Alignment Network](https://arxiv.org/abs/2108.10447)
 - Speaker encoders: [GE2E](https://arxiv.org/abs/1710.10467),
@@ -116,7 +116,7 @@ You can also help us implement more models.
 <!-- start installation -->
 ## Installation
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.13**, but should also
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.14**, but should also
 work on Mac and Windows.
 
 If you are only interested in [synthesizing speech](https://coqui-tts.readthedocs.io/en/latest/inference.html) with the pretrained 🐸TTS models, installing from PyPI is the easiest option.

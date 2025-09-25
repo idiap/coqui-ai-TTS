@@ -25,10 +25,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.27.1"
+version = "0.27.2"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.10, <3.14"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
@@ -42,7 +42,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Operating System :: POSIX :: Linux",
@@ -63,6 +64,7 @@ dependencies = [
     "torchaudio>=2.1.0,<2.9",
     "soundfile>=0.12.0",
     "librosa>=0.11.0",
+    "numba>=0.58.0",
     "inflect>=5.6.0",
     "tqdm>=4.64.1",
     "anyascii>=0.3.0",
@@ -82,7 +84,7 @@ dependencies = [
     "gruut[de,es,fr]>=2.4.0",
     # Tortoise
     "einops>=0.6.0",
-    "transformers>=4.52.1",
+    "transformers>=4.52.1,<4.56",
     # Bark
     "encodec>=0.1.1",
     # XTTS
@@ -158,9 +160,6 @@ Discussions = "https://github.com/idiap/coqui-ai-TTS/discussions"
 [project.scripts]
 tts = "TTS.bin.synthesize:main"
 tts-server = "TTS.server.server:main"
-
-[tool.uv]
-constraint-dependencies = ["numba>0.58.0"]
 
 [tool.hatch.build]
 exclude = [
