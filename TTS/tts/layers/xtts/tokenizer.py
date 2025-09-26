@@ -3,6 +3,7 @@ import os
 import re
 import textwrap
 from functools import cached_property
+import logging
 
 import torch
 from num2words import num2words
@@ -10,6 +11,9 @@ from tokenizers import Tokenizer
 
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
 from TTS.tts.utils.text.cleaners import collapse_whitespace, lowercase
+
+logger = logging.getLogger(__name__)
+
 
 logger = logging.getLogger(__name__)
 
@@ -649,6 +653,7 @@ class VoiceBpeTokenizer:
                 limit,
                 lang,
             )
+            logger.warning(f"- The offending text that goes over the limit is {txt}")
 
     def preprocess_text(self, txt, lang):
         if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
