@@ -51,7 +51,7 @@ else:
     _DEF_ESPEAK_VER = None
 
 
-def _espeak_exe(espeak_lib: str, args: list) -> list[str]:
+def _espeak_exe(espeak_lib: str, args: list, *, log: bool = True) -> list[str]:
     """Run espeak with the given arguments."""
     cmd = [
         espeak_lib,
@@ -69,7 +69,8 @@ def _espeak_exe(espeak_lib: str, args: list) -> list[str]:
     res = []
     for line in p.stdout.strip().split("\n"):
         if line.strip() != "":
-            logger.debug("%s: %s", espeak_lib, line.strip())
+            if log:
+                logger.debug("%s: %s", espeak_lib, line.strip())
             res.append(line.strip())
     return res
 
@@ -223,7 +224,7 @@ class ESpeak(BasePhonemizer):
             return {}
         args = ["--voices"]
         langs = {}
-        for count, line in enumerate(_espeak_exe(_DEF_ESPEAK_LIB, args)):
+        for count, line in enumerate(_espeak_exe(_DEF_ESPEAK_LIB, args, log=False)):
             if count > 0:
                 cols = line.split()
                 lang_code = cols[1]
