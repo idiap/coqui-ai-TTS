@@ -19,9 +19,6 @@ from tokenizers import Tokenizer
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
 
 
-logger = logging.getLogger(__name__)
-
-
 def get_spacy_lang(lang):
     if lang == "zh":
         return Chinese()
