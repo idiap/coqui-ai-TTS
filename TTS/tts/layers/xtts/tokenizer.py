@@ -2,7 +2,6 @@ import os
 import re
 import textwrap
 from functools import cached_property
-import logging
 
 import pypinyin
 import torch
