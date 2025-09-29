@@ -1,5 +1,3 @@
-from typing import Dict
-
 from TTS.tts.utils.text.korean.phonemizer import korean_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -44,7 +42,7 @@ class KO_KR_Phonemizer(BasePhonemizer):
         return self._phonemize(text, separator, character)
 
     @staticmethod
-    def supported_languages() -> Dict:
+    def supported_languages() -> dict:
         return {"ko-kr": "hangeul(korean)"}
 
     def version(self) -> str:

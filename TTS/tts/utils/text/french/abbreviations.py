@@ -2,7 +2,7 @@ import re
 
 # List of (regular expression, replacement) pairs for abbreviations in french:
 abbreviations_fr = [
-    (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+    (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
     for x in [
         ("M", "monsieur"),
         ("Mlle", "mademoiselle"),
@@ -38,7 +38,7 @@ abbreviations_fr = [
         ("boul", "boulevard"),
     ]
 ] + [
-    (re.compile("\\b%s" % x[0]), x[1])
+    (re.compile(f"\\b{x[0]}"), x[1])
     for x in [
         ("Mlle", "mademoiselle"),
         ("Mlles", "mesdemoiselles"),

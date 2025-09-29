@@ -43,7 +43,7 @@ def process_meta_data(path):
     meta_data = {}
 
     # load meta data
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = csv.reader(f, delimiter="|")
         for row in data:
             frames = int(row[2])
@@ -58,7 +58,7 @@ def process_meta_data(path):
                     "utt": utt,
                     "frames": frames,
                     "audio_len": audio_len,
-                    "row": "{}|{}|{}|{}".format(row[0], row[1], row[2], row[3]),
+                    "row": f"{row[0]}|{row[1]}|{row[2]}|{row[3]}",
                 }
             )
 
@@ -156,7 +156,7 @@ def plot_phonemes(train_path, cmu_dict_path, save_path):
 
     phonemes = {}
 
-    with open(train_path, "r", encoding="utf-8") as f:
+    with open(train_path, encoding="utf-8") as f:
         data = csv.reader(f, delimiter="|")
         phonemes["None"] = 0
         for row in data:

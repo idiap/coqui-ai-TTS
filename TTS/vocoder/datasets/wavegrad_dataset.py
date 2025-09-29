@@ -2,7 +2,6 @@ import glob
 import os
 import random
 from multiprocessing import Manager
-from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -28,7 +27,6 @@ class WaveGradDataset(Dataset):
         return_segments=True,
         use_noise_augment=False,
         use_cache=False,
-        verbose=False,
     ):
         super().__init__()
         self.ap = ap
@@ -41,7 +39,6 @@ class WaveGradDataset(Dataset):
         self.return_segments = return_segments
         self.use_cache = use_cache
         self.use_noise_augment = use_noise_augment
-        self.verbose = verbose
 
         if return_segments:
             assert seq_len % hop_len == 0, " [!] seq_len has to be a multiple of hop_len."
@@ -67,7 +64,7 @@ class WaveGradDataset(Dataset):
         item = self.load_item(idx)
         return item
 
-    def load_test_samples(self, num_samples: int) -> List[Tuple]:
+    def load_test_samples(self, num_samples: int) -> list[tuple]:
         """Return test samples.
 
         Args:
@@ -105,9 +102,9 @@ class WaveGradDataset(Dataset):
                     audio = np.pad(
                         audio, (0, self.seq_len + self.pad_short - len(audio)), mode="constant", constant_values=0.0
                     )
-                assert (
-                    audio.shape[-1] >= self.seq_len + self.pad_short
-                ), f"{audio.shape[-1]} vs {self.seq_len + self.pad_short}"
+                assert audio.shape[-1] >= self.seq_len + self.pad_short, (
+                    f"{audio.shape[-1]} vs {self.seq_len + self.pad_short}"
+                )
 
             # correct the audio length wrt hop length
             p = (audio.shape[-1] // self.hop_len + 1) * self.hop_len - audio.shape[-1]

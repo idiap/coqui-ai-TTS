@@ -1,18 +1,12 @@
 ### credit: https://github.com/dunky11/voicesmith
 import math
-from typing import Tuple
 
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
 import torch.nn.functional as F
 
-from TTS.tts.layers.delightful_tts.conv_layers import Conv1dGLU, DepthWiseConv1d, PointwiseConv1d
+from TTS.tts.layers.delightful_tts.conv_layers import Conv1dGLU, DepthWiseConv1d, PointwiseConv1d, calc_same_padding
 from TTS.tts.layers.delightful_tts.networks import GLUActivation
-
-
-def calc_same_padding(kernel_size: int) -> Tuple[int, int]:
-    pad = kernel_size // 2
-    return (pad, pad - (kernel_size + 1) % 2)
 
 
 class Conformer(nn.Module):
@@ -322,7 +316,7 @@ class ConformerMultiHeadedSelfAttention(nn.Module):
         value: torch.Tensor,
         mask: torch.Tensor,
         encoding: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_length, _ = key.size()  # pylint: disable=unused-variable
         encoding = encoding[:, : key.shape[1]]
         encoding = encoding.repeat(batch_size, 1, 1)
@@ -378,7 +372,7 @@ class RelativeMultiHeadAttention(nn.Module):
         value: torch.Tensor,
         pos_embedding: torch.Tensor,
         mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size = query.shape[0]
         query = self.query_proj(query).view(batch_size, -1, self.num_heads, self.d_head)
         key = self.key_proj(key).view(batch_size, -1, self.num_heads, self.d_head).permute(0, 2, 1, 3)
@@ -411,40 +405,3 @@ class RelativeMultiHeadAttention(nn.Module):
         padded_pos_score = padded_pos_score.view(batch_size, num_heads, seq_length2 + 1, seq_length1)
         pos_score = padded_pos_score[:, :, 1:].view_as(pos_score)
         return pos_score
-
-
-class MultiHeadAttention(nn.Module):
-    """
-    input:
-        query --- [N, T_q, query_dim]
-        key --- [N, T_k, key_dim]
-    output:
-        out --- [N, T_q, num_units]
-    """
-
-    def __init__(self, query_dim: int, key_dim: int, num_units: int, num_heads: int):
-        super().__init__()
-        self.num_units = num_units
-        self.num_heads = num_heads
-        self.key_dim = key_dim
-
-        self.W_query = nn.Linear(in_features=query_dim, out_features=num_units, bias=False)
-        self.W_key = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
-        self.W_value = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
-
-    def forward(self, query: torch.Tensor, key: torch.Tensor) -> torch.Tensor:
-        querys = self.W_query(query)  # [N, T_q, num_units]
-        keys = self.W_key(key)  # [N, T_k, num_units]
-        values = self.W_value(key)
-        split_size = self.num_units // self.num_heads
-        querys = torch.stack(torch.split(querys, split_size, dim=2), dim=0)  # [h, N, T_q, num_units/h]
-        keys = torch.stack(torch.split(keys, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
-        values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
-        # score = softmax(QK^T / (d_k ** 0.5))
-        scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k]
-        scores = scores / (self.key_dim**0.5)
-        scores = F.softmax(scores, dim=3)
-        # out = score * V
-        out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
-        out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
-        return out

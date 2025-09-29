@@ -1,0 +1,184 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+  workflow_dispatch:
+    inputs:
+      trainer_branch:
+        description: "Branch of Trainer to test"
+        required: false
+        default: "main"
+      coqpit_branch:
+        description: "Branch of Coqpit to test"
+        required: false
+        default: "main"
+    paths-ignore:
+      - '.gitignore'
+      - 'CITATION.cff'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE.txt'
+      - 'README.md'
+      - 'images/**'
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        subset: ["data_tests", "inference_tests", "test_aux", "test_text"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+      - name: Install Espeak
+        if: contains(fromJSON('["inference_tests", "test_text"]'), matrix.subset)
+        run: |
+          sudo apt-get update
+          sudo apt-get install espeak espeak-ng
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends git make gcc
+          make system-deps
+      - name: Install custom Trainer and/or Coqpit if requested
+        run: |
+          if [[ -n "${{ github.event.inputs.trainer_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-Trainer --branch ${{ github.event.inputs.trainer_branch }}
+          fi
+          if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
+          fi
+      - name: Unit tests
+        run: |
+          resolution=highest
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
+            resolution=lowest-direct
+          fi
+          uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
+          path: .coverage.*
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+        shard: [0, 1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+      - name: Install Espeak
+        run: |
+          sudo apt-get update
+          sudo apt-get install espeak espeak-ng
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends git make gcc
+          make system-deps
+      - name: Install custom Trainer and/or Coqpit if requested
+        run: |
+          if [[ -n "${{ github.event.inputs.trainer_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-Trainer --branch ${{ github.event.inputs.trainer_branch }}
+          fi
+          if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
+          fi
+      - name: Integration tests for shard ${{ matrix.shard }}
+        run: |
+          uv run pytest tests/integration --collect-only --quiet | grep "::" > integration_tests.txt
+          total_shards=5
+          shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
+          resolution=highest
+          if [ "${{ matrix.python-version }}" == "3.10" ]; then
+            resolution=lowest-direct
+          fi
+          uv run --resolution=$resolution --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          name: coverage-data-integration-${{ matrix.shard }}-${{ matrix.python-version }}
+          path: .coverage.*
+  zoo:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+        partition: ["0", "1", "2"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+      - name: Install Espeak
+        run: |
+          sudo apt-get update
+          sudo apt-get install espeak espeak-ng
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends git make gcc
+          make system-deps
+      - name: Install custom Trainer and/or Coqpit if requested
+        run: |
+          if [[ -n "${{ github.event.inputs.trainer_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-Trainer --branch ${{ github.event.inputs.trainer_branch }}
+          fi
+          if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
+          fi
+      - name: Zoo tests
+        run: uv run --extra server --extra languages make test_zoo
+        env:
+          NUM_PARTITIONS: 3
+          TEST_PARTITION: ${{ matrix.partition }}
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          name: coverage-data-zoo-${{ matrix.partition }}
+          path: .coverage.*
+  coverage:
+    if: always()
+    needs: [unit, integration, zoo]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+      - name: Combine coverage
+        run: |
+          uv python install
+          uvx coverage combine
+          uvx coverage html --skip-covered --skip-empty
+          uvx coverage report --format=markdown >> $GITHUB_STEP_SUMMARY

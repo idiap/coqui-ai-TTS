@@ -1,18 +1,29 @@
-from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 from TTS.tts.utils.text.phonemizers.belarusian_phonemizer import BEL_Phonemizer
 from TTS.tts.utils.text.phonemizers.espeak_wrapper import ESpeak
 from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
-from TTS.tts.utils.text.phonemizers.ko_kr_phonemizer import KO_KR_Phonemizer
-from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer
+
+try:
+    from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
+except ImportError:
+    BN_Phonemizer = None
 
 try:
     from TTS.tts.utils.text.phonemizers.ja_jp_phonemizer import JA_JP_Phonemizer
 except ImportError:
     JA_JP_Phonemizer = None
-    pass
 
-PHONEMIZERS = {b.name(): b for b in (ESpeak, Gruut, KO_KR_Phonemizer, BN_Phonemizer)}
+try:
+    from TTS.tts.utils.text.phonemizers.ko_kr_phonemizer import KO_KR_Phonemizer
+except ImportError:
+    KO_KR_Phonemizer = None
+
+try:
+    from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer
+except ImportError:
+    ZH_CN_Phonemizer = None
+
+PHONEMIZERS = {b.name(): b for b in (ESpeak, Gruut)}
 
 
 ESPEAK_LANGS = list(ESpeak.supported_languages().keys())
@@ -33,17 +44,21 @@ DEF_LANG_TO_PHONEMIZER.update(_new_dict)
 
 # Force default for some languages
 DEF_LANG_TO_PHONEMIZER["en"] = DEF_LANG_TO_PHONEMIZER["en-us"]
-DEF_LANG_TO_PHONEMIZER["zh-cn"] = ZH_CN_Phonemizer.name()
-DEF_LANG_TO_PHONEMIZER["ko-kr"] = KO_KR_Phonemizer.name()
-DEF_LANG_TO_PHONEMIZER["bn"] = BN_Phonemizer.name()
 DEF_LANG_TO_PHONEMIZER["be"] = BEL_Phonemizer.name()
 
 
-# JA phonemizer has deal breaking dependencies like MeCab for some systems.
-# So we only have it when we have it.
+if BN_Phonemizer is not None:
+    PHONEMIZERS[BN_Phonemizer.name()] = BN_Phonemizer
+    DEF_LANG_TO_PHONEMIZER["bn"] = BN_Phonemizer.name()
 if JA_JP_Phonemizer is not None:
     PHONEMIZERS[JA_JP_Phonemizer.name()] = JA_JP_Phonemizer
     DEF_LANG_TO_PHONEMIZER["ja-jp"] = JA_JP_Phonemizer.name()
+if KO_KR_Phonemizer is not None:
+    PHONEMIZERS[KO_KR_Phonemizer.name()] = KO_KR_Phonemizer
+    DEF_LANG_TO_PHONEMIZER["ko-kr"] = KO_KR_Phonemizer.name()
+if ZH_CN_Phonemizer is not None:
+    PHONEMIZERS[ZH_CN_Phonemizer.name()] = ZH_CN_Phonemizer
+    DEF_LANG_TO_PHONEMIZER["zh-cn"] = ZH_CN_Phonemizer.name()
 
 
 def get_phonemizer_by_name(name: str, **kwargs) -> BasePhonemizer:
@@ -61,14 +76,20 @@ def get_phonemizer_by_name(name: str, **kwargs) -> BasePhonemizer:
     if name == "gruut":
         return Gruut(**kwargs)
     if name == "zh_cn_phonemizer":
+        if ZH_CN_Phonemizer is None:
+            raise ValueError("You need to install ZH phonemizer dependencies. Try `pip install coqui-tts[zh]`.")
         return ZH_CN_Phonemizer(**kwargs)
     if name == "ja_jp_phonemizer":
         if JA_JP_Phonemizer is None:
-            raise ValueError(" ❗ You need to install JA phonemizer dependencies. Try `pip install TTS[ja]`.")
+            raise ValueError("You need to install JA phonemizer dependencies. Try `pip install coqui-tts[ja]`.")
         return JA_JP_Phonemizer(**kwargs)
     if name == "ko_kr_phonemizer":
+        if KO_KR_Phonemizer is None:
+            raise ValueError("You need to install KO phonemizer dependencies. Try `pip install coqui-tts[ko]`.")
         return KO_KR_Phonemizer(**kwargs)
     if name == "bn_phonemizer":
+        if BN_Phonemizer is None:
+            raise ValueError("You need to install BN phonemizer dependencies. Try `pip install coqui-tts[bn]`.")
         return BN_Phonemizer(**kwargs)
     if name == "be_phonemizer":
         return BEL_Phonemizer(**kwargs)

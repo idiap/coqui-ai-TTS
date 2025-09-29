@@ -1,4 +1,4 @@
-from typing import List, Tuple
+import logging
 
 import torch
 import torch.nn.functional as F
@@ -7,6 +7,8 @@ from tqdm.auto import tqdm
 
 from TTS.tts.layers.tacotron.common_layers import Linear
 from TTS.tts.layers.tacotron.tacotron2 import ConvBNBlock
+
+logger = logging.getLogger(__name__)
 
 
 class Encoder(nn.Module):
@@ -41,7 +43,7 @@ class Encoder(nn.Module):
         )
         self.rnn_state = None
 
-    def forward(self, x: torch.FloatTensor, x_len: torch.LongTensor) -> Tuple[torch.FloatTensor, torch.LongTensor]:
+    def forward(self, x: torch.FloatTensor, x_len: torch.LongTensor) -> tuple[torch.FloatTensor, torch.LongTensor]:
         """Forward pass to the encoder.
 
         Args:
@@ -107,7 +109,7 @@ class ParameterModel(nn.Module):
 
     def __init__(
         self,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         input_size: int,
         output_size: int,
         frame_channels: int,
@@ -149,7 +151,7 @@ class Outputnet(nn.Module):
         encoder_dim: int,
         memory_rnn_dim: int,
         frame_channels: int,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         flat_start_params: dict,
         std_floor: float = 1e-2,
     ):
@@ -213,8 +215,8 @@ class Outputnet(nn.Module):
         original_tensor = std.clone().detach()
         std = torch.clamp(std, min=self.std_floor)
         if torch.any(original_tensor != std):
-            print(
-                "[*] Standard deviation was floored! The model is preventing overfitting, nothing serious to worry about"
+            logger.info(
+                "Standard deviation was floored! The model is preventing overfitting, nothing serious to worry about"
             )
         return std
 
@@ -284,7 +286,7 @@ class OverflowUtils:
         r"""
         Inverse of the sigmoid function
         """
-        if not torch.is_tensor(x):
+        if not isinstance(x, torch.Tensor):
             x = torch.tensor(x)
         return OverflowUtils.log_clamped(x / (1.0 - x))
 
@@ -293,7 +295,7 @@ class OverflowUtils:
         r"""
         Inverse of the softplus function
         """
-        if not torch.is_tensor(x):
+        if not isinstance(x, torch.Tensor):
             x = torch.tensor(x)
         return OverflowUtils.log_clamped(torch.exp(x) - 1.0)
 

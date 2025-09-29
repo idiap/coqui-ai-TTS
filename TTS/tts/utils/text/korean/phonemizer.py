@@ -1,4 +1,7 @@
-from jamo import hangul_to_jamo
+try:
+    from jamo import hangul_to_jamo
+except ImportError as e:
+    raise ImportError("Korean requires: g2pkk, jamo") from e
 
 from TTS.tts.utils.text.korean.korean import normalize
 

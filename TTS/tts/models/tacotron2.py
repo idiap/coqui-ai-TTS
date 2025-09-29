@@ -1,10 +1,5 @@
-# coding: utf-8
-
-from typing import Dict, List, Union
-
 import torch
 from torch import nn
-from torch.cuda.amp.autocast_mode import autocast
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
@@ -113,12 +108,14 @@ class Tacotron2(BaseTacotron):
                 num_mel=self.decoder_output_dim,
                 encoder_output_dim=self.encoder_in_features,
                 capacitron_VAE_embedding_dim=self.capacitron_vae.capacitron_VAE_embedding_dim,
-                speaker_embedding_dim=self.embedded_speaker_dim
-                if self.capacitron_vae.capacitron_use_speaker_embedding
-                else None,
-                text_summary_embedding_dim=self.capacitron_vae.capacitron_text_summary_embedding_dim
-                if self.capacitron_vae.capacitron_use_text_summary_embeddings
-                else None,
+                speaker_embedding_dim=(
+                    self.embedded_speaker_dim if self.capacitron_vae.capacitron_use_speaker_embedding else None
+                ),
+                text_summary_embedding_dim=(
+                    self.capacitron_vae.capacitron_text_summary_embedding_dim
+                    if self.capacitron_vae.capacitron_use_text_summary_embeddings
+                    else None
+                ),
             )
 
         # backward pass decoder
@@ -191,9 +188,11 @@ class Tacotron2(BaseTacotron):
             encoder_outputs, *capacitron_vae_outputs = self.compute_capacitron_VAE_embedding(
                 encoder_outputs,
                 reference_mel_info=[mel_specs, mel_lengths],
-                text_info=[embedded_inputs.transpose(1, 2), text_lengths]
-                if self.capacitron_vae.capacitron_use_text_summary_embeddings
-                else None,
+                text_info=(
+                    [embedded_inputs.transpose(1, 2), text_lengths]
+                    if self.capacitron_vae.capacitron_use_text_summary_embeddings
+                    else None
+                ),
                 speaker_embedding=embedded_speakers if self.capacitron_vae.capacitron_use_speaker_embedding else None,
             )
         else:
@@ -235,7 +234,7 @@ class Tacotron2(BaseTacotron):
         )
         return outputs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def inference(self, text, aux_input=None):
         """Forward pass for inference with no Teacher-Forcing.
 
@@ -265,13 +264,13 @@ class Tacotron2(BaseTacotron):
             # B x capacitron_VAE_embedding_dim
             encoder_outputs, *_ = self.compute_capacitron_VAE_embedding(
                 encoder_outputs,
-                reference_mel_info=[aux_input["style_mel"], reference_mel_length]
-                if aux_input["style_mel"] is not None
-                else None,
+                reference_mel_info=(
+                    [aux_input["style_mel"], reference_mel_length] if aux_input["style_mel"] is not None else None
+                ),
                 text_info=[style_text_embedding, style_text_length] if aux_input["style_text"] is not None else None,
-                speaker_embedding=aux_input["d_vectors"]
-                if self.capacitron_vae.capacitron_use_speaker_embedding
-                else None,
+                speaker_embedding=(
+                    aux_input["d_vectors"] if self.capacitron_vae.capacitron_use_speaker_embedding else None
+                ),
             )
 
         if self.num_speakers > 1:
@@ -306,7 +305,7 @@ class Tacotron2(BaseTacotron):
             loss_dict["capacitron_vae_beta_loss"].backward()
             optimizer.first_step()
 
-    def train_step(self, batch: Dict, criterion: torch.nn.Module):
+    def train_step(self, batch: dict, criterion: torch.nn.Module):
         """A single training step. Forward pass and loss computation.
 
         Args:
@@ -334,7 +333,7 @@ class Tacotron2(BaseTacotron):
             alignment_lengths = mel_lengths // self.decoder.r
 
         # compute loss
-        with autocast(enabled=False):  # use float32 for the criterion
+        with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
             loss_dict = criterion(
                 outputs["model_outputs"].float(),
                 outputs["decoder_outputs"].float(),
@@ -357,7 +356,7 @@ class Tacotron2(BaseTacotron):
         loss_dict["align_error"] = align_error
         return outputs, loss_dict
 
-    def get_optimizer(self) -> List:
+    def get_optimizer(self) -> list:
         if self.use_capacitron_vae:
             return CapacitronOptimizer(self.config, self.named_parameters())
         return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
@@ -376,7 +375,7 @@ class Tacotron2(BaseTacotron):
                         model_params_to_clip.append(param)
             torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)
 
-    def _create_logs(self, batch, outputs, ap):
+    def _create_logs(self, batch, outputs):
         """Create dashboard log information."""
         postnet_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
@@ -388,8 +387,8 @@ class Tacotron2(BaseTacotron):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "prediction": plot_spectrogram(pred_spec, ap, output_fig=False),
-            "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+            "prediction": plot_spectrogram(pred_spec, self.ap, output_fig=False),
+            "ground_truth": plot_spectrogram(gt_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
@@ -397,27 +396,11 @@ class Tacotron2(BaseTacotron):
             figures["alignment_backward"] = plot_alignment(alignments_backward[0].data.cpu().numpy(), output_fig=False)
 
         # Sample audio
-        audio = ap.inv_melspectrogram(pred_spec.T)
+        audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": audio}
 
-    def train_log(
-        self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int
-    ) -> None:  # pylint: disable=no-self-use
-        """Log training progress."""
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
     @staticmethod
-    def init_from_config(config: "Tacotron2Config", samples: Union[List[List], List[Dict]] = None):
+    def init_from_config(config: "Tacotron2Config", samples: list[list] | list[dict] = None):
         """Initiate model from config
 
         Args:

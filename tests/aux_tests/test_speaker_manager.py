@@ -30,7 +30,7 @@ class SpeakerManagerTest(unittest.TestCase):
 
         # create a dummy speaker encoder
         model = setup_encoder_model(config)
-        save_checkpoint(config, model, None, None, 0, 0, get_tests_input_path())
+        save_checkpoint(config, model, get_tests_input_path(), current_step=0, epoch=0)
 
         # load audio processor and speaker encoder
         ap = AudioProcessor(**config.audio)

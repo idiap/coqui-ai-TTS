@@ -1,6 +1,4 @@
-import os
-from glob import glob
-from typing import Dict, List
+import logging
 
 import librosa
 import numpy as np
@@ -8,7 +6,9 @@ import torch
 import torchaudio
 from scipy.io.wavfile import read
 
-from TTS.utils.audio.torch_transforms import TorchSTFT
+from TTS.utils.audio.torch_transforms import TorchSTFT, amp_to_db
+
+logger = logging.getLogger(__name__)
 
 
 def load_wav_to_torch(full_path):
@@ -28,7 +28,7 @@ def check_audio(audio, audiopath: str):
     # Check some assumptions about audio range. This should be automatically fixed in load_wav_to_torch, but might not be in some edge cases, where we should squawk.
     # '2' is arbitrarily chosen since it seems like audio will often "overdrive" the [-1,1] bounds.
     if torch.any(audio > 2) or not torch.any(audio < 0):
-        print(f"Error with {audiopath}. Max={audio.max()} min={audio.min()}")
+        logger.error("Error with %s. Max=%.2f min=%.2f", audiopath, audio.max(), audio.min())
     audio.clip_(-1, 1)
 
 
@@ -84,80 +84,6 @@ def normalize_tacotron_mel(mel):
     return 2 * ((mel - TACOTRON_MEL_MIN) / (TACOTRON_MEL_MAX - TACOTRON_MEL_MIN)) - 1
 
 
-def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """
-    PARAMS
-    ------
-    C: compression factor
-    """
-    return torch.log(torch.clamp(x, min=clip_val) * C)
-
-
-def dynamic_range_decompression(x, C=1):
-    """
-    PARAMS
-    ------
-    C: compression factor used to compress
-    """
-    return torch.exp(x) / C
-
-
-def get_voices(extra_voice_dirs: List[str] = []):
-    dirs = extra_voice_dirs
-    voices: Dict[str, List[str]] = {}
-    for d in dirs:
-        subs = os.listdir(d)
-        for sub in subs:
-            subj = os.path.join(d, sub)
-            if os.path.isdir(subj):
-                voices[sub] = list(glob(f"{subj}/*.wav")) + list(glob(f"{subj}/*.mp3")) + list(glob(f"{subj}/*.pth"))
-    return voices
-
-
-def load_voice(voice: str, extra_voice_dirs: List[str] = []):
-    if voice == "random":
-        return None, None
-
-    voices = get_voices(extra_voice_dirs)
-    paths = voices[voice]
-    if len(paths) == 1 and paths[0].endswith(".pth"):
-        return None, torch.load(paths[0])
-    else:
-        conds = []
-        for cond_path in paths:
-            c = load_required_audio(cond_path)
-            conds.append(c)
-        return conds, None
-
-
-def load_voices(voices: List[str], extra_voice_dirs: List[str] = []):
-    latents = []
-    clips = []
-    for voice in voices:
-        if voice == "random":
-            if len(voices) > 1:
-                print("Cannot combine a random voice with a non-random voice. Just using a random voice.")
-            return None, None
-        clip, latent = load_voice(voice, extra_voice_dirs)
-        if latent is None:
-            assert (
-                len(latents) == 0
-            ), "Can only combine raw audio voices or latent voices, not both. Do it yourself if you want this."
-            clips.extend(clip)
-        elif clip is None:
-            assert (
-                len(clips) == 0
-            ), "Can only combine raw audio voices or latent voices, not both. Do it yourself if you want this."
-            latents.append(latent)
-    if len(latents) == 0:
-        return clips, None
-    else:
-        latents_0 = torch.stack([l[0] for l in latents], dim=0).mean(dim=0)
-        latents_1 = torch.stack([l[1] for l in latents], dim=0).mean(dim=0)
-        latents = (latents_0, latents_1)
-        return None, latents
-
-
 def wav_to_univnet_mel(wav, do_normalization=False, device="cuda"):
     stft = TorchSTFT(
         n_fft=1024,
@@ -171,7 +97,7 @@ def wav_to_univnet_mel(wav, do_normalization=False, device="cuda"):
     )
     stft = stft.to(device)
     mel = stft(wav)
-    mel = dynamic_range_compression(mel)
+    mel = amp_to_db(mel)
     if do_normalization:
         mel = normalize_tacotron_mel(mel)
     return mel

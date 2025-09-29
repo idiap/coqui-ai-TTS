@@ -16,14 +16,14 @@ class SynthesizerTest(unittest.TestCase):
         config = load_config(os.path.join(get_tests_input_path(), "dummy_model_config.json"))
         model = setup_model(config)
         output_path = os.path.join(get_tests_input_path())
-        save_checkpoint(config, model, None, None, 10, 1, output_path)
+        save_checkpoint(config, model, output_path, current_step=10, epoch=1)
 
     def test_in_out(self):
         self._create_random_model()
         tts_root_path = get_tests_input_path()
         tts_checkpoint = os.path.join(tts_root_path, "checkpoint_10.pth")
         tts_config = os.path.join(tts_root_path, "dummy_model_config.json")
-        synthesizer = Synthesizer(tts_checkpoint, tts_config, None, None)
+        synthesizer = Synthesizer(tts_checkpoint=tts_checkpoint, tts_config_path=tts_config)
         synthesizer.tts("Better this test works!!")
 
     def test_split_into_sentences(self):

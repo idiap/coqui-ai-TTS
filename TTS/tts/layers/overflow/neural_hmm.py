@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 import torch.distributions as tdist
 import torch.nn.functional as F
@@ -57,7 +55,7 @@ class NeuralHMM(nn.Module):
         prenet_dropout: float,
         prenet_dropout_at_inference: bool,
         memory_rnn_dim: int,
-        outputnet_size: List[int],
+        outputnet_size: list[int],
         flat_start_params: dict,
         std_floor: float,
         use_grad_checkpointing: bool = True,
@@ -128,7 +126,8 @@ class NeuralHMM(nn.Module):
             # Get mean, std and transition vector from decoder for this timestep
             # Note: Gradient checkpointing currently doesn't works with multiple gpus inside a loop
             if self.use_grad_checkpointing and self.training:
-                mean, std, transition_vector = checkpoint(self.output_net, h_memory, inputs)
+                # TODO: use_reentrant=False is recommended
+                mean, std, transition_vector = checkpoint(self.output_net, h_memory, inputs, use_reentrant=True)
             else:
                 mean, std, transition_vector = self.output_net(h_memory, inputs)
 

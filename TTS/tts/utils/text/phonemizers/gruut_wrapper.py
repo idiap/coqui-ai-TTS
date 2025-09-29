@@ -1,5 +1,4 @@
 import importlib
-from typing import List
 
 import gruut
 from gruut_ipa import IPA
@@ -114,7 +113,7 @@ class Gruut(BasePhonemizer):
         return gruut.is_language_supported(language)
 
     @staticmethod
-    def supported_languages() -> List:
+    def supported_languages() -> list:
         """Get a dictionary of supported languages.
 
         Returns:

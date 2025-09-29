@@ -7,14 +7,17 @@ import tarfile
 import urllib
 import urllib.request
 import zipfile
+from collections.abc import Iterable
 from os.path import expanduser
-from typing import Any, Iterable, List, Optional
+from typing import Any
 
 from torch.utils.model_zoo import tqdm
 
+logger = logging.getLogger(__name__)
+
 
 def stream_url(
-    url: str, start_byte: Optional[int] = None, block_size: int = 32 * 1024, progress_bar: bool = True
+    url: str, start_byte: int | None = None, block_size: int = 32 * 1024, progress_bar: bool = True
 ) -> Iterable:
     """Stream url by chunk
 
@@ -34,15 +37,18 @@ def stream_url(
 
     req = urllib.request.Request(url)
     if start_byte:
-        req.headers["Range"] = "bytes={}-".format(start_byte)
+        req.headers["Range"] = f"bytes={start_byte}-"
 
-    with urllib.request.urlopen(req) as upointer, tqdm(
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        total=url_size,
-        disable=not progress_bar,
-    ) as pbar:
+    with (
+        urllib.request.urlopen(req) as upointer,
+        tqdm(
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            total=url_size,
+            disable=not progress_bar,
+        ) as pbar,
+    ):
         num_bytes = 0
         while True:
             chunk = upointer.read(block_size)
@@ -56,8 +62,8 @@ def stream_url(
 def download_url(
     url: str,
     download_folder: str,
-    filename: Optional[str] = None,
-    hash_value: Optional[str] = None,
+    filename: str | None = None,
+    hash_value: str | None = None,
     hash_type: str = "sha256",
     progress_bar: bool = True,
     resume: bool = False,
@@ -83,10 +89,10 @@ def download_url(
     filepath = os.path.join(download_folder, filename)
     if resume and os.path.exists(filepath):
         mode = "ab"
-        local_size: Optional[int] = os.path.getsize(filepath)
+        local_size: int | None = os.path.getsize(filepath)
 
     elif not resume and os.path.exists(filepath):
-        raise RuntimeError("{} already exists. Delete the file manually and retry.".format(filepath))
+        raise RuntimeError(f"{filepath} already exists. Delete the file manually and retry.")
     else:
         mode = "wb"
         local_size = None
@@ -95,7 +101,7 @@ def download_url(
         with open(filepath, "rb") as file_obj:
             if validate_file(file_obj, hash_value, hash_type):
                 return
-        raise RuntimeError("The hash of {} does not match. Delete the file manually and retry.".format(filepath))
+        raise RuntimeError(f"The hash of {filepath} does not match. Delete the file manually and retry.")
 
     with open(filepath, mode) as fpointer:
         for chunk in stream_url(url, start_byte=local_size, progress_bar=progress_bar):
@@ -103,7 +109,7 @@ def download_url(
 
     with open(filepath, "rb") as file_obj:
         if hash_value and not validate_file(file_obj, hash_value, hash_type):
-            raise RuntimeError("The hash of {} does not match. Delete the file manually and retry.".format(filepath))
+            raise RuntimeError(f"The hash of {filepath} does not match. Delete the file manually and retry.")
 
 
 def validate_file(file_obj: Any, hash_value: str, hash_type: str = "sha256") -> bool:
@@ -135,7 +141,7 @@ def validate_file(file_obj: Any, hash_value: str, hash_type: str = "sha256") -> 
     return hash_func.hexdigest() == hash_value
 
 
-def extract_archive(from_path: str, to_path: Optional[str] = None, overwrite: bool = False) -> List[str]:
+def extract_archive(from_path: str, to_path: str | None = None, overwrite: bool = False) -> list[str]:
     """Extract archive.
     Args:
         from_path (str): the path of the archive.
@@ -146,20 +152,20 @@ def extract_archive(from_path: str, to_path: Optional[str] = None, overwrite: bo
     Returns:
         list: List of paths to extracted files even if not overwritten.
     """
-
+    logger.info("Extracting archive file...")
     if to_path is None:
         to_path = os.path.dirname(from_path)
 
     try:
         with tarfile.open(from_path, "r") as tar:
-            logging.info("Opened tar file %s.", from_path)
+            logger.info("Opened tar file %s.", from_path)
             files = []
             for file_ in tar:  # type: Any
                 file_path = os.path.join(to_path, file_.name)
                 if file_.isfile():
                     files.append(file_path)
                     if os.path.exists(file_path):
-                        logging.info("%s already extracted.", file_path)
+                        logger.info("%s already extracted.", file_path)
                         if not overwrite:
                             continue
                 tar.extract(file_, to_path)
@@ -169,12 +175,12 @@ def extract_archive(from_path: str, to_path: Optional[str] = None, overwrite: bo
 
     try:
         with zipfile.ZipFile(from_path, "r") as zfile:
-            logging.info("Opened zip file %s.", from_path)
+            logger.info("Opened zip file %s.", from_path)
             files = zfile.namelist()
             for file_ in files:
                 file_path = os.path.join(to_path, file_)
                 if os.path.exists(file_path):
-                    logging.info("%s already extracted.", file_path)
+                    logger.info("%s already extracted.", file_path)
                     if not overwrite:
                         continue
                 zfile.extract(file_, to_path)
@@ -198,9 +204,10 @@ def download_kaggle_dataset(dataset_path: str, dataset_name: str, output_path: s
         import kaggle  # pylint: disable=import-outside-toplevel
 
         kaggle.api.authenticate()
-        print(f"""\nDownloading {dataset_name}...""")
+        logger.info("Downloading %s...", dataset_name)
         kaggle.api.dataset_download_files(dataset_path, path=data_path, unzip=True)
     except OSError:
-        print(
-            f"""[!] in order to download kaggle datasets, you need to have a kaggle api token stored in your {os.path.join(expanduser('~'), '.kaggle/kaggle.json')}"""
+        logger.exception(
+            "In order to download kaggle datasets, you need to have a kaggle api token stored in your %s",
+            os.path.join(expanduser("~"), ".kaggle/kaggle.json"),
         )

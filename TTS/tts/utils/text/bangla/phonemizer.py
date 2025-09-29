@@ -1,8 +1,11 @@
 import re
 
-import bangla
-from bnnumerizer import numerize
-from bnunicodenormalizer import Normalizer
+try:
+    import bangla
+    from bnnumerizer import numerize
+    from bnunicodenormalizer import Normalizer
+except ImportError as e:
+    raise ImportError("Bangla requires: bangla, bnnumerizer, bnunicodenormalizer") from e
 
 # initialize
 bnorm = Normalizer()
@@ -42,7 +45,7 @@ def tag_text(text: str):
     # create start and end
     text = "start" + text + "end"
     # tag text
-    parts = re.split("[\u0600-\u06FF]+", text)
+    parts = re.split("[\u0600-\u06ff]+", text)
     # remove non chars
     parts = [p for p in parts if p.strip()]
     # unique parts

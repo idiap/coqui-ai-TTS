@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from TTS.tts.layers.tacotron.common_layers import calculate_post_conv_height
+
 
 class GST(nn.Module):
     """Global Style Token Module for factorizing prosody in speech.
@@ -44,7 +46,7 @@ class ReferenceEncoder(nn.Module):
         self.convs = nn.ModuleList(convs)
         self.bns = nn.ModuleList([nn.BatchNorm2d(num_features=filter_size) for filter_size in filters[1:]])
 
-        post_conv_height = self.calculate_post_conv_height(num_mel, 3, 2, 1, num_layers)
+        post_conv_height = calculate_post_conv_height(num_mel, 3, 2, 1, num_layers)
         self.recurrence = nn.GRU(
             input_size=filters[-1] * post_conv_height, hidden_size=embedding_dim // 2, batch_first=True
         )
@@ -70,13 +72,6 @@ class ReferenceEncoder(nn.Module):
         # out: 3D tensor [seq_len==1, batch_size, encoding_size=128]
 
         return out.squeeze(0)
-
-    @staticmethod
-    def calculate_post_conv_height(height, kernel_size, stride, pad, n_convs):
-        """Height of spec after n convolutions with fixed kernel/stride/pad."""
-        for _ in range(n_convs):
-            height = (height - kernel_size + 2 * pad) // stride + 1
-        return height
 
 
 class StyleTokenLayer(nn.Module):
@@ -117,7 +112,7 @@ class MultiHeadAttention(nn.Module):
         out --- [N, T_q, num_units]
     """
 
-    def __init__(self, query_dim, key_dim, num_units, num_heads):
+    def __init__(self, query_dim: int, key_dim: int, num_units: int, num_heads: int):
         super().__init__()
         self.num_units = num_units
         self.num_heads = num_heads
@@ -127,7 +122,7 @@ class MultiHeadAttention(nn.Module):
         self.W_key = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
         self.W_value = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
 
-    def forward(self, query, key):
+    def forward(self, query: torch.Tensor, key: torch.Tensor) -> torch.Tensor:
         queries = self.W_query(query)  # [N, T_q, num_units]
         keys = self.W_key(key)  # [N, T_k, num_units]
         values = self.W_value(key)
@@ -137,13 +132,11 @@ class MultiHeadAttention(nn.Module):
         keys = torch.stack(torch.split(keys, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
         values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
 
-        # score = softmax(QK^T / (d_k**0.5))
+        # score = softmax(QK^T / (d_k ** 0.5))
         scores = torch.matmul(queries, keys.transpose(2, 3))  # [h, N, T_q, T_k]
         scores = scores / (self.key_dim**0.5)
         scores = F.softmax(scores, dim=3)
 
         # out = score * V
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
-        out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
-
-        return out
+        return torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]

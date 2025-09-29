@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
-from TTS.tts.utils.text.cleaners import english_cleaners, phoneme_cleaners
+from TTS.tts.utils.text.cleaners import (
+    english_cleaners,
+    multilingual_phoneme_cleaners,
+    normalize_unicode,
+    phoneme_cleaners,
+)
 
 
 def test_time() -> None:
@@ -19,3 +24,32 @@ def test_currency() -> None:
 def test_expand_numbers() -> None:
     assert phoneme_cleaners("-1") == "minus one"
     assert phoneme_cleaners("1") == "one"
+    assert phoneme_cleaners("1" + "0" * 35) == "one hundred decillion"
+    assert phoneme_cleaners("1" + "0" * 36) == "one" + " zero" * 36
+
+
+def test_multilingual_phoneme_cleaners() -> None:
+    assert multilingual_phoneme_cleaners("(Hello)") == "Hello"
+    assert multilingual_phoneme_cleaners("1:") == "1,"
+
+
+def test_normalize_unicode() -> None:
+    test_cases = [
+        ("Häagen-Dazs", "Häagen-Dazs"),
+        ("你好!", "你好!"),
+        ("𝔄𝔅ℭ⓵⓶⓷︷,︸,i⁹,i₉,㌀,¼", "𝔄𝔅ℭ⓵⓶⓷︷,︸,i⁹,i₉,㌀,¼"),
+        ("é", "é"),
+        ("e\u0301", "é"),
+        ("a\u0300", "à"),
+        ("a\u0327", "a̧"),
+        ("na\u0303", "nã"),
+        ("o\u0302u", "ôu"),
+        ("n\u0303", "ñ"),
+        ("\u4e2d\u56fd", "中国"),
+        ("niño", "niño"),
+        ("a\u0308", "ä"),
+        ("\u3053\u3093\u306b\u3061\u306f", "こんにちは"),
+        ("\u03b1\u03b2", "αβ"),
+    ]
+    for arg, expect in test_cases:
+        assert normalize_unicode(arg) == expect

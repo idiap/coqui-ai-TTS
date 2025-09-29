@@ -1,12 +1,14 @@
 import math
 from collections import namedtuple
 from functools import partial
-from inspect import isfunction
 
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
 from torch import einsum, nn
+
+from TTS.tts.layers.tortoise.transformer import cast_tuple, max_neg_value
+from TTS.utils.generic_utils import default, exists
 
 DEFAULT_DIM_HEAD = 64
 
@@ -23,20 +25,6 @@ LayerIntermediates = namedtuple(
 
 
 # helpers
-
-
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    if exists(val):
-        return val
-    return d() if isfunction(d) else d
-
-
-def cast_tuple(val, depth):
-    return val if isinstance(val, tuple) else (val,) * depth
 
 
 class always:
@@ -63,10 +51,6 @@ class equals:
         return x == self.val
 
 
-def max_neg_value(tensor):
-    return -torch.finfo(tensor.dtype).max
-
-
 def l2norm(t):
     return F.normalize(t, p=2, dim=-1)
 
@@ -84,7 +68,7 @@ def init_zero_(layer):
 
 
 def pick_and_pop(keys, d):
-    values = list(map(lambda key: d.pop(key), keys))
+    values = [d.pop(key) for key in keys]
     return dict(zip(keys, values))
 
 
@@ -107,7 +91,7 @@ def group_by_key_prefix(prefix, d):
 
 def groupby_prefix_and_trim(prefix, d):
     kwargs_with_prefix, kwargs = group_dict_by_key(partial(string_begins_with, prefix), d)
-    kwargs_without_prefix = dict(map(lambda x: (x[0][len(prefix) :], x[1]), tuple(kwargs_with_prefix.items())))
+    kwargs_without_prefix = {x[0][len(prefix) :]: x[1] for x in tuple(kwargs_with_prefix.items())}
     return kwargs_without_prefix, kwargs
 
 
@@ -428,7 +412,7 @@ class ShiftTokens(nn.Module):
         feats_per_shift = x.shape[-1] // segments
         splitted = x.split(feats_per_shift, dim=-1)
         segments_to_shift, rest = splitted[:segments], splitted[segments:]
-        segments_to_shift = list(map(lambda args: shift(*args, mask=mask), zip(segments_to_shift, shifts)))
+        segments_to_shift = [shift(*args, mask=mask) for args in zip(segments_to_shift, shifts)]
         x = torch.cat((*segments_to_shift, *rest), dim=-1)
         return self.fn(x, **kwargs)
 
@@ -576,9 +560,9 @@ class Attention(nn.Module):
 
         self.rel_pos_bias = rel_pos_bias
         if rel_pos_bias:
-            assert (
-                rel_pos_num_buckets <= rel_pos_max_distance
-            ), "number of relative position buckets must be less than the relative position max distance"
+            assert rel_pos_num_buckets <= rel_pos_max_distance, (
+                "number of relative position buckets must be less than the relative position max distance"
+            )
             self.rel_pos = RelativePositionBias(
                 scale=dim_head**0.5,
                 causal=causal,
@@ -635,7 +619,7 @@ class Attention(nn.Module):
         v = self.to_v(v_input)
 
         if not collab_heads:
-            q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
+            q, k, v = (rearrange(t, "b n (h d) -> b h n d", h=h) for t in (q, k, v))
         else:
             q = einsum("b i d, h d -> b h i d", q, self.collab_mixing)
             k = rearrange(k, "b n d -> b () n d")
@@ -650,9 +634,9 @@ class Attention(nn.Module):
 
         if exists(rotary_pos_emb) and not has_context:
             l = rotary_pos_emb.shape[-1]
-            (ql, qr), (kl, kr), (vl, vr) = map(lambda t: (t[..., :l], t[..., l:]), (q, k, v))
-            ql, kl, vl = map(lambda t: apply_rotary_pos_emb(t, rotary_pos_emb), (ql, kl, vl))
-            q, k, v = map(lambda t: torch.cat(t, dim=-1), ((ql, qr), (kl, kr), (vl, vr)))
+            (ql, qr), (kl, kr), (vl, vr) = ((t[..., :l], t[..., l:]) for t in (q, k, v))
+            ql, kl, vl = (apply_rotary_pos_emb(t, rotary_pos_emb) for t in (ql, kl, vl))
+            q, k, v = (torch.cat(t, dim=-1) for t in ((ql, qr), (kl, kr), (vl, vr)))
 
         input_mask = None
         if any(map(exists, (mask, context_mask))):
@@ -664,7 +648,7 @@ class Attention(nn.Module):
             input_mask = q_mask * k_mask
 
         if self.num_mem_kv > 0:
-            mem_k, mem_v = map(lambda t: repeat(t, "h n d -> b h n d", b=b), (self.mem_k, self.mem_v))
+            mem_k, mem_v = (repeat(t, "h n d -> b h n d", b=b) for t in (self.mem_k, self.mem_v))
             k = torch.cat((mem_k, k), dim=-2)
             v = torch.cat((mem_v, v), dim=-2)
             if exists(input_mask):
@@ -696,9 +680,9 @@ class Attention(nn.Module):
             del input_mask
 
         if exists(attn_mask):
-            assert (
-                2 <= attn_mask.ndim <= 4
-            ), "attention mask must have greater than 2 dimensions but less than or equal to 4"
+            assert 2 <= attn_mask.ndim <= 4, (
+                "attention mask must have greater than 2 dimensions but less than or equal to 4"
+            )
             if attn_mask.ndim == 2:
                 attn_mask = rearrange(attn_mask, "i j -> () () i j")
             elif attn_mask.ndim == 3:
@@ -806,9 +790,9 @@ class AttentionLayers(nn.Module):
         rotary_emb_dim = max(default(rotary_emb_dim, dim_head // 2), 32)
         self.rotary_pos_emb = RotaryEmbedding(rotary_emb_dim) if rotary_pos_emb else None
 
-        assert not (
-            alibi_pos_bias and rel_pos_bias
-        ), "you can only choose Alibi positional bias or T5 relative positional bias, not both"
+        assert not (alibi_pos_bias and rel_pos_bias), (
+            "you can only choose Alibi positional bias or T5 relative positional bias, not both"
+        )
 
         if alibi_pos_bias:
             alibi_num_heads = default(alibi_num_heads, heads)
@@ -938,9 +922,9 @@ class AttentionLayers(nn.Module):
         past_key_values=None,
         expected_seq_len=None,
     ):
-        assert not (
-            self.cross_attend ^ (exists(context) or exists(full_context))
-        ), "context must be passed in if cross_attend is set to True"
+        assert not (self.cross_attend ^ (exists(context) or exists(full_context))), (
+            "context must be passed in if cross_attend is set to True"
+        )
         assert context is None or full_context is None, "only one of full_context or context can be provided"
 
         hiddens = []
@@ -956,17 +940,15 @@ class AttentionLayers(nn.Module):
         rotary_pos_emb = None
         if exists(self.rotary_pos_emb):
             if not self.training and self.causal:
-                assert (
-                    expected_seq_len is not None
-                ), "To decode a transformer with rotary embeddings, you must specify an `expected_seq_len`"
+                assert expected_seq_len is not None, (
+                    "To decode a transformer with rotary embeddings, you must specify an `expected_seq_len`"
+                )
             elif expected_seq_len is None:
                 expected_seq_len = 0
             seq_len = x.shape[1]
             if past_key_values is not None:
                 seq_len += past_key_values[0][0].shape[-2]
-            max_rotary_emb_length = max(
-                list(map(lambda m: (m.shape[1] if exists(m) else 0) + seq_len, mems)) + [expected_seq_len]
-            )
+            max_rotary_emb_length = max([(m.shape[1] if exists(m) else 0) + seq_len for m in mems] + [expected_seq_len])
             rotary_pos_emb = self.rotary_pos_emb(max_rotary_emb_length, x.device)
 
         present_key_values = []
@@ -1200,7 +1182,7 @@ class TransformerWrapper(nn.Module):
 
         res = [out]
         if return_attn:
-            attn_maps = list(map(lambda t: t.post_softmax_attn, intermediates.attn_intermediates))
+            attn_maps = [t.post_softmax_attn for t in intermediates.attn_intermediates]
             res.append(attn_maps)
         if use_cache:
             res.append(intermediates.past_key_values)
@@ -1249,7 +1231,7 @@ class ContinuousTransformerWrapper(nn.Module):
 
         res = [out]
         if return_attn:
-            attn_maps = list(map(lambda t: t.post_softmax_attn, intermediates.attn_intermediates))
+            attn_maps = [t.post_softmax_attn for t in intermediates.attn_intermediates]
             res.append(attn_maps)
         if use_cache:
             res.append(intermediates.past_key_values)

@@ -1,5 +1,9 @@
+import logging
+
 import torch
 import torchaudio
+
+logger = logging.getLogger(__name__)
 
 
 def read_audio(path):
@@ -54,8 +58,8 @@ def remove_silence(
     # read ground truth wav and resample the audio for the VAD
     try:
         wav, gt_sample_rate = read_audio(audio_path)
-    except:
-        print(f"> ❗ Failed to read {audio_path}")
+    except Exception:
+        logger.exception("Failed to read %s", audio_path)
         return None, False
 
     # if needed, resample the audio for the VAD model
@@ -80,7 +84,7 @@ def remove_silence(
         wav = collect_chunks(new_speech_timestamps, wav)
         is_speech = True
     else:
-        print(f"> The file {audio_path} probably does not have speech please check it !!")
+        logger.warning("The file %s probably does not have speech please check it!", audio_path)
         is_speech = False
 
     # save

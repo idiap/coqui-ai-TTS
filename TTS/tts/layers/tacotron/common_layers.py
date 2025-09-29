@@ -3,6 +3,13 @@ from torch import nn
 from torch.nn import functional as F
 
 
+def calculate_post_conv_height(height: int, kernel_size: int, stride: int, pad: int, n_convs: int) -> int:
+    """Height of spec after n convolutions with fixed kernel/stride/pad."""
+    for _ in range(n_convs):
+        height = (height - kernel_size + 2 * pad) // stride + 1
+    return height
+
+
 class Linear(nn.Module):
     """Linear layer with a specific initialization.
 

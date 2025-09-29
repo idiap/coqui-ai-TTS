@@ -1,5 +1,7 @@
 .git/
+.venv/
 Dockerfile
+dockerfiles/
 build/
 dist/
 TTS.egg-info/

@@ -1,7 +1,9 @@
 import abc
-from typing import List, Tuple
+import logging
 
 from TTS.tts.utils.text.punctuation import Punctuation
+
+logger = logging.getLogger(__name__)
 
 
 class BasePhonemizer(abc.ABC):
@@ -34,7 +36,7 @@ class BasePhonemizer(abc.ABC):
     def __init__(self, language, punctuations=Punctuation.default_puncs(), keep_puncs=False):
         # ensure the backend is installed on the system
         if not self.is_available():
-            raise RuntimeError("{} not installed on your system".format(self.name()))  # pragma: nocover
+            raise RuntimeError(f"{self.name()} not installed on your system")  # pragma: nocover
 
         # ensure the backend support the requested language
         self._language = self._init_language(language)
@@ -50,7 +52,7 @@ class BasePhonemizer(abc.ABC):
 
         """
         if not self.is_supported_language(language):
-            raise RuntimeError(f'language "{language}" is not supported by the ' f"{self.name()} backend")
+            raise RuntimeError(f'language "{language}" is not supported by the {self.name()} backend')
         return language
 
     @property
@@ -90,7 +92,7 @@ class BasePhonemizer(abc.ABC):
     def _phonemize(self, text, separator):
         """The main phonemization method"""
 
-    def _phonemize_preprocess(self, text) -> Tuple[List[str], List]:
+    def _phonemize_preprocess(self, text) -> tuple[list[str], list]:
         """Preprocess the text before phonemization
 
         1. remove spaces
@@ -136,5 +138,5 @@ class BasePhonemizer(abc.ABC):
 
     def print_logs(self, level: int = 0):
         indent = "\t" * level
-        print(f"{indent}| > phoneme language: {self.language}")
-        print(f"{indent}| > phoneme backend: {self.name()}")
+        logger.info("%s| phoneme language: %s", indent, self.language)
+        logger.info("%s| phoneme backend: %s", indent, self.name())

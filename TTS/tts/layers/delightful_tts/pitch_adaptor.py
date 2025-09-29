@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
@@ -58,7 +58,7 @@ class PitchAdaptor(nn.Module):  # pylint: disable=abstract-method
 
     def get_pitch_embedding_train(
         self, x: torch.Tensor, target: torch.Tensor, dr: torch.IntTensor, mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Shapes:
             x: :math: `[B, T_src, C]`

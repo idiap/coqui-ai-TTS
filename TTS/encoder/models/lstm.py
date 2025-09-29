@@ -86,7 +86,7 @@ class LSTMSpeakerEncoder(BaseEncoder):
             - x: :math:`(N, 1, T_{in})` or :math:`(N, D_{spec}, T_{in})`
         """
         with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=False):
+            with torch.autocast("cuda", enabled=False):
                 if self.use_torch_spec:
                     x.squeeze_(1)
                     x = self.torch_spec(x)

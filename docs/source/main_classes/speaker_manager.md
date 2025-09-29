@@ -1,7 +1,7 @@
 # Speaker Manager API
 
-The {class}`TTS.tts.utils.speakers.SpeakerManager` organize speaker related data and information for 🐸TTS models. It is
-especially useful for multi-speaker models.
+The {py:class}`TTS.tts.utils.speakers.SpeakerManager` organize speaker related data and information for 🐸TTS models. It is
+especially needed for multi-speaker models.
 
 
 ## Speaker Manager

@@ -1,5 +1,3 @@
-from typing import Dict, Union
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -221,14 +219,14 @@ class GeneratorLoss(nn.Module):
     changing configurations.
 
     Args:
-        C (AttrDict): model configuration.
+        C (Coqpit): model configuration.
     """
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_stft_loss = C.use_stft_loss if "use_stft_loss" in C else False
         self.use_subband_stft_loss = C.use_subband_stft_loss if "use_subband_stft_loss" in C else False
@@ -298,7 +296,7 @@ class GeneratorLoss(nn.Module):
             adv_loss = adv_loss + self.hinge_gan_loss_weight * hinge_fake_loss
 
         # Feature Matching Loss
-        if self.use_feat_match_loss and not feats_fake is None:
+        if self.use_feat_match_loss and feats_fake is not None:
             feat_match_loss = self.feat_match_loss(feats_fake, feats_real)
             return_dict["G_feat_match_loss"] = feat_match_loss
             adv_loss = adv_loss + self.feat_match_loss_weight * feat_match_loss
@@ -313,9 +311,9 @@ class DiscriminatorLoss(nn.Module):
 
     def __init__(self, C):
         super().__init__()
-        assert not (
-            C.use_mse_gan_loss and C.use_hinge_gan_loss
-        ), " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        assert not (C.use_mse_gan_loss and C.use_hinge_gan_loss), (
+            " [!] Cannot use HingeGANLoss and MSEGANLoss together."
+        )
 
         self.use_mse_gan_loss = C.use_mse_gan_loss
         self.use_hinge_gan_loss = C.use_hinge_gan_loss
@@ -352,7 +350,7 @@ class DiscriminatorLoss(nn.Module):
 
 
 class WaveRNNLoss(nn.Module):
-    def __init__(self, wave_rnn_mode: Union[str, int]):
+    def __init__(self, wave_rnn_mode: str | int):
         super().__init__()
         if wave_rnn_mode == "mold":
             self.loss_func = discretized_mix_logistic_loss
@@ -363,6 +361,6 @@ class WaveRNNLoss(nn.Module):
         else:
             raise ValueError(" [!] Unknown mode for Wavernn.")
 
-    def forward(self, y_hat, y) -> Dict:
+    def forward(self, y_hat, y) -> dict:
         loss = self.loss_func(y_hat, y)
         return {"loss": loss}

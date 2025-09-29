@@ -68,6 +68,7 @@ class TortoiseConfig(BaseTTSConfig):
     """
 
     model: str = "tortoise"
+    _supports_cloning: bool = True
     # model specific params
     model_args: TortoiseArgs = field(default_factory=TortoiseArgs)
     audio: TortoiseAudioConfig = field(default_factory=TortoiseAudioConfig)

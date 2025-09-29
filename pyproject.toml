@@ -1,20 +1,238 @@
+#                   ,*++++++*,                ,*++++++*,
+#                *++.        .+++          *++.        .++*
+#              *+*     ,++++*   *+*      *+*   ,++++,     *+*
+#             ,+,   .++++++++++* ,++,,,,*+, ,++++++++++.   *+,
+#             *+.  .++++++++++++..++    *+.,++++++++++++.  .+*
+#             .+*   ++++++++++++.*+,    .+*.++++++++++++   *+,
+#              .++   *++++++++* ++,      .++.*++++++++*   ++,
+#               ,+++*.    . .*++,          ,++*.      .*+++*
+#              *+,   .,*++**.                  .**++**.   ,+*
+#             .+*                                          *+,
+#             *+.                   Coqui                  .+*
+#             *+*              +++   TTS  +++              *+*
+#             .+++*.            .          .             *+++.
+#              ,+* *+++*...                       ...*+++* *+,
+#               .++.    .""""+++++++****+++++++"""".     ++.
+#                 ,++.                                .++,
+#                   .++*                            *++.
+#                       *+++,                  ,+++*
+#                           .,*++++::::::++++*,.
+#                                  ``````
+
 [build-system]
-requires = [
-    "setuptools",
-    "wheel",
-    "cython~=0.29.30",
-    "numpy>=1.22.0",
-    "packaging",
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coqui-tts"
+version = "0.27.2"
+description = "Deep learning for Text to Speech."
+readme = "README.md"
+requires-python = ">=3.10, <3.14"
+license = {text = "MPL-2.0"}
+authors = [
+    {name = "Eren Gölge", email = "egolge@coqui.ai"}
+]
+maintainers = [
+    {name = "Enno Hermann", email = "enno.hermann@gmail.com"}
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # Core
+    "numpy>=1.26.0",
+    "cython>=3.0.0",
+    "scipy>=1.13.0",
+    "torch>=2.1,<2.9",
+    "torchaudio>=2.1.0,<2.9",
+    "soundfile>=0.12.0",
+    "librosa>=0.11.0",
+    "numba>=0.58.0",
+    "inflect>=5.6.0",
+    "tqdm>=4.64.1",
+    "anyascii>=0.3.0",
+    "pyyaml>=6.0",
+    "fsspec[http]>=2023.6.0",
+    "packaging>=23.1",
+    "typing_extensions>=4.10",
+    # Inference
+    "pysbd>=0.3.4",
+    # Training
+    "matplotlib>=3.8.4",
+    # Coqui stack
+    "coqui-tts-trainer>=0.3.0,<0.4.0",
+    "coqpit-config>=0.2.0,<0.3.0",
+    "monotonic-alignment-search>=0.1.0",
+    # Gruut + supported languages
+    "gruut[de,es,fr]>=2.4.0",
+    # Tortoise
+    "einops>=0.6.0",
+    "transformers>=4.52.1,<4.56",
+    # Bark
+    "encodec>=0.1.1",
+    # XTTS
+    "num2words>=0.5.14",
 ]
 
-[flake8]
-max-line-length=120
+[project.optional-dependencies]
+# Only used in notebooks
+notebooks = [
+    "bokeh>=3.0.3",
+    "pandas>=1.4,<3.0",
+    "umap-learn>=0.5.1",
+]
+# For running the TTS server
+server = ["flask>=3.0.0"]
+# Language-specific dependencies, mainly for G2P
+# Bangla
+bn = [
+    "bangla>=0.0.2",
+    "bnnumerizer>=0.0.2",
+    "bnunicodenormalizer>=0.1.0",
+]
+# Korean
+ko = [
+    "hangul_romanize>=0.1.0",
+    "jamo>=0.4.1",
+    "g2pkk>=0.1.1",
+    "pip>=22.2",
+]
+# Japanese
+ja = [
+    "cutlet>=0.2.0",
+    "fugashi[unidic-lite]>=1.3.0",
+]
+# Chinese
+zh = [
+    "spacy_pkuseg>=1.0.1",
+    "pypinyin>=0.40.0",
+]
+# All language-specific dependencies
+languages = [
+    "coqui-tts[bn,ja,ko,zh]",
+]
+# Installs all extras (except dev and docs)
+all = [
+    "coqui-tts[notebooks,server,bn,ja,ko,zh]",
+]
 
-[tool.black]
+[dependency-groups]
+dev = [
+    "coverage[toml]>=7",
+    "pre-commit>=4",
+    "pytest>=8",
+    "ruff==0.9.1",
+]
+# Dependencies for building the documentation
+docs = [
+    "furo>=2024.8.6",
+    "myst-parser==3.0.1",
+    "sphinx==7.4.7",
+    "sphinx_inline_tabs>=2023.4.21",
+    "sphinx_copybutton>=0.5.2",
+    "linkify-it-py>=2.0.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/idiap/coqui-ai-TTS"
+Documentation = "https://coqui-tts.readthedocs.io"
+Repository = "https://github.com/idiap/coqui-ai-TTS"
+Issues = "https://github.com/idiap/coqui-ai-TTS/issues"
+Discussions = "https://github.com/idiap/coqui-ai-TTS/discussions"
+
+[project.scripts]
+tts = "TTS.bin.synthesize:main"
+tts-server = "TTS.server.server:main"
+
+[tool.hatch.build]
+exclude = [
+    "/.github",
+    "/.gitignore",
+    "/.pre-commit-config.yaml",
+    "/.readthedocs.yml",
+    "/Makefile",
+    "/dockerfiles",
+    "/scripts",
+    "/tests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["TTS"]
+
+[tool.ruff]
 line-length = 120
-target-version = ['py39']
+extend-exclude = ["*.ipynb"]
+lint.extend-select = [
+    "B033", # duplicate-value
+    "C416", # unnecessary-comprehension
+    "D419", # empty-docstring
+    "F401", # unused-import
+    "F704", # yield-outside-function
+    "F706", # return-outside-function
+    "F841", # unused-variable
+    "G004", # no f-string in logging
+    "I", # import sorting
+    "PIE",
+    "PLC",
+    "PLE",
+    "PLR0124", # comparison-with-itself
+    "PLR0206", # property-with-parameters
+    "PLR0911", # too-many-return-statements
+    "PLR1711", # useless-return
+    "PLW",
+    "UP", # pyupgrade
+    "W291", # trailing-whitespace
+    "NPY201",  # NumPy 2.0 deprecation
+]
 
-[tool.isort]
-line_length = 120
-profile = "black"
-multi_line_output = 3
+lint.ignore = [
+    "E722", # bare except (TODO: fix these)
+    "E731", # don't use lambdas
+    "E741", # ambiguous variable name
+    "F821", # TODO: enable
+    "F841", # TODO: enable
+    "PLW0602", # TODO: enable
+    "PLW2901", # TODO: enable
+    "PLW0127", # TODO: enable
+    "PLW0603", # TODO: enable
+    "UP038",  # deprecated rule
+]
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-public-methods = 20
+max-returns = 7
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = [
+    "F401", # init files may have "unused" imports for now
+    "F403", # init files may have star imports for now
+]
+"hubconf.py" = [
+    "E402", # module level import not at top of file
+]
+
+[tool.coverage.report]
+skip_covered = true
+skip_empty = true
+
+[tool.coverage.run]
+parallel = true
+source = ["TTS"]

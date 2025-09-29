@@ -5,7 +5,6 @@ from abc import abstractmethod
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import autocast
 
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, normalization
 
@@ -131,7 +130,7 @@ class DiffusionLayer(TimestepBlock):
             dims=1,
             use_scale_shift_norm=True,
         )
-        self.attn = AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True)
+        self.attn = AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True)
 
     def forward(self, x, time_emb):
         y = self.resblk(x, time_emb)
@@ -178,17 +177,17 @@ class DiffusionTts(nn.Module):
         # transformer network.
         self.code_embedding = nn.Embedding(in_tokens, model_channels)
         self.code_converter = nn.Sequential(
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
         )
         self.code_norm = normalization(model_channels)
         self.latent_conditioner = nn.Sequential(
             nn.Conv1d(in_latent_channels, model_channels, 3, padding=1),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
-            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
+            AttentionBlock(model_channels, num_heads, relative_pos_embeddings=True, tortoise_norm=True),
         )
         self.contextual_embedder = nn.Sequential(
             nn.Conv1d(in_channels, model_channels, 3, padding=1, stride=2),
@@ -197,31 +196,31 @@ class DiffusionTts(nn.Module):
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
+                tortoise_norm=True,
             ),
             AttentionBlock(
                 model_channels * 2,
                 num_heads,
                 relative_pos_embeddings=True,
-                do_checkpoint=False,
+                tortoise_norm=True,
             ),
         )
         self.unconditioned_embedding = nn.Parameter(torch.randn(1, model_channels, 1))
@@ -385,7 +384,7 @@ class DiffusionTts(nn.Module):
                 unused_params.extend(list(lyr.parameters()))
             else:
                 # First and last blocks will have autocast disabled for improved precision.
-                with autocast(x.device.type, enabled=self.enable_fp16 and i != 0):
+                with torch.autocast(x.device.type, enabled=self.enable_fp16 and i != 0):
                     x = lyr(x, time_emb)
 
         x = x.float()

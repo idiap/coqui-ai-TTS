@@ -1,5 +1,3 @@
-from typing import Dict
-
 from TTS.tts.utils.text.chinese_mandarin.phonemizer import chinese_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -41,7 +39,7 @@ class ZH_CN_Phonemizer(BasePhonemizer):
         return self.phonemize_zh_cn(text, separator)
 
     @staticmethod
-    def supported_languages() -> Dict:
+    def supported_languages() -> dict:
         return {"zh-cn": "Chinese (China)"}
 
     def version(self) -> str:

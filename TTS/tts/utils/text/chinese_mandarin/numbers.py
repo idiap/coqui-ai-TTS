@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # Licensed under WTFPL or the Unlicense or CC0.
 # This uses Python 3, but it's easy to port to Python 2 by changing

@@ -1,5 +1,3 @@
-from typing import List, Tuple, Union
-
 import torch
 import torch.nn as nn  # pylint: disable=consider-using-from-import
 import torch.nn.functional as F
@@ -7,14 +5,7 @@ import torch.nn.functional as F
 from TTS.tts.layers.delightful_tts.conformer import ConformerMultiHeadedSelfAttention
 from TTS.tts.layers.delightful_tts.conv_layers import CoordConv1d
 from TTS.tts.layers.delightful_tts.networks import STL
-
-
-def get_mask_from_lengths(lengths: torch.Tensor) -> torch.Tensor:
-    batch_size = lengths.shape[0]
-    max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len, device=lengths.device).unsqueeze(0).expand(batch_size, -1)
-    mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
-    return mask
+from TTS.tts.utils.helpers import sequence_mask
 
 
 def stride_lens(lens: torch.Tensor, stride: int = 2) -> torch.Tensor:
@@ -43,9 +34,9 @@ class ReferenceEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
     ):
         super().__init__()
@@ -87,13 +78,13 @@ class ReferenceEncoder(nn.Module):
             batch_first=True,
         )
 
-    def forward(self, x: torch.Tensor, mel_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, mel_lens: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         inputs --- [N,  n_mels, timesteps]
         outputs --- [N, E//2]
         """
 
-        mel_masks = get_mask_from_lengths(mel_lens).unsqueeze(1)
+        mel_masks = ~sequence_mask(mel_lens).unsqueeze(1)
         x = x.masked_fill(mel_masks, 0)
         for conv, norm in zip(self.convs, self.norms):
             x = conv(x)
@@ -103,7 +94,7 @@ class ReferenceEncoder(nn.Module):
         for _ in range(2):
             mel_lens = stride_lens(mel_lens)
 
-        mel_masks = get_mask_from_lengths(mel_lens)
+        mel_masks = ~sequence_mask(mel_lens)
 
         x = x.masked_fill(mel_masks.unsqueeze(1), 0)
         x = x.permute((0, 2, 1))
@@ -127,9 +118,9 @@ class UtteranceLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,
@@ -199,9 +190,9 @@ class PhonemeLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: List[Union[int, int, int, int, int, int]],
+        ref_enc_filters: list[int | int | int | int | int | int],
         ref_enc_size: int,
-        ref_enc_strides: List[Union[int, int, int, int, int]],
+        ref_enc_strides: list[int | int | int | int | int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,

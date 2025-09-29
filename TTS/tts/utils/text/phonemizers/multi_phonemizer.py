@@ -1,6 +1,8 @@
-from typing import Dict, List
+import logging
 
 from TTS.tts.utils.text.phonemizers import DEF_LANG_TO_PHONEMIZER, get_phonemizer_by_name
+
+logger = logging.getLogger(__name__)
 
 
 class MultiPhonemizer:
@@ -16,7 +18,7 @@ class MultiPhonemizer:
 
     lang_to_phonemizer = {}
 
-    def __init__(self, lang_to_phonemizer_name: Dict = {}) -> None:  # pylint: disable=dangerous-default-value
+    def __init__(self, lang_to_phonemizer_name: dict = {}) -> None:  # pylint: disable=dangerous-default-value
         for k, v in lang_to_phonemizer_name.items():
             if v == "" and k in DEF_LANG_TO_PHONEMIZER.keys():
                 lang_to_phonemizer_name[k] = DEF_LANG_TO_PHONEMIZER[k]
@@ -26,7 +28,7 @@ class MultiPhonemizer:
         self.lang_to_phonemizer = self.init_phonemizers(self.lang_to_phonemizer_name)
 
     @staticmethod
-    def init_phonemizers(lang_to_phonemizer_name: Dict) -> Dict:
+    def init_phonemizers(lang_to_phonemizer_name: dict) -> dict:
         lang_to_phonemizer = {}
         for k, v in lang_to_phonemizer_name.items():
             lang_to_phonemizer[k] = get_phonemizer_by_name(v, language=k)
@@ -41,13 +43,13 @@ class MultiPhonemizer:
             raise ValueError("Language must be set for multi-phonemizer to phonemize.")
         return self.lang_to_phonemizer[language].phonemize(text, separator)
 
-    def supported_languages(self) -> List:
+    def supported_languages(self) -> list:
         return list(self.lang_to_phonemizer.keys())
 
     def print_logs(self, level: int = 0):
         indent = "\t" * level
-        print(f"{indent}| > phoneme language: {self.supported_languages()}")
-        print(f"{indent}| > phoneme backend: {self.name()}")
+        logger.info("%s| phoneme language: %s", indent, self.supported_languages())
+        logger.info("%s| phoneme backend: %s", indent, self.name())
 
 
 # if __name__ == "__main__":

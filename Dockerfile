@@ -1,19 +1,31 @@
-ARG BASE=nvidia/cuda:11.8.0-base-ubuntu22.04
+ARG BASE=nvidia/cuda:12.8.1-base-ubuntu24.04
 FROM ${BASE}
 
 RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y --no-install-recommends gcc g++ make python3 python3-dev python3-pip python3-venv python3-wheel espeak-ng libsndfile1-dev && rm -rf /var/lib/apt/lists/*
-RUN pip3 install llvmlite --ignore-installed
+RUN apt-get install -y --no-install-recommends \
+    gcc g++ make python3 python3-dev \
+    espeak-ng libsndfile1-dev libc-dev && \
+  rm -rf /var/lib/apt/lists/*
 
-# Install Dependencies:
-RUN pip3 install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
-RUN rm -rf /root/.cache/pip
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
+ENV UV_NO_CACHE=1 \
+    UV_TORCH_BACKEND=auto
 
-# Copy TTS repository contents:
-WORKDIR /root
-COPY . /root
+RUN uv venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv PATH="/opt/venv/bin:$PATH"
 
-RUN make install
+WORKDIR /app
+
+# Install dependencies first for better caching
+COPY pyproject.toml /app
+RUN uv pip install -r pyproject.toml --extra all
+
+# Copy the rest of the application
+COPY . /app
+
+# Install the project
+RUN uv pip install -e .
 
 ENTRYPOINT ["tts"]
 CMD ["--help"]

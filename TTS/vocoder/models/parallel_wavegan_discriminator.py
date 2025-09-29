@@ -1,3 +1,4 @@
+import logging
 import math
 
 import torch
@@ -5,6 +6,8 @@ from torch import nn
 from torch.nn.utils.parametrize import remove_parametrizations
 
 from TTS.vocoder.layers.parallel_wavegan import ResidualBlock
+
+logger = logging.getLogger(__name__)
 
 
 class ParallelWaveganDiscriminator(nn.Module):
@@ -68,7 +71,7 @@ class ParallelWaveganDiscriminator(nn.Module):
 
     def apply_weight_norm(self):
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
 
         self.apply(_apply_weight_norm)
@@ -76,7 +79,7 @@ class ParallelWaveganDiscriminator(nn.Module):
     def remove_weight_norm(self):
         def _remove_weight_norm(m):
             try:
-                # print(f"Weight norm is removed from {m}.")
+                logger.info("Weight norm is removed from %s", m)
                 remove_parametrizations(m, "weight")
             except ValueError:  # this module didn't have weight norm
                 return
@@ -171,7 +174,7 @@ class ResidualParallelWaveganDiscriminator(nn.Module):
 
     def apply_weight_norm(self):
         def _apply_weight_norm(m):
-            if isinstance(m, (torch.nn.Conv1d, torch.nn.Conv2d)):
+            if isinstance(m, torch.nn.Conv1d | torch.nn.Conv2d):
                 torch.nn.utils.parametrizations.weight_norm(m)
 
         self.apply(_apply_weight_norm)
@@ -179,7 +182,7 @@ class ResidualParallelWaveganDiscriminator(nn.Module):
     def remove_weight_norm(self):
         def _remove_weight_norm(m):
             try:
-                print(f"Weight norm is removed from {m}.")
+                logger.info("Weight norm is removed from %s", m)
                 remove_parametrizations(m, "weight")
             except ValueError:  # this module didn't have weight norm
                 return

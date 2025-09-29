@@ -1,5 +1,3 @@
-from typing import Dict
-
 from TTS.tts.utils.text.bangla.phonemizer import bangla_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -41,7 +39,7 @@ class BN_Phonemizer(BasePhonemizer):
         return self.phonemize_bn(text, separator)
 
     @staticmethod
-    def supported_languages() -> Dict:
+    def supported_languages() -> dict:
         return {"bn": "Bangla"}
 
     def version(self) -> str:

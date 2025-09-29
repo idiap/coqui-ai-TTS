@@ -1,24 +1,30 @@
+import logging
 import os
 import re
 import textwrap
 from functools import cached_property
 
-import pypinyin
 import torch
-from hangul_romanize import Transliter
-from hangul_romanize.rule import academic
 from num2words import num2words
-from spacy.lang.ar import Arabic
-from spacy.lang.en import English
-from spacy.lang.es import Spanish
-from spacy.lang.ja import Japanese
-from spacy.lang.zh import Chinese
 from tokenizers import Tokenizer
 
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
+from TTS.tts.utils.text.cleaners import collapse_whitespace, lowercase
+
+logger = logging.getLogger(__name__)
 
 
 def get_spacy_lang(lang):
+    try:
+        from spacy.lang.ar import Arabic
+        from spacy.lang.en import English
+        from spacy.lang.es import Spanish
+        from spacy.lang.hi import Hindi
+        from spacy.lang.ja import Japanese
+        from spacy.lang.zh import Chinese
+    except ImportError as e:
+        raise ImportError("enable_text_splitting=True requires Spacy: pip install spacy[ja]") from e
+    """Return Spacy language used for sentence splitting."""
     if lang == "zh":
         return Chinese()
     elif lang == "ja":
@@ -27,8 +33,10 @@ def get_spacy_lang(lang):
         return Arabic()
     elif lang == "es":
         return Spanish()
+    elif lang == "hi":
+        return Hindi()
     else:
-        # For most languages, Enlish does the job
+        # For most languages, English does the job
         return English()
 
 
@@ -68,12 +76,10 @@ def split_sentence(text, lang, text_split_length=250):
     return text_splits
 
 
-_whitespace_re = re.compile(r"\s+")
-
 # List of (regular expression, replacement) pairs for abbreviations:
 _abbreviations = {
     "en": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("mrs", "misess"),
             ("mr", "mister"),
@@ -96,7 +102,7 @@ _abbreviations = {
         ]
     ],
     "es": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("sra", "señora"),
             ("sr", "señor"),
@@ -109,7 +115,7 @@ _abbreviations = {
         ]
     ],
     "fr": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("mme", "madame"),
             ("mr", "monsieur"),
@@ -121,7 +127,7 @@ _abbreviations = {
         ]
     ],
     "de": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("fr", "frau"),
             ("dr", "doktor"),
@@ -131,7 +137,7 @@ _abbreviations = {
         ]
     ],
     "pt": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("sra", "senhora"),
             ("sr", "senhor"),
@@ -144,7 +150,7 @@ _abbreviations = {
         ]
     ],
     "it": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             # ("sig.ra", "signora"),
             ("sig", "signore"),
@@ -156,7 +162,7 @@ _abbreviations = {
         ]
     ],
     "pl": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("p", "pani"),
             ("m", "pan"),
@@ -166,19 +172,19 @@ _abbreviations = {
         ]
     ],
     "ar": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             # There are not many common abbreviations in Arabic as in English.
         ]
     ],
     "zh": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             # Chinese doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
     "cs": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("dr", "doktor"),  # doctor
             ("ing", "inženýr"),  # engineer
@@ -187,7 +193,7 @@ _abbreviations = {
         ]
     ],
     "ru": [
-        (re.compile("\\b%s\\b" % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\b", re.IGNORECASE), x[1])
         for x in [
             ("г-жа", "госпожа"),  # Mrs.
             ("г-н", "господин"),  # Mr.
@@ -196,7 +202,7 @@ _abbreviations = {
         ]
     ],
     "nl": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("dhr", "de heer"),  # Mr.
             ("mevr", "mevrouw"),  # Mrs.
@@ -206,7 +212,7 @@ _abbreviations = {
         ]
     ],
     "tr": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("b", "bay"),  # Mr.
             ("byk", "büyük"),  # büyük
@@ -215,7 +221,7 @@ _abbreviations = {
         ]
     ],
     "hu": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             ("dr", "doktor"),  # doctor
             ("b", "bácsi"),  # Mr.
@@ -224,9 +230,15 @@ _abbreviations = {
         ]
     ],
     "ko": [
-        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
         for x in [
             # Korean doesn't typically use abbreviations in the same way as Latin-based scripts.
+        ]
+    ],
+    "hi": [
+        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        for x in [
+            # Hindi doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
 }
@@ -240,7 +252,7 @@ def expand_abbreviations_multilingual(text, lang="en"):
 
 _symbols_multilingual = {
     "en": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " and "),
             ("@", " at "),
@@ -252,7 +264,7 @@ _symbols_multilingual = {
         ]
     ],
     "es": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " y "),
             ("@", " arroba "),
@@ -264,7 +276,7 @@ _symbols_multilingual = {
         ]
     ],
     "fr": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " et "),
             ("@", " arobase "),
@@ -276,7 +288,7 @@ _symbols_multilingual = {
         ]
     ],
     "de": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " und "),
             ("@", " at "),
@@ -288,7 +300,7 @@ _symbols_multilingual = {
         ]
     ],
     "pt": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " e "),
             ("@", " arroba "),
@@ -300,7 +312,7 @@ _symbols_multilingual = {
         ]
     ],
     "it": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " e "),
             ("@", " chiocciola "),
@@ -312,7 +324,7 @@ _symbols_multilingual = {
         ]
     ],
     "pl": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " i "),
             ("@", " małpa "),
@@ -325,7 +337,7 @@ _symbols_multilingual = {
     ],
     "ar": [
         # Arabic
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " و "),
             ("@", " على "),
@@ -338,7 +350,7 @@ _symbols_multilingual = {
     ],
     "zh": [
         # Chinese
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " 和 "),
             ("@", " 在 "),
@@ -351,7 +363,7 @@ _symbols_multilingual = {
     ],
     "cs": [
         # Czech
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " a "),
             ("@", " na "),
@@ -364,7 +376,7 @@ _symbols_multilingual = {
     ],
     "ru": [
         # Russian
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " и "),
             ("@", " собака "),
@@ -377,7 +389,7 @@ _symbols_multilingual = {
     ],
     "nl": [
         # Dutch
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " en "),
             ("@", " bij "),
@@ -389,7 +401,7 @@ _symbols_multilingual = {
         ]
     ],
     "tr": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " ve "),
             ("@", " at "),
@@ -401,7 +413,7 @@ _symbols_multilingual = {
         ]
     ],
     "hu": [
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " és "),
             ("@", " kukac "),
@@ -414,7 +426,7 @@ _symbols_multilingual = {
     ],
     "ko": [
         # Korean
-        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
         for x in [
             ("&", " 그리고 "),
             ("@", " 에 "),
@@ -423,6 +435,18 @@ _symbols_multilingual = {
             ("$", " 달러 "),
             ("£", " 파운드 "),
             ("°", " 도 "),
+        ]
+    ],
+    "hi": [
+        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        for x in [
+            ("&", " और "),
+            ("@", " ऐट दी रेट "),
+            ("%", " प्रतिशत "),
+            ("#", " हैश "),
+            ("$", " डॉलर "),
+            ("£", " पाउंड "),
+            ("°", " डिग्री "),
         ]
     ],
 }
@@ -450,6 +474,7 @@ _ordinal_re = {
     "tr": re.compile(r"([0-9]+)(\.|inci|nci|uncu|üncü|\.)"),
     "hu": re.compile(r"([0-9]+)(\.|adik|edik|odik|edik|ödik|ödike|ik)"),
     "ko": re.compile(r"([0-9]+)(번째|번|차|째)"),
+    "hi": re.compile(r"([0-9]+)(st|nd|rd|th)"),  # To check
 }
 _number_re = re.compile(r"[0-9]+")
 _currency_re = {
@@ -479,12 +504,12 @@ def _remove_dots(m):
 
 def _expand_decimal_point(m, lang="en"):
     amount = m.group(1).replace(",", ".")
-    return num2words(float(amount), lang=lang if lang != "cs" else "cz")
+    return num2words(float(amount), lang=lang)
 
 
 def _expand_currency(m, lang="en", currency="USD"):
-    amount = float((re.sub(r"[^\d.]", "", m.group(0).replace(",", "."))))
-    full_amount = num2words(amount, to="currency", currency=currency, lang=lang if lang != "cs" else "cz")
+    amount = float(re.sub(r"[^\d.]", "", m.group(0).replace(",", ".")))
+    full_amount = num2words(amount, to="currency", currency=currency, lang=lang)
 
     and_equivalents = {
         "en": ", ",
@@ -501,6 +526,7 @@ def _expand_currency(m, lang="en", currency="USD"):
         "tr": ", ",
         "hu": ", ",
         "ko": ", ",
+        "hi": ", ",
     }
 
     if amount.is_integer():
@@ -512,11 +538,11 @@ def _expand_currency(m, lang="en", currency="USD"):
 
 
 def _expand_ordinal(m, lang="en"):
-    return num2words(int(m.group(1)), ordinal=True, lang=lang if lang != "cs" else "cz")
+    return num2words(int(m.group(1)), ordinal=True, lang=lang)
 
 
 def _expand_number(m, lang="en"):
-    return num2words(int(m.group(0)), lang=lang if lang != "cs" else "cz")
+    return num2words(int(m.group(0)), lang=lang)
 
 
 def expand_numbers_multilingual(text, lang="en"):
@@ -540,14 +566,6 @@ def expand_numbers_multilingual(text, lang="en"):
     return text
 
 
-def lowercase(text):
-    return text.lower()
-
-
-def collapse_whitespace(text):
-    return re.sub(_whitespace_re, " ", text)
-
-
 def multilingual_cleaners(text, lang):
     text = text.replace('"', "")
     if lang == "tr":
@@ -562,14 +580,11 @@ def multilingual_cleaners(text, lang):
     return text
 
 
-def basic_cleaners(text):
-    """Basic pipeline that lowercases and collapses whitespace without transliteration."""
-    text = lowercase(text)
-    text = collapse_whitespace(text)
-    return text
-
-
 def chinese_transliterate(text):
+    try:
+        import pypinyin
+    except ImportError as e:
+        raise ImportError("Chinese requires: pypinyin") from e
     return "".join(
         [p[0] for p in pypinyin.pinyin(text, style=pypinyin.Style.TONE3, heteronym=False, neutral_tone_with_five=True)]
     )
@@ -582,6 +597,11 @@ def japanese_cleaners(text, katsu):
 
 
 def korean_transliterate(text):
+    try:
+        from hangul_romanize import Transliter
+        from hangul_romanize.rule import academic
+    except ImportError as e:
+        raise ImportError("Korean requires: hangul_romanize") from e
     r = Transliter(academic)
     return r.translit(text)
 
@@ -611,6 +631,7 @@ class VoiceBpeTokenizer:
             "ja": 71,
             "hu": 224,
             "ko": 95,
+            "hi": 150,
         }
 
     @cached_property
@@ -631,7 +652,7 @@ class VoiceBpeTokenizer:
             )
 
     def preprocess_text(self, txt, lang):
-        if lang in {"ar", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
+        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
             txt = multilingual_cleaners(txt, lang)
             if lang == "zh":
                 txt = chinese_transliterate(txt)
@@ -639,9 +660,6 @@ class VoiceBpeTokenizer:
                 txt = korean_transliterate(txt)
         elif lang == "ja":
             txt = japanese_cleaners(txt, self.katsu)
-        elif lang == "hi":
-            # @manmay will implement this
-            txt = basic_cleaners(txt)
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
@@ -764,6 +782,9 @@ def test_expand_numbers_multilingual():
         ("12.5 초 안에.", "십이 점 다섯 초 안에.", "ko"),
         ("50 명의 병사가 있었다.", "오십 명의 병사가 있었다.", "ko"),
         ("이것은 1 번째 테스트입니다", "이것은 첫 번째 테스트입니다", "ko"),
+        # Hindi
+        ("12.5 सेकंड में।", "साढ़े बारह सेकंड में।", "hi"),
+        ("50 सैनिक थे।", "पचास सैनिक थे।", "hi"),
     ]
     for a, b, lang in test_cases:
         out = expand_numbers_multilingual(a, lang=lang)
@@ -833,6 +854,7 @@ def test_symbols_multilingual():
         ("Pilim %14 dolu.", "Pilim yüzde 14 dolu.", "tr"),
         ("Az akkumulátorom töltöttsége 14%", "Az akkumulátorom töltöttsége 14 százalék", "hu"),
         ("배터리 잔량이 14%입니다.", "배터리 잔량이 14 퍼센트입니다.", "ko"),
+        ("मेरे पास 14% बैटरी है।", "मेरे पास चौदह प्रतिशत बैटरी है।", "hi"),
     ]
 
     for a, b, lang in test_cases:

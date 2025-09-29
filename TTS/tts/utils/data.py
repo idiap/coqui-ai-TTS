@@ -11,7 +11,7 @@ def _pad_data(x, length):
 
 
 def prepare_data(inputs):
-    max_len = max((len(x) for x in inputs))
+    max_len = max(len(x) for x in inputs)
     return np.stack([_pad_data(x, max_len) for x in inputs])
 
 
@@ -23,7 +23,7 @@ def _pad_tensor(x, length):
 
 
 def prepare_tensor(inputs, out_steps):
-    max_len = max((x.shape[1] for x in inputs))
+    max_len = max(x.shape[1] for x in inputs)
     remainder = max_len % out_steps
     pad_len = max_len + (out_steps - remainder) if remainder > 0 else max_len
     return np.stack([_pad_tensor(x, pad_len) for x in inputs])
@@ -46,7 +46,7 @@ def _pad_stop_target(x: np.ndarray, length: int, pad_val=1) -> np.ndarray:
 
 def prepare_stop_target(inputs, out_steps):
     """Pad row vectors with 1."""
-    max_len = max((x.shape[0] for x in inputs))
+    max_len = max(x.shape[0] for x in inputs)
     remainder = max_len % out_steps
     pad_len = max_len + (out_steps - remainder) if remainder > 0 else max_len
     return np.stack([_pad_stop_target(x, pad_len) for x in inputs])

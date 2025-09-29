@@ -22,8 +22,12 @@ def sync_readme():
     new_content = replace_between_markers(orig_content, "tts-readme", description.strip())
     if args.check:
         if orig_content != new_content:
-            print("README.md is out of sync; please edit TTS/bin/TTS_README.md and run scripts/sync_readme.py")
+            print(
+                "README.md is out of sync; please reconcile README.md and TTS/bin/synthesize.py and run scripts/sync_readme.py"
+            )
             exit(42)
+        print("All good, files in sync")
+        exit(0)
     readme_path.write_text(new_content)
     print("Updated README.md")
 

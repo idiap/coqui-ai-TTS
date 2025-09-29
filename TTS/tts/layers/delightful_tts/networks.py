@@ -1,5 +1,4 @@
 import math
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -9,7 +8,7 @@ import torch.nn.functional as F
 from TTS.tts.layers.delightful_tts.conv_layers import ConvNorm
 
 
-def initialize_embeddings(shape: Tuple[int]) -> torch.Tensor:
+def initialize_embeddings(shape: tuple[int]) -> torch.Tensor:
     assert len(shape) == 2, "Can only initialize 2-D embedding matrices ..."
     # Kaiming initialization
     return torch.randn(shape) * np.sqrt(2 / shape[1])
@@ -52,7 +51,7 @@ class BottleneckLayer(nn.Module):
         kernel_size=3,
         use_partial_padding=False,  # pylint: disable=unused-argument
     ):
-        super(BottleneckLayer, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
 
         self.reduction_factor = reduction_factor
         reduced_dim = int(in_dim / reduction_factor)
@@ -195,7 +194,7 @@ class STL(nn.Module):
     """
 
     def __init__(self, n_hidden: int, token_num: int):
-        super(STL, self).__init__()  # pylint: disable=super-with-arguments
+        super().__init__()
 
         num_heads = 1
         E = n_hidden

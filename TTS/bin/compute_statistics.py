@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import argparse
 import glob
+import logging
 import os
+import sys
 
 import numpy as np
 from tqdm import tqdm
@@ -12,10 +13,10 @@ from tqdm import tqdm
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
 from TTS.utils.audio import AudioProcessor
+from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 
-def main():
-    """Run preprocessing process."""
+def parse_args(arg_list: list[str] | None) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(description="Compute mean and variance of spectrogtram features.")
     parser.add_argument("config_path", type=str, help="TTS config file path to define audio processin parameters.")
     parser.add_argument("out_path", type=str, help="save path (directory and filename).")
@@ -25,7 +26,13 @@ def main():
         required=False,
         help="folder including the target set of wavs overriding dataset config.",
     )
-    args, overrides = parser.parse_known_args()
+    return parser.parse_known_args(arg_list)
+
+
+def main(arg_list: list[str] | None = None):
+    """Run preprocessing process."""
+    setup_logger("TTS", level=logging.INFO, stream=sys.stderr, formatter=ConsoleFormatter())
+    args, overrides = parse_args(arg_list)
 
     CONFIG = load_config(args.config_path)
     CONFIG.parse_known_args(overrides, relaxed_parser=True)
@@ -90,6 +97,7 @@ def main():
     stats["audio_config"] = CONFIG.audio.to_dict()
     np.save(output_file_path, stats, allow_pickle=True)
     print(f" > stats saved to {output_file_path}")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
