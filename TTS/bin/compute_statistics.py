@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import glob
 import logging
-import os
 import sys
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -19,7 +18,7 @@ from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 def parse_args(arg_list: list[str] | None) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(description="Compute mean and variance of spectrogtram features.")
     parser.add_argument("config_path", type=str, help="TTS config file path to define audio processin parameters.")
-    parser.add_argument("out_path", type=str, help="save path (directory and filename).")
+    parser.add_argument("out_path", type=str, help="save path (directory and filename).", default="scale_stats.npy")
     parser.add_argument(
         "--data_path",
         type=str,
@@ -46,7 +45,7 @@ def main(arg_list: list[str] | None = None):
 
     # load the meta data of target dataset
     if args.data_path:
-        dataset_items = glob.glob(os.path.join(args.data_path, "**", "*.wav"), recursive=True)
+        dataset_items = list(Path(args.data_path).rglob("*.wav"))
     else:
         dataset_items = load_tts_samples(CONFIG.datasets)[0]  # take only train data
     print(f" > There are {len(dataset_items)} files.")
@@ -95,6 +94,7 @@ def main(arg_list: list[str] | None = None):
     del CONFIG.audio.symmetric_norm
     del CONFIG.audio.clip_norm
     stats["audio_config"] = CONFIG.audio.to_dict()
+    Path(output_file_path).parent.mkdir(exist_ok=True, parents=True)
     np.save(output_file_path, stats, allow_pickle=True)
     print(f" > stats saved to {output_file_path}")
     sys.exit(0)
