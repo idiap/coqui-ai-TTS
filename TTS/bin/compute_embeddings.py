@@ -128,11 +128,7 @@ def compute_embeddings(
             c_dataset.meta_file_val = meta_file_val
         meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=not no_eval)
 
-    if meta_data_eval is None:
-        samples = meta_data_train
-    else:
-        samples = meta_data_train + meta_data_eval
-
+    samples = meta_data_train + meta_data_eval
     encoder_manager = SpeakerManager(
         encoder_model_path=model_path,
         encoder_config_path=config_path,
