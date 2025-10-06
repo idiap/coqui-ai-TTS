@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from coqpit import Coqpit
 
-from TTS.config import check_config_and_model_args
+from TTS.config import get_from_config_or_model_args
 from TTS.tts.utils.managers import BaseIDManager
 
 
@@ -90,7 +90,7 @@ class LanguageManager(BaseIDManager):
         Args:
             config (Coqpit): Coqpit config.
         """
-        if check_config_and_model_args(config, "use_language_embedding", True):
+        if get_from_config_or_model_args(config, "use_language_embedding"):
             if config.get("language_ids_file", None):
                 return LanguageManager(language_ids_file_path=config.language_ids_file)
             # Fall back to parse language IDs from the config

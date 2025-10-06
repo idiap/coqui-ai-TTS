@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from coqpit import Coqpit
 
-from TTS.config import get_from_config_or_model_args_with_default
+from TTS.config import get_from_config_or_model_args
 from TTS.tts.utils.managers import EmbeddingManager
 
 logger = logging.getLogger(__name__)
@@ -95,17 +95,17 @@ class SpeakerManager(EmbeddingManager):
             SpeakerEncoder: Speaker encoder object.
         """
         speaker_manager = None
-        if get_from_config_or_model_args_with_default(config, "use_speaker_embedding", False):
+        if get_from_config_or_model_args(config, "use_speaker_embedding"):
             if samples:
                 speaker_manager = SpeakerManager(data_items=samples)
-            if speaker_file := get_from_config_or_model_args_with_default(config, "speaker_file", None):
+            if speaker_file := get_from_config_or_model_args(config, "speaker_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speaker_file)
-            if speakers_file := get_from_config_or_model_args_with_default(config, "speakers_file", None):
+            if speakers_file := get_from_config_or_model_args(config, "speakers_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speakers_file)
 
-        if get_from_config_or_model_args_with_default(config, "use_d_vector_file", False):
+        if get_from_config_or_model_args(config, "use_d_vector_file"):
             speaker_manager = SpeakerManager()
-            if d_vector_file := get_from_config_or_model_args_with_default(config, "d_vector_file", None):
+            if d_vector_file := get_from_config_or_model_args(config, "d_vector_file"):
                 speaker_manager = SpeakerManager(d_vectors_file_path=d_vector_file)
         return speaker_manager
 
