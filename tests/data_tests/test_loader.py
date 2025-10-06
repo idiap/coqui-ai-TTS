@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -254,18 +255,21 @@ def test_padding_and_spectrograms(tmp_path):
 
 
 def test_custom_formatted_dataset_with_loader():
-    def custom_formatter(path, metafile, **kwargs):
-        with open(os.path.join(path, metafile)) as f:
+    def custom_formatter(root_path, metafile, **kwargs):
+        root_path = Path(root_path)
+        with (root_path / metafile).open() as f:
             data = f.readlines()
         items = []
         for line in data:
-            file_path, text = line.split("|", 1)
-            items.append({"text": text, "audio_file": file_path, "root_path": path, "speaker_name": "test"})
+            file_path, text, _ = line.split("|")
+            file_path = str(root_path / "wavs" / f"{file_path}")
+            items.append({"text": text, "audio_file": file_path, "root_path": str(root_path), "speaker_name": "test"})
         return items
 
     def custom_formatter2(x, *args, **kwargs):
         items = custom_formatter(x, *args, **kwargs)
-        [item.update({"audio_file": f"{item['audio_file']}.wav"}) for item in items]
+        for item in items:
+            item.update({"audio_file": f"{item['audio_file']}.wav"})
         return items
 
     register_formatter("custom_formatter1", custom_formatter)

@@ -55,7 +55,7 @@ class SpeakerManager(EmbeddingManager):
     def __init__(
         self,
         data_items: list[dict[str, Any]] | None = None,
-        d_vectors_file_path: str = "",
+        d_vectors_file_path: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         speaker_id_file_path: str | os.PathLike[Any] = "",
         encoder_model_path: str | os.PathLike[Any] = "",
         encoder_config_path: str | os.PathLike[Any] = "",

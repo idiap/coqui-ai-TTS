@@ -7,8 +7,6 @@ from coqpit import Coqpit
 from trainer import TrainerModel
 from trainer.io import load_fsspec
 
-# pylint: skip-file
-
 
 class BaseTrainerModel(TrainerModel):
     """BaseTrainerModel model expanding TrainerModel with required functions by 🐸TTS.
@@ -29,7 +27,7 @@ class BaseTrainerModel(TrainerModel):
     def inference(self, input: torch.Tensor, aux_input: dict[str, Any] = {}) -> dict[str, Any]:
         """Forward pass for inference.
 
-        It must return a dictionary with the main model output and all the auxiliary outputs. The key ```model_outputs```
+        Must return a dictionary with the main model output and all the auxiliary outputs. The key ```model_outputs```
         is considered to be the main output and you can add any other auxiliary outputs as you want.
 
         We don't use `*kwargs` since it is problematic with the TorchScript API.
@@ -40,6 +38,7 @@ class BaseTrainerModel(TrainerModel):
 
         Returns:
             Dict: [description]
+
         """
         outputs_dict = {"model_outputs": None}
         ...
@@ -53,6 +52,7 @@ class BaseTrainerModel(TrainerModel):
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,
+        **kwargs: Any,
     ) -> None:
         """Load a model checkpoint file and get ready for training or inference.
 
@@ -63,6 +63,7 @@ class BaseTrainerModel(TrainerModel):
             strict (bool, optional): Match all checkpoint keys to model's keys. Defaults to True.
             cache (bool, optional): If True, cache the file locally for subsequent calls.
                 It is cached under `trainer.io.get_user_data_dir()/tts_cache`. Defaults to False.
+
         """
         state = load_fsspec(checkpoint_path, map_location="cpu", cache=cache)
         self.load_state_dict(state["model"], strict=strict)
@@ -71,4 +72,5 @@ class BaseTrainerModel(TrainerModel):
 
     @property
     def device(self) -> torch.device:
+        """Return device of the model based on its parameters."""
         return next(self.parameters()).device

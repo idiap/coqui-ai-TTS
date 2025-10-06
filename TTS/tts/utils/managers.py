@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from TTS.config import load_config
+from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.utils.generic_utils import setup_encoder_model
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
@@ -133,7 +134,7 @@ class EmbeddingManager(BaseIDManager):
 
     def __init__(
         self,
-        embedding_file_path: str | os.PathLike[Any] | list[str | os.PathLike[Any]] = "",
+        embedding_file_path: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         id_file_path: str | os.PathLike[Any] = "",
         encoder_model_path: str | os.PathLike[Any] = "",
         encoder_config_path: str | os.PathLike[Any] = "",
@@ -144,8 +145,8 @@ class EmbeddingManager(BaseIDManager):
         self.embeddings = {}
         self.embeddings_by_names = {}
         self.clip_ids = []
-        self.encoder = None
-        self.encoder_ap = None
+        self.encoder: BaseEncoder | None = None
+        self.encoder_ap: AudioProcessor | None = None
         self.use_cuda = use_cuda
 
         if embedding_file_path:
@@ -347,7 +348,10 @@ class EmbeddingManager(BaseIDManager):
             list: Computed embedding.
         """
 
-        def _compute(wav_file: str | os.PathLike[Any]):
+        def _compute(wav_file: str | os.PathLike[Any]) -> torch.Tensor:
+            if self.encoder_ap is None or self.encoder is None:
+                msg = "You must first initialize the encoder with init_encoder()"
+                raise RuntimeError(msg)
             waveform = self.encoder_ap.load_wav(wav_file, sr=self.encoder_ap.sample_rate)
             if not self.encoder_config.model_params.get("use_torch_spec", False):
                 m_input = self.encoder_ap.melspectrogram(waveform)
@@ -363,18 +367,12 @@ class EmbeddingManager(BaseIDManager):
 
         if isinstance(wav_file, list):
             # compute the mean embedding
-            embeddings = None
-            for wf in wav_file:
-                embedding = _compute(wf)
-                if embeddings is None:
-                    embeddings = embedding
-                else:
-                    embeddings += embedding
-            return (embeddings / len(wav_file))[0].tolist()
+            embeddings = torch.stack([_compute(wf) for wf in wav_file])
+            return embeddings.mean(dim=0)[0].tolist()
         embedding = _compute(wav_file)
         return embedding[0].tolist()
 
-    def compute_embeddings(self, feats: torch.Tensor | np.ndarray) -> list:
+    def compute_embeddings(self, feats: torch.Tensor | np.ndarray) -> torch.Tensor:
         """Compute embedding from features.
 
         Args:
@@ -389,4 +387,7 @@ class EmbeddingManager(BaseIDManager):
             feats = feats.unsqueeze(0)
         if self.use_cuda:
             feats = feats.cuda()
+        if self.encoder is None:
+            msg = "You must first initialize the encoder with init_encoder()"
+            raise RuntimeError(msg)
         return self.encoder.compute_embedding(feats)
