@@ -19,6 +19,7 @@ from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weights
 from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
+from TTS.tts.utils.durations import durations_from_alignment
 from TTS.tts.utils.synthesis import inv_spectrogram
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
@@ -178,25 +179,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         max_spec_length = torch.max(mel_lengths.float())
 
         # compute durations from attention masks
-        durations = None
-        if attn_mask is not None:
-            durations = torch.zeros(attn_mask.shape[0], attn_mask.shape[2])
-            for idx, am in enumerate(attn_mask):
-                # compute raw durations
-                c_idxs = am[:, : text_lengths[idx], : mel_lengths[idx]].max(1)[1]
-                # c_idxs, counts = torch.unique_consecutive(c_idxs, return_counts=True)
-                c_idxs, counts = torch.unique(c_idxs, return_counts=True)
-                dur = torch.ones([text_lengths[idx]]).to(counts.dtype)
-                dur[c_idxs] = counts
-                # smooth the durations and set any 0 duration to 1
-                # by cutting off from the largest duration indeces.
-                extra_frames = dur.sum() - mel_lengths[idx]
-                largest_idxs = torch.argsort(-dur)[:extra_frames]
-                dur[largest_idxs] -= 1
-                assert dur.sum() == mel_lengths[idx], (
-                    f" [!] total duration {dur.sum()} vs spectrogram length {mel_lengths[idx]}"
-                )
-                durations[idx, : text_lengths[idx]] = dur
+        durations = durations_from_alignment(attn_mask, text_lengths, mel_lengths)
 
         # set stop targets wrt reduction factor
         stop_targets = stop_targets.view(text_input.shape[0], stop_targets.size(1) // self.config.r, -1)
