@@ -13,13 +13,15 @@
     {py:class}`~TTS.tts.models.tacotron.Tacotron` model then see the
     {py:class}`~TTS.tts.configs.tacotron_config.TacotronConfig` class and make sure you understand it.
 
-3. Check the recipes.
+3. Check the existing recipes.
 
-    Recipes are located under `TTS/recipes/`. They do not promise perfect models
+    Coqui already has
+    [training recipes](https://github.com/idiap/coqui-ai-TTS/tree/dev/recipes) for
+    many datasets. They do not promise perfect models
     but they provide a good start point. A recipe for
     {py:class}`~TTS.tts.models.glow_tts.GlowTTS` using the [LJ Speech
-    dataset](https://keithito.com/LJ-Speech-Dataset/) looks like below. Let's be
-    creative and call this `train_glowtts.py`.
+    dataset](https://keithito.com/LJ-Speech-Dataset/), which we'll name
+    `train_glowtts.py`, looks like this:
 
     ```{literalinclude} ../../../recipes/ljspeech/glow_tts/train_glowtts.py
     ```
