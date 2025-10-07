@@ -27,14 +27,72 @@ use_cuda = torch.cuda.is_available()
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str, help="Path to config file for training.", required=True)
-    parser.add_argument("--checkpoint_path", type=str, help="Model file to be restored.", required=True)
-    parser.add_argument("--output_path", type=str, help="Path to save mel specs", required=True)
-    parser.add_argument("--debug", default=False, action="store_true", help="Save audio files for debug")
-    parser.add_argument("--save_audio", default=False, action="store_true", help="Save audio files")
-    parser.add_argument("--quantize_bits", type=int, default=0, help="Save quantized audio files if non-zero")
-    parser.add_argument("--eval", action=argparse.BooleanOptionalAction, help="compute eval.", default=True)
+    parser = argparse.ArgumentParser(
+        description="""Extract mel spectrograms from audio using teacher forcing with a trained TTS model.
+
+This script loads a trained TTS model and extracts mel spectrograms by running the model with teacher forcing.
+This is useful for analyzing model predictions, creating training data for downstream models, or debugging
+model behavior. Supports Tacotron, Tacotron2, and Glow-TTS models.
+
+The script will create subdirectories in the output path:
+  - mel/: Extracted mel spectrograms (.npy files)
+  - wav/: Original audio files (if --save_audio is enabled)
+  - wav_gl/: Griffin-Lim reconstructed audio from mels (if --debug is enabled)
+  - quant/: Quantized audio files (if --quantize_bits > 0)""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Example usage:
+  python extract_tts_spectrograms.py \\
+    --config_path /path/to/config.json \\
+    --checkpoint_path /path/to/checkpoint.pth \\
+    --output_path /path/to/output""",
+    )
+    parser.add_argument(
+        "--config_path",
+        type=str,
+        help="Path to the model configuration file (JSON) used during training. "
+        "This config defines the model architecture, audio parameters, and dataset settings.",
+        required=True,
+    )
+    parser.add_argument(
+        "--checkpoint_path",
+        type=str,
+        help="Path to the trained model checkpoint file (.pth) to be loaded for inference.",
+        required=True,
+    )
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        help="Directory path where extracted mel spectrograms and optional audio files will be saved. "
+        "Subdirectories will be created automatically.",
+        default="output_extract_tts_spectrograms",
+    )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Enable debug mode: saves Griffin-Lim reconstructed audio files from the extracted mel spectrograms "
+        "to wav_gl/ subdirectory for quality inspection.",
+    )
+    parser.add_argument(
+        "--save_audio",
+        default=False,
+        action="store_true",
+        help="Save the original audio files to the wav/ subdirectory alongside the extracted mel spectrograms.",
+    )
+    parser.add_argument(
+        "--quantize_bits",
+        type=int,
+        default=0,
+        help="Bit depth for audio quantization (e.g., 8, 16). If set to a non-zero value, saves quantized versions "
+        "of audio files to the quant/ subdirectory. Set to 0 (default) to disable quantization.",
+    )
+    parser.add_argument(
+        "--eval",
+        action=argparse.BooleanOptionalAction,
+        help="Include evaluation split in processing. When enabled (default), processes both training and evaluation "
+        "samples. Use --no-eval to process only training samples.",
+        default=True,
+    )
     return parser.parse_args(arg_list)
 
 
@@ -73,19 +131,6 @@ def setup_loader(config: BaseTTSConfig, ap: AudioProcessor, r, speaker_manager: 
         num_workers=config.num_loader_workers,
         pin_memory=False,
     )
-
-
-def set_filename(wav_path: str, out_path: Path) -> tuple[Path, Path, Path, Path]:
-    wav_name = Path(wav_path).stem
-    (out_path / "quant").mkdir(exist_ok=True, parents=True)
-    (out_path / "mel").mkdir(exist_ok=True, parents=True)
-    (out_path / "wav_gl").mkdir(exist_ok=True, parents=True)
-    (out_path / "wav").mkdir(exist_ok=True, parents=True)
-    wavq_path = out_path / "quant" / wav_name
-    mel_path = out_path / "mel" / wav_name
-    wav_gl_path = out_path / "wav_gl" / f"{wav_name}.wav"
-    out_wav_path = out_path / "wav" / f"{wav_name}.wav"
-    return wavq_path, mel_path, wav_gl_path, out_wav_path
 
 
 def format_data(data):
@@ -213,34 +258,36 @@ def extract_spectrograms(
             d_vectors,
         )
 
+        (output_path / "mel").mkdir(exist_ok=True, parents=True)
         for idx in range(text_input.shape[0]):
-            wav_file_path = item_idx[idx]
+            wav_file_path = Path(item_idx[idx])
             wav = ap.load_wav(wav_file_path)
-            wavq_path, mel_path, wav_gl_path, wav_path = set_filename(wav_file_path, output_path)
 
             # quantize and save wav
             if quantize_bits > 0:
-                wavq = quantize(wav, quantize_bits)
-                np.save(wavq_path, wavq)
+                wavq = quantize(x=wav, quantize_bits=quantize_bits)
+                (output_path / "quant").mkdir(exist_ok=True)
+                np.save(output_path / "quant" / wav_file_path.stem, wavq)
 
             # save TTS mel
             mel = model_output[idx]
             mel_length = mel_lengths[idx]
             mel = mel[:mel_length, :].T
-            np.save(mel_path, mel)
+            np.save(output_path / "mel" / wav_file_path.stem, mel)
 
-            export_metadata.append([wav_file_path, mel_path])
+            export_metadata.append(output_path / "mel" / wav_file_path.stem)
             if save_audio:
-                ap.save_wav(wav, wav_path)
+                (output_path / "wav").mkdir(exist_ok=True)
+                ap.save_wav(wav, output_path / "wav" / f"{wav_file_path.stem}.wav")
 
             if debug:
-                print("Audio for debug saved at:", wav_gl_path)
-                wav = ap.inv_melspectrogram(mel)
-                ap.save_wav(wav, wav_gl_path)
+                wav_gl = ap.inv_melspectrogram(mel)
+                (output_path / "wav_gl").mkdir(exist_ok=True)
+                ap.save_wav(wav_gl, output_path / "wav_gl" / f"{wav_file_path.stem}.wav")
 
     with (output_path / metadata_name).open("w") as f:
-        for data in export_metadata:
-            f.write(f"{data[0] / data[1]}.npy\n")
+        for path in export_metadata:
+            f.write(f"{path}.npy\n")
 
 
 def main(arg_list: list[str] | None = None) -> None:
@@ -264,12 +311,7 @@ def main(arg_list: list[str] | None = None) -> None:
     meta_data = meta_data_train + meta_data_eval
 
     # init speaker manager
-    if config.use_speaker_embedding:
-        speaker_manager = SpeakerManager(data_items=meta_data)
-    elif config.use_d_vector_file:
-        speaker_manager = SpeakerManager(d_vectors_file_path=config.d_vector_file)
-    else:
-        speaker_manager = None
+    speaker_manager = SpeakerManager.init_from_config(config)
 
     # setup model
     model = setup_model(config)
