@@ -77,3 +77,26 @@ class SynthesizerTest(unittest.TestCase):
             "b. The second item",
             "c. The third list item",
         ]
+
+    def test_synthesizer_timestamps(self):
+        """Check if timestamps are generated."""
+        self._create_random_model()
+        tts_root_path = get_tests_input_path()
+        tts_checkpoint = os.path.join(tts_root_path, "checkpoint_10.pth")
+        tts_config = os.path.join(tts_root_path, "dummy_model_config.json")
+        synthesizer = Synthesizer(tts_checkpoint=tts_checkpoint, tts_config_path=tts_config)
+
+        wav = synthesizer.tts("Hello world.", return_dict=False)
+        assert isinstance(wav, list)
+
+        output = synthesizer.tts("Hello world. This is a test.", return_dict=True)
+        assert isinstance(output, dict)
+        assert "segments" in output
+        assert "wav" in output
+
+        segments = output["segments"]
+        assert len(segments) == 2
+        assert segments[0]["end"] > segments[0]["start"]
+
+        output_no_split = synthesizer.tts("Hello world. This is a test.", split_sentences=False, return_dict=True)
+        assert len(output_no_split["segments"]) == 1

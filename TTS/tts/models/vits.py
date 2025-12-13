@@ -1488,7 +1488,7 @@ class Vits(BaseTTS):
         """
         import json
 
-        from TTS.tts.utils.text.cleaners import basic_cleaners
+        from TTS.tts.utils.text.cleaners import basic_cleaners, uroman_cleaners
 
         self.disc = None
         # set paths
@@ -1503,13 +1503,13 @@ class Vits(BaseTTS):
             # Load the JSON data as a dictionary
             config_org = json.load(f)
         self.config.audio.sample_rate = config_org["data"]["sampling_rate"]
-        # self.config.add_blank = config['add_blank']
+        is_uroman = config_org["data"]["training_files"].endswith("uroman")
         # set tokenizer
         vocab = FairseqVocab(vocab_file)
         self.text_encoder.emb = nn.Embedding(vocab.num_chars, config.model_args.hidden_channels)
         self.tokenizer = TTSTokenizer(
             use_phonemes=False,
-            text_cleaner=basic_cleaners,
+            text_cleaner=uroman_cleaners if is_uroman else basic_cleaners,
             characters=vocab,
             phonemizer=None,
             add_blank=config_org["data"]["add_blank"],

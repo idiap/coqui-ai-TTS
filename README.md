@@ -24,7 +24,8 @@
 
 ## 📣 News
 - **Fork of the [original, unmaintained repository](https://github.com/coqui-ai/TTS). New PyPI package: [coqui-tts](https://pypi.org/project/coqui-tts)**
-- 0.25.0: [OpenVoice](https://github.com/myshell-ai/OpenVoice) models now available for voice conversion.
+- 0.27.0: [Caching mechanism](https://coqui-tts.readthedocs.io/en/latest/cloning.html) for cloned voices.
+- 0.25.2: [OpenVoice](https://github.com/myshell-ai/OpenVoice) and [kNN-VC](https://github.com/bshall/knn-vc) models now available for voice conversion.
 - 0.24.2: Prebuilt wheels are now also published for macOS and Windows (in addition to Linux as before) for easier installation across platforms.
 - 0.20.0: XTTSv2 is here with 17 languages and better performance across the board. XTTS can stream with <200ms latency.
 - 0.19.0: XTTS fine-tuning code is out. Check the [example recipes](https://github.com/idiap/coqui-ai-TTS/tree/dev/recipes/ljspeech).
@@ -117,7 +118,9 @@ You can also help us implement more models.
 ## Installation
 
 🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.14**, but should also
-work on Mac and Windows.
+work on Mac and Windows. Depending on your platform, you might first want to
+separately install Pytorch, `torchaudio`, and `torchcodec` with their
+[official instructions](https://pytorch.org/get-started/locally/).
 
 If you are only interested in [synthesizing speech](https://coqui-tts.readthedocs.io/en/latest/inference.html) with the pretrained 🐸TTS models, installing from PyPI is the easiest option.
 
@@ -140,6 +143,7 @@ The following extras allow the installation of optional dependencies:
 | Name | Description |
 |------|-------------|
 | `all` | All optional dependencies |
+| `codec` | Installs torchcodec needed with Pytorch>=2.9 |
 | `notebooks` | Dependencies only used in notebooks |
 | `server` | Dependencies to run the TTS server |
 | `bn` | Bangla G2P |
@@ -227,6 +231,10 @@ From version 0.27.0 you can [cache cloned
 voices](https://coqui-tts.readthedocs.io/en/latest/cloning.html) with a custom
 `speaker` ID, so you only need to pass audio files in `speaker_wav` once.
 
+> [!NOTE]
+> For more control or additional outputs, e.g. timestamps, use the lower-level
+> [Synthesizer API](https://coqui-tts.readthedocs.io/en/latest/main_classes/synthesizer.html).
+
 #### Single speaker model
 
 ```python
@@ -286,6 +294,9 @@ api.tts_to_file(
     file_path="output.wav"
 )
 ```
+
+**Note:** Some Fairseq models need the romanization library `uroman` to be
+installed. For this you can install `coqui-tts` with the `languages` extra.
 
 ### Command-line interface `tts`
 

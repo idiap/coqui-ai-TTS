@@ -28,6 +28,9 @@ from TTS.vocoder.utils.generic_utils import interpolate_vocoder_input
 logger = logging.getLogger(__name__)
 
 
+PAD_SILENCE_SAMPLES = 10000
+
+
 class Synthesizer(nn.Module):
     def __init__(
         self,
@@ -325,8 +328,9 @@ class Synthesizer(nn.Module):
         source_wav=None,
         source_speaker_name=None,
         split_sentences: bool = True,
+        return_dict: bool = False,
         **kwargs,
-    ) -> list[int]:
+    ) -> list[int] | dict[str, Any]:
         """🐸 TTS magic. Run all the models and generate speech.
 
         Args:
@@ -339,6 +343,7 @@ class Synthesizer(nn.Module):
             source_wav ([type], optional): source waveform for voice conversion. Defaults to None.
             source_speaker_name ([type], optional): speaker id of source waveform. Defaults to None.
             split_sentences (bool, optional): split the input text into sentences. Defaults to True.
+            return_dict (bool, optional): return additional outputs as a dictionary. Defaults to False.
             **kwargs: additional arguments to pass to the TTS model.
         Returns:
             List[int]: [description]
@@ -347,6 +352,8 @@ class Synthesizer(nn.Module):
             msg = "Text-to-speech model not loaded"
             raise RuntimeError(msg)
         start_time = time.time()
+        segments = []
+        current_time = 0.0
         wavs = []
 
         if not text and not speaker_wav and not speaker_name:
@@ -413,7 +420,20 @@ class Synthesizer(nn.Module):
                     waveform = waveform[: self.tts_model.ap.find_endpoint(waveform)]
 
                 wavs += list(waveform)
-                wavs += [0] * 10000
+                wavs += [0] * PAD_SILENCE_SAMPLES
+
+                if return_dict:
+                    wav_duration_sec = len(waveform) / self.tts_config.audio["sample_rate"]
+                    segment = {
+                        "id": len(segments),
+                        "start": current_time,
+                        "end": current_time + wav_duration_sec,
+                        "text": sen,
+                    }
+                    segments.append(segment)
+                    current_time += wav_duration_sec
+                    current_time += PAD_SILENCE_SAMPLES / self.tts_config.audio["sample_rate"]
+
         else:
             outputs = self.tts_model.voice_conversion(
                 source_wav, speaker_wav, source_speaker=source_speaker_name, speaker=speaker_name, voice_dir=voice_dir
@@ -449,4 +469,6 @@ class Synthesizer(nn.Module):
         audio_time = len(wavs) / self.tts_config.audio["sample_rate"]
         logger.info("Processing time: %.3f", process_time)
         logger.info("Real-time factor: %.3f", process_time / audio_time)
+        if return_dict:
+            return {"wav": wavs, "text": text, "segments": segments}
         return wavs

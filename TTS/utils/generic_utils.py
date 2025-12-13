@@ -161,6 +161,11 @@ def is_pytorch_at_least_2_4() -> bool:
     return Version(torch.__version__) >= Version("2.4")
 
 
+def is_pytorch_at_least_2_9() -> bool:
+    """Check if the installed Pytorch version is 2.4 or higher."""
+    return Version(torch.__version__) >= Version("2.9")
+
+
 def optional_to_str(x: Any | None) -> str:
     """Convert input to string, using empty string if input is None."""
     return "" if x is None else str(x)

@@ -54,7 +54,9 @@ def test_audio_synthesis(tmp_path, ap, norms):
         f"symmetric_{symmetric_norm}-clip_norm_{clip_norm}.wav"
     )
     print(" | > Creating wav file at : ", file_name)
-    ap.save_wav(wav_, tmp_path / file_name)
+    with pytest.raises(IsADirectoryError, match="Output path must be a file"):
+        ap.save_wav(wav_, tmp_path)
+    ap.save_wav(wav_, tmp_path / "subdir_to_be_created" / file_name)
 
 
 def test_normalize(ap):

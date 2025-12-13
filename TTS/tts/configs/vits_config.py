@@ -42,7 +42,7 @@ class VitsConfig(BaseTTSConfig):
             Parameters for the learning rate scheduler of the discriminator. Defaults to `{'gamma': 0.999875, "last_epoch":-1}`.
 
         scheduler_after_epoch (bool):
-            If true, step the schedulers after each epoch else after each step. Defaults to `False`.
+            If true, step the schedulers after each epoch else after each step. Defaults to `True`.
 
         optimizer (str):
             Name of the optimizer to use with both the generator and the discriminator networks. One of the

@@ -50,6 +50,7 @@ extensions = [
     "myst_parser",
     "sphinx_copybutton",
     "sphinx_inline_tabs",
+    "click_extra.sphinx",
 ]
 
 suppress_warnings = ["autosectionlabel.*"]
@@ -65,6 +66,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "TODO/*"]
 source_suffix = [".rst", ".md"]
 
 myst_enable_extensions = [
+    "colon_fence",
     "linkify",
 ]
 

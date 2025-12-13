@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
+import pytest
 
 from TTS.tts.utils.text.cleaners import (
     english_cleaners,
     multilingual_phoneme_cleaners,
     normalize_unicode,
     phoneme_cleaners,
+    romanize,
 )
 
 
@@ -53,3 +54,15 @@ def test_normalize_unicode() -> None:
     ]
     for arg, expect in test_cases:
         assert normalize_unicode(arg) == expect
+
+
+@pytest.mark.parametrize(
+    ("text", "language", "expected"),
+    [
+        ("Игорь Стравинский", None, "Igor Stravinsky"),
+        ("Игорь Стравинский", "ukr", "Yhor Stravynsky"),
+        ("안녕하세요.", None, "annyeonghaseyo."),
+    ],
+)
+def test_romanize(text, language, expected) -> None:
+    assert romanize(text, language) == expected

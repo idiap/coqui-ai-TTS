@@ -44,7 +44,7 @@ lint:	## run linters.
 	uv run --only-dev ruff format ${target_dirs} --check
 
 system-deps:	## install linux system deps
-	sudo apt-get install -y libsndfile1-dev
+	sudo apt-get install -y libsndfile1-dev ffmpeg
 
 install:	## install 🐸 TTS
 	uv sync --all-extras

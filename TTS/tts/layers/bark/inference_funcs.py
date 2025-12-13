@@ -101,7 +101,7 @@ def generate_text_semantic(
             value=model.config.SEMANTIC_PAD_TOKEN,
         )
     else:
-        semantic_history = torch.full((256,), model.config.SEMANTIC_PAD_TOKEN, dtype=torch.int64)
+        semantic_history = torch.full((256,), model.config.SEMANTIC_PAD_TOKEN, dtype=torch.int64, device=model.device)
     x = torch.cat(
         [encoded_text, semantic_history, torch.tensor([model.config.SEMANTIC_INFER_TOKEN], device=model.device)]
     ).unsqueeze(0)

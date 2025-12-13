@@ -1,13 +1,14 @@
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import librosa
 import numpy as np
 import scipy
 import soundfile as sf
-from librosa import magphase, pyin
+from librosa import effects, filters, magphase, pyin
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def build_mel_basis(
     if mel_fmax is not None:
         assert mel_fmax <= sample_rate // 2
         assert mel_fmax - mel_fmin > 0
-    return librosa.filters.mel(sr=sample_rate, n_fft=fft_size, n_mels=num_mels, fmin=mel_fmin, fmax=mel_fmax)
+    return filters.mel(sr=sample_rate, n_fft=fft_size, n_mels=num_mels, fmin=mel_fmin, fmax=mel_fmax)
 
 
 def millisec_to_length(*, frame_length_ms: float, frame_shift_ms: float, sample_rate: int, **kwargs) -> tuple[int, int]:
@@ -375,7 +376,7 @@ def trim_silence(
     """Trim silent parts with a threshold and 0.01 sec margin."""
     margin = int(sample_rate * 0.01)
     wav = wav[margin:-margin]
-    return librosa.effects.trim(wav, top_db=trim_db, frame_length=win_length, hop_length=hop_length)[0]
+    return effects.trim(wav, top_db=trim_db, frame_length=win_length, hop_length=hop_length)[0]
 
 
 def volume_norm(*, x: np.ndarray, coef: float = 0.95, **kwargs) -> np.ndarray:
@@ -441,7 +442,7 @@ def load_wav(
 def save_wav(
     *,
     wav: np.ndarray,
-    path: str | os.PathLike[Any],
+    path: str | os.PathLike[Any] | BytesIO,
     sample_rate: int,
     pipe_out=None,
     do_rms_norm: bool = False,
@@ -458,6 +459,12 @@ def save_wav(
         do_rms_norm (bool): Whether to apply RMS normalization
         db_level (float): Target dB level in RMS.
     """
+    if not isinstance(path, BytesIO):
+        path = Path(path)
+        path.parent.mkdir(exist_ok=True, parents=True)
+        if path.is_dir():
+            msg = f"Output path must be a file, not a directory: {path}"
+            raise IsADirectoryError(msg)
     if do_rms_norm:
         if db_level is None:
             msg = "`db_level` cannot be None with `do_rms_norm=True`"

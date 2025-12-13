@@ -76,7 +76,7 @@ jobs:
           if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
-          uv run --resolution=$resolution --extra server --extra languages make ${{ matrix.subset }}
+          uv run --resolution=$resolution --extra codec --extra server --extra languages make ${{ matrix.subset }}
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
@@ -119,7 +119,7 @@ jobs:
           if [ "${{ matrix.python-version }}" == "3.10" ]; then
             resolution=lowest-direct
           fi
-          uv run --resolution=$resolution --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
+          uv run --resolution=$resolution --extra codec --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
@@ -154,7 +154,7 @@ jobs:
             uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
           fi
       - name: Zoo tests
-        run: uv run --extra server --extra languages make test_zoo
+        run: uv run --extra codec --extra server --extra languages make test_zoo
         env:
           NUM_PARTITIONS: 3
           TEST_PARTITION: ${{ matrix.partition }}

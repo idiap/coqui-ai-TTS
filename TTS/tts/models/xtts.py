@@ -477,8 +477,11 @@ class Xtts(BaseTTS):
 
             temperature: (float) The softmax temperature of the autoregressive model. Defaults to 0.65.
 
-            length_penalty: (float) A length penalty applied to the autoregressive decoder. Higher settings causes the
-                model to produce more terse outputs. Defaults to 1.0.
+            length_penalty: (float) Exponential penalty to the length that is used with beam-based
+                generation. It is applied as an exponent to the sequence length, which in turn is
+                used to divide the score of the sequence. Since the score is the log likelihood of
+                the sequence (i.e. negative), `length_penalty` > 0.0 promotes longer sequences,
+                while `length_penalty` < 0.0 encourages shorter sequences.
 
             repetition_penalty: (float) A penalty that prevents the autoregressive decoder from repeating itself during
                 decoding. Can be used to reduce the incidence of long silences or "uhhhhhhs", etc. Defaults to 2.0.

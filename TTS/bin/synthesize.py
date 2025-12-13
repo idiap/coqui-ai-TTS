@@ -4,6 +4,7 @@
 
 import argparse
 import contextlib
+import importlib.metadata
 import logging
 import sys
 from argparse import RawTextHelpFormatter
@@ -288,7 +289,12 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         "--voice_dir",
         type=str,
         default=None,
-        help="Voice dir for tortoise model",
+        help="Custom directory for caching of cloned voices.",
+    )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the Coqui TTS version number and exit.",
     )
 
     args = parser.parse_args(arg_list)
@@ -304,6 +310,7 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         args.model_info_by_name,
         args.source_wav,
         args.target_wav,
+        args.version,
     ]
     if not any(check_args):
         parser.parse_args(["-h"])
@@ -337,6 +344,11 @@ def main(arg_list: list[str] | None = None) -> None:
         vc_path = None
         vc_config_path = None
         model_dir = None
+
+        # 0) Print version number
+        if args.version:
+            logger.info(importlib.metadata.version("coqui-tts"))
+            sys.exit(0)
 
         # 1) List pre-trained TTS models
         if args.list_models:

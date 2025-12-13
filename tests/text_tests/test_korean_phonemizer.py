@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-import pytest
 
 from TTS.tts.utils.text.korean.phonemizer import korean_text_to_phonemes
 
@@ -20,7 +17,6 @@ _TEST_CASES_EN = """
 """
 
 
-@pytest.mark.skipif(not sys.version_info < (3, 13), reason="Requires Python 3.12 or lower")
 class TestText(unittest.TestCase):
     def test_korean_text_to_phonemes(self):
         for line in _TEST_CASES.strip().split("\n"):
@@ -29,7 +25,3 @@ class TestText(unittest.TestCase):
         for line in _TEST_CASES_EN.strip().split("\n"):
             text, phone = line.split("/")
             self.assertEqual(korean_text_to_phonemes(text, character="english"), phone)
-
-
-if __name__ == "__main__":
-    unittest.main()

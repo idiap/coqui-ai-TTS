@@ -1,10 +1,20 @@
 try:
-    import jieba
     import pypinyin
+    import spacy_pkuseg as pkuseg
 except ImportError as e:
-    raise ImportError("Chinese requires: jieba, pypinyin") from e
+    raise ImportError("Chinese requires: spacy_pkuseg, pypinyin") from e
 
 from .pinyinToPhonemes import PINYIN_DICT
+
+_seg = None
+
+
+def _get_segmenter():
+    """Lazy initialization of pkuseg segmenter."""
+    global _seg
+    if _seg is None:
+        _seg = pkuseg.pkuseg()
+    return _seg
 
 
 def _chinese_character_to_pinyin(text: str) -> list[str]:
@@ -21,7 +31,8 @@ def _chinese_pinyin_to_phoneme(pinyin: str) -> str:
 
 
 def chinese_text_to_phonemes(text: str, seperator: str = "|") -> str:
-    tokenized_text = jieba.cut(text, HMM=False)
+    seg = _get_segmenter()
+    tokenized_text = seg.cut(text)
     tokenized_text = " ".join(tokenized_text)
     pinyined_text: list[str] = _chinese_character_to_pinyin(tokenized_text)
 

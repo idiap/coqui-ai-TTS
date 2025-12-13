@@ -22,7 +22,7 @@ WORKDIR /app
 
 # Install dependencies first for better caching
 COPY pyproject.toml /app
-RUN uv pip install -r pyproject.toml --extra all --group dev
+RUN uv pip install -r pyproject.toml --extra all --group dev --torch-backend=cu128
 
 # Copy the rest of the application
 COPY . /app

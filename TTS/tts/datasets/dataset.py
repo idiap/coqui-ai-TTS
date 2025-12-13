@@ -3,18 +3,19 @@ import collections
 import logging
 import os
 import random
+from math import floor
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchaudio
 import tqdm
 from torch.utils.data import Dataset
 
 from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
+from TTS.utils.generic_utils import is_pytorch_at_least_2_9
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,20 @@ def string2filename(string: str) -> str:
     return base64.urlsafe_b64encode(string.encode("utf-8")).decode("utf-8", "ignore")
 
 
+def _get_audio_size_torchcodec(audiopath: str | os.PathLike[Any]) -> int:
+    try:
+        from torchcodec.decoders import AudioDecoder
+    except ImportError as e:
+        msg = "torchcodec not installed (available in the `codec` extra)"
+        raise ImportError(msg) from e
+    except RuntimeError as e:
+        msg = "Error while importing torchcodec, see the stacktrace for details."
+        raise ImportError(msg) from e
+
+    metadata = AudioDecoder(audiopath).metadata
+    return floor(metadata.duration_seconds_from_header * metadata.sample_rate)
+
+
 def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
     """Return the number of samples in the audio file."""
     if not isinstance(audiopath, str):
@@ -57,7 +72,12 @@ def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
         raise RuntimeError(msg)
 
     try:
-        return torchaudio.info(audiopath).num_frames
+        if is_pytorch_at_least_2_9():
+            return _get_audio_size_torchcodec(audiopath)
+        else:
+            import torchaudio
+
+            return torchaudio.info(audiopath).num_frames
     except RuntimeError as e:
         msg = f"Failed to decode {audiopath}"
         raise RuntimeError(msg) from e
