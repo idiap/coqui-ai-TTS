@@ -1,5 +1,6 @@
 import glob
 import os
+import shutil
 
 import pytest
 
@@ -61,6 +62,8 @@ def run_train(tmp_path, config):
 
     # Restore the model and continue training for one more epoch
     run_main(main, ["--continue_path", continue_path])
+    if output_path.exists():
+        shutil.rmtree(output_path)
 
 
 def test_train_hifigan(tmp_path):
