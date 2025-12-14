@@ -7,7 +7,7 @@ from torch import optim
 from trainer.generic_utils import count_parameters
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
-from tests import get_tests_data_path, get_tests_input_path, get_tests_output_path
+from tests import check_parameter_changes, get_tests_data_path, get_tests_input_path, get_tests_output_path
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.losses import GlowTTSLoss
 from TTS.tts.models.glow_tts import GlowTTS
@@ -37,15 +37,6 @@ class TestGlowTTS(unittest.TestCase):
         mel_lengths = torch.randint(20, 30, (batch_size,)).long().to(device)
         speaker_ids = torch.randint(0, 5, (batch_size,)).long().to(device)
         return input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids
-
-    @staticmethod
-    def _check_parameter_changes(model, model_ref):
-        count = 0
-        for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-            assert (param != param_ref).any(), (
-                f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-            )
-            count += 1
 
     def test_init_multispeaker(self):
         config = GlowTTSConfig(num_chars=32)
@@ -286,7 +277,7 @@ class TestGlowTTS(unittest.TestCase):
             loss.backward()
             optimizer.step()
         # check parameter changes
-        self._check_parameter_changes(model, model_ref)
+        check_parameter_changes(model, model_ref)
 
     def test_train_eval_log(self):
         batch_size = BATCH_SIZE

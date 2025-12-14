@@ -61,3 +61,11 @@ def assertHasAttr(test_obj, obj, intendedAttr):
 def assertHasNotAttr(test_obj, obj, intendedAttr):
     testBool = hasattr(obj, intendedAttr)
     test_obj.assertFalse(testBool, msg=f"obj should not have an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
+
+
+def check_parameter_changes(model, model_ref):
+    for item1, item2 in zip(model.named_parameters(), model_ref.named_parameters()):
+        name = item1[0]
+        param = item1[1]
+        param_ref = item2[1]
+        assert (param != param_ref).any(), f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
