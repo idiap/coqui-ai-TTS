@@ -63,7 +63,7 @@ def assertHasNotAttr(test_obj, obj, intendedAttr):
     test_obj.assertFalse(testBool, msg=f"obj should not have an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
 
 
-def check_parameter_changes(model, model_ref, ignore=None):
+def assert_parameters_change(model, model_ref, ignore=None):
     for item1, item2 in zip(model.named_parameters(), model_ref.named_parameters()):
         name = item1[0]
         if ignore and name in ignore:
@@ -71,3 +71,8 @@ def check_parameter_changes(model, model_ref, ignore=None):
         param = item1[1]
         param_ref = item2[1]
         assert (param != param_ref).any(), f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
+
+
+def assert_parameters_equal(model, model_ref):
+    for param, param_ref in zip(model.parameters(), model_ref.parameters()):
+        assert (param - param_ref).sum() == 0, param
