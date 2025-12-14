@@ -12,6 +12,9 @@ test:	## run tests.
 test_vocoder:	## run vocoder tests.
 	coverage run -m pytest -x -v --durations=0 tests/vocoder_tests
 
+test_vc:	## run voice conversion tests.
+	coverage run -m pytest -x -v --durations=0 tests/vc_tests
+
 test_tts:	## run tts tests.
 	coverage run -m pytest -x -v --durations=0 tests/tts_tests
 
