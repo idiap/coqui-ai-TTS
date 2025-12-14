@@ -4,7 +4,7 @@ import os
 import torch
 from torch import nn, optim
 
-from tests import get_tests_input_path
+from tests import check_parameter_changes, get_tests_input_path
 from TTS.tts.configs.shared_configs import CapacitronVAEConfig, GSTConfig
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.layers.losses import MSELossMasked
@@ -63,14 +63,7 @@ def test_train_step():
         loss.backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        # if count not in [145, 59]:
-        assert (param != param_ref).any(), (
-            f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref)
 
 
 def test_multispeaker_train_step():
@@ -119,14 +112,7 @@ def test_multispeaker_train_step():
         loss.backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        # if count not in [145, 59]:
-        assert (param != param_ref).any(), (
-            f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref)
 
 
 def test_gst_train_step():
@@ -179,18 +165,7 @@ def test_gst_train_step():
         loss.backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for name_param, param_ref in zip(model.named_parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        # if count not in [145, 59]:
-        name, param = name_param
-        if name == "gst_layer.encoder.recurrence.weight_hh_l0":
-            # print(param.grad)
-            continue
-        assert (param != param_ref).any(), (
-            f"param {name} {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref, ignore=["gst_layer.encoder.recurrence.weight_hh_l0"])
 
     # with file gst style
     mel_spec = (
@@ -235,18 +210,7 @@ def test_gst_train_step():
         loss.backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for name_param, param_ref in zip(model.named_parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        # if count not in [145, 59]:
-        name, param = name_param
-        if name == "gst_layer.encoder.recurrence.weight_hh_l0":
-            # print(param.grad)
-            continue
-        assert (param != param_ref).any(), (
-            f"param {name} {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref, ignore=["gst_layer.encoder.recurrence.weight_hh_l0"])
 
 
 def test_capacitron_train_step():
@@ -305,13 +269,7 @@ def test_capacitron_train_step():
         loss_dict["loss"].backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for param, param_ref in zip(model.parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        assert (param != param_ref).any(), (
-            f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref)
 
 
 def test_scgst_multispeaker_train_step():
@@ -361,14 +319,4 @@ def test_scgst_multispeaker_train_step():
         loss.backward()
         optimizer.step()
     # check parameter changes
-    count = 0
-    for name_param, param_ref in zip(model.named_parameters(), model_ref.parameters()):
-        # ignore pre-higway layer since it works conditional
-        # if count not in [145, 59]:
-        name, param = name_param
-        if name == "gst_layer.encoder.recurrence.weight_hh_l0":
-            continue
-        assert (param != param_ref).any(), (
-            f"param {count} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
-        )
-        count += 1
+    check_parameter_changes(model, model_ref, ignore=["gst_layer.encoder.recurrence.weight_hh_l0"])
