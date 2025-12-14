@@ -430,13 +430,15 @@ class FreeVC(CloningMixin, BaseVC):
             wav = wav.to(self.device)
         if isinstance(wav, list):
             wav = torch.from_numpy(np.array(wav)).to(self.device)
+        if wav.dim() == 1:
+            wav = wav.unsqueeze(0)
         return wav.float()
 
     def _extract_target_se(self, speaker_wav: list[str | os.PathLike[Any] | torch.Tensor]):
         target_ses = []
         for wav in speaker_wav:
             wav_tgt = self.load_audio(wav).cpu().numpy()
-            wav_tgt, _ = librosa.effects.trim(wav_tgt, top_db=20)
+            wav_tgt, _ = librosa.effects.trim(wav_tgt.squeeze(0), top_db=20)
 
             if self.config.model_args.use_spk:
                 target_ses.append(self.enc_spk_ex.embed_utterance(wav_tgt)[None, :, None])
@@ -486,7 +488,7 @@ class FreeVC(CloningMixin, BaseVC):
 
         # src
         wav_src = self.load_audio(src)
-        c = self.extract_wavlm_features(wav_src[None, :])
+        c = self.extract_wavlm_features(wav_src)
 
         # tgt
         if tgt is None or all(isinstance(x, (str, os.PathLike)) for x in tgt):

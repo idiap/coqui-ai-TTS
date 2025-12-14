@@ -7,9 +7,6 @@ from trainer.generic_utils import count_parameters
 from tests import get_tests_input_path
 from TTS.vc.models.freevc import FreeVC, FreeVCConfig
 
-# pylint: disable=unused-variable
-# pylint: disable=no-self-use
-
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -48,7 +45,7 @@ class TestFreeVC(unittest.TestCase):
         model = FreeVC(config).to(device)
         wav = model.load_audio(WAV_FILE)
         wav2 = model.load_audio(wav)
-        assert all(torch.isclose(wav, wav2))
+        assert torch.all(torch.isclose(wav, wav2))
 
     def _test_forward(self, batch_size):
         # create model
@@ -74,12 +71,12 @@ class TestFreeVC(unittest.TestCase):
         model = FreeVC(config).to(device)
         model.eval()
 
-        mel, _, _, waveform = self._create_inputs(config, batch_size)
+        _, _, _, waveform = self._create_inputs(config, batch_size)
 
         wavlm_vec = model.extract_wavlm_features(waveform)
         wavlm_vec_lengths = torch.ones(batch_size, dtype=torch.long)
 
-        output_wav = model.inference(wavlm_vec, None, mel, wavlm_vec_lengths)
+        output_wav = model.inference(wavlm_vec, None, wavlm_vec_lengths)
         assert output_wav.shape[-1] // config.audio.hop_length == wavlm_vec.shape[-1], (
             f"{output_wav.shape[-1] // config.audio.hop_length} != {wavlm_vec.shape}"
         )
@@ -94,19 +91,7 @@ class TestFreeVC(unittest.TestCase):
         model.eval()
 
         source_wav, target_wav = self._create_inputs_inference()
-        output_wav = model.voice_conversion(source_wav, target_wav)
+        output_wav = model.voice_conversion(source_wav, [target_wav])
         assert output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length, (
             f"{output_wav.shape} != {source_wav.shape}, {config.audio.hop_length}"
         )
-
-    def test_train_step(self): ...
-
-    def test_train_eval_log(self): ...
-
-    def test_test_run(self): ...
-
-    def test_load_checkpoint(self): ...
-
-    def test_get_criterion(self): ...
-
-    def test_init_from_config(self): ...

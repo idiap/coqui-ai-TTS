@@ -279,11 +279,12 @@ class OpenVoice(CloningMixin, BaseVC):
             out = torch.from_numpy(np.array(wav))
         else:
             out = wav
+        if out.dim() == 1:
+            out = out.unsqueeze(0)
         return out.to(self.device).float()
 
     def extract_se(self, audio: str | os.PathLike[Any] | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         y = self.load_audio(audio)
-        y = y.to(self.device)
         y = y.unsqueeze(0)
         spec = wav_to_spec(
             y,
