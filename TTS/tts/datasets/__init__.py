@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets.dataset import *
 from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
 
@@ -70,12 +71,12 @@ def add_extra_keys(metadata, language, dataset_name):
 
 
 def load_tts_samples(
-    datasets: list[dict] | dict,
+    datasets: list[BaseDatasetConfig] | BaseDatasetConfig,
     eval_split=True,
-    formatter: Callable = None,
+    formatter: Formatter | None = None,
     eval_split_max_size=None,
     eval_split_size=0.01,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None]:
     """Parse the dataset from the datasets config, load the samples as a list and load the attention alignments if provided.
     If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
     on the dataset name.
