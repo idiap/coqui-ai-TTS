@@ -460,7 +460,9 @@ class ModelManager:
         model_file = None
         config_file = None
         for f in output_path.iterdir():
-            if f.name in ["model_file.pth", "model_file.pth.tar", "model.pth", "checkpoint.pth"]:
+            if f.name in ["model_file.pth", "model_file.pth.tar", "model.pth", "checkpoint.pth"] or (
+                f.name.startswith("checkpoint_") and f.name.endswith(".pth")
+            ):
                 model_file = f
             elif f.name == "config.json":
                 config_file = f
@@ -493,16 +495,16 @@ class ModelManager:
             output_path (str): local path the model is downloaded to.
             config_path (str): local config.json path.
         """
-        output_stats_path = output_path / "scale_stats.npy"
         output_d_vector_file_path = output_path / "speakers.json"
         output_d_vector_file_pth_path = output_path / "speakers.pth"
+        output_language_ids_file_path = output_path / "language_ids.json"
         output_speaker_ids_file_path = output_path / "speaker_ids.json"
         output_speaker_ids_file_pth_path = output_path / "speaker_ids.pth"
         speaker_encoder_config_path = output_path / "config_se.json"
         speaker_encoder_model_path = self._find_speaker_encoder(output_path)
 
         # update the scale_path.npy file path in the model config.json
-        self._update_path("audio.stats_path", output_stats_path, config_path)
+        self._update_path("audio.stats_path", output_path / "scale_stats.npy", config_path)
 
         # update the speakers.json file path in the model config.json to the current path
         self._update_path("d_vector_file", output_d_vector_file_path, config_path)
@@ -510,11 +512,13 @@ class ModelManager:
         self._update_path("model_args.d_vector_file", output_d_vector_file_path, config_path)
         self._update_path("model_args.d_vector_file", output_d_vector_file_pth_path, config_path)
 
-        # update the speaker_ids.json file path in the model config.json to the current path
+        # update the speaker and language ID file path in the model config.json to the current path
         self._update_path("speakers_file", output_speaker_ids_file_path, config_path)
         self._update_path("speakers_file", output_speaker_ids_file_pth_path, config_path)
         self._update_path("model_args.speakers_file", output_speaker_ids_file_path, config_path)
         self._update_path("model_args.speakers_file", output_speaker_ids_file_pth_path, config_path)
+        self._update_path("language_ids_file", output_language_ids_file_path, config_path)
+        self._update_path("model_args.language_ids_file", output_language_ids_file_path, config_path)
 
         # update the speaker_encoder file path in the model config.json to the current path
         self._update_path("speaker_encoder_model_path", speaker_encoder_model_path, config_path)

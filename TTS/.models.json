@@ -1,6 +1,25 @@
 {
     "tts_models": {
         "multilingual": {
+            "cml-tts": {
+                "your_tts": {
+                    "description": "YourTTS model accompanying the paper https://arxiv.org/abs/2306.10097",
+                    "hf_url" : [
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/checkpoint_1020000.pth",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/config.json",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/config_se.json",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/language_ids.json",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/model_se.pth",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/samples_emb_all_langs.json",
+                        "https://huggingface.co/freds0/YourTTS-CML-Dataset/resolve/main/speakers.pth"
+                    ],
+                    "default_vocoder": null,
+                    "commit": null,
+                    "author": "@freds0",
+                    "license": "CC-BY 4.0",
+                    "contact": "fred.santos.oliveira@gmail.com"
+                }
+            },
             "multi-dataset": {
                 "xtts_v2": {
                     "description": "XTTS-v2.0.3 by Coqui with 17 languages.",
@@ -34,7 +53,7 @@
                     "tos_required": true
                 },
                 "your_tts": {
-                    "description": "Your TTS model accompanying the paper https://arxiv.org/abs/2112.02418",
+                    "description": "YourTTS model accompanying the paper https://arxiv.org/abs/2112.02418",
                     "github_rls_url": "https://github.com/coqui-ai/TTS/releases/download/v0.10.1_models/tts_models--multilingual--multi-dataset--your_tts.zip",
                     "default_vocoder": null,
                     "commit": "e9a1953e",
