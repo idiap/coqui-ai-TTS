@@ -418,7 +418,7 @@ class VitsArgs(Coqpit):
     use_speaker_embedding: bool = False
     num_speakers: int = 0
     speakers_file: str = None
-    d_vector_file: list[str] = None
+    d_vector_file: str | list[str] | None = None
     speaker_embedding_channels: int = 256
     use_d_vector_file: bool = False
     d_vector_dim: int = 0
