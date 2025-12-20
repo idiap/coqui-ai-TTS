@@ -117,7 +117,7 @@ class TTSTokenizer:
             logger.debug("Phonemes: %s", text)
         text = self.encode(text)
         if self.add_blank:
-            text = self.intersperse_blank_char(text, True)
+            text = self.intersperse_blank_char(text)
         if self.use_eos_bos:
             text = self.pad_with_bos_eos(text)
         return text
@@ -130,13 +130,9 @@ class TTSTokenizer:
         """Pads a sequence with the special BOS and EOS characters."""
         return [self.characters.bos_id] + list(char_sequence) + [self.characters.eos_id]
 
-    def intersperse_blank_char(self, char_sequence: list[str], use_blank_char: bool = False):
-        """Intersperses the blank character between characters in a sequence.
-
-        Use the ```blank``` character if defined else use the ```pad``` character.
-        """
-        char_to_use = self.characters.blank_id if use_blank_char else self.characters.pad
-        result = [char_to_use] * (len(char_sequence) * 2 + 1)
+    def intersperse_blank_char(self, char_sequence: list[str]):
+        """Intersperses the blank character between characters in a sequence."""
+        result = [self.characters.blank_id] * (len(char_sequence) * 2 + 1)
         result[1::2] = char_sequence
         return result
 
