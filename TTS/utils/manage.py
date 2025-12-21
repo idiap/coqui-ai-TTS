@@ -298,7 +298,7 @@ class ModelManager:
             lang = "multilingual"
             dataset = "multi-dataset"
             model = model_name
-            model_item = {
+            model_item: ModelItem = {
                 "model_name": model_name,
                 "model_type": model_type,
                 "default_vocoder": None,
@@ -443,8 +443,9 @@ class ModelManager:
         if model == "knnvc" and not output_config_path.exists():
             knnvc_config = KNNVCConfig()
             knnvc_config.save_json(output_config_path)
-        # update paths in the config.json
-        self._update_paths(output_path, output_config_path)
+        if "fairseq" not in model_name and "openvoice" not in model_name:
+            # Update paths in config, except for external models
+            self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item
 
     @staticmethod
@@ -495,64 +496,58 @@ class ModelManager:
             output_path (str): local path the model is downloaded to.
             config_path (str): local config.json path.
         """
-        output_d_vector_file_path = output_path / "speakers.json"
-        output_d_vector_file_pth_path = output_path / "speakers.pth"
-        output_language_ids_file_path = output_path / "language_ids.json"
-        output_speaker_ids_file_path = output_path / "speaker_ids.json"
-        output_speaker_ids_file_pth_path = output_path / "speaker_ids.pth"
-        speaker_encoder_config_path = output_path / "config_se.json"
-        speaker_encoder_model_path = self._find_speaker_encoder(output_path)
+        config = load_config(config_path)
 
-        # update the scale_path.npy file path in the model config.json
-        self._update_path("audio.stats_path", output_path / "scale_stats.npy", config_path)
-
-        # update the speakers.json file path in the model config.json to the current path
-        self._update_path("d_vector_file", output_d_vector_file_path, config_path)
-        self._update_path("d_vector_file", output_d_vector_file_pth_path, config_path)
-        self._update_path("model_args.d_vector_file", output_d_vector_file_path, config_path)
-        self._update_path("model_args.d_vector_file", output_d_vector_file_pth_path, config_path)
-
-        # update the speaker and language ID file path in the model config.json to the current path
-        self._update_path("speakers_file", output_speaker_ids_file_path, config_path)
-        self._update_path("speakers_file", output_speaker_ids_file_pth_path, config_path)
-        self._update_path("model_args.speakers_file", output_speaker_ids_file_path, config_path)
-        self._update_path("model_args.speakers_file", output_speaker_ids_file_pth_path, config_path)
-        self._update_path("language_ids_file", output_language_ids_file_path, config_path)
-        self._update_path("model_args.language_ids_file", output_language_ids_file_path, config_path)
-
-        # update the speaker_encoder file path in the model config.json to the current path
-        self._update_path("speaker_encoder_model_path", speaker_encoder_model_path, config_path)
-        self._update_path("model_args.speaker_encoder_model_path", speaker_encoder_model_path, config_path)
-        self._update_path("speaker_encoder_config_path", speaker_encoder_config_path, config_path)
-        self._update_path("model_args.speaker_encoder_config_path", speaker_encoder_config_path, config_path)
-
-    @staticmethod
-    def _update_path(field_name: str, new_path: Path | None, config_path: Path) -> None:
-        """Update the path in the model config.json for the current environment after download"""
-        if new_path is not None and new_path.is_file():
-            config = load_config(str(config_path))
-            field_names = field_name.split(".")
-            if len(field_names) > 1:
-                # field name points to a sub-level field
-                sub_conf = config
-                for fd in field_names[:-1]:
-                    if fd in sub_conf:
-                        sub_conf = sub_conf[fd]
-                    else:
-                        return
-                if isinstance(sub_conf[field_names[-1]], list):
-                    sub_conf[field_names[-1]] = [new_path]
-                else:
-                    sub_conf[field_names[-1]] = new_path
-            else:
-                # field name points to a top-level field
-                if field_name not in config:
+        def _set_path(field_name: str, new_path: Path) -> None:
+            keys = field_name.split(".")
+            sub_conf = config
+            for key in keys[:-1]:
+                if key not in sub_conf:
                     return
-                if isinstance(config[field_name], list):
-                    config[field_name] = [new_path]
-                else:
-                    config[field_name] = new_path
-            config.save_json(config_path)
+                sub_conf = sub_conf[key]
+            if keys[-1] not in sub_conf:
+                return
+            sub_conf[keys[-1]] = [new_path] if isinstance(sub_conf[keys[-1]], list) else new_path
+
+        def _update_path(field_name: str, new_path: Path) -> bool:
+            if not new_path.is_file():
+                return False
+
+            _set_path(field_name, new_path)
+            if not field_name.startswith("audio"):
+                _set_path(f"model_args.{field_name}", new_path)
+            return True
+
+        default_names = {
+            "audio.stats_path": ["scale_stats.npy"],
+            "d_vector_file": ["speakers.json", "speakers.pth"],
+            "speakers_file": ["speaker_ids.json", "speaker_ids.pth"],
+            "language_ids_file": ["language_ids.json"],
+            "speaker_encoder_model_path": ["model_se.pth", "model_se.pth.tar"],
+            "speaker_encoder_config_path": ["config_se.json"],
+        }
+
+        for field_name, defaults in default_names.items():
+            name = config.get(field_name) or ""
+            if isinstance(name, list):
+                name = name[0]
+            name = Path(name).name
+
+            model_args_name = ""
+            if config.get("model_args"):
+                model_args_name = config["model_args"].get(field_name) or ""
+                if isinstance(model_args_name, list):
+                    model_args_name = model_args_name[0]
+                model_args_name = Path(model_args_name).name
+
+            if _update_path(field_name, output_path / name):
+                continue
+            elif _update_path(field_name, output_path / model_args_name):
+                continue
+            for default in defaults:
+                _update_path(field_name, output_path / default)
+
+        config.save_json(config_path)
 
     @staticmethod
     def _download_zip_file(file_url: str, output_folder: Path, progress_bar: bool) -> None:
@@ -567,7 +562,7 @@ class ModelManager:
             temp_zip_name = output_folder / file_url.split("/")[-1]
             with open(temp_zip_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
+                    if pbar:
                         pbar.update(len(data))
                     file.write(data)
             with zipfile.ZipFile(temp_zip_name) as z:
@@ -601,7 +596,7 @@ class ModelManager:
             temp_tar_name = output_folder / file_url.split("/")[-1]
             with open(temp_tar_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
+                    if pbar:
                         pbar.update(len(data))
                     file.write(data)
             with tarfile.open(temp_tar_name) as t:
@@ -635,6 +630,6 @@ class ModelManager:
             ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
             with open(file_path, "wb") as f, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
+                    if pbar:
                         pbar.update(len(data))
                     f.write(data)
