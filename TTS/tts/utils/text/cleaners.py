@@ -16,6 +16,11 @@ from .english.number_norm import normalize_numbers as en_normalize_numbers
 from .english.time_norm import expand_time_english
 from .french.abbreviations import abbreviations_fr
 
+from .italian.abbreviations import abbreviations_it
+from .italian.number_norm import normalize_numbers as it_normalize_numbers
+from .italian.time_norm import expand_time_italian
+
+
 # Regular expression matching whitespace:
 _whitespace_re = re.compile(r"\s+")
 
@@ -27,6 +32,8 @@ def expand_abbreviations(text: str, lang: str = "en") -> str:
         _abbreviations = abbreviations_en
     elif lang == "fr":
         _abbreviations = abbreviations_fr
+    elif lang == "it":
+        _abbreviations = abbreviations_it
     else:
         msg = f"Language {lang} not supported in expand_abbreviations"
         raise ValueError(msg)
@@ -91,6 +98,8 @@ def replace_symbols(text: str, lang: str | None = "en") -> str:
     elif lang == "fr":
         text = text.replace("&", " et ")
     elif lang == "pt":
+        text = text.replace("&", " e ")
+    elif lang == "it":
         text = text.replace("&", " e ")
     elif lang == "ca":
         text = text.replace("&", " i ")
@@ -175,6 +184,19 @@ def multilingual_phoneme_cleaners(text: str) -> str:
     """Pipeline for phonemes mode, including number and abbreviation expansion."""
     text = normalize_unicode(text)
     text = replace_symbols(text, lang=None)
+    text = remove_aux_symbols(text)
+    text = collapse_whitespace(text)
+    return text
+
+
+def italian_cleaners(text: str) -> str:
+    """Pipeline for Italian text: time + light number + abbreviations + symbol cleanup."""
+    text = normalize_unicode(text)
+    text = lowercase(text)
+    text = expand_time_italian(text)
+    text = it_normalize_numbers(text)
+    text = expand_abbreviations(text, lang="it")
+    text = replace_symbols(text, lang="it")
     text = remove_aux_symbols(text)
     text = collapse_whitespace(text)
     return text
