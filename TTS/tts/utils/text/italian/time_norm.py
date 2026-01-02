@@ -43,7 +43,7 @@ def _it_number_0_59(n: int) -> str:
     if unit == 0:
         return _IT_TENS[tens]
     # Keep it simple (no elision rules like "ventuno/ventotto"); XTTS usually handles both.
-    return f"{_IT_TENS[tens]} { _IT_0_19[unit] }"
+    return f"{_IT_TENS[tens]} {_IT_0_19[unit]}"
 
 
 def expand_time_italian(text: str) -> str:

@@ -70,8 +70,8 @@ def test_romanize(text, language, expected) -> None:
 
 
 def test_italian_cleaners_numbers_and_abbreviations() -> None:
-    text = "Alle 09:05 Sig. Bianchi ha pagato €1.234,50 per 50%"
-    expected = "alle 9 e cinque signor bianchi ha pagato 1234 virgola 50 euro per 50 percento"
+    text = "Alle 09:05 il Sig. Bianchi ha pagato €1.234,50 per 50%"
+    expected = "alle 9 e cinque il signor bianchi ha pagato 1234 virgola 50 euro per 50 percento"
     assert italian_cleaners(text) == expected
 
 

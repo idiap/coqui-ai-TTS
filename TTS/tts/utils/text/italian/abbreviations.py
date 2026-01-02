@@ -19,10 +19,10 @@ abbreviations_it = [
     (_c(r"\batt\.?\b" + _END), "attenzione"),
     (_c(r"\bc\.?\s*a\.?\b" + _END), "cortese attenzione"),  # often "alla c.a."
     # --- People / titles / professions
-    (_c(r"\bsig\.?\b" + _END), "signor"),
-    (_c(r"\bsig\.?\s*ra\.?\b" + _END), "signora"),
-    (_c(r"\bsig\.?\s*na\.?\b" + _END), "signorina"),
-    (_c(r"\bsigg\.?\b" + _END), "signori"),
+    (_c(r"\bsig\.?" + _END), "signor"),
+    (_c(r"\bsig\.?\s*ra\.?" + _END), "signora"),
+    (_c(r"\bsig\.?\s*na\.?" + _END), "signorina"),
+    (_c(r"\bsigg\.?" + _END), "signori"),
     (_c(r"\bdott\.?\b" + _END), "dottore"),
     (_c(r"\bdott\.?\s*ssa\.?\b" + _END), "dottoressa"),
     (_c(r"\bprof\.?\b" + _END), "professore"),
