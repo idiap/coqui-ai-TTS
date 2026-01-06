@@ -7,7 +7,7 @@ from torch import optim
 from trainer.generic_utils import count_parameters
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
-from tests import check_parameter_changes, get_tests_data_path, get_tests_input_path, get_tests_output_path
+from tests import assert_parameters_change, get_tests_data_path, get_tests_input_path, get_tests_output_path
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.losses import GlowTTSLoss
 from TTS.tts.models.glow_tts import GlowTTS
@@ -277,7 +277,7 @@ class TestGlowTTS(unittest.TestCase):
             loss.backward()
             optimizer.step()
         # check parameter changes
-        check_parameter_changes(model, model_ref)
+        assert_parameters_change(model, model_ref)
 
     def test_train_eval_log(self):
         batch_size = BATCH_SIZE
