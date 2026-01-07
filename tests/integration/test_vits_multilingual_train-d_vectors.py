@@ -100,7 +100,6 @@ def test_train(tmp_path):
     speaker_id = "ljspeech-1"
     language_id = "en"
     continue_speakers_path = config.d_vector_file
-    continue_languages_path = continue_path / "language_ids.json"
 
     # Check integrity of the config
     with continue_config_path.open() as f:
@@ -119,8 +118,6 @@ def test_train(tmp_path):
         language_id,
         "--speakers_file_path",
         str(continue_speakers_path),
-        "--language_ids_file_path",
-        str(continue_languages_path),
         "--config_path",
         str(continue_config_path),
         "--model_path",

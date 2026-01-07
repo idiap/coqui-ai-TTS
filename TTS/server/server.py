@@ -104,7 +104,6 @@ api = TTS(
     vocoder_path=args.vocoder_path,
     vocoder_config_path=args.vocoder_config_path,
     speakers_file_path=args.speakers_file_path,
-    # language_ids_file_path=args.language_ids_file_path,
 ).to(device)
 
 # TODO: set this from SpeakerManager

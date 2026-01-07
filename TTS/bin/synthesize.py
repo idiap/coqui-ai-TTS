@@ -216,7 +216,6 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
 
     # args for multi-speaker synthesis
     parser.add_argument("--speakers_file_path", type=str, help="JSON file for multi-speaker model.", default=None)
-    parser.add_argument("--language_ids_file_path", type=str, help="JSON file for multi-lingual model.", default=None)
     parser.add_argument(
         "--speaker_idx",
         type=str,
@@ -336,7 +335,6 @@ def main(arg_list: list[str] | None = None) -> None:
         tts_path = None
         tts_config_path = None
         speakers_file_path = None
-        language_ids_file_path = None
         vocoder_path = None
         vocoder_config_path = None
         encoder_path = None
@@ -381,7 +379,6 @@ def main(arg_list: list[str] | None = None) -> None:
             encoder_path=args.encoder_path,
             encoder_config_path=args.encoder_config_path,
             speakers_file_path=args.speakers_file_path,
-            language_ids_file_path=args.language_ids_file_path,
             progress_bar=args.progress_bar,
         ).to(device)
 

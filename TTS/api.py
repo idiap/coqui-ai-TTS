@@ -32,7 +32,6 @@ class TTS(nn.Module):
         encoder_path: str | None = None,
         encoder_config_path: str | None = None,
         speakers_file_path: str | None = None,
-        language_ids_file_path: str | None = None,
         progress_bar: bool = True,
         gpu: bool = False,
     ) -> None:
@@ -72,7 +71,6 @@ class TTS(nn.Module):
             encoder_path: Path to speaker encoder checkpoint. Default to None.
             encoder_config_path: Path to speaker encoder config file. Defaults to None.
             speakers_file_path: JSON file for multi-speaker model. Defaults to None.
-            language_ids_file_path: JSON file for multilingual model. Defaults to None
             progress_bar (bool, optional): Whether to print a progress bar while downloading a model. Defaults to True.
             gpu (bool, optional): Enable/disable GPU. Defaults to False. DEPRECATED, use TTS(...).to("cuda")
         """
@@ -89,7 +87,6 @@ class TTS(nn.Module):
         self.encoder_path = encoder_path
         self.encoder_config_path = encoder_config_path
         self.speakers_file_path = speakers_file_path
-        self.language_ids_file_path = language_ids_file_path
 
         if gpu:
             warnings.warn("`gpu` will be deprecated. Please use `tts.to(device)` instead.")
@@ -226,7 +223,6 @@ class TTS(nn.Module):
             tts_checkpoint=model_path,
             tts_config_path=config_path,
             tts_speakers_file=None,
-            tts_languages_file=None,
             vocoder_checkpoint=vocoder_path,
             vocoder_config=vocoder_config_path,
             encoder_checkpoint=self.encoder_path,
@@ -250,7 +246,6 @@ class TTS(nn.Module):
             tts_checkpoint=model_path,
             tts_config_path=config_path,
             tts_speakers_file=self.speakers_file_path,
-            tts_languages_file=self.language_ids_file_path,
             vocoder_checkpoint=self.vocoder_path,
             vocoder_config=self.vocoder_config_path,
             encoder_checkpoint=self.encoder_path,

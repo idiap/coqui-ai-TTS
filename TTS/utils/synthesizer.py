@@ -45,7 +45,6 @@ class Synthesizer(nn.Module):
         tts_checkpoint: str | os.PathLike[Any] | None = None,
         tts_config_path: str | os.PathLike[Any] | None = None,
         tts_speakers_file: str | os.PathLike[Any] | None = None,
-        tts_languages_file: str | os.PathLike[Any] | None = None,
         vocoder_checkpoint: str | os.PathLike[Any] | None = None,
         vocoder_config: str | os.PathLike[Any] | None = None,
         encoder_checkpoint: str | os.PathLike[Any] | None = None,
@@ -83,7 +82,6 @@ class Synthesizer(nn.Module):
         self.tts_checkpoint = Path(optional_to_str(tts_checkpoint))
         self.tts_config_path = Path(optional_to_str(tts_config_path))
         self.tts_speakers_file = optional_to_str(tts_speakers_file)
-        self.tts_languages_file = optional_to_str(tts_languages_file)
         self.vocoder_checkpoint = optional_to_str(vocoder_checkpoint)
         self.vocoder_config = optional_to_str(vocoder_config)
         self.encoder_checkpoint = optional_to_str(encoder_checkpoint)
