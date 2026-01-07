@@ -28,8 +28,6 @@ from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
 
-# pylint: skip-file
-
 
 class BaseTTS(CloningMixin, BaseTrainerModel):
     """Base `tts` class. Every new `tts` model must inherit this.
@@ -46,14 +44,13 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         ap: "AudioProcessor",
         tokenizer: "TTSTokenizer",
         speaker_manager: SpeakerManager | None = None,
-        language_manager: LanguageManager | None = None,
     ):
         super().__init__()
         self.config = cast(BaseTTSConfig, config)
         self.ap = ap
         self.tokenizer = tokenizer
         self.speaker_manager = speaker_manager
-        self.language_manager = language_manager
+        self.language_manager = LanguageManager.init_from_config(self.config)
         self._set_model_args()
 
     def _set_model_args(self) -> None:
@@ -284,10 +281,10 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             d_vector_mapping = None
 
         # setup multi-lingual attributes
-        if self.language_manager is not None:
-            language_id_mapping = self.language_manager.name_to_id if self.args.use_language_embedding else None
-        else:
-            language_id_mapping = None
+        language_id_mapping = None
+        if self.language_manager.num_languages > 0:
+            use_language_embedding = self.args.get("use_language_embedding", False)
+            language_id_mapping = self.language_manager.name_to_id if use_language_embedding else None
 
         # init dataloader
         dataset = TTSDataset(
@@ -455,7 +452,8 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             logger.info("`speakers.pth` is saved to: %s", output_path)
             logger.info("`speakers_file` is updated in the config.json.")
 
-        if self.language_manager is not None:
+        if self.language_manager.num_languages > 1:
+            # TODO: save in config.languages instead
             output_path = os.path.join(trainer.output_path, "language_ids.json")
             self.language_manager.save_ids_to_file(output_path)
             trainer.config.model_args.language_ids_file = output_path
@@ -464,9 +462,9 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             logger.info("`language_ids_file` is updated in the config.json.")
 
     def _get_language_id(self, language: str | None) -> int | None:
-        if self.language_manager is not None:
-            if len(self.language_manager.name_to_id) == 1:
-                return list(self.language_manager.name_to_id.values())[0]
+        if self.language_manager.num_languages == 1:
+            return list(self.language_manager.name_to_id.values())[0]
+        if self.language_manager.num_languages > 1:
             if language is not None:
                 try:
                     return self.language_manager.name_to_id[language]

@@ -70,43 +70,43 @@ class TestVits(unittest.TestCase):
     def test_init_multispeaker(self):
         num_speakers = 10
         args = VitsArgs(num_speakers=num_speakers, use_speaker_embedding=True)
-        model = Vits(args)
+        model = Vits(VitsConfig(model_args=args))
         assertHasAttr(self, model, "emb_g")
 
         args = VitsArgs(num_speakers=0, use_speaker_embedding=True)
-        model = Vits(args)
+        model = Vits(VitsConfig(model_args=args))
         assertHasNotAttr(self, model, "emb_g")
 
         args = VitsArgs(num_speakers=10, use_speaker_embedding=False)
-        model = Vits(args)
+        model = Vits(VitsConfig(model_args=args))
         assertHasNotAttr(self, model, "emb_g")
 
         args = VitsArgs(d_vector_dim=101, use_d_vector_file=True)
-        model = Vits(args)
+        model = Vits(VitsConfig(model_args=args))
         self.assertEqual(model.embedded_speaker_dim, 101)
 
     def test_init_multilingual(self):
         args = VitsArgs(language_ids_file=None, use_language_embedding=False)
-        model = Vits(args)
-        self.assertEqual(model.language_manager, None)
+        model = Vits(VitsConfig(model_args=args))
+        self.assertEqual(model.language_manager.num_languages, 0)
         self.assertEqual(model.embedded_language_dim, 0)
         assertHasNotAttr(self, model, "emb_l")
 
         args = VitsArgs(language_ids_file=LANG_FILE)
-        model = Vits(args)
-        self.assertNotEqual(model.language_manager, None)
+        model = Vits(VitsConfig(model_args=args))
+        self.assertEqual(model.language_manager.num_languages, 3)
         self.assertEqual(model.embedded_language_dim, 0)
         assertHasNotAttr(self, model, "emb_l")
 
         args = VitsArgs(language_ids_file=LANG_FILE, use_language_embedding=True)
-        model = Vits(args)
-        self.assertNotEqual(model.language_manager, None)
+        model = Vits(VitsConfig(model_args=args))
+        self.assertEqual(model.language_manager.num_languages, 3)
         self.assertEqual(model.embedded_language_dim, args.embedded_language_dim)
         assertHasAttr(self, model, "emb_l")
 
         args = VitsArgs(language_ids_file=LANG_FILE, use_language_embedding=True, embedded_language_dim=102)
-        model = Vits(args)
-        self.assertNotEqual(model.language_manager, None)
+        model = Vits(VitsConfig(model_args=args))
+        self.assertEqual(model.language_manager.num_languages, 3)
         self.assertEqual(model.embedded_language_dim, args.embedded_language_dim)
         assertHasAttr(self, model, "emb_l")
 
@@ -116,7 +116,7 @@ class TestVits(unittest.TestCase):
         spec_effective_len = 50
 
         args = VitsArgs(num_speakers=num_speakers, use_speaker_embedding=True)
-        model = Vits(args)
+        model = Vits(VitsConfig(model_args=args))
 
         ref_inp = torch.randn(1, 513, spec_len)
         ref_inp_len = torch.randint(1, spec_effective_len, (1,))

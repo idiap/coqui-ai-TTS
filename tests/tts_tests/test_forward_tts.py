@@ -1,5 +1,8 @@
 import torch as T
 
+from TTS.tts.configs.fast_pitch_config import FastPitchConfig
+from TTS.tts.configs.fast_speech_config import FastSpeechConfig
+from TTS.tts.configs.fastspeech2_config import Fastspeech2Config
 from TTS.tts.configs.forward_tts_config import ForwardTTSArgs
 from TTS.tts.models.forward_tts import ForwardTTS
 from TTS.tts.utils.helpers import sequence_mask
@@ -11,7 +14,7 @@ def test_model_input_output():
     """Assert the output shapes of the model in different modes"""
 
     # VANILLA MODEL
-    model = ForwardTTS(ForwardTTSArgs(num_chars=10, use_pitch=False, use_aligner=False))
+    model = ForwardTTS(FastSpeechConfig(model_args=ForwardTTSArgs(num_chars=10, use_pitch=False, use_aligner=False)))
 
     x = T.randint(0, 10, (2, 21))
     x_lengths = T.randint(10, 22, (2,))
@@ -39,7 +42,7 @@ def test_model_input_output():
     assert outputs["pitch_avg_gt"] is None
 
     # USE PITCH
-    model = ForwardTTS(ForwardTTSArgs(num_chars=10, use_pitch=True, use_aligner=False))
+    model = ForwardTTS(FastPitchConfig(model_args=ForwardTTSArgs(num_chars=10, use_pitch=True, use_aligner=False)))
 
     x = T.randint(0, 10, (2, 21))
     x_lengths = T.randint(10, 22, (2,))
@@ -68,7 +71,7 @@ def test_model_input_output():
     assert outputs["o_alignment_dur"] is None
 
     # USE ALIGNER NETWORK
-    model = ForwardTTS(ForwardTTSArgs(num_chars=10, use_pitch=False, use_aligner=True))
+    model = ForwardTTS(Fastspeech2Config(model_args=ForwardTTSArgs(num_chars=10, use_pitch=False, use_aligner=True)))
 
     x = T.randint(0, 10, (2, 21))
     x_lengths = T.randint(10, 22, (2,))
@@ -97,7 +100,7 @@ def test_model_input_output():
     assert outputs["pitch_avg_gt"] is None
 
     # USE ALIGNER NETWORK AND PITCH
-    model = ForwardTTS(ForwardTTSArgs(num_chars=10, use_pitch=True, use_aligner=True))
+    model = ForwardTTS(Fastspeech2Config(model_args=ForwardTTSArgs(num_chars=10, use_pitch=True, use_aligner=True)))
 
     x = T.randint(0, 10, (2, 21))
     x_lengths = T.randint(10, 22, (2,))

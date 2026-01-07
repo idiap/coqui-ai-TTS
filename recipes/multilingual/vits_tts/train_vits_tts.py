@@ -7,7 +7,6 @@ from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.vits_config import VitsArgs, VitsAudioConfig, VitsConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.vits import CharactersConfig, Vits
-from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
@@ -113,16 +112,13 @@ def main():
     speaker_manager.set_ids_from_data(train_samples + eval_samples, parse_key="speaker_name")
     config.model_args.num_speakers = speaker_manager.num_speakers
 
-    language_manager = LanguageManager(config=config)
-    config.model_args.num_languages = language_manager.num_languages
-
     # INITIALIZE THE TOKENIZER
     # Tokenizer is used to convert text to sequences of token IDs.
     # config is updated with the default characters if not defined in the config.
     tokenizer, config = TTSTokenizer.init_from_config(config)
 
     # init model
-    model = Vits(config, ap, tokenizer, speaker_manager, language_manager)
+    model = Vits(config, ap, tokenizer, speaker_manager)
 
     # init the trainer and 🚀
     trainer = Trainer(

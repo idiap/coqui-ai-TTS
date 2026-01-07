@@ -30,7 +30,6 @@ from TTS.tts.layers.vits.stochastic_duration_predictor import StochasticDuration
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.fairseq import rehash_fairseq_vits_checkpoint
 from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequence_mask
-from TTS.tts.utils.languages import LanguageManager
 from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
@@ -226,9 +225,8 @@ class Vits(BaseTTS):
         ap: Union["AudioProcessor", None] = None,
         tokenizer: Union["TTSTokenizer", None] = None,
         speaker_manager: SpeakerManager | None = None,
-        language_manager: LanguageManager | None = None,
     ):
-        super().__init__(config, ap, tokenizer, speaker_manager, language_manager)
+        super().__init__(config, ap, tokenizer, speaker_manager)
 
         self.init_multispeaker(config)
         self.init_multilingual(config)
@@ -378,14 +376,12 @@ class Vits(BaseTTS):
         Args:
             config (Coqpit): Model configuration.
         """
-        if self.args.language_ids_file is not None:
-            self.language_manager = LanguageManager(language_ids_file_path=self.args.language_ids_file)
-
-        if self.args.use_language_embedding and self.language_manager:
+        # For one language this does not necessarily make sense, but need to support
+        # it for existing models that do this.
+        if self.args.use_language_embedding and self.language_manager.num_languages > 0:
             logger.info("Initialization of language-embedding layers.")
-            self.num_languages = self.language_manager.num_languages
             self.embedded_language_dim = self.args.embedded_language_dim
-            self.emb_l = nn.Embedding(self.num_languages, self.embedded_language_dim)
+            self.emb_l = nn.Embedding(self.language_manager.num_languages, self.embedded_language_dim)
             torch.nn.init.xavier_uniform_(self.emb_l.weight)
         else:
             self.embedded_language_dim = 0
@@ -944,7 +940,7 @@ class Vits(BaseTTS):
             d_vectors = torch.FloatTensor(d_vectors)
 
         # get language ids from language names
-        if self.language_manager is not None and self.language_manager.name_to_id and self.args.use_language_embedding:
+        if self.language_manager.name_to_id and self.args.use_language_embedding:
             language_ids = [self.language_manager.name_to_id[ln] for ln in batch["language_names"]]
 
         if language_ids is not None:
@@ -1253,13 +1249,12 @@ class Vits(BaseTTS):
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
         speaker_manager = SpeakerManager.init_from_config(config, samples)
-        language_manager = LanguageManager.init_from_config(config)
 
         if config.model_args.speaker_encoder_model_path:
             speaker_manager.init_encoder(
                 config.model_args.speaker_encoder_model_path, config.model_args.speaker_encoder_config_path
             )
-        return Vits(new_config, ap, tokenizer, speaker_manager, language_manager)
+        return Vits(new_config, ap, tokenizer, speaker_manager)
 
     def export_onnx(self, output_path: str = "coqui_vits.onnx", verbose: bool = True):
         """Export model to ONNX format for inference
@@ -1313,7 +1308,7 @@ class Vits(BaseTTS):
             dummy_input += (speaker_id,)
             input_names.append("sid")
 
-        if hasattr(self, "num_languages") and self.num_languages > 0 and self.embedded_language_dim > 0:
+        if self.language_manager.num_languages > 0 and self.embedded_language_dim > 0:
             language_id = torch.LongTensor([0])
             dummy_input += (language_id,)
             input_names.append("langid")
