@@ -24,25 +24,31 @@ class LanguageManager(BaseIDManager):
 
     @property
     def language_names(self) -> list[str]:
-        return list(self.name_to_id.keys())
+        return sorted(self.name_to_id.keys())
 
     @staticmethod
     def parse_language_ids_from_config(c: BaseTTSConfig) -> dict[str, int]:
         """Set language id from config.
 
+        1. Check if the config contains a `languages` field.
+        2. Otherwise read language names from the dataset configs.
+
         Args:
-            c (Coqpit): Config
+            c (BaseTTSConfig): Config
 
         Returns:
-            Tuple[Dict, int]: Language ID mapping and the number of languages.
+            Language ID mapping.
         """
-        languages = set({})
-        for dataset in c.datasets:
-            if "language" in dataset:
-                languages.add(dataset["language"])
-            else:
-                raise ValueError(f"Dataset {dataset['name']} has no language specified.")
-        return {name: i for i, name in enumerate(sorted(languages))}
+        languages = c.get("languages", [])
+        if len(languages) == 0:
+            dataset_languages = set({})
+            for dataset in c.datasets:
+                if "language" in dataset:
+                    dataset_languages.add(dataset["language"])
+                else:
+                    raise ValueError(f"Dataset {dataset['name']} has no language specified.")
+            languages = sorted(dataset_languages)
+        return {name: i for i, name in enumerate(languages)}
 
     @staticmethod
     def parse_ids_from_data(items: list[dict[str, Any]], parse_key: str) -> Any:

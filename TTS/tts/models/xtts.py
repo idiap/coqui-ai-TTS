@@ -19,7 +19,7 @@ from TTS.tts.layers.xtts.gpt import GPT
 from TTS.tts.layers.xtts.hifigan_decoder import HifiDecoder
 from TTS.tts.layers.xtts.stream_generator import init_stream_support
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
-from TTS.tts.layers.xtts.xtts_manager import LanguageManager, SpeakerManager
+from TTS.tts.layers.xtts.xtts_manager import SpeakerManager
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.utils.generic_utils import (
     is_pytorch_at_least_2_4,
@@ -715,7 +715,6 @@ class Xtts(BaseTTS):
         if speaker_file_path is None:
             speaker_file_path = checkpoint_dir / "speakers_xtts.pth"
 
-        self.language_manager = LanguageManager(config)
         self.speaker_manager = None
         if speaker_file_path is not None and os.path.exists(speaker_file_path):
             self.speaker_manager = SpeakerManager(speaker_file_path)
