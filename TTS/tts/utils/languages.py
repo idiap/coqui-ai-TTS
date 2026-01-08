@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import numpy as np
@@ -5,6 +6,8 @@ import torch
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.utils.managers import BaseIDManager
+
+logger = logging.getLogger(__name__)
 
 
 class LanguageManager(BaseIDManager):
@@ -30,8 +33,9 @@ class LanguageManager(BaseIDManager):
     def parse_language_ids_from_config(c: BaseTTSConfig) -> dict[str, int]:
         """Set language id from config.
 
-        1. Check if the config contains a `languages` field.
-        2. Otherwise read language names from the dataset configs.
+        1. Read config.languages
+        2. Otherwise read language names from the dataset configs
+        3. Otherwise read config.phoneme_language
 
         Args:
             c (BaseTTSConfig): Config
@@ -43,11 +47,14 @@ class LanguageManager(BaseIDManager):
         if len(languages) == 0:
             dataset_languages = set({})
             for dataset in c.datasets:
-                if "language" in dataset:
-                    dataset_languages.add(dataset["language"])
+                if language := dataset.get("language"):
+                    dataset_languages.add(language)
                 else:
-                    raise ValueError(f"Dataset {dataset['name']} has no language specified.")
+                    logger.warning("Dataset `%s` has no language specified.", dataset.get("dataset_name"))
             languages = sorted(dataset_languages)
+        if len(languages) == 0 and c.phoneme_language:
+            languages = [c.phoneme_language]
+        logger.debug("Language manager initialized with: %s", languages)
         return {name: i for i, name in enumerate(languages)}
 
     @staticmethod
