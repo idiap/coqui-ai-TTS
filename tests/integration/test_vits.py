@@ -4,32 +4,12 @@ import pytest
 import torch
 
 from tests import assert_parameters_change, assert_parameters_equal
-from tests.tts_tests.test_vits import _create_inputs
+from tests.tts_tests.test_vits import _create_batch
 from TTS.tts.configs.vits_config import VitsArgs, VitsAudioConfig, VitsConfig
 from TTS.tts.models.vits import Vits
 
-torch.manual_seed(1)
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-def _create_batch(config, batch_size):
-    input_dummy, input_lengths, mel, spec, mel_lengths, _ = _create_inputs(config, batch_size)
-    batch = {}
-    batch["tokens"] = input_dummy
-    batch["token_lens"] = input_lengths
-    batch["spec_lens"] = mel_lengths
-    batch["mel_lens"] = mel_lengths
-    batch["spec"] = spec
-    batch["mel"] = mel
-    batch["waveform"] = torch.rand(batch_size, 1, config.audio["sample_rate"] * 10).to(device)
-    batch["d_vectors"] = None
-    batch["speaker_ids"] = None
-    batch["language_ids"] = None
-    return batch
-
-
-def _train_and_check_updates(config, num_iterations=5):
+def _train_and_check_updates(config, device, num_iterations=5):
     """Train model and verify parameters are updated."""
     with torch.autograd.set_detect_anomaly(True):
         model = Vits(config).to(device)
@@ -44,7 +24,7 @@ def _train_and_check_updates(config, num_iterations=5):
         model_ref.load_state_dict(copy.deepcopy(model.state_dict()))
         assert_parameters_equal(model, model_ref)
         for _ in range(num_iterations):
-            batch = _create_batch(config, 2)
+            batch = _create_batch(config, device, 2)
             for idx in [0, 1]:
                 outputs, loss_dict = model.train_step(batch, criterions, idx)
                 assert outputs
@@ -64,7 +44,7 @@ def _train_and_check_updates(config, num_iterations=5):
         (11025, True, [8, 8, 2, 2], 22050, "upsampling_interpolation"),
     ],
 )
-def test_train_step(encoder_sample_rate, interpolate_z, upsample_rates, sample_rate, test_id):
+def test_train_step(encoder_sample_rate, interpolate_z, upsample_rates, sample_rate, test_id, device):
     """Test VITS training with different upsampling configurations.
 
     Tests:
@@ -83,4 +63,4 @@ def test_train_step(encoder_sample_rate, interpolate_z, upsample_rates, sample_r
     else:
         config = VitsConfig(model_args=model_args)
 
-    _train_and_check_updates(config)
+    _train_and_check_updates(config, device)

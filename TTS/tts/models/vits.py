@@ -502,14 +502,14 @@ class Vits(BaseTTS):
 
         return z, spec_segment_size, slice_ids, y_mask
 
-    def forward(  # pylint: disable=dangerous-default-value
+    def forward(
         self,
         x: torch.Tensor,
         x_lengths: torch.Tensor,
         y: torch.Tensor,
         y_lengths: torch.Tensor,
         waveform: torch.Tensor,
-        aux_input: dict[str, Any] = {"d_vectors": None, "speaker_ids": None, "language_ids": None},
+        aux_input: dict[str, Any] | None = None,
     ) -> dict:
         """Forward pass of the model.
 
@@ -548,6 +548,8 @@ class Vits(BaseTTS):
             - gt_spk_emb: :math:`[B, 1, speaker_encoder.proj_dim]`
             - syn_spk_emb: :math:`[B, 1, speaker_encoder.proj_dim]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None, "language_ids": None}
         outputs = {}
         g = self._get_speaker_conditioning(aux_input, "emb_g", normalize_embedding=False)
 
@@ -630,9 +632,9 @@ class Vits(BaseTTS):
     @torch.inference_mode()
     def inference(
         self,
-        x,
-        aux_input={"x_lengths": None, "d_vectors": None, "speaker_ids": None, "language_ids": None, "durations": None},
-    ):  # pylint: disable=dangerous-default-value
+        x: torch.Tensor,
+        aux_input: dict[str, Any] | None = None,
+    ):
         """
         Note:
             To run in batch mode, provide `x_lengths` else model assumes that the batch size is 1.
@@ -651,6 +653,14 @@ class Vits(BaseTTS):
             - m_p: :math:`[B, C, T_dec]`
             - logs_p: :math:`[B, C, T_dec]`
         """
+        if aux_input is None:
+            aux_input = {
+                "x_lengths": None,
+                "d_vectors": None,
+                "speaker_ids": None,
+                "language_ids": None,
+                "durations": None,
+            }
         g = self._get_speaker_conditioning(aux_input, "emb_g", normalize_embedding=False)
         x_lengths = self._set_x_lengths(x, aux_input)
 
