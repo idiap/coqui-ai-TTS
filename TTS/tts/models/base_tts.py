@@ -441,8 +441,8 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         if "figures" in outputs:
             logger.test_figures(steps, outputs["figures"])
 
-    def on_init_start(self, trainer):
-        """Save the speaker.pth and language_ids.json at the beginning of the training. Also update both paths."""
+    def on_init_start(self, trainer: "Trainer") -> None:
+        """Save the speaker.pth at the beginning of the training and update the config."""
         if self.speaker_manager is not None:
             output_path = os.path.join(trainer.output_path, "speakers.pth")
             self.speaker_manager.save_ids_to_file(output_path)
@@ -451,15 +451,6 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
             logger.info("`speakers.pth` is saved to: %s", output_path)
             logger.info("`speakers_file` is updated in the config.json.")
-
-        if self.language_manager.num_languages > 1:
-            # TODO: save in config.languages instead
-            output_path = os.path.join(trainer.output_path, "language_ids.json")
-            self.language_manager.save_ids_to_file(output_path)
-            trainer.config.model_args.language_ids_file = output_path
-            trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            logger.info("`language_ids.json` is saved to: %s", output_path)
-            logger.info("`language_ids_file` is updated in the config.json.")
 
     def _get_language_id(self, language: str | None) -> int | None:
         if self.language_manager.num_languages == 1:

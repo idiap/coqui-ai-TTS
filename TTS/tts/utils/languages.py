@@ -43,7 +43,7 @@ class LanguageManager(BaseIDManager):
         Returns:
             Language ID mapping.
         """
-        languages = c.get("languages", [])
+        languages = c.languages
         if len(languages) == 0:
             dataset_languages = set({})
             for dataset in c.datasets:
@@ -66,16 +66,18 @@ class LanguageManager(BaseIDManager):
 
     @staticmethod
     def init_from_config(config: BaseTTSConfig) -> "LanguageManager":
-        """Initialize the language manager from a BaseTTSConfig.
+        """Initialize the language manager from the config and update config.languages.
 
         Args:
             config: BaseTTSConfig
         """
         if (path := config.model_args.get("language_ids_file")) and config.model_args.get("use_language_embedding"):
-            return LanguageManager(path)
-        # Fall back to parse language IDs from datasets listed in the config
-        language_manager = LanguageManager()
-        language_manager.name_to_id = LanguageManager.parse_language_ids_from_config(config)
+            language_manager = LanguageManager(path)
+        else:
+            language_manager = LanguageManager()
+            language_manager.name_to_id = LanguageManager.parse_language_ids_from_config(config)
+        # Do not sort this list to allow restoring the exact name_to_id mapping
+        config.languages = list(language_manager.name_to_id.keys())
         return language_manager
 
 

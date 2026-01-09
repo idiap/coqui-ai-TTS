@@ -135,26 +135,34 @@ def test_init_multispeaker():
 
 def test_init_multilingual(language_ids_file):
     args = VitsArgs(language_ids_file=None, use_language_embedding=False)
-    model = Vits(VitsConfig(model_args=args))
+    config = VitsConfig(model_args=args)
+    model = Vits(config)
     assert model.language_manager.num_languages == 0
+    assert model.language_manager.language_names == []
+    assert config.languages == []
     assert model.embedded_language_dim == 0
     assert not hasattr(model, "emb_l")
 
     args = VitsArgs(language_ids_file=language_ids_file)
-    model = Vits(VitsConfig(model_args=args))
-    assert model.language_manager.num_languages == 3
+    config = VitsConfig(model_args=args)
+    model = Vits(config)
+    assert model.language_manager.num_languages == 0
+    assert model.language_manager.language_names == []
+    assert config.languages == []
     assert model.embedded_language_dim == 0
     assert not hasattr(model, "emb_l")
 
     args = VitsArgs(language_ids_file=language_ids_file, use_language_embedding=True)
     model = Vits(VitsConfig(model_args=args))
     assert model.language_manager.num_languages == 3
+    assert model.language_manager.language_names == LANGUAGES
     assert model.embedded_language_dim == args.embedded_language_dim
     assert hasattr(model, "emb_l")
 
     args = VitsArgs(language_ids_file=language_ids_file, use_language_embedding=True, embedded_language_dim=102)
     model = Vits(VitsConfig(model_args=args))
     assert model.language_manager.num_languages == 3
+    assert model.language_manager.language_names == LANGUAGES
     assert model.embedded_language_dim == args.embedded_language_dim
     assert hasattr(model, "emb_l")
 

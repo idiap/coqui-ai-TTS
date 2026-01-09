@@ -305,6 +305,7 @@ class BaseTTSConfig(BaseTrainingConfig):
     audio: BaseAudioConfig = field(default_factory=BaseAudioConfig)
     model_args: ModelArgs = field(default_factory=ModelArgs)
     _supports_cloning: bool = False
+    languages: list[str] = field(default_factory=list)
     # phoneme settings
     use_phonemes: bool = False
     phonemizer: str = None
