@@ -36,6 +36,11 @@ data_tests: ## run data tests.
 test_text: ## run text tests.
 	coverage run -m pytest -x -v --durations=0 tests/text_tests
 
+test_notebook: ## run Jupyter notebook tests
+	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval --extra notebooks pytest --nbval-lax notebooks/ \
+		--ignore-glob "notebooks/Tutorial*" \
+		--ignore notebooks/dataset_analysis/CheckDatasetSNR.ipynb
+
 test_failed:  ## only run tests failed the last time.
 	coverage run -m pytest -x -v --last-failed tests
 

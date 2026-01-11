@@ -50,7 +50,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text", "test_tts", "test_vc", "test_vocoder"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -91,7 +91,7 @@ jobs:
         python-version: ["3.10", "3.13"]
         shard: [0, 1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -134,7 +134,7 @@ jobs:
         python-version: ["3.13"]
         partition: ["0", "1", "2"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -164,12 +164,40 @@ jobs:
           include-hidden-files: true
           name: coverage-data-zoo-${{ matrix.partition }}
           path: .coverage.*
+  notebook:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+      - name: Install Espeak
+        run: |
+          sudo apt-get update
+          sudo apt-get install espeak espeak-ng
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends git make gcc
+          make system-deps
+      - name: Install custom Trainer and/or Coqpit if requested
+        run: |
+          if [[ -n "${{ github.event.inputs.trainer_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-Trainer --branch ${{ github.event.inputs.trainer_branch }}
+          fi
+          if [[ -n "${{ github.event.inputs.coqpit_branch }}" ]]; then
+            uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
+          fi
+      - name: Notebook tests
+        run: make test_notebook
   coverage:
     if: always()
     needs: [unit, integration, zoo]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - uses: actions/download-artifact@v4

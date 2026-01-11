@@ -183,7 +183,6 @@ packages = ["TTS"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["*.ipynb"]
 lint.extend-select = [
     "B033", # duplicate-value
     "C416", # unnecessary-comprehension
