@@ -199,6 +199,7 @@ def main(arg_list: list[str] | None = None):
         disable_cuda=args.disable_cuda,
         no_eval=args.no_eval,
     )
+    sys.exit(0)
 
 
 if __name__ == "__main__":
