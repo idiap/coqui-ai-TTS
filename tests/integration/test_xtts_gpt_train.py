@@ -10,16 +10,16 @@ from TTS.tts.datasets import load_tts_samples
 from TTS.tts.layers.xtts.dvae import DiscreteVAE
 from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
 
-config_dataset = BaseDatasetConfig(
-    formatter="ljspeech",
-    dataset_name="ljspeech",
-    path="tests/data/ljspeech/",
-    meta_file_train="metadata.csv",
-    meta_file_val="metadata.csv",
-    language="en",
-)
-
-DATASETS_CONFIG_LIST = [config_dataset]
+DATASETS_CONFIG_LIST = [
+    BaseDatasetConfig(
+        formatter="ljspeech",
+        dataset_name="ljspeech",
+        path="tests/data/ljspeech/",
+        meta_file_train="metadata.csv",
+        meta_file_val="metadata.csv",
+        language="en",
+    ),
+]
 
 # Logging parameters
 RUN_NAME = "GPT_XTTS_LJSpeech_FT"
@@ -35,7 +35,7 @@ XTTS_CHECKPOINT = None  # model.pth file
 SPEAKER_REFERENCE = [
     "tests/data/ljspeech/wavs/LJ001-0002.wav"
 ]  # speaker reference to be used in training test sentences
-LANGUAGE = config_dataset.language
+LANGUAGE = DATASETS_CONFIG_LIST[0].language
 
 # Training Parameters
 OPTIMIZER_WD_ONLY_ON_WEIGHTS = True  # for multi-gpu training please make it False
@@ -97,6 +97,7 @@ def test_xtts_gpt_train(tmp_path: Path, use_perceiver: bool):
         run_name=RUN_NAME,
         project_name=PROJECT_NAME,
         run_description="GPT XTTS training",
+        datasets=DATASETS_CONFIG_LIST,
         dashboard_logger=DASHBOARD_LOGGER,
         logger_uri=LOGGER_URI,
         audio=audio_config,
@@ -135,7 +136,7 @@ def test_xtts_gpt_train(tmp_path: Path, use_perceiver: bool):
 
     # load training samples
     train_samples, eval_samples = load_tts_samples(
-        DATASETS_CONFIG_LIST,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

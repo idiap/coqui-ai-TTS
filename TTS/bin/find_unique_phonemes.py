@@ -49,7 +49,7 @@ def main(arg_list: list[str] | None = None) -> None:
 
     # load all datasets
     train_items, eval_items = load_tts_samples(
-        config.datasets,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

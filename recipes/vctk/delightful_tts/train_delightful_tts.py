@@ -68,7 +68,7 @@ def main():
     ap = AudioProcessor.init_from_config(config)
 
     train_samples, eval_samples = load_tts_samples(
-        dataset_config,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

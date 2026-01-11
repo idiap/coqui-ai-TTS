@@ -102,6 +102,7 @@ provides for many datasets.
 
 ```python
 from TTS.tts.configs.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.vits_config import VitsConfig
 from TTS.tts.datasets import load_tts_samples
 
 
@@ -110,8 +111,10 @@ dataset_config = BaseDatasetConfig(
     formatter="vctk", meta_file_train="", language="en-us", path="dataset-path")
 )
 
+config = VitsConfig(datasets=[dataset_config])
+
 # load training samples
-train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
+train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 ```
 
 Load a custom dataset with a custom formatter.
@@ -139,8 +142,10 @@ register_formatter("custom_formatter_name", formatter) # Use the custom formatte
 dataset_config = BaseDatasetConfig(
     formatter="custom_formatter_name", meta_file_train="", language="en-us", path="dataset-path")
 )
+config = VitsConfig(datasets=[dataset_config])
+
 # load training samples
-train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
+train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 ```
 
 See {py:class}`~TTS.tts.datasets.TTSDataset`, a generic Pytorch `Dataset` implementation for the `tts` models.

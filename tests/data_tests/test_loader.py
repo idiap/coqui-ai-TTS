@@ -55,9 +55,12 @@ if not os.path.exists(c.data_path):
 print(f" > Dynamic data loader test: {DATA_EXIST}")
 
 
-def _create_dataloader(batch_size, r, bgs, dataset_config, start_by_longest=False, preprocess_samples=False):
+def _create_dataloader(
+    batch_size, r, bgs, dataset_config: BaseDatasetConfig, start_by_longest=False, preprocess_samples=False
+):
     # load dataset
-    meta_data_train, meta_data_eval = load_tts_samples(dataset_config, eval_split=True, eval_split_size=0.2)
+    config = BaseTTSConfig(datasets=[dataset_config])
+    meta_data_train, meta_data_eval = load_tts_samples(config, eval_split=True, eval_split_size=0.2)
     items = meta_data_train + meta_data_eval
     tokenizer, _ = TTSTokenizer.init_from_config(c)
     dataset = TTSDataset(
@@ -284,7 +287,7 @@ def test_custom_formatted_dataset_with_loader():
         meta_file_train="metadata.csv",
         path=c.data_path,
     )
-    dataset_configs = [dataset1, dataset2]
-    train_samples, eval_samples = load_tts_samples(dataset_configs, eval_split=True, eval_split_size=0.2)
+    config = BaseTTSConfig(datasets=[dataset1, dataset2])
+    train_samples, eval_samples = load_tts_samples(config, eval_split=True, eval_split_size=0.2)
     assert len(train_samples) == 14
     assert len(eval_samples) == 2

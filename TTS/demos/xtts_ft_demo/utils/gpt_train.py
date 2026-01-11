@@ -26,18 +26,17 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
     BATCH_SIZE = batch_size  # set here the batch size
     GRAD_ACUMM_STEPS = grad_acumm  # set here the grad accumulation steps
 
-    # Define here the dataset that you want to use for the fine-tuning on.
-    config_dataset = BaseDatasetConfig(
-        formatter="coqui",
-        dataset_name="ft_dataset",
-        path=os.path.dirname(train_csv),
-        meta_file_train=train_csv,
-        meta_file_val=eval_csv,
-        language=language,
-    )
-
-    # Add here the configs of the datasets
-    DATASETS_CONFIG_LIST = [config_dataset]
+    # Define here the dataset(s) that you want to use for the fine-tuning on.
+    DATASETS_CONFIG_LIST = [
+        BaseDatasetConfig(
+            formatter="coqui",
+            dataset_name="ft_dataset",
+            path=os.path.dirname(train_csv),
+            meta_file_train=train_csv,
+            meta_file_val=eval_csv,
+            language=language,
+        ),
+    ]
 
     # Define the path where XTTS v2.0.1 files will be downloaded
     CHECKPOINTS_OUT_PATH = os.path.join(OUT_PATH, "XTTS_v2.0_original_model_files/")
@@ -104,6 +103,7 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         run_description="""
             GPT XTTS training
             """,
+        datasets=DATASETS_CONFIG_LIST,
         dashboard_logger=DASHBOARD_LOGGER,
         logger_uri=LOGGER_URI,
         audio=audio_config,
@@ -136,7 +136,7 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
 
     # load training samples
     train_samples, eval_samples = load_tts_samples(
-        DATASETS_CONFIG_LIST,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

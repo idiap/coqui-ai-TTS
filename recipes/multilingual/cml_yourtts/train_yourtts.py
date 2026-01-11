@@ -326,7 +326,7 @@ def main():
 
     # Load all the datasets samples and split traning and evaluation sets
     train_samples, eval_samples = load_tts_samples(
-        config.datasets,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

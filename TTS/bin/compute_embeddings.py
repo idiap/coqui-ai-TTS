@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.managers import save_file
 from TTS.tts.utils.speakers import SpeakerManager
@@ -116,7 +117,7 @@ def compute_embeddings(
 
     if config_dataset_path is not None:
         c_dataset = load_config(config_dataset_path)
-        meta_data_train, meta_data_eval = load_tts_samples(c_dataset.datasets, eval_split=not no_eval)
+        meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=not no_eval)
     else:
         c_dataset = BaseDatasetConfig()
         c_dataset.formatter = formatter_name
@@ -126,7 +127,8 @@ def compute_embeddings(
             c_dataset.meta_file_train = meta_file_train
         if meta_file_val is not None:
             c_dataset.meta_file_val = meta_file_val
-        meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=not no_eval)
+        config = BaseTTSConfig(datasets=[c_dataset])
+        meta_data_train, meta_data_eval = load_tts_samples(config, eval_split=not no_eval)
 
     samples = meta_data_train + meta_data_eval
     encoder_manager = SpeakerManager(

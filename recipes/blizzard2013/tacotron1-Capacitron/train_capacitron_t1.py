@@ -84,7 +84,7 @@ def main():
 
     tokenizer, config = TTSTokenizer.init_from_config(config)
 
-    train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
+    train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 
     model = Tacotron(config, ap, tokenizer, speaker_manager=None)
 

@@ -5,6 +5,7 @@ import unittest
 import torch
 
 from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import get_language_balancer_weights
@@ -31,9 +32,8 @@ dataset_config_pt = BaseDatasetConfig(
 )
 
 # Adding the EN samples twice to create a language unbalanced dataset
-train_samples, eval_samples = load_tts_samples(
-    [dataset_config_en, dataset_config_en, dataset_config_pt], eval_split=True
-)
+config = BaseTTSConfig(datasets=[dataset_config_en, dataset_config_en, dataset_config_pt])
+train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 
 # gerenate a speaker unbalanced dataset
 for i, sample in enumerate(train_samples):

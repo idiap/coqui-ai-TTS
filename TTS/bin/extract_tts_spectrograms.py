@@ -301,7 +301,7 @@ def main(arg_list: list[str] | None = None) -> None:
 
     # load data instances
     meta_data_train, meta_data_eval = load_tts_samples(
-        config.datasets,
+        config,
         eval_split=args.eval,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
