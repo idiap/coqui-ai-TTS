@@ -7,10 +7,15 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://pypi.org/p/coqui-tts
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Verify tag matches version
@@ -30,25 +35,5 @@ jobs:
           uv venv --no-project
           uv pip install dist/*.tar.gz
           uv pip install dist/*.whl
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build
-          path: dist/*
-  publish-artifacts:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    needs: [build]
-    environment:
-      name: release
-      url: https://pypi.org/p/coqui-tts
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: "dist/"
-          name: build
-      - run: |
-          ls -lh dist/
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish
+        run: uv publish
