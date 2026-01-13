@@ -451,13 +451,3 @@ def generate_fine(
     assert gen_fine_arr.shape[-1] == x_coarse_gen.shape[-1]
     clear_cuda_cache()
     return gen_fine_arr
-
-
-@torch.inference_mode()
-def codec_decode(fine_tokens: torch.Tensor, model) -> torch.Tensor:
-    """Turn quantized audio codes into audio array using encodec."""
-    arr = fine_tokens.unsqueeze(0)
-    arr = arr.transpose(0, 1)
-    emb = model.encodec.quantizer.decode(arr)
-    out = model.encodec.decoder(emb)
-    return out.squeeze().cpu()

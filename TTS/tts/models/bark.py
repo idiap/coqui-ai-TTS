@@ -9,16 +9,13 @@ import numpy as np
 import torch
 import torchaudio
 from coqpit import Coqpit
-from encodec import EncodecModel
-from encodec.utils import convert_audio
-from transformers import BertTokenizer
+from transformers import AutoProcessor, BertTokenizer, EncodecModel
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.layers.bark.hubert.hubert_manager import HubertManager
 from TTS.tts.layers.bark.hubert.kmeans_hubert import CustomHubert
 from TTS.tts.layers.bark.hubert.tokenizer import HubertTokenizer
 from TTS.tts.layers.bark.inference_funcs import (
-    codec_decode,
     generate_coarse,
     generate_fine,
     generate_text_semantic,
@@ -55,8 +52,9 @@ class Bark(BaseTTS):
         self.semantic_model = GPT(config.semantic_config)
         self.coarse_model = GPT(config.coarse_config)
         self.fine_model = FineGPT(config.fine_config)
-        self.encodec = EncodecModel.encodec_model_24khz()
-        self.encodec.set_target_bandwidth(6.0)
+        self.encodec = EncodecModel.from_pretrained("facebook/encodec_24khz")
+        self.processor = AutoProcessor.from_pretrained("facebook/encodec_24khz")
+        self.encodec_bandwidth = 6.0
 
     def load_bark_models(self):
         self.semantic_model, self.config = load_model(
@@ -105,6 +103,15 @@ class Bark(BaseTTS):
         )
         return x_semantic
 
+    @torch.inference_mode()
+    def codec_decode(self, fine_tokens: torch.Tensor) -> torch.Tensor:
+        """Turn quantized audio codes into audio array using encodec."""
+        arr = fine_tokens.unsqueeze(0)
+        arr = arr.transpose(0, 1)
+        emb = self.encodec.quantizer.decode(arr)
+        out = self.encodec.decoder(emb)
+        return out.squeeze().cpu()
+
     def semantic_to_waveform(
         self,
         semantic_tokens: torch.Tensor,
@@ -136,7 +143,7 @@ class Bark(BaseTTS):
             temp=0.5,
             base=base,
         )
-        audio_arr = codec_decode(x_fine_gen, self)
+        audio_arr = self.codec_decode(x_fine_gen)
         return audio_arr, x_coarse_gen, x_fine_gen
 
     def generate_audio(
@@ -176,18 +183,15 @@ class Bark(BaseTTS):
     def _generate_voice(self, speaker_wav: str | os.PathLike[Any]) -> dict[str, torch.Tensor]:
         """Generate a new voice from the given audio."""
         audio, sr = torchaudio.load(speaker_wav)
-        audio = convert_audio(audio, sr, self.config.sample_rate, self.encodec.channels)
-        audio = audio.unsqueeze(0).to(self.device)
+        audio = torchaudio.transforms.Resample(sr, self.config.sample_rate)(audio).to(self.device)
 
-        with torch.inference_mode():
-            encoded_frames = self.encodec.encode(audio)
-        codes = torch.cat([encoded[0] for encoded in encoded_frames], dim=-1).squeeze()  # [n_q, T]
+        inputs = self.processor(raw_audio=audio.squeeze(0), sampling_rate=self.config.sample_rate, return_tensors="pt")
+        codes = self.encodec.encode(inputs["input_values"], inputs["padding_mask"], self.encodec_bandwidth)[0][0, 0]
 
         # generate semantic tokens
         # Load the HuBERT model
         hubert_manager = HubertManager()
         hubert_manager.make_sure_tokenizer_installed(model_path=self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"])
-
         hubert_model = CustomHubert().to(self.device)
 
         # Load the CustomTokenizer model
@@ -198,7 +202,7 @@ class Bark(BaseTTS):
         #     text, max_gen_duration_s=seconds, top_k=50, top_p=0.95, temp=0.7
         # )  # not 100%
         with torch.inference_mode():
-            semantic_vectors = hubert_model.forward(audio[0], input_sample_hz=self.config.sample_rate)
+            semantic_vectors = hubert_model.forward(audio, input_sample_hz=self.config.sample_rate)
         semantic_tokens = tokenizer.get_token(semantic_vectors)
         return {
             "semantic_prompt": semantic_tokens,

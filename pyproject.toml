@@ -83,8 +83,6 @@ dependencies = [
     # Tortoise
     "einops>=0.6.0",
     "transformers>=4.57",
-    # Bark
-    "encodec>=0.1.1",
     # XTTS
     "num2words>=0.5.14",
 ]
