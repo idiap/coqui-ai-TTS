@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from TTS.config import get_from_config_or_model_args
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import *
 from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
@@ -79,11 +80,15 @@ def load_tts_samples(
     eval_split_max_size: int | None = None,
     eval_split_size: float = 0.01,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse the datasets from the datasets config.
+    """Parse the datasets from config and automatically populate speaker info.
 
     Load the samples as a list and load the attention alignments if provided. If
     `formatter` is not None, apply the formatter to the samples else pick the
     formatter from the available ones based on the dataset name.
+
+    If the dataset contains speaker information, it will be extracted and stored
+    in config.speakers. If no speaker information is present, the config
+    remains unchanged.
 
     Args:
         config: BaseTTSConfig instance.
@@ -154,6 +159,15 @@ def load_tts_samples(
                     meta_data_all[idx].update({"alignment_file": attn_file})
         # set none for the next iter
         formatter = None
+
+    # Parse speaker info
+    if get_from_config_or_model_args(config, "use_speaker_embedding"):
+        speakers = sorted(
+            set(s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s)
+        )
+        logger.debug("Found %d speakers in dataset", len(speakers))
+        if speakers:
+            config.speakers = speakers
     return meta_data_train_all, meta_data_eval_all
 
 

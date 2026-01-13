@@ -96,7 +96,9 @@ The script will create subdirectories in the output path:
     return parser.parse_args(arg_list)
 
 
-def setup_loader(config: BaseTTSConfig, ap: AudioProcessor, r, speaker_manager: SpeakerManager, samples) -> DataLoader:
+def setup_loader(
+    config: BaseTTSConfig, ap: AudioProcessor, r, speaker_manager: SpeakerManager | None, samples
+) -> DataLoader:
     tokenizer, _ = TTSTokenizer.init_from_config(config)
     dataset = TTSDataset(
         outputs_per_step=r,
@@ -112,8 +114,8 @@ def setup_loader(config: BaseTTSConfig, ap: AudioProcessor, r, speaker_manager: 
         phoneme_cache_path=config.phoneme_cache_path,
         precompute_num_workers=0,
         use_noise_augment=False,
-        speaker_id_mapping=speaker_manager.name_to_id if config.use_speaker_embedding else None,
-        d_vector_mapping=speaker_manager.embeddings if config.use_d_vector_file else None,
+        speaker_id_mapping=speaker_manager.name_to_id if speaker_manager and config.use_speaker_embedding else None,
+        d_vector_mapping=speaker_manager.embeddings if speaker_manager and config.use_d_vector_file else None,
     )
 
     if config.use_phonemes and config.compute_input_seq_cache:
@@ -310,9 +312,6 @@ def main(arg_list: list[str] | None = None) -> None:
     # use eval and training partitions
     meta_data = meta_data_train + meta_data_eval
 
-    # init speaker manager
-    speaker_manager = SpeakerManager.init_from_config(config)
-
     # setup model
     model = setup_model(config)
 
@@ -326,7 +325,7 @@ def main(arg_list: list[str] | None = None) -> None:
     print(f"\n > Model has {num_params} parameters", flush=True)
     # set r
     r = 1 if config.model.lower() == "glow_tts" else model.decoder.r
-    own_loader = setup_loader(config, ap, r, speaker_manager, meta_data)
+    own_loader = setup_loader(config, ap, r, model.speaker_manager, meta_data)
 
     extract_spectrograms(
         config.model.lower(),
