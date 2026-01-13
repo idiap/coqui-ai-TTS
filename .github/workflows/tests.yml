@@ -32,14 +32,6 @@ on:
         description: "Branch of Coqpit to test"
         required: false
         default: "main"
-    paths-ignore:
-      - '.gitignore'
-      - 'CITATION.cff'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE.txt'
-      - 'README.md'
-      - 'images/**'
 
 jobs:
   unit:
@@ -49,6 +41,16 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text", "test_tts", "test_vc", "test_vocoder"]
+        uv-resolution: ["highest", "lowest-direct"]
+        exclude:
+          - python-version: "3.10"
+            uv-resolution: "highest"
+          - python-version: "3.11"
+            uv-resolution: "lowest-direct"
+          - python-version: "3.12"
+            uv-resolution: "lowest-direct"
+          - python-version: "3.13"
+            uv-resolution: "lowest-direct"
     steps:
       - uses: actions/checkout@v6
       - name: Setup uv
@@ -71,12 +73,9 @@ jobs:
             uv add git+https://github.com/idiap/coqui-ai-coqpit --branch ${{ github.event.inputs.coqpit_branch }}
           fi
       - name: Unit tests
-        run: |
-          resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.10" ]; then
-            resolution=lowest-direct
-          fi
-          uv run --resolution=$resolution --extra cpu --extra codec --extra server --extra languages make ${{ matrix.subset }}
+        run: >
+          uv run --resolution=${{ matrix.uv-resolution }} --extra cpu
+          --extra codec --extra server --extra languages make ${{ matrix.subset }}
       - name: Upload coverage data
         uses: actions/upload-artifact@v6
         with:
@@ -88,8 +87,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.13"]
         shard: [0, 1, 2, 3, 4, 5]
+        python-version: ["3.10", "3.13"]
+        uv-resolution: ["highest", "lowest-direct"]
+        exclude:
+          - python-version: "3.10"
+            uv-resolution: "highest"
+          - python-version: "3.13"
+            uv-resolution: "lowest-direct"
     steps:
       - uses: actions/checkout@v6
       - name: Setup uv
@@ -115,11 +120,8 @@ jobs:
           uv run --extra cpu pytest tests/integration --collect-only --quiet | grep "::" > integration_tests.txt
           total_shards=6
           shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
-          resolution=highest
-          if [ "${{ matrix.python-version }}" == "3.10" ]; then
-            resolution=lowest-direct
-          fi
-          uv run --resolution=$resolution --extra cpu --extra codec --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
+          uv run --resolution=${{ matrix.uv-resolution }} --extra cpu \
+          --extra codec --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
         uses: actions/upload-artifact@v6
         with:
