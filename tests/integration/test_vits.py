@@ -52,7 +52,19 @@ def test_train_step(encoder_sample_rate, interpolate_z, upsample_rates, sample_r
     - upsampling: Upsampling by the decoder upsampling layers
     - upsampling_interpolation: Upsampling by interpolation
     """
-    model_args = VitsArgs(num_chars=32, spec_segment_size=10)
+    # Use much smaller model for integration tests to reduce memory usage
+    model_args = VitsArgs(
+        num_chars=32,
+        spec_segment_size=10,
+        # Reduce model width (channels)
+        hidden_channels=64,  # default: 192
+        hidden_channels_ffn_text_encoder=256,  # default: 768
+        upsample_initial_channel_decoder=128,  # default: 512
+        # Reduce model depth (layers)
+        num_layers_text_encoder=2,  # default: 6
+        num_layers_posterior_encoder=4,  # default: 16
+        num_layers_flow=2,  # default: 4
+    )
 
     if encoder_sample_rate is not None:
         model_args.encoder_sample_rate = encoder_sample_rate
