@@ -97,10 +97,8 @@ def main():
     )
 
     # INITIALIZE THE MODEL
-    # Models take a config object and a speaker manager as input
     # Config defines the details of the model like the number of layers, the size of the embedding, etc.
-    # Speaker manager is used by multi-speaker models.
-    model = GlowTTS(config, ap, tokenizer, speaker_manager=None)
+    model = GlowTTS(config, ap, tokenizer)
 
     # INITIALIZE THE TRAINER
     # Trainer provides a generic API to train all the 🐸TTS models with all its perks like mixed-precision training,

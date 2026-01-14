@@ -11,7 +11,6 @@ from TTS.tts.configs.delightful_tts_config import (
 )
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.delightful_tts import DelightfulTTS
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio.processor import AudioProcessor
 
@@ -74,13 +73,7 @@ def main():
         eval_split_size=config.eval_split_size,
     )
 
-    speaker_manager = SpeakerManager()
-    speaker_manager.set_ids_from_data(train_samples + eval_samples, parse_key="speaker_name")
-    config.model_args.num_speakers = speaker_manager.num_speakers
-
-    model = DelightfulTTS(
-        ap=ap, config=config, tokenizer=tokenizer, speaker_manager=speaker_manager, emotion_manager=None
-    )
+    model = DelightfulTTS(ap=ap, config=config, tokenizer=tokenizer)
 
     trainer = Trainer(
         TrainerArgs(), config, output_path, model=model, train_samples=train_samples, eval_samples=eval_samples

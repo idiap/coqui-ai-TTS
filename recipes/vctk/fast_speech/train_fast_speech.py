@@ -6,7 +6,6 @@ from TTS.config import BaseAudioConfig, BaseDatasetConfig
 from TTS.tts.configs.fast_speech_config import FastSpeechConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.forward_tts import ForwardTTS
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
 
@@ -79,14 +78,8 @@ def main():
         eval_split_size=config.eval_split_size,
     )
 
-    # init speaker manager for multi-speaker training
-    # it maps speaker-id to speaker-name in the model and data-loader
-    speaker_manager = SpeakerManager()
-    speaker_manager.set_ids_from_data(train_samples + eval_samples, parse_key="speaker_name")
-    config.model_args.num_speakers = speaker_manager.num_speakers
-
     # init model
-    model = ForwardTTS(config, ap, tokenizer, speaker_manager=speaker_manager)
+    model = ForwardTTS(config, ap, tokenizer)
 
     # INITIALIZE THE TRAINER
     # Trainer provides a generic API to train all the 🐸TTS models with all its perks like mixed-precision training,

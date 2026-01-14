@@ -76,7 +76,7 @@ def main():
         eval_split_size=config.eval_split_size,
     )
 
-    model = DelightfulTTS(ap=ap, config=config, tokenizer=tokenizer, speaker_manager=None)
+    model = DelightfulTTS(ap=ap, config=config, tokenizer=tokenizer)
 
     trainer = Trainer(
         TrainerArgs(),

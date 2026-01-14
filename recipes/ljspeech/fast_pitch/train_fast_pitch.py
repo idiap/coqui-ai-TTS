@@ -95,7 +95,7 @@ def main():
     )
 
     # init the model
-    model = ForwardTTS(config, ap, tokenizer, speaker_manager=None)
+    model = ForwardTTS(config, ap, tokenizer)
 
     # init the trainer and 🚀
     trainer = Trainer(

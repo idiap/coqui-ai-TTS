@@ -100,7 +100,7 @@ def main():
 
     train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 
-    model = Tacotron2(config, ap, tokenizer, speaker_manager=None)
+    model = Tacotron2(config, ap, tokenizer)
 
     trainer = Trainer(
         TrainerArgs(),

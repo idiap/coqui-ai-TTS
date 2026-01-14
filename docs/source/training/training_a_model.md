@@ -148,8 +148,8 @@
 ## Multi-speaker training
 
 Training a multi-speaker model is mostly the same as training a single-speaker model.
-You need to specify a couple of configuration parameters, initialize a
-{py:class}`~TTS.tts.utils.speakers.SpeakerManager` instance and pass it to the model.
+You need to specify a couple of configuration parameters and make sure your dataset is
+[formatted for multi-speaker training](../datasets/formatting_your_dataset.md#using-your-dataset-in-tts).
 
 The configuration parameters define whether you want to train the model with a
 speaker-embedding layer or pre-computed d-vectors. For using d-vectors, you

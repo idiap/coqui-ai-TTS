@@ -85,7 +85,7 @@ def main():
     )
 
     # init model
-    model = Vits(config, ap, tokenizer, speaker_manager=None)
+    model = Vits(config, ap, tokenizer)
 
     # init the trainer and 🚀
     trainer = Trainer(

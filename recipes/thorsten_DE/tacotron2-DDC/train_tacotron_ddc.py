@@ -99,10 +99,9 @@ def main():
     )
 
     # INITIALIZE THE MODEL
-    # Models take a config object and a speaker manager as input
+    # Models take a config object as input
     # Config defines the details of the model like the number of layers, the size of the embedding, etc.
-    # Speaker manager is used by multi-speaker models.
-    model = Tacotron2(config, ap, tokenizer, speaker_manager=None)
+    model = Tacotron2(config, ap, tokenizer)
 
     # init the trainer and 🚀
     trainer = Trainer(
