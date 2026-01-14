@@ -37,7 +37,9 @@ test_text: ## run text tests.
 	coverage run -m pytest -x -v --durations=0 tests/text_tests
 
 test_notebook: ## run Jupyter notebook tests
-	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval --extra cpu --extra notebooks pytest --nbval-lax notebooks/ \
+	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval \
+		--extra cpu --extra languages --extra notebooks \
+		pytest --nbval-lax notebooks/ \
 		--ignore-glob "notebooks/Tutorial*" \
 		--ignore notebooks/dataset_analysis/CheckDatasetSNR.ipynb
 
