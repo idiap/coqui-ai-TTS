@@ -11,7 +11,6 @@ from TTS.tts.layers.tacotron.gst_layers import GST
 from TTS.tts.layers.tacotron.tacotron2 import Decoder, Encoder, Postnet
 from TTS.tts.models.base_tacotron import BaseTacotron
 from TTS.tts.utils.measures import alignment_diagonal_score
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.capacitron_optimizer import CapacitronOptimizer
@@ -38,8 +37,6 @@ class Tacotron2(BaseTacotron):
     Args:
         config (TacotronConfig):
             Configuration for the Tacotron2 model.
-        speaker_manager (SpeakerManager):
-            Speaker manager for multi-speaker training. Uuse only for multi-speaker training. Defaults to None.
     """
 
     config: Tacotron2Config
@@ -49,7 +46,7 @@ class Tacotron2(BaseTacotron):
         config: Coqpit,
         ap: "AudioProcessor" = None,
         tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -402,17 +399,14 @@ class Tacotron2(BaseTacotron):
         return figures, {"audio": audio}
 
     @staticmethod
-    def init_from_config(config: "Tacotron2Config", samples: list[list] | list[dict] = None):
+    def init_from_config(config: "Tacotron2Config"):
         """Initiate model from config
 
         Args:
             config (Tacotron2Config): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
         """
         from TTS.utils.audio import AudioProcessor
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(new_config, samples)
-        return Tacotron2(new_config, ap, tokenizer, speaker_manager)
+        return Tacotron2(new_config, ap, tokenizer)

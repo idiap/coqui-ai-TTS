@@ -13,7 +13,6 @@ from TTS.tts.layers.glow_tts.decoder import Decoder
 from TTS.tts.layers.glow_tts.encoder import Encoder
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import generate_path, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
@@ -64,7 +63,7 @@ class GlowTTS(BaseTTS):
         config: Coqpit,
         ap: "AudioProcessor" = None,
         tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -112,7 +111,7 @@ class GlowTTS(BaseTTS):
         speaker embedding vector dimension to the d-vector dimension from the config.
 
         Args:
-            config (Coqpit): Model configuration.
+            config: Model configuration.
         """
         self.embedded_speaker_dim = 0
         # set number of speakers - if num_speakers is set in config, use it, otherwise use speaker_manager
@@ -125,7 +124,8 @@ class GlowTTS(BaseTTS):
             )
             if self.speaker_manager is not None:
                 assert config.d_vector_dim == self.speaker_manager.embedding_dim, (
-                    " [!] d-vector dimension mismatch b/w config and speaker manager."
+                    f" [!] d-vector dimension mismatch b/w config ({config.d_vector_dim}) "
+                    f"and speaker manager ({self.speaker_manager.embedding_dim})."
                 )
         # init speaker embedding layer
         if config.use_speaker_embedding and not config.use_d_vector_file:
@@ -459,17 +459,14 @@ class GlowTTS(BaseTTS):
         self.run_data_dep_init = trainer.total_steps_done < self.data_dep_init_steps
 
     @staticmethod
-    def init_from_config(config: "GlowTTSConfig", samples: list[list] | list[dict] = None):
+    def init_from_config(config: "GlowTTSConfig"):
         """Initiate model from config
 
         Args:
             config (VitsConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
         """
         from TTS.utils.audio import AudioProcessor
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return GlowTTS(new_config, ap, tokenizer, speaker_manager)
+        return GlowTTS(new_config, ap, tokenizer)

@@ -17,7 +17,6 @@ from TTS.tts.layers.overflow.plotting_utils import (
     plot_transition_probabilities_to_numpy,
 )
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input, is_pytorch_at_least_2_4
@@ -74,7 +73,7 @@ class NeuralhmmTTS(BaseTTS):
         config: Coqpit,
         ap: "AudioProcessor" = None,
         tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -238,20 +237,17 @@ class NeuralhmmTTS(BaseTTS):
         return NLLLoss()
 
     @staticmethod
-    def init_from_config(config: "NeuralhmmTTSConfig", samples: list[list] | list[dict] = None):
+    def init_from_config(config: "NeuralhmmTTSConfig"):
         """Initiate model from config
 
         Args:
             config (VitsConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
         """
         from TTS.utils.audio import AudioProcessor
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return NeuralhmmTTS(new_config, ap, tokenizer, speaker_manager)
+        return NeuralhmmTTS(new_config, ap, tokenizer)
 
     def on_init_start(self, trainer):
         """If the current dataset does not have normalisation statistics and initialisation transition_probability it computes them otherwise loads."""

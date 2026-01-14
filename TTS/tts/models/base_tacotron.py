@@ -12,7 +12,6 @@ from TTS.tts.configs.tacotron_config import TacotronConfig
 from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import format_aux_input
 from TTS.utils.training import gradual_training_scheduler
@@ -30,7 +29,7 @@ class BaseTacotron(BaseTTS):
         config: Coqpit,
         ap: "AudioProcessor",
         tokenizer: "TTSTokenizer",
-        speaker_manager: SpeakerManager = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -153,16 +152,6 @@ class BaseTacotron(BaseTTS):
     def get_criterion(self) -> nn.Module:
         """Get the model criterion used in training."""
         return TacotronLoss(self.config)
-
-    @staticmethod
-    def init_from_config(config: Coqpit):
-        """Initialize model from config."""
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config)
-        return BaseTacotron(config, ap, tokenizer, speaker_manager)
 
     #############################
     # COMMON COMPUTE FUNCTIONS

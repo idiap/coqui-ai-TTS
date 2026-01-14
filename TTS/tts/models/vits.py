@@ -30,7 +30,6 @@ from TTS.tts.layers.vits.stochastic_duration_predictor import StochasticDuration
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.fairseq import rehash_fairseq_vits_checkpoint
 from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment
@@ -224,7 +223,7 @@ class Vits(BaseTTS):
         config: Coqpit,
         ap: Union["AudioProcessor", None] = None,
         tokenizer: Union["TTSTokenizer", None] = None,
-        speaker_manager: SpeakerManager | None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -320,8 +319,7 @@ class Vits(BaseTTS):
         You must provide a `speaker_manager` at initialization to set up the multi-speaker modules.
 
         Args:
-            config (Coqpit): Model configuration.
-            data (List, optional): Dataset items to infer number of speakers. Defaults to None.
+            config: Model configuration.
         """
         self.embedded_speaker_dim = 0
         self.num_speakers = self.args.num_speakers
@@ -1233,13 +1231,11 @@ class Vits(BaseTTS):
             assert not self.training
 
     @staticmethod
-    def init_from_config(config: "VitsConfig", samples: list[list] | list[dict] = None):
+    def init_from_config(config: "VitsConfig"):
         """Initiate model from config
 
         Args:
             config (VitsConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
         """
         from TTS.utils.audio import AudioProcessor
 
@@ -1258,13 +1254,13 @@ class Vits(BaseTTS):
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
 
+        model = Vits(new_config, ap, tokenizer, speaker_manager)
         if config.model_args.speaker_encoder_model_path:
-            speaker_manager.init_encoder(
+            model.speaker_manager.init_encoder(
                 config.model_args.speaker_encoder_model_path, config.model_args.speaker_encoder_config_path
             )
-        return Vits(new_config, ap, tokenizer, speaker_manager)
+        return model
 
     def export_onnx(self, output_path: str = "coqui_vits.onnx", verbose: bool = True):
         """Export model to ONNX format for inference

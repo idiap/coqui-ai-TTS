@@ -42,7 +42,7 @@ class Bark(BaseTTS):
         config: Coqpit,
         tokenizer: BertTokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased"),
     ) -> None:
-        super().__init__(config=config, ap=None, tokenizer=None, speaker_manager=None)
+        super().__init__(config=config, ap=None, tokenizer=None)
         self.config.num_chars = len(tokenizer)
         self.tokenizer = tokenizer
         self.semantic_model = GPT(config.semantic_config)

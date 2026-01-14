@@ -13,7 +13,6 @@ from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import average_over_durations, expand_encoder_outputs, generate_attention, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
 
@@ -38,9 +37,7 @@ class ForwardTTS(BaseTTS):
         - FastSpeech2 (requires average speech energy predictor)
 
     Args:
-        config (Coqpit): Model coqpit class.
-        speaker_manager (SpeakerManager): Speaker manager for multi-speaker training. Only used for multi-speaker models.
-            Defaults to None.
+        config: Model coqpit class.
 
     Examples:
         >>> from TTS.tts.configs.fast_pitch_config import FastPitchConfig
@@ -51,13 +48,12 @@ class ForwardTTS(BaseTTS):
 
     args: ForwardTTSArgs
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         config: Coqpit,
         ap: "AudioProcessor" = None,
         tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -137,7 +133,7 @@ class ForwardTTS(BaseTTS):
         """Init for multi-speaker training.
 
         Args:
-            config (Coqpit): Model configuration.
+            config: Model configuration.
         """
         self.embedded_speaker_dim = 0
         # init speaker manager
@@ -613,17 +609,14 @@ class ForwardTTS(BaseTTS):
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
 
     @staticmethod
-    def init_from_config(config: "ForwardTTSConfig", samples: list[list] | list[dict] = None):
+    def init_from_config(config: Coqpit):
         """Initiate model from config
 
         Args:
-            config (ForwardTTSConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
+            config: Model config.
         """
         from TTS.utils.audio import AudioProcessor
 
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return ForwardTTS(new_config, ap, tokenizer, speaker_manager)
+        return ForwardTTS(new_config, ap, tokenizer)

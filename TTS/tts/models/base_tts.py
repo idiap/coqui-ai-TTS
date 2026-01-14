@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import warnings
 from typing import Any, Literal, cast
 
 import torch
@@ -43,13 +44,20 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         config: Coqpit,
         ap: "AudioProcessor",
         tokenizer: "TTSTokenizer",
-        speaker_manager: SpeakerManager | None = None,
+        speaker_manager: None = None,
+        language_manager: None = None,
     ):
         super().__init__()
+        if speaker_manager is not None or language_manager is not None:
+            warnings.warn(
+                "The `speaker_manager` and `language_manager` arguments are deprecated "
+                "and will be removed soon. You can safely leave them out.",
+                DeprecationWarning,
+            )
         self.config = cast(BaseTTSConfig, config)
         self.ap = ap
         self.tokenizer = tokenizer
-        self.speaker_manager = speaker_manager
+        self.speaker_manager = SpeakerManager.init_from_config(self.config)
         self.language_manager = LanguageManager.init_from_config(self.config)
         self._set_model_args()
 

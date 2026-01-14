@@ -52,7 +52,7 @@ def main(arg_list: list[str] | None = None):
     )
 
     # init the model from config
-    model = setup_model(config, train_samples + eval_samples)
+    model = setup_model(config)
 
     # init the trainer and 🚀
     trainer = Trainer(
