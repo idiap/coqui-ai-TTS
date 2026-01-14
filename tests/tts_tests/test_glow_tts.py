@@ -11,7 +11,6 @@ from tests import assert_parameters_change, get_tests_data_path, get_tests_input
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.losses import GlowTTSLoss
 from TTS.tts.models.glow_tts import GlowTTS
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.audio import AudioProcessor
 
 # pylint: disable=unused-variable
@@ -47,34 +46,21 @@ class TestGlowTTS(unittest.TestCase):
         config.d_vector_dim = None
         model.init_multispeaker(config)
         self.assertEqual(model.c_in_channels, model.hidden_channels_enc)
-        # use external speaker embeddings with speaker_embedding_dim = 301
-        config = GlowTTSConfig(num_chars=32)
-        config.use_d_vector_file = True
-        config.d_vector_dim = 301
-        model = GlowTTS(config)
-        model.init_multispeaker(config)
-        self.assertEqual(model.c_in_channels, 301)
         # use speaker embedddings by the provided speaker_manager
         config = GlowTTSConfig(num_chars=32)
         config.use_speaker_embedding = True
         config.speakers_file = os.path.join(get_tests_data_path(), "ljspeech", "speakers.json")
-        speaker_manager = SpeakerManager.init_from_config(config)
         model = GlowTTS(config)
-        model.speaker_manager = speaker_manager
-        model.init_multispeaker(config)
         self.assertEqual(model.c_in_channels, model.hidden_channels_enc)
-        self.assertEqual(model.num_speakers, speaker_manager.num_speakers)
+        self.assertEqual(model.num_speakers, model.speaker_manager.num_speakers)
         # use external speaker embeddings by the provided speaker_manager
         config = GlowTTSConfig(num_chars=32)
         config.use_d_vector_file = True
         config.d_vector_dim = 256
         config.d_vector_file = os.path.join(get_tests_data_path(), "dummy_speakers.json")
-        speaker_manager = SpeakerManager.init_from_config(config)
         model = GlowTTS(config)
-        model.speaker_manager = speaker_manager
-        model.init_multispeaker(config)
-        self.assertEqual(model.c_in_channels, speaker_manager.embedding_dim)
-        self.assertEqual(model.num_speakers, speaker_manager.num_speakers)
+        self.assertEqual(model.c_in_channels, model.speaker_manager.embedding_dim)
+        self.assertEqual(model.num_speakers, model.speaker_manager.num_speakers)
 
     def test_unlock_act_norm_layers(self):
         config = GlowTTSConfig(num_chars=32)

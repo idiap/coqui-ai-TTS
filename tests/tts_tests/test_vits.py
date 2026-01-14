@@ -6,15 +6,11 @@ import torch
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
 from tests import get_tests_data_path, get_tests_input_path, get_tests_output_path
-from TTS.config import load_config
-from TTS.encoder.utils.generic_utils import setup_encoder_model
 from TTS.tts.configs.vits_config import VitsArgs, VitsConfig
 from TTS.tts.models.vits import Vits, load_audio
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.audio.torch_transforms import amp_to_db, db_to_amp, spec_to_mel, wav_to_mel, wav_to_spec
 
 LANGUAGES = ["en", "fr-fr", "pt-br"]
-SPEAKER_ENCODER_CONFIG = Path(get_tests_input_path()) / "test_speaker_encoder_config.json"
 WAV_FILE = Path(get_tests_input_path()) / "example_1.wav"
 
 
@@ -259,22 +255,19 @@ def test_multilingual_forward(device, language_ids_file):
     _check_forward_outputs(config, output_dict)
 
 
-def test_secl_forward(device, language_ids_file):
+@pytest.mark.parametrize("encoder_config_path", [{"use_torch_spec": True}], indirect=True)
+def test_secl_forward(device, language_ids_file, encoder_model_path, encoder_config_path):
     num_speakers = 10
     num_langs = 3
     batch_size = 2
-
-    speaker_encoder_config = load_config(SPEAKER_ENCODER_CONFIG)
-    speaker_encoder_config.model_params["use_torch_spec"] = True
-    speaker_encoder = setup_encoder_model(speaker_encoder_config).to(device)
-    speaker_manager = SpeakerManager()
-    speaker_manager.encoder = speaker_encoder
 
     args = VitsArgs(
         language_ids_file=language_ids_file,
         use_language_embedding=True,
         spec_segment_size=10,
         use_speaker_encoder_as_loss=True,
+        speaker_encoder_model_path=encoder_model_path,
+        speaker_encoder_config_path=encoder_config_path,
     )
     config = VitsConfig(num_speakers=num_speakers, use_speaker_embedding=True, model_args=args)
     config.audio.sample_rate = 16000
@@ -283,7 +276,7 @@ def test_secl_forward(device, language_ids_file):
     speaker_ids = torch.randint(0, num_speakers, (batch_size,)).long().to(device)
     lang_ids = torch.randint(0, num_langs, (batch_size,)).long().to(device)
 
-    model = Vits(config, speaker_manager=speaker_manager).to(device)
+    model = Vits.init_from_config(config).to(device)
     output_dict = model.forward(
         input_dummy,
         input_lengths,
@@ -292,7 +285,7 @@ def test_secl_forward(device, language_ids_file):
         waveform,
         aux_input={"speaker_ids": speaker_ids, "language_ids": lang_ids},
     )
-    _check_forward_outputs(config, output_dict, speaker_encoder_config)
+    _check_forward_outputs(config, output_dict, model.speaker_manager.encoder_config)
 
 
 @pytest.mark.parametrize("batch_size", [1, 2])
