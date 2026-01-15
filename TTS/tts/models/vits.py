@@ -1255,12 +1255,7 @@ class Vits(BaseTTS):
         ap = AudioProcessor.init_from_config(config)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
 
-        model = Vits(new_config, ap, tokenizer, speaker_manager)
-        if config.model_args.speaker_encoder_model_path:
-            model.speaker_manager.init_encoder(
-                config.model_args.speaker_encoder_model_path, config.model_args.speaker_encoder_config_path
-            )
-        return model
+        return Vits(new_config, ap, tokenizer)
 
     def export_onnx(self, output_path: str = "coqui_vits.onnx", verbose: bool = True):
         """Export model to ONNX format for inference

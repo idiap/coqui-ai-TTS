@@ -81,32 +81,40 @@ class SpeakerManager(EmbeddingManager):
         return list(self.name_to_id.keys())
 
     @staticmethod
-    def init_from_config(
-        config: BaseTrainingConfig, samples: list[dict[str, Any]] | None = None
-    ) -> Union["SpeakerManager", None]:
-        """Initialize a speaker manager from config
+    def init_from_config(config: BaseTrainingConfig) -> Union["SpeakerManager", None]:
+        """Initialize a speaker manager from config.
+
+        If using speaker embeddings:
+          - Read config.speakers
+          - Otherwise read speaker IDs from speaker(s)_file if set
+        Else if using d-vectors:
+          - Read embeddings from d_vector_file
+
+        Initialize speaker encoder if speaker_encoder_model_path is set.
 
         Args:
             config: Config object.
-            samples (Union[List[List], List[Dict]], optional): List of data samples to parse out the speaker names.
-                Defaults to None.
         """
         speaker_manager = None
         if get_from_config_or_model_args(config, "use_speaker_embedding"):
-            if samples:
-                speaker_manager = SpeakerManager(data_items=samples)
             if config.speakers:
                 speaker_manager = SpeakerManager()
                 speaker_manager.name_to_id = {name: i for i, name in enumerate(config.speakers)}
-            if speaker_file := get_from_config_or_model_args(config, "speaker_file"):
+            # TODO: check if speaker_file is used by any model
+            elif speaker_file := get_from_config_or_model_args(config, "speaker_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speaker_file)
-            if speakers_file := get_from_config_or_model_args(config, "speakers_file"):
+            elif speakers_file := get_from_config_or_model_args(config, "speakers_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speakers_file)
-
-        if get_from_config_or_model_args(config, "use_d_vector_file"):
+        elif get_from_config_or_model_args(config, "use_d_vector_file"):
             speaker_manager = SpeakerManager()
             if d_vector_file := get_from_config_or_model_args(config, "d_vector_file"):
                 speaker_manager = SpeakerManager(d_vectors_file_path=d_vector_file)
+
+        if encoder_path := config.model_args.get("speaker_encoder_model_path"):
+            if speaker_manager is None:
+                speaker_manager = SpeakerManager()
+            speaker_manager.init_encoder(encoder_path, config.model_args.speaker_encoder_config_path)
+            logger.debug("Encoder initialized in speaker manager.")
 
         if speaker_manager is not None:
             logger.debug("Speaker manager initialized with: %s", speaker_manager.speaker_names)
