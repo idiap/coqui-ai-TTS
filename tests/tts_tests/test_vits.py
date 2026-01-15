@@ -443,3 +443,14 @@ def test_init_from_config(device):
     assert model.num_speakers == 1
     assert not hasattr(model, "emb_g")
     assert model.embedded_speaker_dim == config.d_vector_dim
+
+
+def test_model_creates_speaker_manager_from_config():
+    """Test that model creates SpeakerManager from config.speakers."""
+    speakers = ["speaker_a", "speaker_b"]
+    config = VitsConfig(speakers=speakers, model_args=VitsArgs(use_speaker_embedding=True))
+    model = Vits(config)
+
+    assert model.speaker_manager is not None
+    assert model.speaker_manager.num_speakers == 2
+    assert model.speaker_manager.speaker_names == speakers

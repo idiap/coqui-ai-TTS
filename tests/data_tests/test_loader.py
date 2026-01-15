@@ -1,3 +1,5 @@
+"""Test loading of TTSDataset with load_tts_samples()."""
+
 import os
 import shutil
 from pathlib import Path
@@ -8,6 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from tests import get_tests_data_path
+from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig, BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples, register_formatter
 from TTS.tts.datasets.dataset import TTSDataset
@@ -22,24 +25,32 @@ c.r = 5
 c.data_path = os.path.join(get_tests_data_path(), "ljspeech/")
 
 dataset_config_wav = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_wav.csv",
     meta_file_val=None,
     path=c.data_path,
     language="en",
 )
 dataset_config_mp3 = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_mp3.csv",
     meta_file_val=None,
     path=c.data_path,
     language="en",
 )
 dataset_config_flac = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_flac.csv",
     meta_file_val=None,
     path=c.data_path,
+    language="en",
+)
+
+dataset_config_multi = BaseDatasetConfig(
+    formatter="ljspeech_test",
+    meta_file_train="metadata.csv",
+    meta_file_val=None,
+    path="tests/data/ljspeech",
     language="en",
 )
 
@@ -291,3 +302,12 @@ def test_custom_formatted_dataset_with_loader():
     train_samples, eval_samples = load_tts_samples(config, eval_split=True, eval_split_size=0.2)
     assert len(train_samples) == 14
     assert len(eval_samples) == 2
+
+
+def test_creates_config_speakers():
+    """Test that load_tts_samples auto-populates config.speakers."""
+    config = GlowTTSConfig(datasets=[dataset_config_multi], use_speaker_embedding=True)
+    assert config.speakers == []
+
+    train_samples, eval_samples = load_tts_samples(config, eval_split=False)
+    assert config.speakers == ["ljspeech-1", "ljspeech-2", "ljspeech-3", "ljspeech-4"]

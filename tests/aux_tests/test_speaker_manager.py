@@ -1,9 +1,12 @@
+"""Test initialization and behaviour of SpeakerManager."""
+
 import os
 
 import numpy as np
 import torch
 
 from tests import get_tests_input_path
+from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.utils.speakers import SpeakerManager
 
 sample_wav_path = os.path.join(get_tests_input_path(), "../data/ljspeech/wavs/LJ001-0001.wav")
@@ -55,3 +58,20 @@ def test_dvector_file_processing():
     d_vector2 = manager.get_mean_embedding(manager.speaker_names[0], num_samples=2, randomize=False)
     assert len(d_vector2) == 256
     assert np.sum(np.array(d_vector1) - np.array(d_vector2)) != 0
+
+
+def test_init_from_config_empty_speakers():
+    """Test with no speakers configured."""
+    config = GlowTTSConfig(speakers=[], use_speaker_embedding=True)
+    sm = SpeakerManager.init_from_config(config)
+
+    assert sm is None
+
+
+def test_init_from_config_speakers():
+    """Test that speaker IDs are read from config.speakers."""
+    config = GlowTTSConfig(speakers=["alice", "bob"], use_speaker_embedding=True)
+    sm = SpeakerManager.init_from_config(config)
+
+    assert sm.num_speakers == 2
+    assert sm.name_to_id == {"alice": 0, "bob": 1}
