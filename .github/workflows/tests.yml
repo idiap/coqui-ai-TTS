@@ -117,11 +117,14 @@ jobs:
           fi
       - name: Integration tests for shard ${{ matrix.shard }}
         run: |
-          uv run --extra cpu pytest tests/integration --collect-only --quiet | grep "::" > integration_tests.txt
+          uv run --extra cpu --extra codec \
+            pytest tests/integration --collect-only --quiet | \
+            grep "::" > integration_tests.txt
           total_shards=6
           shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
           uv run --resolution=${{ matrix.uv-resolution }} --extra cpu \
-          --extra codec --extra languages coverage run -m pytest -x -v --durations=0 $shard_tests
+            --extra codec --extra languages coverage run -m \
+            pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
         uses: actions/upload-artifact@v6
         with:

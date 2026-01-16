@@ -38,7 +38,7 @@ test_text: ## run text tests.
 
 test_notebook: ## run Jupyter notebook tests
 	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval \
-		--extra cpu --extra languages --extra notebooks \
+		--extra cpu --extra codec --extra languages --extra notebooks \
 		pytest --nbval-lax notebooks/ \
 		--ignore-glob "notebooks/Tutorial*" \
 		--ignore notebooks/dataset_analysis/CheckDatasetSNR.ipynb

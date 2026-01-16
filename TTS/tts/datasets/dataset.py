@@ -11,11 +11,11 @@ import numpy.typing as npt
 import torch
 import tqdm
 from torch.utils.data import Dataset
+from transformers.utils.import_utils import is_torch_greater_or_equal
 
 from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
-from TTS.utils.generic_utils import is_pytorch_at_least_2_9
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
         raise RuntimeError(msg)
 
     try:
-        if is_pytorch_at_least_2_9():
+        if is_torch_greater_or_equal("2.9"):
             return _get_audio_size_torchcodec(audiopath)
         else:
             import torchaudio
