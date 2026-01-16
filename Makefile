@@ -46,6 +46,9 @@ test_notebook: ## run Jupyter notebook tests
 test_failed:  ## only run tests failed the last time.
 	coverage run -m pytest -x -v --last-failed tests
 
+jupyter: ## launch Jupyter lab
+	uv run --all-extras --no-extra cuda --no-extra codec-cuda --with jupyter jupyter lab
+
 style:	## update code style.
 	uv run --only-dev ruff format ${target_dirs}
 
