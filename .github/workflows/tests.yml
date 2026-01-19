@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text", "test_tts", "test_vc", "test_vocoder"]
         uv-resolution: ["highest", "lowest-direct"]
         exclude:
@@ -50,6 +50,8 @@ jobs:
           - python-version: "3.12"
             uv-resolution: "lowest-direct"
           - python-version: "3.13"
+            uv-resolution: "lowest-direct"
+          - python-version: "3.14"
             uv-resolution: "lowest-direct"
     steps:
       - uses: actions/checkout@v6
@@ -88,12 +90,12 @@ jobs:
       fail-fast: false
       matrix:
         shard: [0, 1, 2, 3, 4, 5]
-        python-version: ["3.10", "3.13"]
+        python-version: ["3.10", "3.14"]
         uv-resolution: ["highest", "lowest-direct"]
         exclude:
           - python-version: "3.10"
             uv-resolution: "highest"
-          - python-version: "3.13"
+          - python-version: "3.14"
             uv-resolution: "lowest-direct"
     steps:
       - uses: actions/checkout@v6
@@ -136,7 +138,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
         partition: ["0", "1", "2"]
     steps:
       - uses: actions/checkout@v6
@@ -174,7 +176,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
     steps:
       - uses: actions/checkout@v6
       - name: Setup uv

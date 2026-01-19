@@ -28,7 +28,7 @@ name = "coqui-tts"
 version = "0.27.3"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.10, <3.15"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
@@ -43,6 +43,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
@@ -119,7 +120,7 @@ bn = [
 ]
 # Korean
 ko = [
-    "ko-speech-tools[g2p]>=0.1.0",
+    "ko-speech-tools[g2p]>=0.1.0; python_version < '3.14'",
 ]
 # Japanese
 ja = [

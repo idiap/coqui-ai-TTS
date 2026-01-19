@@ -5,13 +5,21 @@ import logging
 import multiprocessing
 import sys
 from argparse import RawTextHelpFormatter
+from concurrent.futures import ProcessPoolExecutor
 
-from tqdm.contrib.concurrent import process_map
+from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.text.phonemizers import Gruut
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+
+phonemizer: Gruut
+
+
+def init_worker(language: str) -> None:
+    global phonemizer
+    phonemizer = Gruut(language=language, keep_puncs=True)
 
 
 def compute_phonemes(item: dict) -> set[str]:
@@ -36,7 +44,6 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
 
 def main(arg_list: list[str] | None = None) -> None:
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
-    global phonemizer
     args = parse_args(arg_list)
     config = load_config(args.config_path)
 
@@ -64,9 +71,12 @@ def main(arg_list: list[str] | None = None) -> None:
         )
         raise ValueError(msg)
 
-    phonemizer = Gruut(language=language_list[0], keep_puncs=True)
-
-    phonemes = process_map(compute_phonemes, items, max_workers=multiprocessing.cpu_count(), chunksize=15)
+    with ProcessPoolExecutor(
+        max_workers=multiprocessing.cpu_count(),
+        initializer=init_worker,
+        initargs=(language_list[0],),
+    ) as executor:
+        phonemes = list(tqdm(executor.map(compute_phonemes, items, chunksize=15), total=len(items)))
     phones = []
     for ph in phonemes:
         phones.extend(ph)

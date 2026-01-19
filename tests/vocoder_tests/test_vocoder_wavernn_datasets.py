@@ -15,13 +15,13 @@ C = WavernnConfig()
 test_data_path = os.path.join(get_tests_path(), "data/ljspeech/")
 
 params = [
-    [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 10, True, 0],
-    [16, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, "mold", False, 4],
-    [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, 9, False, 0],
-    [1, C.audio["hop_length"], C.audio["hop_length"], 2, 10, True, 0],
-    [1, C.audio["hop_length"], C.audio["hop_length"], 2, "mold", False, 0],
-    [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 4, 10, False, 2],
-    [1, C.audio["hop_length"] * 5, C.audio["hop_length"], 2, "mold", False, 0],
+    [16, C.audio["hop_length"] * 10, 2, 10, True, 0],
+    [16, C.audio["hop_length"] * 10, 2, "mold", False, 4],
+    [1, C.audio["hop_length"] * 10, 2, 9, False, 0],
+    [1, C.audio["hop_length"], 2, 10, True, 0],
+    [1, C.audio["hop_length"], 2, "mold", False, 0],
+    [1, C.audio["hop_length"] * 5, 4, 10, False, 2],
+    [1, C.audio["hop_length"] * 5, 2, "mold", False, 0],
 ]
 
 
@@ -29,7 +29,7 @@ params = [
 def test_parametrized_wavernn_dataset(tmp_path, params):
     """Run dataloader with given parameters and check conditions"""
     print(params)
-    batch_size, seq_len, hop_len, pad, mode, mulaw, num_workers = params
+    batch_size, seq_len, pad, mode, mulaw, num_workers = params
     test_mel_feat_path = tmp_path / "mel"
     test_quant_feat_path = tmp_path / "quant"
 
@@ -39,6 +39,7 @@ def test_parametrized_wavernn_dataset(tmp_path, params):
     C.mode = mode
     C.seq_len = seq_len
     C.data_path = test_data_path
+    hop_len = C.audio["hop_length"]
 
     preprocess_wav_files(tmp_path, C, ap)
     _, train_items = load_wav_feat_data(test_data_path, test_mel_feat_path, 5)

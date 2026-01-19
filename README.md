@@ -117,7 +117,7 @@ You can also help us implement more models.
 <!-- start installation -->
 ## Installation
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.14**, but should also
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.15**, but should also
 work on Mac and Windows. Depending on your platform, you might first want to
 separately install Pytorch, `torchaudio`, and `torchcodec` with their
 [official instructions](https://pytorch.org/get-started/locally/).

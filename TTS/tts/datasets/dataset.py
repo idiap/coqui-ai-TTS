@@ -19,10 +19,6 @@ from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
 
 logger = logging.getLogger(__name__)
 
-# to prevent too many open files error as suggested here
-# https://github.com/pytorch/pytorch/issues/11201#issuecomment-421146936
-torch.multiprocessing.set_sharing_strategy("file_system")
-
 
 def _parse_sample(item):
     language_name = None
