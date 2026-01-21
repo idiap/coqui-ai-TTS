@@ -67,4 +67,5 @@ install_dev:	## install 🐸 TTS for development.
 	uv run pre-commit install
 
 docs:	## build the docs
-	uv run --group docs $(MAKE) -C docs clean && uv run --group docs $(MAKE) -C docs html
+	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs clean
+	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs html
