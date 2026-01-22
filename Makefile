@@ -22,7 +22,7 @@ test_aux:	## run aux tests.
 	coverage run -m pytest -x -v --durations=0 tests/aux_tests
 
 test_zoo:	## run zoo tests.
-	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py
+	coverage run -m pytest -v --durations=0 tests/zoo_tests/test_models.py
 
 test_zoo_big:	## run tests for models that are too big for CI.
 	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_big_models.py
