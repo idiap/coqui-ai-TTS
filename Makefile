@@ -12,6 +12,9 @@ test:	## run tests.
 test_vocoder:	## run vocoder tests.
 	coverage run -m pytest -x -v --durations=0 tests/vocoder_tests
 
+test_vc:	## run voice conversion tests.
+	coverage run -m pytest -x -v --durations=0 tests/vc_tests
+
 test_tts:	## run tts tests.
 	coverage run -m pytest -x -v --durations=0 tests/tts_tests
 
@@ -19,7 +22,7 @@ test_aux:	## run aux tests.
 	coverage run -m pytest -x -v --durations=0 tests/aux_tests
 
 test_zoo:	## run zoo tests.
-	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_models.py
+	coverage run -m pytest -v --durations=0 tests/zoo_tests/test_models.py
 
 test_zoo_big:	## run tests for models that are too big for CI.
 	coverage run -m pytest -x -v --durations=0 tests/zoo_tests/test_big_models.py
@@ -33,8 +36,18 @@ data_tests: ## run data tests.
 test_text: ## run text tests.
 	coverage run -m pytest -x -v --durations=0 tests/text_tests
 
+test_notebook: ## run Jupyter notebook tests
+	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval \
+		--extra cpu --extra codec --extra languages --extra notebooks \
+		pytest --nbval-lax notebooks/ \
+		--ignore-glob "notebooks/Tutorial*" \
+		--ignore notebooks/dataset_analysis/CheckDatasetSNR.ipynb
+
 test_failed:  ## only run tests failed the last time.
 	coverage run -m pytest -x -v --last-failed tests
+
+jupyter: ## launch Jupyter lab
+	uv run --all-extras --no-extra cuda --no-extra codec-cuda --with jupyter jupyter lab
 
 style:	## update code style.
 	uv run --only-dev ruff format ${target_dirs}
@@ -54,4 +67,5 @@ install_dev:	## install 🐸 TTS for development.
 	uv run pre-commit install
 
 docs:	## build the docs
-	uv run --group docs $(MAKE) -C docs clean && uv run --group docs $(MAKE) -C docs html
+	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs clean
+	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs html

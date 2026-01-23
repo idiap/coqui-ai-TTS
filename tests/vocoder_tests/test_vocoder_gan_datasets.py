@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pytest
 from torch.utils.data import DataLoader
 
 from tests import get_tests_path
@@ -15,11 +16,35 @@ test_data_path = os.path.join(get_tests_path(), "data/ljspeech/")
 ok_ljspeech = os.path.exists(test_data_path)
 
 
-def gan_dataset_case(
-    batch_size, seq_len, hop_len, conv_pad, return_pairs, return_segments, use_noise_augment, use_cache, num_workers
+@pytest.mark.parametrize(
+    (
+        "batch_size",
+        "seq_len",
+        "conv_pad",
+        "return_pairs",
+        "return_segments",
+        "use_noise_augment",
+        "use_cache",
+        "num_workers",
+    ),
+    [
+        (32, C.audio["hop_length"] * 10, 0, True, True, False, True, 0),
+        (32, C.audio["hop_length"] * 10, 0, True, True, False, True, 4),
+        (1, C.audio["hop_length"] * 10, 0, True, True, True, True, 0),
+        (1, C.audio["hop_length"], 0, True, True, True, True, 0),
+        (1, C.audio["hop_length"] * 10, 2, True, True, True, True, 0),
+        (1, C.audio["hop_length"] * 10, 0, True, False, True, True, 0),
+        (1, C.audio["hop_length"] * 10, 0, True, True, False, True, 0),
+        (1, C.audio["hop_length"] * 10, 0, False, True, True, False, 0),
+        (1, C.audio["hop_length"] * 10, 0, True, False, False, False, 0),
+    ],
+)
+def test_gan_dataset(
+    batch_size, seq_len, conv_pad, return_pairs, return_segments, use_noise_augment, use_cache, num_workers
 ):
-    """Run dataloader with given parameters and check conditions"""
+    """Test dataloader with different parameters."""
     ap = AudioProcessor(**C.audio)
+    hop_len = C.audio["hop_length"]
     _, train_items = load_wav_data(test_data_path, 10)
     dataset = GANDataset(
         ap,
@@ -84,22 +109,3 @@ def gan_dataset_case(
             count_iter += 1
             if count_iter == max_iter:
                 break
-
-
-def test_parametrized_gan_dataset():
-    """test dataloader with different parameters"""
-    params = [
-        [32, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, True, False, True, 0],
-        [32, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, True, False, True, 4],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, True, True, True, 0],
-        [1, C.audio["hop_length"], C.audio["hop_length"], 0, True, True, True, True, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 2, True, True, True, True, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, False, True, True, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, True, False, True, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, False, True, True, False, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, False, False, False, 0],
-        [1, C.audio["hop_length"] * 10, C.audio["hop_length"], 0, True, False, False, False, 0],
-    ]
-    for param in params:
-        print(param)
-        gan_dataset_case(*param)

@@ -1,6 +1,13 @@
 import importlib.metadata
 
-from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from transformers.utils.import_utils import (
+    is_torch_available,
+    is_torch_greater_or_equal,
+    is_torchaudio_available,
+    is_torchcodec_available,
+)
+
+from TTS.utils.import_utils import PYTORCH_IMPORT_ERROR, TORCHCODEC_IMPORT_ERROR
 
 __version__ = importlib.metadata.version("coqui-tts")
 
@@ -13,8 +20,10 @@ if "coqpit" in importlib.metadata.packages_distributions().get("coqpit", []):
     )
     raise ImportError(msg)
 
+if not is_torch_available() or not is_torchaudio_available:
+    raise ImportError(PYTORCH_IMPORT_ERROR)
 
-if is_pytorch_at_least_2_4():
+if is_torch_greater_or_equal("2.4"):
     import _codecs
     from collections import defaultdict
 
@@ -31,3 +40,7 @@ if is_pytorch_at_least_2_4():
 
     # XTTS
     torch.serialization.add_safe_globals([BaseDatasetConfig, XttsConfig, XttsAudioConfig, XttsArgs])
+
+if is_torch_greater_or_equal("2.9"):
+    if not is_torchcodec_available():
+        raise ImportError(TORCHCODEC_IMPORT_ERROR)

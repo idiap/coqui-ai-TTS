@@ -125,4 +125,5 @@ def run_tts_train(tmp_path: Path, config: BaseTTSConfig):
 
     # restore the model and continue training for one more epoch
     run_main(train_tts, ["--continue_path", str(continue_path)])
-    shutil.rmtree(tmp_path)
+    if output_path.exists():
+        shutil.rmtree(output_path)

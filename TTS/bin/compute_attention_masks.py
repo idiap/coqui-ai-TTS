@@ -1,33 +1,33 @@
 import argparse
-import importlib
 import logging
-import os
 import sys
 from argparse import RawTextHelpFormatter
+from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from tqdm import tqdm
-from trainer.io import load_checkpoint
 
 from TTS.config import load_config
-from TTS.tts.datasets.TTSDataset import TTSDataset
+from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models import setup_model
-from TTS.tts.utils.text.characters import make_symbols, phonemes, symbols
-from TTS.utils.audio import AudioProcessor
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
-if __name__ == "__main__":
-    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
 
-    # pylint: disable=bad-option-value
+def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="""Extract attention masks from trained Tacotron/Tacotron2 models.
-These masks can be used for different purposes including training a TTS model with a Duration Predictor.\n\n"""
-        """Each attention mask is written to the same path as the input wav file with ".npy" file extension.
-(e.g. path/bla.wav (wav file) --> path/bla.npy (attention mask))\n"""
-        """
+        description="""
+Extract attention masks from trained Tacotron/Tacotron2 models.
+
+These masks can be used for different purposes including training a TTS model
+with a Duration Predictor.
+
+Each attention mask is written to the same path as the input wav file with
+".npy" file extension, unless --output_path is specified.
+(e.g. path/bla.wav (wav file) --> path/bla.npy (attention mask))
+
 Example run:
     CUDA_VISIBLE_DEVICE="0" python TTS/bin/compute_attention_masks.py
         --model_path /data/rw/home/Models/ljspeech-dcattn-December-14-2020_11+10AM-9d0e8c7/checkpoint_200000.pth
@@ -35,7 +35,7 @@ Example run:
         --dataset_metafile metadata.csv
         --data_path /root/LJSpeech-1.1/
         --batch_size 32
-        --dataset ljspeech
+        --formatter ljspeech
         --use_cuda
 """,
         formatter_class=RawTextHelpFormatter,
@@ -47,82 +47,63 @@ Example run:
         required=True,
         help="Path to Tacotron/Tacotron2 config file.",
     )
+    parser.add_argument("--output_path", type=str, help="Path to save attention masks, optional.")
     parser.add_argument(
-        "--dataset",
+        "--formatter",
         type=str,
-        default="",
-        required=True,
-        help="Target dataset processor name from TTS.tts.dataset.preprocess.",
+        default="ljspeech",
+        help="Formatter name from TTS.tts.datasets.formatters.",
     )
 
     parser.add_argument(
         "--dataset_metafile",
         type=str,
-        default="",
-        required=True,
+        default="metadata.csv",
         help="Dataset metafile inclusing file paths with transcripts.",
     )
-    parser.add_argument("--data_path", type=str, default="", help="Defines the data path. It overwrites config.json.")
+    parser.add_argument("--data_path", type=str, help="Defines the data path.", required=True)
     parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="enable/disable cuda.")
 
     parser.add_argument(
         "--batch_size", default=16, type=int, help="Batch size for the model. Use batch_size=1 if you have no CUDA."
     )
-    args = parser.parse_args()
+    return parser.parse_args(arg_list)
 
-    C = load_config(args.config_path)
-    ap = AudioProcessor(**C.audio)
 
-    # if the vocabulary was passed, replace the default
-    if "characters" in C.keys():
-        symbols, phonemes = make_symbols(**C.characters)  # noqa: F811
+def main(arg_list: list[str] | None = None) -> None:
+    setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
+    args = parse_args(arg_list)
+
+    output_path = Path(args.output_path if args.output_path else args.data_path).resolve()
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    config = load_config(args.config_path)
+    config.eval_batch_size = args.batch_size
+    tokenizer, config = TTSTokenizer.init_from_config(config)
 
     # load the model
-    num_chars = len(phonemes) if C.use_phonemes else len(symbols)
-    # TODO: handle multi-speaker
-    model = setup_model(C)
-    model, _ = load_checkpoint(model, args.model_path, use_cuda=args.use_cuda, eval=True)
+    model = setup_model(config)
+    model.load_checkpoint(config, args.model_path, eval=True)
+    if args.use_cuda:
+        model.cuda()
 
-    # data loader
-    preprocessor = importlib.import_module("TTS.tts.datasets.formatters")
-    preprocessor = getattr(preprocessor, args.dataset)
-    meta_data = preprocessor(args.data_path, args.dataset_metafile)
-    dataset = TTSDataset(
-        model.decoder.r,
-        C.text_cleaner,
-        compute_linear_spec=False,
-        ap=ap,
-        meta_data=meta_data,
-        characters=C.characters if "characters" in C.keys() else None,
-        add_blank=C["add_blank"] if "add_blank" in C.keys() else False,
-        use_phonemes=C.use_phonemes,
-        phoneme_cache_path=C.phoneme_cache_path,
-        phoneme_language=C.phoneme_language,
-        enable_eos_bos=C.enable_eos_bos_chars,
+    # create data loader
+    dataset_config = BaseDatasetConfig(
+        formatter=args.formatter, meta_file_train=args.dataset_metafile, path=args.data_path
     )
-
-    dataset.sort_and_filter_items(C.get("sort_by_audio_len", default=False))
-    loader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        num_workers=4,
-        collate_fn=dataset.collate_fn,
-        shuffle=False,
-        drop_last=False,
-    )
+    samples, _ = load_tts_samples(dataset_config, eval_split=False)
+    loader = model.get_data_loader(config, assets=None, is_eval=True, samples=samples, verbose=True, num_gpus=0)
 
     # compute attentions
     file_paths = []
     with torch.inference_mode():
         for data in tqdm(loader):
             # setup input data
-            text_input = data[0]
-            text_lengths = data[1]
-            linear_input = data[3]
-            mel_input = data[4]
-            mel_lengths = data[5]
-            stop_targets = data[6]
-            item_idxs = data[7]
+            text_input = data["token_id"]
+            text_lengths = data["token_id_lengths"]
+            mel_input = data["mel"]
+            mel_lengths = data["mel_lengths"]
+            item_idxs = data["item_idxs"]
 
             # dispatch data to GPU
             if args.use_cuda:
@@ -151,20 +132,23 @@ Example run:
                 )
                 # remove paddings
                 alignment = alignment[: mel_lengths[idx], : text_lengths[idx]].cpu().numpy()
-                # set file paths
-                wav_file_name = os.path.basename(item_idx)
-                align_file_name = os.path.splitext(wav_file_name)[0] + "_attn.npy"
-                file_path = item_idx.replace(wav_file_name, align_file_name)
                 # save output
-                wav_file_abs_path = os.path.abspath(item_idx)
-                file_abs_path = os.path.abspath(file_path)
-                file_paths.append([wav_file_abs_path, file_abs_path])
+                wav_file_path = Path(item_idx).resolve()
+                rel_path = wav_file_path.relative_to(Path(args.data_path).resolve())
+                file_path = (output_path / rel_path).with_name(wav_file_path.stem + "_attn.npy")
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_paths.append([wav_file_path, file_path])
                 np.save(file_path, alignment)
 
-        # ourput metafile
-        metafile = os.path.join(args.data_path, "metadata_attn_mask.txt")
+        # output metafile
+        metafile = output_path / "metadata_attn_mask.txt"
 
         with open(metafile, "w", encoding="utf-8") as f:
             for p in file_paths:
                 f.write(f"{p[0]}|{p[1]}\n")
         print(f" >> Metafile created: {metafile}")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

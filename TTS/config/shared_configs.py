@@ -222,11 +222,11 @@ class BaseDatasetConfig(Coqpit):
             train the duration predictor.
     """
 
-    formatter: str = ""
-    dataset_name: str = ""
-    path: str = ""
+    formatter: str | None = ""
+    dataset_name: str | None = ""
+    path: str | None = ""
     meta_file_train: str = ""
-    ignored_speakers: list[str] = None
+    ignored_speakers: list[str] | None = None
     language: str = ""
     phonemizer: str = ""
     meta_file_val: str = ""

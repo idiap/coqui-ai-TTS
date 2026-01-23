@@ -35,7 +35,7 @@ jobs:
         - "nvidia/cuda:12.8.1-base-ubuntu24.04" # GPU enabled
         - "python:3.12-slim" # CPU only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -89,7 +89,7 @@ jobs:
         base:
         - "nvidia/cuda:12.8.1-base-ubuntu24.04" # GPU enabled
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
