@@ -117,15 +117,29 @@ You can also help us implement more models.
 <!-- start installation -->
 ## Installation
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.15**, but should also
-work on Mac and Windows. Depending on your platform, you might first want to
-separately install Pytorch, `torchaudio`, and `torchcodec` with their
-[official instructions](https://pytorch.org/get-started/locally/).
+> [!NOTE]
+> From `coqui-tts` 0.27.4, PyTorch is not included by default and you need to install it yourself.
+
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.15** and PyTorch
+2.2+, but should also work on Mac and Windows.
+
+It is strongly recommended to use [uv](https://docs.astral.sh/uv/) to install
+everything into a virtual environment (otherwise leave out `uv` from the
+commands below).
+
+First install PyTorch, `torchaudio`, and (only for PyTorch 2.9+) `torchcodec`
+with their [official instructions](https://pytorch.org/get-started/locally/),
+choosing the CPU/CUDA/ROCm version as necessary. Or let uv automatically select
+the right version for your system:
+
+```bash
+uv pip install torch torchaudio torchcodec --torch-backend=auto
+```
 
 If you are only interested in [synthesizing speech](https://coqui-tts.readthedocs.io/en/latest/inference.html) with the pretrained 🐸TTS models, installing from PyPI is the easiest option.
 
 ```bash
-pip install coqui-tts
+uv pip install coqui-tts
 ```
 
 If you plan to code or train models, clone 🐸TTS and install it locally.
@@ -133,7 +147,7 @@ If you plan to code or train models, clone 🐸TTS and install it locally.
 ```bash
 git clone https://github.com/idiap/coqui-ai-TTS
 cd coqui-ai-TTS
-pip install -e .
+uv pip install -e .
 ```
 
 ### Optional dependencies
@@ -143,7 +157,6 @@ The following extras allow the installation of optional dependencies:
 | Name | Description |
 |------|-------------|
 | `all` | All optional dependencies |
-| `codec` | Installs torchcodec needed with Pytorch>=2.9 |
 | `notebooks` | Dependencies only used in notebooks |
 | `server` | Dependencies to run the TTS server |
 | `bn` | Bangla G2P |
@@ -155,9 +168,23 @@ The following extras allow the installation of optional dependencies:
 You can install extras with one of the following commands:
 
 ```bash
-pip install coqui-tts[server,ja]
-pip install -e .[server,ja]
+uv pip install coqui-tts[server,ja]
+uv pip install -e .[server,ja]
 ```
+
+### Pytorch extras
+
+There are also the following convenience extras to automatically install the
+PyTorch dependencies. Note that the CPU/CUDA selection only works with uv and
+when installing Coqui from source. With other package managers or when installing
+`coqui-tts` from PyPI, the PyTorch dependencies will be installed from PyPI.
+
+| Name | Description |
+|------|-------------|
+| `cpu` | Install `torch`, `torchaudio` (CPU) |
+| `cuda` | Install `torch`, `torchaudio` (CUDA) |
+| `codec` | Install `torchcodec` (CPU), needed with PyTorch>=2.9 |
+| `codec-cuda` | Install `torchcodec` (CUDA), needed with PyTorch>=2.9 |
 
 ### Platforms
 
