@@ -33,7 +33,6 @@ PHONEMIZERS = {b.name(): b for b in (ESpeak, Gruut) if b is not None}
 ESPEAK_LANGS = list(ESpeak.supported_languages().keys())
 GRUUT_LANGS = [] if Gruut is None else list(Gruut.supported_languages())
 
-
 # Dict setting default phonemizers for each language
 DEF_LANG_TO_PHONEMIZER = {}
 # Add Gruut languages
@@ -44,7 +43,8 @@ if Gruut is not None:
 DEF_LANG_TO_PHONEMIZER.update({lang: ESpeak.name() for lang in ESPEAK_LANGS})
 
 # Force default for some languages
-DEF_LANG_TO_PHONEMIZER["en"] = DEF_LANG_TO_PHONEMIZER["en-us"]
+if "en-us" in DEF_LANG_TO_PHONEMIZER:
+    DEF_LANG_TO_PHONEMIZER["en"] = DEF_LANG_TO_PHONEMIZER["en-us"]
 DEF_LANG_TO_PHONEMIZER["be"] = BEL_Phonemizer.name()
 
 
