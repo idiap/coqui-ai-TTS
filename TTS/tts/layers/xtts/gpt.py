@@ -531,6 +531,5 @@ class GPT(nn.Module):
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + fake_inputs.shape[-1],
             attention_mask=attention_mask,
-            do_stream=True,
             **hf_generate_kwargs,
         )

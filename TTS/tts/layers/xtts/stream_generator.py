@@ -29,25 +29,18 @@ def setup_seed(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
 
 
-class StreamGenerationConfig(GenerationConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.do_stream = kwargs.pop("do_stream", False)
-
-
 class NewGenerationMixin(GenerationMixin):
     @torch.inference_mode()
     def generate(  # noqa: PLR0911
         self,
         inputs: torch.Tensor | None = None,
-        generation_config: StreamGenerationConfig | None = None,
+        generation_config: GenerationConfig | None = None,
         logits_processor: LogitsProcessorList | None = None,
         stopping_criteria: StoppingCriteriaList | None = None,
         prefix_allowed_tokens_fn: Callable[[int, torch.Tensor], list[int]] | None = None,
         synced_gpus: bool | None = False,
         assistant_model: PreTrainedModel | None = None,
         streamer: "BaseStreamer | None" = None,
-        use_model_defaults: bool | None = None,
         custom_generate: str | Callable | None = None,
         seed: int = 0,
         **kwargs,
@@ -102,11 +95,6 @@ class NewGenerationMixin(GenerationMixin):
                 same tokenizer. The acceleration is achieved when forecasting candidate tokens with the assistant model
                 is much faster than running generation with the model you're calling generate from. As such, the
                 assistant model should be much smaller.
-            use_model_defaults (`bool`, *optional*):
-                When it is `True`, unset parameters in `generation_config` will be set to the model-specific default
-                generation configuration (`model.generation_config`), as opposed to the global defaults
-                (`GenerationConfig()`). If unset, models saved starting from `v4.50` will consider this flag to be
-                `True`.
             kwargs:
                 Ad hoc parametrization of `generate_config` and/or additional model-specific kwargs that will be
                 forwarded to the `forward` function of the model. If the model is an encoder-decoder model, encoder
@@ -137,10 +125,16 @@ class NewGenerationMixin(GenerationMixin):
         generation_mode_kwargs = self._extract_generation_mode_kwargs(
             custom_generate, kwargs, synced_gpus, assistant_model, streamer
         )
-
-        generation_config, model_kwargs = self._prepare_generation_config(
-            generation_config, use_model_defaults, **kwargs
+        # Check length values before updating the config with defaults.
+        # We'll use it later to define the final min/max length (# 6)
+        has_default_max_length = kwargs.get("max_length") is None and (
+            generation_config is None or generation_config.max_length is None
         )
+        has_default_min_length = kwargs.get("min_length") is None and (
+            generation_config is None or generation_config.min_length is None
+        )
+        generation_config, model_kwargs = self._prepare_generation_config(generation_config, **kwargs)
+
         generation_mode = generation_config.get_generation_mode(assistant_model)
         self._validate_model_kwargs(model_kwargs.copy())
         self._validate_generation_mode(generation_mode, generation_config, generation_mode_kwargs)
@@ -212,8 +206,6 @@ class NewGenerationMixin(GenerationMixin):
 
         # 6. Prepare `max_length` depending on other stopping criteria.
         input_ids_length = input_ids.shape[-1]
-        has_default_max_length = kwargs.get("max_length") is None and generation_config.max_length is not None
-        has_default_min_length = kwargs.get("min_length") is None and generation_config.min_length is not None
         generation_config = self._prepare_generated_length(
             generation_config=generation_config,
             has_default_max_length=has_default_max_length,
@@ -500,7 +492,6 @@ if __name__ == "__main__":
             repetition_penalty=1.2,
             early_stopping=True,
             seed=0,
-            do_stream=True,
         )
         stream_result = ""
         for x in generator:
