@@ -15,15 +15,18 @@ from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 
 from TTS.config import get_from_config_or_model_args
-from TTS.config.shared_configs import ModelArgs
+from TTS.config.shared_configs import BaseAudioConfig, ModelArgs
 from TTS.model import BaseTrainerModel
 from TTS.tts.configs.shared_configs import BaseTTSConfig
+from TTS.tts.configs.vits_config import VitsAudioConfig
 from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weights
 from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
 from TTS.tts.utils.synthesis import inv_spectrogram
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+from TTS.utils.audio.processor import AudioProcessor
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 from TTS.utils.voices import CloningMixin
 
@@ -42,21 +45,26 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor",
-        tokenizer: "TTSTokenizer",
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
         language_manager: None = None,
     ):
         super().__init__()
-        if speaker_manager is not None or language_manager is not None:
+        if any(arg is not None for arg in (ap, tokenizer, speaker_manager, language_manager)):
             warnings.warn(
-                "The `speaker_manager` and `language_manager` arguments are deprecated "
-                "and will be removed soon. You can safely leave them out.",
+                "The `ap`, `tokenizer`, `speaker_manager` and `language_manager` "
+                "arguments are deprecated and will be removed soon. You can "
+                "safely leave them out.",
                 DeprecationWarning,
             )
+        # Some models use their own tokenizer
+        if not hasattr(self, "tokenizer"):
+            self.tokenizer, config = TTSTokenizer.init_from_config(config)
         self.config = cast(BaseTTSConfig, config)
-        self.ap = ap
-        self.tokenizer = tokenizer
+        # Some models use incompatible audio configs
+        if isinstance(self.config.audio, (BaseAudioConfig, VitsAudioConfig)):
+            self.ap = AudioProcessor.init_from_config(self.config)
         self.speaker_manager = SpeakerManager.init_from_config(self.config)
         self.language_manager = LanguageManager.init_from_config(self.config)
         self._set_model_args()
@@ -75,7 +83,10 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         """
         if isinstance(self.config, BaseTTSConfig):
             config_num_chars = get_from_config_or_model_args(self.config, "num_chars")
-            num_chars = config_num_chars if self.tokenizer is None else self.tokenizer.characters.num_chars
+            if self.tokenizer is None or not hasattr(self.tokenizer, "characters"):
+                num_chars = config_num_chars
+            else:
+                num_chars = self.tokenizer.characters.num_chars
             if "characters" in self.config:
                 self.config.num_chars = num_chars
                 self.config.model_args.num_chars = num_chars

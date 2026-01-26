@@ -6,8 +6,6 @@ from TTS.tts.configs.align_tts_config import AlignTTSConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.align_tts import AlignTTS
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.downloaders import download_thorsten_de
 
 output_path = os.path.dirname(os.path.abspath(__file__))
@@ -51,16 +49,6 @@ def main():
         datasets=[dataset_config],
     )
 
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # If characters are not defined in the config, default characters are passed to the config
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
@@ -74,7 +62,7 @@ def main():
     )
 
     # init model
-    model = AlignTTS(config, ap, tokenizer)
+    model = AlignTTS(config)
 
     # INITIALIZE THE TRAINER
     # Trainer provides a generic API to train all the 🐸TTS models with all its perks like mixed-precision training,

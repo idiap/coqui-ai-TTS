@@ -13,7 +13,6 @@ from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import average_over_durations, expand_encoder_outputs, generate_attention, sequence_mask
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
 
 logger = logging.getLogger(__name__)
@@ -51,13 +50,13 @@ class ForwardTTS(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
-        self.init_multispeaker(config)
+        self.init_multispeaker(self.config)
 
         self.max_duration = self.args.max_duration
         self.use_aligner = self.args.use_aligner
@@ -607,16 +606,3 @@ class ForwardTTS(BaseTTS):
     def on_train_step_start(self, trainer):
         """Schedule binary loss weight."""
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
-
-    @staticmethod
-    def init_from_config(config: Coqpit):
-        """Initiate model from config
-
-        Args:
-            config: Model config.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        return ForwardTTS(new_config, ap, tokenizer)

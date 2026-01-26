@@ -6,8 +6,6 @@ from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.vits_config import VitsAudioConfig, VitsConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.vits import Vits
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.downloaders import download_thorsten_de
 
 output_path = os.path.dirname(os.path.abspath(__file__))
@@ -62,16 +60,6 @@ def main():
         datasets=[dataset_config],
     )
 
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # config is updated with the default characters if not defined in the config.
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
@@ -85,7 +73,7 @@ def main():
     )
 
     # init model
-    model = Vits(config, ap, tokenizer)
+    model = Vits(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

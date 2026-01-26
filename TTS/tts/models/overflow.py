@@ -18,7 +18,6 @@ from TTS.tts.layers.overflow.plotting_utils import (
     plot_transition_probabilities_to_numpy,
 )
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input, is_pytorch_at_least_2_4
 
@@ -69,20 +68,20 @@ class Overflow(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
         # pass all config fields to `self`
         # for fewer code change
-        for key in config:
-            setattr(self, key, config[key])
+        for key in self.config:
+            setattr(self, key, self.config[key])
 
-        self.decoder_output_dim = config.out_channels
+        self.decoder_output_dim = self.config.out_channels
 
-        self.encoder = Encoder(config.num_chars, config.state_per_phone, config.encoder_in_out_features)
+        self.encoder = Encoder(self.config.num_chars, self.config.state_per_phone, self.config.encoder_in_out_features)
         self.neural_hmm = NeuralHMM(
             frame_channels=self.out_channels,
             ar_order=self.ar_order,
@@ -251,19 +250,6 @@ class Overflow(BaseTTS):
     @staticmethod
     def get_criterion():
         return NLLLoss()
-
-    @staticmethod
-    def init_from_config(config: "OverFlowConfig"):
-        """Initiate model from config
-
-        Args:
-            config (VitsConfig): Model config.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        return Overflow(new_config, ap, tokenizer)
 
     def load_checkpoint(
         self,

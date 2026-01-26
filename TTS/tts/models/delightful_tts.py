@@ -30,12 +30,10 @@ from TTS.tts.layers.vits.discriminator import VitsDiscriminator
 from TTS.tts.models.base_tts import BaseTTSE2E
 from TTS.tts.models.vits import load_audio
 from TTS.tts.utils.helpers import average_over_durations, compute_attn_prior, rand_segments, segment, sequence_mask
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
 from TTS.utils.audio.numpy_transforms import build_mel_basis, compute_f0
 from TTS.utils.audio.numpy_transforms import db_to_amp as db_to_amp_numpy
 from TTS.utils.audio.numpy_transforms import mel_to_wav as mel_to_wav_numpy
-from TTS.utils.audio.processor import AudioProcessor
 from TTS.utils.audio.torch_transforms import wav_to_mel, wav_to_spec
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 from TTS.vocoder.layers.losses import MultiScaleSTFTLoss
@@ -306,17 +304,19 @@ class DelightfulTTS(BaseTTSE2E):
     def __init__(
         self,
         config: Coqpit,
-        ap,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
-        super().__init__(config=config, ap=ap, tokenizer=tokenizer, speaker_manager=speaker_manager)
+        super().__init__(config, ap, tokenizer, speaker_manager)
         self.init_multispeaker(config)
         self.binary_loss_weight = None
 
         self.args.out_channels = self.config.audio.num_mels
         self.args.num_mels = self.config.audio.num_mels
-        self.acoustic_model = AcousticModel(args=self.args, tokenizer=tokenizer, speaker_manager=self.speaker_manager)
+        self.acoustic_model = AcousticModel(
+            args=self.args, tokenizer=self.tokenizer, speaker_manager=self.speaker_manager
+        )
 
         self.waveform_decoder = HifiganGenerator(
             self.config.audio.num_mels,
@@ -1072,18 +1072,6 @@ class DelightfulTTS(BaseTTSE2E):
         # stop updating mean and var
         # TODO: do the same for F0
         self.energy_scaler.eval()
-
-    @staticmethod
-    def init_from_config(config: "DelightfulTTSConfig"):
-        """Initiate model from config
-
-        Args:
-            config (ForwardTTSE2eConfig): Model config.
-        """
-
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        ap = AudioProcessor.init_from_config(config=config)
-        return DelightfulTTS(config=new_config, tokenizer=tokenizer, ap=ap)
 
     def get_state_dict(self):
         """Custom state dict of the model with all the necessary components for inference."""

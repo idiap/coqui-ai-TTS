@@ -144,13 +144,13 @@ class Xtts(BaseTTS):
     config: XttsConfig
 
     def __init__(self, config: Coqpit):
-        super().__init__(config, ap=None, tokenizer=None)
+        self.tokenizer = VoiceBpeTokenizer()
+        super().__init__(config)
         self.mel_stats_path = None
         self.gpt_checkpoint = self.args.gpt_checkpoint
         self.decoder_checkpoint = self.args.decoder_checkpoint  # TODO: check if this is even needed
         self.gpt_batch_size = self.args.gpt_batch_size
 
-        self.tokenizer = VoiceBpeTokenizer()
         self.gpt = None
         self.init_models()
         self.register_buffer("mel_stats", torch.ones(80))
@@ -628,10 +628,6 @@ class Xtts(BaseTTS):
         raise NotImplementedError(
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
-
-    @staticmethod
-    def init_from_config(config: "XttsConfig", **kwargs):  # pylint: disable=unused-argument
-        return Xtts(config)
 
     def eval(self):  # pylint: disable=redefined-builtin
         """Sets the model to evaluation mode. Overrides the default eval() method to also set the GPT model to eval mode."""

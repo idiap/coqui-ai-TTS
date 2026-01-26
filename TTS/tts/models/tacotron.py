@@ -10,7 +10,6 @@ from TTS.tts.layers.tacotron.gst_layers import GST
 from TTS.tts.layers.tacotron.tacotron import Decoder, Encoder, PostCBHG
 from TTS.tts.models.base_tacotron import BaseTacotron
 from TTS.tts.utils.measures import alignment_diagonal_score
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.capacitron_optimizer import CapacitronOptimizer
 
@@ -27,22 +26,22 @@ class Tacotron(BaseTacotron):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
         # pass all config fields to `self`
         # for fewer code change
-        for key in config:
-            setattr(self, key, config[key])
+        for key in self.config:
+            setattr(self, key, self.config[key])
 
         # set speaker embedding channel size for determining `in_channels` for the connected layers.
         # `init_multispeaker` needs to be called once more in training to initialize the speaker embedding layer based
         # on the number of speakers infered from the dataset.
         if self.use_speaker_embedding or self.use_d_vector_file:
-            self.init_multispeaker(config)
+            self.init_multispeaker(self.config)
             self.decoder_in_features += self.embedded_speaker_dim  # add speaker embedding dim
 
         if self.use_gst:
@@ -368,16 +367,3 @@ class Tacotron(BaseTacotron):
         # Sample audio
         audio = self.ap.inv_spectrogram(pred_linear_spec.T)
         return figures, {"audio": audio}
-
-    @staticmethod
-    def init_from_config(config: "TacotronConfig"):
-        """Initiate model from config
-
-        Args:
-            config (TacotronConfig): Model config.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        return Tacotron(new_config, ap, tokenizer)

@@ -12,7 +12,6 @@ from TTS.tts.configs.tacotron_config import TacotronConfig
 from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import sequence_mask
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import format_aux_input
 from TTS.utils.training import gradual_training_scheduler
 
@@ -27,8 +26,8 @@ class BaseTacotron(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor",
-        tokenizer: "TTSTokenizer",
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)

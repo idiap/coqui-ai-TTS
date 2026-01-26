@@ -7,8 +7,6 @@ from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.tacotron2 import Tacotron2
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.downloaders import download_thorsten_de
 
 # from TTS.tts.datasets.tokenizer import Tokenizer
@@ -73,19 +71,6 @@ def main():
         datasets=[dataset_config],
     )
 
-    # init audio processor
-    ap = AudioProcessor(**config.audio.to_dict())
-
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # If characters are not defined in the config, default characters are passed to the config
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
@@ -101,7 +86,7 @@ def main():
     # INITIALIZE THE MODEL
     # Models take a config object as input
     # Config defines the details of the model like the number of layers, the size of the embedding, etc.
-    model = Tacotron2(config, ap, tokenizer)
+    model = Tacotron2(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

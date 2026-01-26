@@ -4,7 +4,7 @@ import os
 from dataclasses import replace
 from itertools import chain
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -19,6 +19,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from typing_extensions import Self
 
 from TTS.tts.configs.shared_configs import CharactersConfig
 from TTS.tts.configs.vits_config import VitsArgs, VitsConfig
@@ -221,14 +222,14 @@ class Vits(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: Union["AudioProcessor", None] = None,
-        tokenizer: Union["TTSTokenizer", None] = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
-        self.init_multispeaker(config)
-        self.init_multilingual(config)
+        self.init_multispeaker(self.config)
+        self.init_multilingual(self.config)
         self.init_upsampling()
 
         self.length_scale = self.args.length_scale
@@ -1230,15 +1231,13 @@ class Vits(BaseTTS):
             self.eval()
             assert not self.training
 
-    @staticmethod
-    def init_from_config(config: "VitsConfig"):
+    @classmethod
+    def init_from_config(cls, config: "VitsConfig") -> Self:
         """Initiate model from config
 
         Args:
             config (VitsConfig): Model config.
         """
-        from TTS.utils.audio import AudioProcessor
-
         upsample_rate = torch.prod(torch.as_tensor(config.model_args.upsample_rates_decoder)).item()
 
         if not config.model_args.encoder_sample_rate:
@@ -1251,11 +1250,7 @@ class Vits(BaseTTS):
             assert upsample_rate == effective_hop_length, (
                 f" [!] Product of upsample rates must be equal to the hop length - {upsample_rate} vs {effective_hop_length}"
             )
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-
-        return Vits(new_config, ap, tokenizer)
+        return cls(config)
 
     def export_onnx(self, output_path: str = "coqui_vits.onnx", verbose: bool = True):
         """Export model to ONNX format for inference

@@ -7,8 +7,6 @@ from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.vits_config import VitsArgs, VitsAudioConfig, VitsConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.vits import Vits
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 
 
 def main():
@@ -91,9 +89,6 @@ def main():
     # force the convertion of the custom characters to a config attribute
     config.from_dict(config.to_dict())
 
-    # init audio processor
-    ap = AudioProcessor(**config.audio.to_dict())
-
     # load training samples
     train_samples, eval_samples = load_tts_samples(
         config,
@@ -102,13 +97,8 @@ def main():
         eval_split_size=config.eval_split_size,
     )
 
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # config is updated with the default characters if not defined in the config.
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # init model
-    model = Vits(config, ap, tokenizer)
+    model = Vits(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

@@ -227,11 +227,12 @@ class Tortoise(BaseTTS):
     args: TortoiseArgs
 
     def __init__(self, config: Coqpit):
-        super().__init__(config, ap=None, tokenizer=None)
+        self.tokenizer = VoiceBpeTokenizer()
+        super().__init__(config)
         self.mel_norm_path = None
         self.ar_checkpoint = self.args.ar_checkpoint
         self.diff_checkpoint = self.args.diff_checkpoint  # TODO: check if this is even needed
-        self.models_dir = config.model_dir
+        self.models_dir = self.config.model_dir
         self.autoregressive_batch_size = (
             pick_best_batch_size_for_gpu()
             if self.args.autoregressive_batch_size is None
@@ -240,8 +241,6 @@ class Tortoise(BaseTTS):
         self.enable_redaction = self.args.enable_redaction
         if self.enable_redaction:
             self.aligner = Wav2VecAlignment()
-
-        self.tokenizer = VoiceBpeTokenizer()
 
         self.autoregressive = UnifiedVoice(
             max_mel_tokens=self.args.ar_max_mel_tokens,
@@ -716,10 +715,6 @@ class Tortoise(BaseTTS):
 
     def eval_step(self):
         raise NotImplementedError("Tortoise Training is not implemented")
-
-    @staticmethod
-    def init_from_config(config: "TortoiseConfig", **kwargs):  # pylint: disable=unused-argument
-        return Tortoise(config)
 
     def load_checkpoint(
         self,

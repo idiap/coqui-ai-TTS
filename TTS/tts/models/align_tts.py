@@ -11,7 +11,6 @@ from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import expand_encoder_outputs, generate_attention, sequence_mask
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
 
@@ -48,15 +47,13 @@ class AlignTTS(BaseTTS):
 
     """
 
-    # pylint: disable=dangerous-default-value
-
     config: AlignTTSConfig
 
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
@@ -323,16 +320,3 @@ class AlignTTS(BaseTTS):
     def on_epoch_start(self, trainer):
         """Set AlignTTS training phase on epoch start."""
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)
-
-    @staticmethod
-    def init_from_config(config: "AlignTTSConfig"):
-        """Initiate model from config
-
-        Args:
-            config (AlignTTSConfig): Model config.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        return AlignTTS(new_config, ap, tokenizer)

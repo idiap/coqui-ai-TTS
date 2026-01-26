@@ -13,7 +13,6 @@ from TTS.tts.layers.glow_tts.decoder import Decoder
 from TTS.tts.layers.glow_tts.encoder import Encoder
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import generate_path, sequence_mask
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
 logger = logging.getLogger(__name__)
@@ -61,23 +60,23 @@ class GlowTTS(BaseTTS):
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
+        ap: None = None,
+        tokenizer: None = None,
         speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
         # pass all config fields to `self`
         # for fewer code change
-        for key in config:
-            setattr(self, key, config[key])
+        for key in self.config:
+            setattr(self, key, self.config[key])
 
-        self.decoder_output_dim = config.out_channels
+        self.decoder_output_dim = self.config.out_channels
 
         # init multi-speaker layers if necessary
-        self.init_multispeaker(config)
+        self.init_multispeaker(self.config)
 
-        self.run_data_dep_init = config.data_dep_init_steps > 0
+        self.run_data_dep_init = self.config.data_dep_init_steps > 0
         self.encoder = Encoder(
             self.num_chars,
             out_channels=self.out_channels,
@@ -457,16 +456,3 @@ class GlowTTS(BaseTTS):
     def on_train_step_start(self, trainer):
         """Decide on every training step wheter enable/disable data depended initialization."""
         self.run_data_dep_init = trainer.total_steps_done < self.data_dep_init_steps
-
-    @staticmethod
-    def init_from_config(config: "GlowTTSConfig"):
-        """Initiate model from config
-
-        Args:
-            config (VitsConfig): Model config.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        return GlowTTS(new_config, ap, tokenizer)

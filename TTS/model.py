@@ -6,6 +6,7 @@ import torch
 from coqpit import Coqpit
 from trainer import TrainerModel
 from trainer.io import load_fsspec
+from typing_extensions import Self
 
 from TTS.config.shared_configs import BaseTrainingConfig
 
@@ -18,14 +19,13 @@ class BaseTrainerModel(TrainerModel):
 
     config: BaseTrainingConfig
 
-    @staticmethod
-    @abstractmethod
-    def init_from_config(config: Coqpit) -> "BaseTrainerModel":
+    @classmethod
+    def init_from_config(cls, config: Coqpit) -> Self:
         """Init the model and all its attributes from the given config.
 
         Override this depending on your model.
         """
-        ...
+        return cls(config)
 
     @abstractmethod
     def inference(self, input: torch.Tensor, aux_input: dict[str, Any] = {}) -> dict[str, Any]:

@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from trainer.io import load_fsspec
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from typing_extensions import Self
 
 from TTS.utils.audio import AudioProcessor
 from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig
@@ -378,7 +379,7 @@ class GAN(BaseVocoder):
         """Return criterions for the optimizers"""
         return [DiscriminatorLoss(self.config), GeneratorLoss(self.config)]
 
-    @staticmethod
-    def init_from_config(config: Coqpit) -> "GAN":
+    @classmethod
+    def init_from_config(cls, config: Coqpit) -> Self:
         ap = AudioProcessor.init_from_config(config)
-        return GAN(config, ap=ap)
+        return cls(config, ap=ap)

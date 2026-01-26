@@ -37,14 +37,10 @@ logger = logging.getLogger(__name__)
 class Bark(BaseTTS):
     config: BarkConfig
 
-    def __init__(
-        self,
-        config: Coqpit,
-        tokenizer: BertTokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased"),
-    ) -> None:
-        super().__init__(config=config, ap=None, tokenizer=None)
-        self.config.num_chars = len(tokenizer)
-        self.tokenizer = tokenizer
+    def __init__(self, config: Coqpit) -> None:
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+        super().__init__(config)
+        self.config.num_chars = len(self.tokenizer)
         self.semantic_model = GPT(config.semantic_config)
         self.coarse_model = GPT(config.coarse_config)
         self.fine_model = FineGPT(config.fine_config)
@@ -304,10 +300,6 @@ class Bark(BaseTTS):
     def forward(self): ...
 
     def inference(self): ...
-
-    @staticmethod
-    def init_from_config(config: "BarkConfig", **kwargs):  # pylint: disable=unused-argument
-        return Bark(config)
 
     # pylint: disable=unused-argument, redefined-builtin
     def load_checkpoint(

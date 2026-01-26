@@ -7,8 +7,6 @@ from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.glow_tts import GlowTTS
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 
 # set experiment paths
 output_path = os.path.dirname(os.path.abspath(__file__))
@@ -56,16 +54,6 @@ def main():
         max_audio_len=500000,
     )
 
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # If characters are not defined in the config, default characters are passed to the config
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
@@ -79,7 +67,7 @@ def main():
     )
 
     # init model
-    model = GlowTTS(config, ap, tokenizer)
+    model = GlowTTS(config)
 
     # INITIALIZE THE TRAINER
     # Trainer provides a generic API to train all the 🐸TTS models with all its perks like mixed-precision training,
