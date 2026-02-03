@@ -1,14 +1,18 @@
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 import torch
 import torch.nn as nn
 import torchaudio
 from coqpit import Coqpit
 from torch.utils.data import DataLoader
+from trainer import Trainer
 from trainer.io import load_fsspec
+from trainer.logging import BaseDashboardLogger
 from trainer.torch import DistributedSampler
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.tts.configs.xtts_config import XttsArgs, XttsConfig
 from TTS.tts.datasets.dataset import TTSDataset
@@ -118,7 +122,7 @@ class GPTTrainer(BaseTTS):
                 emb_g = gpt_checkpoint["text_embedding.weight"]
                 new_row = torch.randn(num_new_tokens, emb_g.shape[1])
                 start_token_row = emb_g[-1, :]
-                emb_g = torch.cat([emb_g, new_row], axis=0)
+                emb_g = torch.cat([emb_g, new_row], dim=0)
                 emb_g[-1, :] = start_token_row
                 gpt_checkpoint["text_embedding.weight"] = emb_g
 
@@ -126,7 +130,7 @@ class GPTTrainer(BaseTTS):
                 text_head_weight = gpt_checkpoint["text_head.weight"]
                 start_token_row = text_head_weight[-1, :]
                 new_entry = torch.randn(num_new_tokens, self.xtts.gpt.text_head.weight.shape[1])
-                text_head_weight = torch.cat([text_head_weight, new_entry], axis=0)
+                text_head_weight = torch.cat([text_head_weight, new_entry], dim=0)
                 text_head_weight[-1, :] = start_token_row
                 gpt_checkpoint["text_head.weight"] = text_head_weight
 
@@ -134,7 +138,7 @@ class GPTTrainer(BaseTTS):
                 text_head_bias = gpt_checkpoint["text_head.bias"]
                 start_token_row = text_head_bias[-1]
                 new_bias_entry = torch.zeros(num_new_tokens)
-                text_head_bias = torch.cat([text_head_bias, new_bias_entry], axis=0)
+                text_head_bias = torch.cat([text_head_bias, new_bias_entry], dim=0)
                 text_head_bias[-1] = start_token_row
                 gpt_checkpoint["text_head.bias"] = text_head_bias
 
@@ -223,7 +227,7 @@ class GPTTrainer(BaseTTS):
         return losses
 
     @torch.inference_mode()
-    def test_run(self, assets) -> tuple[dict, dict]:  # pylint: disable=W0613
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         test_audios = {}
         if self.config.test_sentences:
             # init gpt for inference mode
@@ -244,20 +248,14 @@ class GPTTrainer(BaseTTS):
             del self.xtts.gpt.gpt.wte
         return {"audios": test_audios}
 
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
+    def test_log(self, outputs: dict[str, Any], logger: BaseDashboardLogger, steps: int) -> None:
         logger.test_audios(steps, outputs["audios"], self.args.output_sample_rate)
 
-    def format_batch(self, batch: dict) -> dict:
+    def format_batch(self, batch: dict[str, Any]) -> dict[str, Any]:
         return batch
 
     @torch.no_grad()  # torch no grad to avoid gradients from the pre-processing and DVAE codes extraction
-    def format_batch_on_device(self, batch):
+    def format_batch_on_device(self, batch: dict[str, Any]) -> dict[str, Any]:
         """Compute spectrograms on the device."""
         batch["text_lengths"] = batch["text_lengths"]
         batch["wav_lengths"] = batch["wav_lengths"]
@@ -297,7 +295,9 @@ class GPTTrainer(BaseTTS):
         del batch["conditioning"]
         return batch
 
-    def train_step(self, batch, criterion):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         loss_dict = {}
         cond_mels = batch["cond_mels"]
         text_inputs = batch["text_inputs"]
@@ -315,12 +315,14 @@ class GPTTrainer(BaseTTS):
         loss_dict["loss"] = loss_dict["loss_text_ce"] + loss_dict["loss_mel_ce"]
         return {"model_outputs": None}, loss_dict
 
-    def eval_step(self, batch, criterion):
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         # ignore masking for more consistent evaluation
         batch["cond_idxs"] = None
         return super().eval_step(batch, criterion)
 
-    def on_train_epoch_start(self, trainer):
+    def on_train_epoch_start(self, trainer: Trainer) -> None:
         trainer.model.eval()  # the whole model to eval
         # put gpt model in training mode
         if hasattr(trainer.model, "module") and hasattr(trainer.model.module, "xtts"):
@@ -328,7 +330,7 @@ class GPTTrainer(BaseTTS):
         else:
             trainer.model.xtts.gpt.train()
 
-    def on_init_end(self, trainer):  # pylint: disable=W0613
+    def on_init_end(self, trainer: Trainer) -> None:
         # ignore similarities.pth on clearml save/upload
         if self.config.dashboard_logger.lower() == "clearml":
             from clearml.binding.frameworks import WeightsFileHandler
@@ -343,37 +345,34 @@ class GPTTrainer(BaseTTS):
     ):  # pylint: disable=dangerous-default-value
         return None
 
-    @staticmethod
-    def get_criterion():
+    def get_criterion(self):
         return None
 
-    def get_sampler(self, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset) -> torch.utils.data.Sampler | None:
         # sampler for DDP
-        batch_sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+        batch_sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() else None
         return batch_sampler
 
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ) -> "DataLoader":  # pylint: disable=W0613
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
         # init dataloader
         dataset = XTTSDataset(self.config, samples, self.xtts.tokenizer, config.audio.sample_rate, is_eval)
 
         # wait all the DDP process to be ready
-        if num_gpus > 1:
+        if is_dist_avail_and_initialized():
             torch.distributed.barrier()
 
         # sort input sequences from short to long
         # dataset.preprocess_samples()
 
         # get samplers
-        sampler = self.get_sampler(dataset, num_gpus)
+        sampler = self.get_sampler(config, dataset)
 
         # ignore sampler when is eval because if we changed the sampler parameter we will not be able to compare previous runs
         if sampler is None or is_eval:
@@ -397,7 +396,7 @@ class GPTTrainer(BaseTTS):
             )
         return loader
 
-    def get_optimizer(self) -> list:
+    def get_optimizer(self) -> torch.optim.Optimizer:
         """Initiate and return the optimizer based on the config parameters."""
         # ToDo: deal with multi GPU training
         if self.config.optimizer_wd_only_on_weights:
@@ -461,21 +460,21 @@ class GPTTrainer(BaseTTS):
             parameters=self.xtts.gpt.parameters(),
         )
 
-    def get_scheduler(self, optimizer) -> list:
+    def get_scheduler(self, optimizer: list[torch.optim.Optimizer]) -> torch.optim.lr_scheduler._LRScheduler | None:
         """Set the scheduler for the optimizer.
 
         Args:
             optimizer: `torch.optim.Optimizer`.
         """
-        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, optimizer)
+        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, optimizer[0])
 
     def load_checkpoint(
         self,
         config,
         checkpoint_path,
         *,
-        eval=False,
-        strict=True,
+        eval: bool = False,
+        strict: bool = True,
         cache_storage="/tmp/tts_cache",
         target_protocol="s3",
         target_options={"anon": True},

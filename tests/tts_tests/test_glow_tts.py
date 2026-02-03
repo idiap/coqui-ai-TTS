@@ -278,8 +278,8 @@ class TestGlowTTS(unittest.TestCase):
         )
         criterion = model.get_criterion()
         outputs, _ = model.train_step(batch, criterion)
-        model.train_log(batch, outputs, logger, None, 1)
-        model.eval_log(batch, outputs, logger, None, 1)
+        model.train_log(batch, outputs, logger, 1)
+        model.eval_log(batch, outputs, logger, 1)
         logger.finish()
 
     def test_test_run(self):

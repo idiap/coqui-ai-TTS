@@ -115,7 +115,7 @@ def compute_attention_masks(
     # create data loader
     config.datasets = [BaseDatasetConfig(formatter=formatter, meta_file_train=metafile, path=data_path)]
     samples, _ = load_tts_samples(config, eval_split=False)
-    loader = model.get_data_loader(config, assets=None, is_eval=True, samples=samples, verbose=True, num_gpus=0)
+    loader = model.get_data_loader(config, samples=samples, is_eval=True, verbose=True)
 
     # compute attentions
     file_paths = []

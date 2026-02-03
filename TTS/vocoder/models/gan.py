@@ -1,12 +1,16 @@
 from inspect import signature
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer import Trainer, TrainerConfig
 from trainer.io import load_fsspec
+from trainer.logging import BaseDashboardLogger
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig
 from TTS.vocoder.datasets.gan_dataset import GANDataset
@@ -62,14 +66,16 @@ class GAN(BaseVocoder):
         """
         return self.model_g.inference(x)
 
-    def train_step(self, batch: dict, criterion: dict, optimizer_idx: int) -> tuple[dict, dict]:
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Compute model outputs and the loss values. `optimizer_idx` selects the generator or the discriminator for
         network on the current pass.
 
         Args:
-            batch (Dict): Batch of samples returned by the dataloader.
-            criterion (Dict): Criterion used to compute the losses.
-            optimizer_idx (int): ID of the optimizer in use on the current pass.
+            batch: Batch of samples returned by the dataloader.
+            criterion: Criterion used to compute the losses.
+            optimizer_idx: ID of the optimizer in use on the current pass.
 
         Raises:
             ValueError: `optimizer_idx` is an unexpected value.
@@ -147,7 +153,7 @@ class GAN(BaseVocoder):
                     scores_real = D_out_real
 
                 # compute losses
-                loss_dict = criterion[optimizer_idx](scores_fake, scores_real)
+                loss_dict = criterion(scores_fake, scores_real)
                 outputs = {"model_outputs": y_hat}
 
         if optimizer_idx == 1:
@@ -176,13 +182,11 @@ class GAN(BaseVocoder):
                     feats_fake, feats_real = None, None
 
             # compute losses
-            loss_dict = criterion[optimizer_idx](
-                self.y_hat_g, y, scores_fake, feats_fake, feats_real, self.y_hat_sub, self.y_sub_g
-            )
+            loss_dict = criterion(self.y_hat_g, y, scores_fake, feats_fake, feats_real, self.y_hat_sub, self.y_sub_g)
             outputs = {"model_outputs": self.y_hat_g}
         return outputs, loss_dict
 
-    def _log(self, name: str, batch: dict, outputs: dict) -> tuple[dict, dict]:
+    def _log(self, name: str, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict, dict]:
         """Logging shared by the training and evaluation.
 
         Args:
@@ -193,7 +197,7 @@ class GAN(BaseVocoder):
         Returns:
             Tuple[Dict, Dict]: log figures and audio samples.
         """
-        y_hat = outputs[0]["model_outputs"] if self.train_disc else outputs[1]["model_outputs"]
+        y_hat = outputs["model_outputs_0"] if self.train_disc else outputs["model_outputs_1"]
         y = batch["waveform"]
         figures = plot_results(y_hat, y, self.ap, name)
         sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
@@ -202,11 +206,10 @@ class GAN(BaseVocoder):
 
     def train_log(
         self,
-        batch: dict,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
+        batch: dict[str, Any],
+        outputs: dict[str, Any],
+        logger: BaseDashboardLogger,
+        steps: int,
     ) -> None:
         """Call `_log()` for training."""
         figures, audios = self._log("eval", batch, outputs)
@@ -214,18 +217,19 @@ class GAN(BaseVocoder):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
-    def eval_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int) -> tuple[dict, dict]:
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Call `train_step()` with `no_grad()`"""
         self.train_disc = True  # Avoid a bug in the Training with the missing discriminator loss
         return self.train_step(batch, criterion, optimizer_idx)
 
     def eval_log(
         self,
-        batch: dict,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
+        batch: dict[str, Any],
+        outputs: dict[str, Any],
+        logger: BaseDashboardLogger,
+        steps: int,
     ) -> None:
         """Call `_log()` for evaluation."""
         figures, audios = self._log("eval", batch, outputs)
@@ -236,7 +240,8 @@ class GAN(BaseVocoder):
         self,
         config: Coqpit,
         checkpoint_path: str,
-        eval: bool = False,  # pylint: disable=unused-argument, redefined-builtin
+        *,
+        eval: bool = False,
         cache: bool = False,
     ) -> None:
         """Load a GAN checkpoint and initialize model parameters.
@@ -257,7 +262,7 @@ class GAN(BaseVocoder):
                 if hasattr(self.model_g, "remove_weight_norm"):
                     self.model_g.remove_weight_norm()
 
-    def on_train_step_start(self, trainer) -> None:
+    def on_train_step_start(self, trainer: Trainer) -> None:
         """Enable the discriminator training based on `steps_to_start_discriminator`
 
         Args:
@@ -265,7 +270,7 @@ class GAN(BaseVocoder):
         """
         self.train_disc = trainer.total_steps_done >= self.config.steps_to_start_discriminator
 
-    def get_optimizer(self) -> list:
+    def get_optimizer(self) -> list[torch.optim.Optimizer]:
         """Initiate and return the GAN optimizers based on the config parameters.
 
         It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
@@ -281,7 +286,7 @@ class GAN(BaseVocoder):
         )
         return [optimizer_d, optimizer_g]
 
-    def get_lr(self) -> list:
+    def get_lr(self) -> list[float]:
         """Set the initial learning rates for each optimizer.
 
         Returns:
@@ -289,7 +294,9 @@ class GAN(BaseVocoder):
         """
         return [self.config.lr_disc, self.config.lr_gen]
 
-    def get_scheduler(self, optimizer) -> list:
+    def get_scheduler(
+        self, optimizer: list[torch.optim.Optimizer]
+    ) -> list[torch.optim.lr_scheduler._LRScheduler | None]:
         """Set the schedulers for each optimizer.
 
         Args:
@@ -302,8 +309,7 @@ class GAN(BaseVocoder):
         scheduler_g = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
         return [scheduler_d, scheduler_g]
 
-    @staticmethod
-    def format_batch(batch: list) -> dict:
+    def format_batch(self, batch: list) -> dict[str, Any]:
         """Format the batch for training.
 
         Args:
@@ -319,25 +325,21 @@ class GAN(BaseVocoder):
         x, y = batch
         return {"input": x, "waveform": y}
 
-    def get_data_loader(  # pylint: disable=no-self-use, unused-argument
+    def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: True,
-        samples: list,
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,  # pylint: disable=unused-argument
+        config: TrainerConfig,
+        *,
+        is_eval: bool = True,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
     ):
         """Initiate and return the GAN dataloader.
 
         Args:
-            config (Coqpit): Model config.
-            is_eval (True): Set the dataloader for evaluation if true.
-            samples (List): Data samples.
-            verbose (bool): Log information if true.
-            num_gpus (int): Number of GPUs in use.
-            rank (int): Rank of the current GPU. Defaults to None.
+            config: Model config.
+            is_eval: Set the dataloader for evaluation if true.
+            samples: Data samples.
+            verbose: Log information if true.
 
         Returns:
             DataLoader: Torch dataloader.
@@ -356,11 +358,11 @@ class GAN(BaseVocoder):
             use_cache=config.use_cache,
         )
         dataset.shuffle_mapping()
-        sampler = DistributedSampler(dataset, shuffle=True) if num_gpus > 1 else None
+        sampler = DistributedSampler(dataset, shuffle=True) if is_dist_avail_and_initialized() else None
         loader = DataLoader(
             dataset,
             batch_size=1 if is_eval else config.batch_size,
-            shuffle=num_gpus == 0,
+            shuffle=not is_dist_avail_and_initialized(),
             drop_last=False,
             sampler=sampler,
             num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
@@ -368,6 +370,6 @@ class GAN(BaseVocoder):
         )
         return loader
 
-    def get_criterion(self):
+    def get_criterion(self) -> list[nn.Module]:
         """Return criterions for the optimizers"""
         return [DiscriminatorLoss(self.config), GeneratorLoss(self.config)]

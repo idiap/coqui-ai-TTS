@@ -1,5 +1,6 @@
 import sys
 import time
+from typing import Any
 
 import numpy as np
 import torch
@@ -8,6 +9,10 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer import Trainer
+from trainer.config import TrainerConfig
+from trainer.logging import BaseDashboardLogger
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.utils.audio.numpy_transforms import mulaw_decode
 from TTS.vocoder.configs import WavernnConfig
@@ -480,7 +485,9 @@ class Wavernn(BaseVocoder):
 
         return unfolded
 
-    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         mels = batch["input"]
         waveform = batch["waveform"]
         waveform_coarse = batch["waveform_coarse"]
@@ -495,21 +502,18 @@ class Wavernn(BaseVocoder):
         loss_dict = criterion(y_hat, waveform_coarse)
         return {"model_output": y_hat}, loss_dict
 
-    def eval_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
-        return self.train_step(batch, criterion)
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        return self.train_step(batch, criterion, optimizer_idx)
 
     @torch.no_grad()
-    def test(
-        self,
-        assets: dict,
-        test_loader: "DataLoader",
-        output: dict,  # pylint: disable=unused-argument
-    ) -> tuple[dict, dict]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         from TTS.tts.utils.visual import plot_spectrogram
 
         figures = {}
         audios = {}
-        samples = test_loader.dataset.load_test_samples(1)
+        samples = trainer.get_eval_dataloader(trainer.eval_samples).dataset.load_test_samples(1)
         for idx, sample in enumerate(samples):
             x = torch.FloatTensor(sample[0])
             x = x.to(next(self.parameters()).device)
@@ -523,35 +527,30 @@ class Wavernn(BaseVocoder):
             )
             audios.update({f"test_{idx}/audio": y_hat})
             # audios.update({f"real_{idx}/audio": y_hat})
-        return figures, audios
+        return {"audios": audios, "figures": figures}
 
     def test_log(
         self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> tuple[dict, np.ndarray]:
-        figures, audios = outputs
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
+        outputs: dict[str, Any],
+        logger: BaseDashboardLogger,
+        steps: int,
+    ) -> None:
+        logger.eval_figures(steps, outputs["figures"])
+        logger.eval_audios(steps, outputs["audios"], self.ap.sample_rate)
 
-    @staticmethod
-    def format_batch(batch: dict) -> dict:
+    def format_batch(self, batch: list) -> dict[str, Any]:
         waveform = batch[0]
         mels = batch[1]
         waveform_coarse = batch[2]
         return {"input": mels, "waveform": waveform, "waveform_coarse": waveform_coarse}
 
-    def get_data_loader(  # pylint: disable=no-self-use
+    def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: True,
-        samples: list,
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
+        config: TrainerConfig,
+        *,
+        is_eval: bool = True,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
     ):
         dataset = WaveRNNDataset(
             ap=self.ap,
@@ -563,11 +562,11 @@ class Wavernn(BaseVocoder):
             mulaw=config.model_args.mulaw,
             is_training=not is_eval,
         )
-        sampler = DistributedSampler(dataset, shuffle=True) if num_gpus > 1 else None
+        sampler = DistributedSampler(dataset, shuffle=True) if is_dist_avail_and_initialized() else None
         loader = DataLoader(
             dataset,
             batch_size=1 if is_eval else config.batch_size,
-            shuffle=num_gpus == 0,
+            shuffle=not is_dist_avail_and_initialized(),
             collate_fn=dataset.collate,
             sampler=sampler,
             num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
@@ -575,6 +574,6 @@ class Wavernn(BaseVocoder):
         )
         return loader
 
-    def get_criterion(self):
+    def get_criterion(self) -> nn.Module:
         # define train functions
         return WaveRNNLoss(self.args.mode)

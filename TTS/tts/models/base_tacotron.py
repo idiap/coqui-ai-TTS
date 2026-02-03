@@ -7,12 +7,13 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from trainer.io import load_fsspec
+from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.configs.tacotron_config import TacotronConfig
 from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import sequence_mask
-from TTS.utils.generic_utils import format_aux_input
+from TTS.utils.capacitron_optimizer import CapacitronOptimizer
 from TTS.utils.training import gradual_training_scheduler
 
 logger = logging.getLogger(__name__)
@@ -61,11 +62,14 @@ class BaseTacotron(BaseTTS):
         self.coarse_decoder = None
 
     @staticmethod
-    def _format_aux_input(aux_input: dict) -> dict:
+    def _format_aux_input(aux_input: dict[str, Any] | None) -> dict[str, Any]:
         """Set missing fields to their default values"""
-        if aux_input:
-            return format_aux_input({"d_vectors": None, "speaker_ids": None}, aux_input)
-        return None
+        if aux_input is None:
+            aux_input = {}
+        for key in ("d_vectors", "speaker_ids"):
+            if key not in aux_input:
+                aux_input[key] = None
+        return aux_input
 
     #############################
     # INIT FUNCTIONS
@@ -123,7 +127,7 @@ class BaseTacotron(BaseTTS):
         extra_aux_input = {"style_mel": style_mel, "style_text": style_text}
         return super().synthesize(*args, language=language, extra_aux_input=extra_aux_input, **kwargs)
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, *, eval: bool = False, cache: bool = False) -> None:
         """Load model checkpoint and set up internals.
 
         Args:
@@ -149,6 +153,15 @@ class BaseTacotron(BaseTTS):
             self.eval()
             logger.info("Model's reduction rate `r` is set to: %d", self.decoder.r)
             assert not self.training
+
+    def get_optimizer(self) -> torch.optim.Optimizer:
+        if self.use_capacitron_vae:
+            return CapacitronOptimizer(self.config, self.named_parameters())
+        return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
+
+    def get_scheduler(self, optimizer: list[torch.optim.Optimizer]) -> torch.optim.lr_scheduler._LRScheduler | None:
+        opt = optimizer[0].primary_optimizer if self.use_capacitron_vae else optimizer[0]
+        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, opt)
 
     def get_criterion(self) -> nn.Module:
         """Get the model criterion used in training."""
@@ -277,3 +290,20 @@ class BaseTacotron(BaseTTS):
             if trainer.config.bidirectional_decoder:
                 trainer.model.decoder_backward.set_r(r)
             logger.info("Number of output frames: %d", self.decoder.r)
+
+    def before_backward_pass(self, loss_dict: dict[str, Any], optimizer: list[torch.optim.Optimizer]) -> None:
+        # Extracting custom training specific operations for capacitron
+        # from the trainer
+        if self.use_capacitron_vae:
+            loss_dict["capacitron_vae_beta_loss"].backward()
+            optimizer[0].first_step()
+
+    def before_gradient_clipping(self) -> None:
+        if self.use_capacitron_vae:
+            # Capacitron model specific gradient clipping
+            model_params_to_clip = []
+            for name, param in self.named_parameters():
+                if param.requires_grad:
+                    if name != "capacitron_vae_layer.beta":
+                        model_params_to_clip.append(param)
+            torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)

@@ -104,7 +104,6 @@ def main():
         model=model,
         train_samples=train_samples,
         eval_samples=eval_samples,
-        training_assets={"audio_processor": ap},
     )
 
     trainer.fit()

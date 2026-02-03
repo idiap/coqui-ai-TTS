@@ -5,6 +5,7 @@ from typing import Any
 import torch
 from coqpit import Coqpit
 from torch import nn
+from trainer import Trainer
 from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
@@ -155,7 +156,9 @@ class NeuralhmmTTS(BaseTTS):
         stats["avg_spec_batch_occupancy"] = (batch["mel_lengths"].float() / batch["mel_lengths"].float().max()).mean()
         return stats
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         text_input = batch["text_input"]
         text_lengths = batch["text_lengths"]
         mel_input = batch["mel_input"]
@@ -230,16 +233,13 @@ class NeuralhmmTTS(BaseTTS):
         outputs["alignments"] = OverflowUtils.double_pad(outputs["alignments"])
         return outputs
 
-    @staticmethod
-    def get_criterion():
+    def get_criterion(self) -> nn.Module:
         return NLLLoss()
 
-    def on_init_start(self, trainer):
+    def on_init_start(self, trainer: Trainer) -> None:
         """If the current dataset does not have normalisation statistics and initialisation transition_probability it computes them otherwise loads."""
         if not os.path.isfile(trainer.config.mel_statistics_parameter_path) or trainer.config.force_generate_statistics:
-            dataloader = trainer.get_train_dataloader(
-                training_assets=None, samples=trainer.train_samples, verbose=False
-            )
+            dataloader = trainer.get_train_dataloader(samples=trainer.train_samples, verbose=False)
             logger.info(
                 "Data parameters not found for: %s. Computing mel normalization parameters...",
                 trainer.config.mel_statistics_parameter_path,
@@ -281,7 +281,7 @@ class NeuralhmmTTS(BaseTTS):
         trainer.model.update_mean_std(statistics)
 
     @torch.inference_mode()
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
         alignments, transition_vectors = outputs["alignments"], outputs["transition_vectors"]
@@ -322,9 +322,8 @@ class NeuralhmmTTS(BaseTTS):
     def eval_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         """Compute and log evaluation metrics."""
@@ -334,4 +333,4 @@ class NeuralhmmTTS(BaseTTS):
             for tag, value in self.named_parameters():
                 tag = tag.replace(".", "/")
                 logger.writer.add_histogram(tag, value.data.cpu().numpy(), steps)
-        super().eval_log(batch, outputs, logger, assets, steps)
+        super().eval_log(batch, outputs, logger, steps)

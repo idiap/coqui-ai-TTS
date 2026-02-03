@@ -67,7 +67,6 @@ def main(arg_list: list[str] | None = None):
         model=model,
         train_samples=train_samples,
         eval_samples=eval_samples,
-        training_assets={"audio_processor": ap},
         parse_command_line_args=False,
     )
     trainer.fit()

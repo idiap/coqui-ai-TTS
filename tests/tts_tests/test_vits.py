@@ -365,11 +365,14 @@ def test_train_eval_log(device):
     criterion = model.get_criterion()
     criterion = [criterion[0].to(device), criterion[1].to(device)]
     outputs = [None] * 2
-    outputs[0], _ = model.train_step(batch, criterion, 0)
-    outputs[1], _ = model.train_step(batch, criterion, 1)
-    model.train_log(batch, outputs, logger, None, 1)
+    outputs[0], _ = model.train_step(batch, criterion[0], 0)
+    outputs[1], _ = model.train_step(batch, criterion[1], 1)
+    combined_outputs = {}
+    combined_outputs.update({f"{k}_0": v for k, v in outputs[0].items()})
+    combined_outputs.update({f"{k}_1": v for k, v in outputs[1].items()})
+    model.train_log(batch, combined_outputs, logger, 1)
 
-    model.eval_log(batch, outputs, logger, None, 1)
+    model.eval_log(batch, combined_outputs, logger, 1)
     logger.finish()
 
 
