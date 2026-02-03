@@ -710,15 +710,16 @@ class Tortoise(BaseTTS):
     def forward(self):
         raise NotImplementedError("Tortoise Training is not implemented")
 
-    def eval_step(self):
+    def eval_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError("Tortoise Training is not implemented")
 
     def load_checkpoint(
         self,
         config,
         checkpoint_dir,
-        eval=False,
-        strict=True,
+        *,
+        eval: bool = False,
+        strict: bool = True,
         **kwargs,
     ):  # pylint: disable=unused-argument, redefined-builtin
         """Load a model checkpoints from a directory. This model is with multiple checkpoint files and it
@@ -769,5 +770,5 @@ class Tortoise(BaseTTS):
             self.clvp.eval()
             self.vocoder.eval()
 
-    def train_step(self):
+    def train_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError("Tortoise Training is not implemented")

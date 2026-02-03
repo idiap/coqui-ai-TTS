@@ -12,8 +12,10 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer import Trainer
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.tts.configs.delightful_tts_config import DelightfulTtsArgs, DelightfulTTSConfig
 from TTS.tts.configs.shared_configs import BaseTTSConfig
@@ -63,7 +65,7 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         self,
         ap,
         samples: list[list] | list[dict],
-        cache_path: str = None,
+        cache_path: str | None = None,
         precompute_num_workers=0,
         normalize_f0=True,
     ):
@@ -75,7 +77,7 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
             normalize_f0=normalize_f0,
         )
 
-    def _compute_and_save_pitch(self, wav_file, pitch_file=None):
+    def _compute_and_save_pitch(self, wav_file, pitch_file=None) -> np.ndarray:
         wav, _ = load_audio(wav_file)
         f0 = compute_f0(
             x=wav.numpy()[0],
@@ -91,17 +93,6 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         if pitch_file:
             np.save(pitch_file, f0)
         return f0
-
-    def compute_or_load(self, wav_file, audio_name):
-        """
-        compute pitch and return a numpy array of pitch values
-        """
-        pitch_file = self.create_pitch_file_path(audio_name, self.cache_path)
-        if not os.path.exists(pitch_file):
-            pitch = self._compute_and_save_pitch(wav_file=wav_file, pitch_file=pitch_file)
-        else:
-            pitch = np.load(pitch_file)
-        return pitch.astype(np.float32)
 
 
 class ForwardTTSE2eDataset(TTSDataset):
@@ -377,24 +368,22 @@ class DelightfulTTS(BaseTTSE2E):
             mel_fmin=self.ap.mel_fmin,
         )  # pylint: disable=function-redefined
 
-    def init_for_training(self) -> None:
-        self.train_disc = (  # pylint: disable=attribute-defined-outside-init
-            self.config.steps_to_start_discriminator <= 0
-        )  # pylint: disable=attribute-defined-outside-init
-        self.update_energy_scaler = True  # pylint: disable=attribute-defined-outside-init
+    def on_init_start(self, trainer: Trainer) -> None:
+        self.train_disc = self.config.steps_to_start_discriminator <= 0
+        self.update_energy_scaler = True
 
-    def _init_speaker_embedding(self):
+    def _init_speaker_embedding(self) -> None:
         if self.num_speakers > 0:
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.args.embedded_speaker_dim = self.args.speaker_embedding_channels
 
-    def _init_d_vector(self):
+    def _init_d_vector(self) -> None:
         if hasattr(self, "emb_g"):
             raise ValueError("[!] Speaker embedding layer already initialized before d_vector settings.")
         self.embedded_speaker_dim = self.args.d_vector_dim
         self.args.embedded_speaker_dim = self.args.d_vector_dim
 
-    def _freeze_layers(self):
+    def _freeze_layers(self) -> None:
         if self.args.freeze_vocoder:
             for param in self.vocoder.paramseters():
                 param.requires_grad = False
@@ -528,7 +517,9 @@ class DelightfulTTS(BaseTTSE2E):
         model_outputs = {**encoder_outputs}
         return model_outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         if optimizer_idx == 0:
             tokens = batch["text_input"]
             token_lenghts = batch["text_lengths"]
@@ -566,7 +557,7 @@ class DelightfulTTS(BaseTTSE2E):
 
                 # compute loss
                 with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
-                    loss_dict = criterion[optimizer_idx](
+                    loss_dict = criterion(
                         scores_disc_fake=scores_d_fake,
                         scores_disc_real=scores_d_real,
                     )
@@ -605,7 +596,7 @@ class DelightfulTTS(BaseTTSE2E):
 
             # compute losses
             with torch.autocast("cuda", enabled=True):  # use float32 for the criterion
-                loss_dict = criterion[optimizer_idx](
+                loss_dict = criterion(
                     mel_output=self.model_outputs_cache["acoustic_model_outputs"].transpose(1, 2),
                     mel_target=batch["mel_input"],
                     mel_lens=batch["mel_lengths"],
@@ -646,14 +637,14 @@ class DelightfulTTS(BaseTTSE2E):
             return self.model_outputs_cache, loss_dict
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_spectrogram
 
         figures, audios = {}, {}
 
         # encoder outputs
-        model_outputs = outputs[1]["acoustic_model_outputs"]
-        alignments = outputs[1]["alignments"]
+        model_outputs = outputs["acoustic_model_outputs_1"]
+        alignments = outputs["alignments_1"]
         mel_input = batch["mel_input"]
 
         pred_spec = model_outputs[0].data.cpu().numpy()
@@ -667,8 +658,8 @@ class DelightfulTTS(BaseTTSE2E):
         }
 
         # plot pitch figures
-        pitch_avg = abs(outputs[1]["pitch_target"][0, 0].data.cpu().numpy())
-        pitch_avg_hat = abs(outputs[1]["pitch_pred"][0, 0].data.cpu().numpy())
+        pitch_avg = abs(outputs["pitch_target_1"][0, 0].data.cpu().numpy())
+        pitch_avg_hat = abs(outputs["pitch_pred_1"][0, 0].data.cpu().numpy())
         chars = self.tokenizer.decode(batch["text_input"][0].data.cpu().numpy())
         pitch_figures = {
             "pitch_ground_truth": plot_avg_pitch(pitch_avg, chars, output_fig=False),
@@ -677,8 +668,8 @@ class DelightfulTTS(BaseTTSE2E):
         figures.update(pitch_figures)
 
         # plot energy figures
-        energy_avg = abs(outputs[1]["energy_target"][0, 0].data.cpu().numpy())
-        energy_avg_hat = abs(outputs[1]["energy_pred"][0, 0].data.cpu().numpy())
+        energy_avg = abs(outputs["energy_target_1"][0, 0].data.cpu().numpy())
+        energy_avg_hat = abs(outputs["energy_pred_1"][0, 0].data.cpu().numpy())
         chars = self.tokenizer.decode(batch["text_input"][0].data.cpu().numpy())
         energy_figures = {
             "energy_ground_truth": plot_avg_pitch(energy_avg, chars, output_fig=False),
@@ -687,18 +678,18 @@ class DelightfulTTS(BaseTTSE2E):
         figures.update(energy_figures)
 
         # plot the attention mask computed from the predicted durations
-        alignments_hat = outputs[1]["alignments_dp"][0].data.cpu().numpy()
+        alignments_hat = outputs["alignments_dp_1"][0].data.cpu().numpy()
         figures["alignment_hat"] = plot_alignment(alignments_hat.T, output_fig=False)
 
         # Sample audio
         encoder_audio = mel_to_wav_numpy(
-            mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=None), mel_basis=self.mel_basis, **self.config.audio
+            mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=np.e), mel_basis=self.mel_basis, **self.config.audio
         )
         audios["encoder_audio"] = encoder_audio
 
         # vocoder outputs
-        y_hat = outputs[1]["model_outputs"]
-        y = outputs[1]["waveform_seg"]
+        y_hat = outputs["model_outputs_1"]
+        y = outputs["waveform_seg_1"]
 
         vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap)
         figures.update(vocoder_figures)
@@ -707,7 +698,7 @@ class DelightfulTTS(BaseTTSE2E):
         audios["vocoder_audio"] = sample_voice
         return figures, audios
 
-    def plot_outputs(self, text, wav, alignment, outputs):
+    def plot_outputs(self, text: str, wav, alignment, outputs: dict[str, Any]):
         from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
 
         figures = {}
@@ -728,6 +719,7 @@ class DelightfulTTS(BaseTTSE2E):
             x=wav[0],
             sample_rate=self.ap.sample_rate,
             hop_length=self.ap.hop_length,
+            win_length=self.ap.win_length,
             pitch_fmax=self.ap.pitch_fmax,
         )
         input_text = self.tokenizer.ids_to_text(self.tokenizer.text_to_ids(text, language="en"))
@@ -810,7 +802,7 @@ class DelightfulTTS(BaseTTSE2E):
 
         # collect outputs
         S = outputs["model_outputs"].cpu().numpy()[0].T
-        S = db_to_amp_numpy(x=S, gain=1, base=None)
+        S = db_to_amp_numpy(x=S, gain=1, base=np.e)
         wav = mel_to_wav_numpy(mel=S, mel_basis=self.mel_basis, **self.config.audio)
         alignments = outputs["alignments"]
         return_dict = {
@@ -822,7 +814,7 @@ class DelightfulTTS(BaseTTSE2E):
         return return_dict
 
     @torch.inference_mode()
-    def test_run(self, assets) -> dict[str, Any]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         """DelightfulTTS-specific test run method.
 
         Returns:
@@ -932,7 +924,7 @@ class DelightfulTTS(BaseTTSE2E):
         batch["energy"] = self.energy_scaler(batch["energy"])
         return batch
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset) -> torch.utils.data.Sampler | None:
         weights = None
         data_items = dataset.samples
         if getattr(config, "use_weighted_sampler", False):
@@ -952,21 +944,19 @@ class DelightfulTTS(BaseTTSE2E):
             sampler = None
         # sampler for DDP
         if sampler is None:
-            sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+            sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() > 1 else None
         else:  # If a sampler is already defined use this sampler and DDP sampler together
-            sampler = DistributedSamplerWrapper(sampler) if num_gpus > 1 else sampler
+            sampler = DistributedSamplerWrapper(sampler) if is_dist_avail_and_initialized() else sampler
         return sampler
 
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ) -> "DataLoader":
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
         # init dataloader
         dataset = ForwardTTSE2eDataset(
             samples=samples,
@@ -986,14 +976,14 @@ class DelightfulTTS(BaseTTSE2E):
         )
 
         # wait all the DDP process to be ready
-        if num_gpus > 1:
+        if is_dist_avail_and_initialized():
             dist.barrier()
 
         # sort input sequences ascendingly by length
         dataset.preprocess_samples()
 
         # get samplers
-        sampler = self.get_sampler(config, dataset, num_gpus)
+        sampler = self.get_sampler(config, dataset)
 
         loader = DataLoader(
             dataset,
@@ -1051,12 +1041,12 @@ class DelightfulTTS(BaseTTSE2E):
         scheduler_G = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
         return [scheduler_D, scheduler_G]
 
-    def on_epoch_end(self, trainer):  # pylint: disable=unused-argument
+    def on_epoch_end(self, trainer: Trainer) -> None:
         # stop updating mean and var
         # TODO: do the same for F0
         self.energy_scaler.eval()
 
-    def get_state_dict(self):
+    def get_state_dict(self) -> dict[str, Any]:
         """Custom state dict of the model with all the necessary components for inference."""
         save_state = {"config": self.config.to_dict(), "args": self.args.to_dict(), "model": self.state_dict}
 
@@ -1068,14 +1058,14 @@ class DelightfulTTS(BaseTTSE2E):
             ...
         return save_state
 
-    def save(self, config, checkpoint_path):
+    def save(self, checkpoint_path: str | os.PathLike[Any]) -> None:
         """Save model to a file."""
-        save_state = self.get_state_dict(config, checkpoint_path)  # pylint: disable=too-many-function-args
+        save_state = self.get_state_dict()
         save_state["pitch_mean"] = self.pitch_mean
         save_state["pitch_std"] = self.pitch_std
         torch.save(save_state, checkpoint_path)
 
-    def on_train_step_start(self, trainer) -> None:
+    def on_train_step_start(self, trainer: Trainer) -> None:
         """Enable the discriminator training based on `steps_to_start_discriminator`
 
         Args:

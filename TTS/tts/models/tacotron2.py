@@ -3,7 +3,6 @@ from typing import Any
 import torch
 from coqpit import Coqpit
 from torch import nn
-from trainer.trainer_utils import get_optimizer, get_scheduler
 
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
@@ -11,7 +10,6 @@ from TTS.tts.layers.tacotron.gst_layers import GST
 from TTS.tts.layers.tacotron.tacotron2 import Decoder, Encoder, Postnet
 from TTS.tts.models.base_tacotron import BaseTacotron
 from TTS.tts.utils.measures import alignment_diagonal_score
-from TTS.utils.capacitron_optimizer import CapacitronOptimizer
 
 
 class Tacotron2(BaseTacotron):
@@ -161,8 +159,6 @@ class Tacotron2(BaseTacotron):
             mel_lengths: :math:`[B]`
             aux_input: 'speaker_ids': :math:`[B, 1]` and  'd_vectors': :math:`[B, C]`
         """
-        if aux_input is None:
-            aux_input = {"speaker_ids": None, "d_vectors": None}
         aux_input = self._format_aux_input(aux_input)
         outputs = {"alignments_backward": None, "decoder_outputs_backward": None}
         # compute mask for padding
@@ -235,7 +231,7 @@ class Tacotron2(BaseTacotron):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, text, aux_input=None):
+    def inference(self, text, aux_input: dict[str, Any] | None = None):
         """Forward pass for inference with no Teacher-Forcing.
 
         Shapes:
@@ -295,14 +291,7 @@ class Tacotron2(BaseTacotron):
         }
         return outputs
 
-    def before_backward_pass(self, loss_dict, optimizer) -> None:
-        # Extracting custom training specific operations for capacitron
-        # from the trainer
-        if self.use_capacitron_vae:
-            loss_dict["capacitron_vae_beta_loss"].backward()
-            optimizer.first_step()
-
-    def train_step(self, batch: dict, criterion: torch.nn.Module):
+    def train_step(self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None):
         """A single training step. Forward pass and loss computation.
 
         Args:
@@ -353,26 +342,7 @@ class Tacotron2(BaseTacotron):
         loss_dict["align_error"] = align_error
         return outputs, loss_dict
 
-    def get_optimizer(self) -> list:
-        if self.use_capacitron_vae:
-            return CapacitronOptimizer(self.config, self.named_parameters())
-        return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
-
-    def get_scheduler(self, optimizer: object):
-        opt = optimizer.primary_optimizer if self.use_capacitron_vae else optimizer
-        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, opt)
-
-    def before_gradient_clipping(self):
-        if self.use_capacitron_vae:
-            # Capacitron model specific gradient clipping
-            model_params_to_clip = []
-            for name, param in self.named_parameters():
-                if param.requires_grad:
-                    if name != "capacitron_vae_layer.beta":
-                        model_params_to_clip.append(param)
-            torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)
-
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Create dashboard log information."""
         from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 

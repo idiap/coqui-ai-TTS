@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from TTS.tts.layers.generic.res_conv_bn import ResidualConv1dBNBlock
@@ -151,7 +152,7 @@ class Encoder(nn.Module):
         else:
             raise NotImplementedError(" [!] unknown encoder type.")
 
-    def forward(self, x, x_mask, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask, g=None) -> torch.FloatTensor:
         """
         Shapes:
             x: [B, C, T]

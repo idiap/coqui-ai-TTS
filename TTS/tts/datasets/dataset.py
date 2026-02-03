@@ -825,10 +825,9 @@ class F0Dataset:
     def create_pitch_file_path(file_name: str, cache_path: str) -> str:
         return os.path.join(cache_path, file_name + "_pitch.npy")
 
-    @staticmethod
-    def _compute_and_save_pitch(ap, wav_file, pitch_file=None):
-        wav = ap.load_wav(wav_file)
-        pitch = ap.compute_f0(wav)
+    def _compute_and_save_pitch(self, wav_file, pitch_file=None) -> np.ndarray:
+        wav = self.ap.load_wav(wav_file)
+        pitch = self.ap.compute_f0(wav)
         if pitch_file:
             np.save(pitch_file, pitch)
         return pitch
@@ -859,11 +858,11 @@ class F0Dataset:
         pitch[zero_idxs] = 0.0
         return pitch
 
-    def compute_or_load(self, wav_file, audio_unique_name):
+    def compute_or_load(self, wav_file, audio_unique_name: str) -> np.ndarray:
         """Compute pitch and return a numpy array of pitch values."""
         pitch_file = self.create_pitch_file_path(audio_unique_name, self.cache_path)
         if not os.path.exists(pitch_file):
-            pitch = self._compute_and_save_pitch(self.ap, wav_file, pitch_file)
+            pitch = self._compute_and_save_pitch(wav_file, pitch_file)
         else:
             pitch = np.load(pitch_file)
         return pitch.astype(np.float32)
