@@ -29,7 +29,7 @@ def interpolate_vocoder_input(scale_factor, spec):
     return spec
 
 
-def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_prefix: str | None = None) -> dict:
+def plot_results(y_hat: torch.Tensor, y: torch.Tensor, ap: AudioProcessor, name_prefix: str | None = None) -> dict:
     """Plot the predicted and the real waveform and their spectrograms.
 
     Args:

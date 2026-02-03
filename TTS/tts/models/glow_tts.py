@@ -7,6 +7,7 @@ import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
+from trainer import Trainer
 
 from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.layers.glow_tts.decoder import Decoder
@@ -141,7 +142,7 @@ class GlowTTS(BaseTTS):
         return y_mean, y_log_scale, o_attn_dur
 
     def unlock_act_norm_layers(self):
-        """Unlock activation normalization layers for data depended initalization."""
+        """Unlock activation normalization layers for data-dependent initalization."""
         for f in self.decoder.flows:
             if getattr(f, "set_ddi", False):
                 f.set_ddi(True)
@@ -278,7 +279,7 @@ class GlowTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def decoder_inference(self, y, y_lengths=None, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
+    def decoder_inference(self, y, y_lengths, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
         """
         Shapes:
             - y: :math:`[B, T, C]`
@@ -333,7 +334,9 @@ class GlowTTS(BaseTTS):
         }
         return outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         """A single training step. Forward pass and loss computation. Run data depended initialization for the
         first `config.data_dep_init_steps` steps.
 
@@ -350,6 +353,7 @@ class GlowTTS(BaseTTS):
 
         if self.run_data_dep_init and self.training:
             # compute data-dependent initialization of activation norm layers
+            logger.info("Data-dependent initialization step, not returning outputs.")
             self.unlock_act_norm_layers()
             with torch.no_grad():
                 _ = self.forward(
@@ -385,7 +389,7 @@ class GlowTTS(BaseTTS):
                 )
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
         alignments = outputs["alignments"]
@@ -441,12 +445,11 @@ class GlowTTS(BaseTTS):
         if eval:
             self.store_inverse()
 
-    @staticmethod
-    def get_criterion():
-        from TTS.tts.layers.losses import GlowTTSLoss  # pylint: disable=import-outside-toplevel
+    def get_criterion(self) -> nn.Module:
+        from TTS.tts.layers.losses import GlowTTSLoss
 
         return GlowTTSLoss()
 
-    def on_train_step_start(self, trainer):
-        """Decide on every training step wheter enable/disable data depended initialization."""
+    def on_train_step_start(self, trainer: Trainer) -> None:
+        """Decide on every training step wheter enable/disable data-dependent initialization."""
         self.run_data_dep_init = trainer.total_steps_done < self.data_dep_init_steps
