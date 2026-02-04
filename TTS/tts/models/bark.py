@@ -222,7 +222,10 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
-        return {path.stem: path for path in Path(voice_dir).iterdir() if path.suffix in (".npz", ".pth")}
+        voice_dir = Path(voice_dir)
+        if not voice_dir.is_dir():
+            return {}
+        return {path.stem: path for path in voice_dir.iterdir() if path.suffix in (".npz", ".pth")}
 
     def load_voice_file(
         self,
