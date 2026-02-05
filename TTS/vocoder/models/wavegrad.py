@@ -263,8 +263,10 @@ class Wavegrad(BaseVocoder):
         noise_schedule = self.config["test_noise_schedule"]
         betas = np.linspace(noise_schedule["min_val"], noise_schedule["max_val"], noise_schedule["num_steps"])
         self.compute_noise_level(betas)
+        figures = {}
+        audios = {}
         samples = trainer.get_eval_dataloader(trainer.eval_samples).dataset.load_test_samples(1)
-        for sample in samples:
+        for idx, sample in enumerate(samples):
             x = sample[0]
             x = x[None, :, :].to(next(self.parameters()).device)
             y = sample[1]
@@ -272,10 +274,11 @@ class Wavegrad(BaseVocoder):
             # compute voice
             y_pred = self.inference(x)
             # compute spectrograms
-            figures = plot_results(y_pred, y, self.ap, "test")
+            figures.update(plot_results(y_pred, y, self.ap, f"test_{idx}/"))
             # Sample audio
             sample_voice = y_pred[0].squeeze(0).detach().cpu().numpy()
-        return {"figures": figures, "audios": sample_voice}
+            audios.update({f"test_{idx}/audio": sample_voice})
+        return {"figures": figures, "audios": audios}
 
     def test_log(
         self,
