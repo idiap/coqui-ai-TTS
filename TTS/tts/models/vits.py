@@ -17,7 +17,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.utils import parametrize
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import WeightedRandomSampler
+from torch.utils.data.sampler import BatchSampler, WeightedRandomSampler
 from trainer import Trainer
 from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
@@ -1096,24 +1096,25 @@ class Vits(BaseTTS):
                 num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
                 pin_memory=False,
             )
+        elif isinstance(getattr(sampler, "dataset", sampler), BatchSampler):
+            # Sampler (or wrapped sampler) yields batches of indices
+            loader = DataLoader(
+                dataset,
+                batch_sampler=sampler,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         else:
-            if is_dist_avail_and_initialized():
-                loader = DataLoader(
-                    dataset,
-                    sampler=sampler,
-                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
-            else:
-                loader = DataLoader(
-                    dataset,
-                    batch_sampler=sampler,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
+            # Regular sampler yields individual indices
+            loader = DataLoader(
+                dataset,
+                sampler=sampler,
+                batch_size=config.eval_batch_size if is_eval else config.batch_size,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         return loader
 
     def get_optimizer(self) -> list[torch.optim.Optimizer]:
