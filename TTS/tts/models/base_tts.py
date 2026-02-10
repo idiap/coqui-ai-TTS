@@ -68,7 +68,25 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             self.ap = AudioProcessor(self.config.audio)
         self.speaker_manager = SpeakerManager.init_from_config(self.config)
         self.language_manager = LanguageManager.init_from_config(self.config)
+        self._register_speaker_encoder()
+        self.register_load_state_dict_post_hook(self._filter_encoder_keys)
         self._set_model_args()
+
+    def _register_speaker_encoder(self) -> None:
+        """Register the speaker encoder as a submodule so it moves with the model."""
+        if self.speaker_manager is not None and self.speaker_manager.encoder is not None:
+            self.speaker_encoder = self.speaker_manager.encoder
+
+    @staticmethod
+    def _filter_encoder_keys(module, incompatible_keys) -> None:
+        """Remove speaker encoder keys from missing-key check."""
+        for i in range(len(incompatible_keys.missing_keys) - 1, -1, -1):
+            if incompatible_keys.missing_keys[i].startswith("speaker_encoder."):
+                del incompatible_keys.missing_keys[i]
+
+    def state_dict(self, *args, **kwargs) -> dict:
+        sd = super().state_dict(*args, **kwargs)
+        return {k: v for k, v in sd.items() if not k.startswith("speaker_encoder.")}
 
     def _set_model_args(self) -> None:
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).

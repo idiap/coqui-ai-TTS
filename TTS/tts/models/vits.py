@@ -394,9 +394,6 @@ class Vits(BaseTTS):
     def on_epoch_start(self, trainer: Trainer) -> None:
         """Freeze layers at the beginning of an epoch"""
         self._freeze_layers()
-        # set the device of speaker encoder
-        if self.args.use_speaker_encoder_as_loss:
-            self.speaker_manager.encoder = self.speaker_manager.encoder.to(self.device)
 
     def on_init_end(self, trainer: Trainer) -> None:
         """Reinit layes if needed"""
