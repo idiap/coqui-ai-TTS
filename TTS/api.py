@@ -92,6 +92,15 @@ class TTS(nn.Module):
             warnings.warn("`gpu` will be deprecated. Please use `tts.to(device)` instead.")
 
         if model_name is not None and len(model_name) > 0:
+            if "vocoder_models" in model_name:
+                msg = (
+                    f"Vocoder model '{model_name}' cannot be used as a standalone model. "
+                    "Vocoder models can only be used together with a TTS model via the "
+                    "`vocoder_name` parameter, e.g.:\n"
+                    '  TTS(model_name="tts_models/de/thorsten/tacotron2-DDC", '
+                    f'vocoder_name="{model_name}")'
+                )
+                raise ValueError(msg)
             self.voice_dir = get_user_data_dir("tts") / model_name / "voices"
             if "tts_models" in model_name:
                 self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
