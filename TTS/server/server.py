@@ -106,7 +106,7 @@ api = TTS(
     speakers_file_path=args.speakers_file_path,
 ).to(device)
 
-if api.synthesizer is None:
+if getattr(api.synthesizer, "tts_model", None) is None:
     logger.error(
         "The tts-server requires a TTS model but '%s' did not initialize one. "
         "Voice conversion and vocoder models are not supported by the server. "
