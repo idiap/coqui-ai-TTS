@@ -8,10 +8,12 @@ import torch.nn.functional as F
 from transformers import GenerationMixin, GPT2Config, GPT2PreTrainedModel, LogitsProcessorList
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
-# TODO: use torch.isin from Pytorch 2.4
-from transformers.pytorch_utils import isin_mps_friendly as isin
-
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, TypicalLogitsWarper
+
+
+def _isin(elements: torch.Tensor, test_elements: torch.Tensor) -> torch.Tensor:
+    test_elements = torch.as_tensor(test_elements, device=elements.device)
+    return (elements[..., None] == test_elements).any(dim=-1)
 
 
 def null_position_embeddings(range, dim):
@@ -606,10 +608,8 @@ def _prepare_attention_mask_for_generation(
     if not is_input_ids:
         return default_attention_mask
 
-    is_pad_token_in_inputs = (pad_token_id is not None) and (isin(elements=inputs, test_elements=pad_token_id).any())
-    is_pad_token_not_equal_to_eos_token_id = (eos_token_id is None) or ~(
-        isin(elements=eos_token_id, test_elements=pad_token_id).any()
-    )
+    is_pad_token_in_inputs = _isin(inputs, pad_token_id).any()
+    is_pad_token_not_equal_to_eos_token_id = eos_token_id is None or ~_isin(eos_token_id, pad_token_id).any()
     can_infer_attention_mask = is_pad_token_in_inputs * is_pad_token_not_equal_to_eos_token_id
     attention_mask_from_padding = inputs.ne(pad_token_id).long()
 
