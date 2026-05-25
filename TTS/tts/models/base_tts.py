@@ -675,11 +675,22 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
                     wav = wav[: self.ap.find_endpoint(wav)]
         else:  # [T,]
             wav = model_outputs
+
+        # Detach + move-to-CPU every tensor that escapes this function so the
+        # caller does not pin the GPU memory (or the autograd graph) used to
+        # produce the waveform. Without this, callers that synthesize in a
+        # loop accumulate the entire inference output dict every iteration
+        # — see issue #298 (memory leak with VITS in a loop).
+        def _release(value: Any) -> Any:
+            if isinstance(value, torch.Tensor):
+                return value.detach().cpu()
+            return value
+
         return {
             "wav": wav,
-            "alignments": alignments,
-            "text_inputs": text_inputs,
-            "outputs": outputs,
+            "alignments": _release(alignments),
+            "text_inputs": _release(text_inputs),
+            "outputs": {k: _release(v) for k, v in outputs.items()},
         }
 
 
