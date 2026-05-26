@@ -8,6 +8,7 @@ from trainer.trainer_utils import get_optimizer, get_scheduler
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
 from TTS.tts.layers.tacotron.gst_layers import GST
+from TTS.tts.layers.tacotron.hgst_layers import HGST
 from TTS.tts.layers.tacotron.tacotron2 import Decoder, Encoder, Postnet
 from TTS.tts.models.base_tacotron import BaseTacotron
 from TTS.tts.utils.measures import alignment_diagonal_score
@@ -96,12 +97,21 @@ class Tacotron2(BaseTacotron):
 
         # global style token layers
         if self.gst and self.use_gst:
-            self.gst_layer = GST(
-                num_mel=self.decoder_output_dim,
-                num_heads=self.gst.gst_num_heads,
-                num_style_tokens=self.gst.gst_num_style_tokens,
-                gst_embedding_dim=self.gst.gst_embedding_dim,
-            )
+            if self.gst.gst_use_hierarchy:
+                self.gst_layer = HGST(
+                    num_mel=self.decoder_output_dim,
+                    num_heads=self.gst.gst_num_heads,
+                    num_style_tokens=self.gst.gst_num_style_tokens,
+                    gst_embedding_dim=self.gst.gst_embedding_dim,
+                    num_hierarchy_layers=self.gst.gst_hierarchical_layers
+                )
+            else:
+                self.gst_layer = GST(
+                    num_mel=self.decoder_output_dim,
+                    num_heads=self.gst.gst_num_heads,
+                    num_style_tokens=self.gst.gst_num_style_tokens,
+                    gst_embedding_dim=self.gst.gst_embedding_dim,
+                )
 
         # Capacitron VAE Layers
         if self.capacitron_vae and self.use_capacitron_vae:

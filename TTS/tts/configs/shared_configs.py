@@ -30,6 +30,15 @@ class GSTConfig(Coqpit):
 
         gst_num_style_tokens (int):
             Number of style token vectors. Defaults to 10.
+
+            
+        #########################################################
+            
+        gst_use_hierarchy (bool):
+            Use HGST? Default to True  (Should be false in production)
+        
+        gst_hierarchical_layers (int):
+             Number of hierarchical layers. Defaults to 3.
     """
 
     gst_style_input_wav: str = None
@@ -38,6 +47,8 @@ class GSTConfig(Coqpit):
     gst_use_speaker_embedding: bool = False
     gst_num_heads: int = 4
     gst_num_style_tokens: int = 10
+    gst_use_hierarchy: bool = False
+    gst_hierarchical_layers: int = 3
 
     def check_values(self) -> None:
         """Check config fields."""
@@ -49,6 +60,10 @@ class GSTConfig(Coqpit):
         check_argument("gst_use_speaker_embedding", c, restricted=False)
         check_argument("gst_num_heads", c, restricted=True, min_val=2, max_val=10)
         check_argument("gst_num_style_tokens", c, restricted=True, min_val=1, max_val=1000)
+
+        # For the DEVS, should restricted be False ?
+        check_argument("gst_use_hierarchy", c, restricted=True)
+        check_argument("gst_hierarchical_layers", c, restricted=True, min_val=1, max_val=3)
 
 
 @dataclass
