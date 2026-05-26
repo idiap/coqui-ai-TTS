@@ -9,10 +9,6 @@ class HGST(nn.Module):
     """Hierarcy Global Style Token Module for factorizing prosody in speech.
 
     See https://arxiv.org/pdf/1803.09017 and 
-    https://openreview.net/forum?id=rygkk305YQ
-
-
-    Also credits to
     https://rf5.github.io/2022/10/18/hgst.html
     """
 
