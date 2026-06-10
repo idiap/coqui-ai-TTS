@@ -522,20 +522,6 @@
                 }
             }
         },
-        "sr": {
-            "cv": {
-                "vits": {
-                    "repo_id": "daremc86/sr-cv-vits",
-                    "description": "Serbian VITS syngle speaker female by Darko Milošević",
-                    "default_vocoder": null,
-                    "ignore": ["test1.wav", "test2.wav"],
-                    "license": "CC-BY-4.0",
-                    "author": "Darko Milošević",
-                    "contact": "daremc86@gmail.com",
-                    "tos_required": true
-                }
-            }
-        },
         "lt": {
             "cv": {
                 "vits": {
@@ -613,6 +599,19 @@
                     "default_vocoder": null,
                     "author": "@NeonGeckoCom",
                     "license": "bsd-3-clause"
+                }
+            }
+        },
+        "sr": {
+            "custom": {
+                "vits": {
+                    "repo_id": "daremc86/sr-cv-vits",
+                    "description": "Serbian VITS single-speaker female model trained by Darko Milošević",
+                    "default_vocoder": null,
+                    "ignore": ["test1.wav", "test2.wav"],
+                    "license": "CC-BY-4.0",
+                    "author": "Darko Milošević",
+                    "contact": "daremc86@gmail.com"
                 }
             }
         },
