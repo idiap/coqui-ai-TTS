@@ -3,11 +3,11 @@ import collections
 import logging
 import os
 import random
-from math import floor
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+import soundfile as sf
 import torch
 import tqdm
 from torch.utils.data import Dataset
@@ -15,7 +15,6 @@ from torch.utils.data import Dataset
 from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
-from TTS.utils.import_utils import is_torch_greater_or_equal
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +43,6 @@ def string2filename(string: str) -> str:
     return base64.urlsafe_b64encode(string.encode("utf-8")).decode("utf-8", "ignore")
 
 
-def _get_audio_size_torchcodec(audiopath: str | os.PathLike[Any]) -> int:
-    try:
-        from torchcodec.decoders import AudioDecoder
-    except ImportError as e:
-        msg = "torchcodec not installed (available in the `codec` extra)"
-        raise ImportError(msg) from e
-    except RuntimeError as e:
-        msg = "Error while importing torchcodec, see the stacktrace for details."
-        raise ImportError(msg) from e
-
-    metadata = AudioDecoder(audiopath).metadata
-    return floor(metadata.duration_seconds_from_header * metadata.sample_rate)
-
-
 def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
     """Return the number of samples in the audio file."""
     if not isinstance(audiopath, str):
@@ -68,12 +53,7 @@ def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
         raise RuntimeError(msg)
 
     try:
-        if is_torch_greater_or_equal("2.9"):
-            return _get_audio_size_torchcodec(audiopath)
-        else:
-            import torchaudio
-
-            return torchaudio.info(audiopath).num_frames
+        return sf.info(audiopath).frames
     except RuntimeError as e:
         msg = f"Failed to decode {audiopath}"
         raise RuntimeError(msg) from e
@@ -361,18 +341,16 @@ class TTSDataset(Dataset):
             "audio_unique_name": item["audio_unique_name"],
         }
 
-    @staticmethod
-    def _compute_lengths(samples):
+    def _compute_lengths(self, samples):
         new_samples = []
-        for item in samples:
+        for item in tqdm.tqdm(samples):
             try:
                 audio_length = get_audio_size(item["audio_file"])
             except RuntimeError:
                 logger.warning("Failed to compute length, skipping %s", item["audio_file"])
                 continue
-            text_lenght = len(item["text"])
             item["audio_length"] = audio_length
-            item["text_length"] = text_lenght
+            item["text_length"] = len(item["text"])
             new_samples += [item]
         return new_samples
 
@@ -825,10 +803,9 @@ class F0Dataset:
     def create_pitch_file_path(file_name: str, cache_path: str) -> str:
         return os.path.join(cache_path, file_name + "_pitch.npy")
 
-    @staticmethod
-    def _compute_and_save_pitch(ap, wav_file, pitch_file=None):
-        wav = ap.load_wav(wav_file)
-        pitch = ap.compute_f0(wav)
+    def _compute_and_save_pitch(self, wav_file, pitch_file=None) -> np.ndarray:
+        wav = self.ap.load_wav(wav_file)
+        pitch = self.ap.compute_f0(wav)
         if pitch_file:
             np.save(pitch_file, pitch)
         return pitch
@@ -859,11 +836,11 @@ class F0Dataset:
         pitch[zero_idxs] = 0.0
         return pitch
 
-    def compute_or_load(self, wav_file, audio_unique_name):
+    def compute_or_load(self, wav_file, audio_unique_name: str) -> np.ndarray:
         """Compute pitch and return a numpy array of pitch values."""
         pitch_file = self.create_pitch_file_path(audio_unique_name, self.cache_path)
         if not os.path.exists(pitch_file):
-            pitch = self._compute_and_save_pitch(self.ap, wav_file, pitch_file)
+            pitch = self._compute_and_save_pitch(wav_file, pitch_file)
         else:
             pitch = np.load(pitch_file)
         return pitch.astype(np.float32)

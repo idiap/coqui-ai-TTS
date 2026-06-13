@@ -27,7 +27,7 @@ def _train_and_check_updates(config, device, num_iterations=5):
         for _ in range(num_iterations):
             batch = _create_batch(config, device, 2)
             for idx in [0, 1]:
-                outputs, loss_dict = model.train_step(batch, criterions, idx)
+                outputs, loss_dict = model.train_step(batch, criterions[idx], idx)
                 assert outputs
                 assert loss_dict
                 loss_dict["loss"].backward()

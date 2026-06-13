@@ -3,7 +3,7 @@ import logging
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.utils.languages import normalize_language
 from TTS.tts.utils.text import cleaners
-from TTS.tts.utils.text.characters import BaseCharacters, Graphemes, IPAPhonemes
+from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, Graphemes, IPAPhonemes
 from TTS.tts.utils.text.phonemizers import get_default_phonemizer, get_phonemizer_by_name
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
@@ -46,7 +46,7 @@ class TTSTokenizer:
         *,
         use_phonemes: bool = False,
         text_cleaner: cleaners.TextCleaner | None = None,
-        characters: BaseCharacters,
+        characters: BaseVocabulary,
         phonemizer: BasePhonemizer | MultiPhonemizer | None = None,
         add_blank: bool = False,
         use_eos_bos: bool = False,
@@ -65,12 +65,12 @@ class TTSTokenizer:
         self.not_found_characters = []
 
     @property
-    def characters(self) -> BaseCharacters:
+    def characters(self) -> BaseVocabulary:
         """Return character set."""
         return self._characters
 
     @characters.setter
-    def characters(self, new_characters: BaseCharacters) -> None:
+    def characters(self, new_characters: BaseVocabulary) -> None:
         self._characters = new_characters
         self.pad_id = self.characters.char_to_id(self.characters.pad) if self.characters.pad else None
         self.blank_id = self.characters.char_to_id(self.characters.blank) if self.characters.blank else None

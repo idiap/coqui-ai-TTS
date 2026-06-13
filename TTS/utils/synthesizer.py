@@ -219,6 +219,7 @@ class Synthesizer(nn.Module):
 
         if self.encoder_checkpoint and hasattr(self.tts_model, "speaker_manager"):
             self.tts_model.speaker_manager.init_encoder(self.encoder_checkpoint, self.encoder_config, use_cuda)
+            self.tts_model._register_speaker_encoder()
 
     def _load_vocoder(self, model_file: str, model_config: str, *, use_cuda: bool) -> None:
         """Load the vocoder model.
