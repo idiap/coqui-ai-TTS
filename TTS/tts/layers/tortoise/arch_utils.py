@@ -1,7 +1,6 @@
 import functools
 import math
 
-import fsspec
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +9,7 @@ from transformers import LogitsProcessor
 
 from TTS.tts.layers.tortoise.xtransformers import ContinuousTransformerWrapper, RelativePositionBias
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.io import open_fsspec
 
 
 def zero_module(module):
@@ -227,7 +227,7 @@ class TorchMelSpectrogram(nn.Module):
         )
         self.mel_norm_file = mel_norm_file
         if self.mel_norm_file is not None:
-            with fsspec.open(self.mel_norm_file) as f:
+            with open_fsspec(self.mel_norm_file) as f:
                 self.mel_norms = torch.load(f, weights_only=is_pytorch_at_least_2_4())
         else:
             self.mel_norms = None

@@ -29,6 +29,7 @@ inference
 training/index
 extension/index
 datasets/index
+remote_storage
 ```
 
 

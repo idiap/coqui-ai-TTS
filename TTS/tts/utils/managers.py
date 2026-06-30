@@ -3,7 +3,6 @@ import os
 import random
 from typing import Any
 
-import fsspec
 import numpy as np
 import torch
 
@@ -12,15 +11,16 @@ from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.utils.generic_utils import setup_encoder_model
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.io import open_fsspec
 
 
 def load_file(path: str | os.PathLike[Any]) -> Any:
     path = str(path)
     if path.endswith(".json"):
-        with fsspec.open(path, "r") as f:
+        with open_fsspec(path, "r") as f:
             return json.load(f)
     elif path.endswith(".pth"):
-        with fsspec.open(path, "rb") as f:
+        with open_fsspec(path, "rb") as f:
             return torch.load(f, map_location="cpu", weights_only=is_pytorch_at_least_2_4())
     else:
         raise ValueError("Unsupported file type")
@@ -29,10 +29,10 @@ def load_file(path: str | os.PathLike[Any]) -> Any:
 def save_file(obj: Any, path: str | os.PathLike[Any]):
     path = str(path)
     if path.endswith(".json"):
-        with fsspec.open(path, "w") as f:
+        with open_fsspec(path, "w") as f:
             json.dump(obj, f, indent=4)
     elif path.endswith(".pth"):
-        with fsspec.open(path, "wb") as f:
+        with open_fsspec(path, "wb") as f:
             torch.save(obj, f)
     else:
         raise ValueError("Unsupported file type")

@@ -3,18 +3,18 @@ import os
 import re
 from typing import Any, Union, cast
 
-import fsspec
 import yaml
 from coqpit import Coqpit
 
 from TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 from TTS.utils.generic_utils import find_module
+from TTS.utils.io import open_fsspec
 
 
 def read_json_with_comments(json_path):
     """for backward compat."""
     # fallback to json
-    with fsspec.open(json_path, "r", encoding="utf-8") as f:
+    with open_fsspec(json_path, "r", encoding="utf-8") as f:
         input_str = f.read()
     # handle comments but not urls with //
     input_str = re.sub(
@@ -88,11 +88,11 @@ def load_config(config_path: str | os.PathLike[Any]) -> BaseTrainingConfig:
     config_dict = {}
     ext = os.path.splitext(config_path)[1]
     if ext in (".yml", ".yaml"):
-        with fsspec.open(config_path, "r", encoding="utf-8") as f:
+        with open_fsspec(config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
     elif ext == ".json":
         try:
-            with fsspec.open(config_path, "r", encoding="utf-8") as f:
+            with open_fsspec(config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except json.JSONDecodeError:
             # backwards compat.
