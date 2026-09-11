@@ -66,7 +66,13 @@ def _process_model_name(config_dict: dict) -> str:
     Returns:
         str: Formatted modelname.
     """
-    model_name = config_dict["model"] if "model" in config_dict else config_dict["generator_model"]
+    if "model" in config_dict:
+        model_name = config_dict["model"]
+    elif "generator_model" in config_dict:
+        model_name = config_dict["generator_model"]
+    else:
+        # Hugging Face Transformers configurations use `model_type`.
+        model_name = config_dict["model_type"]
     model_name = model_name.replace("_generator", "").replace("_discriminator", "")
     return model_name
 

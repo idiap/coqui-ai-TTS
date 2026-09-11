@@ -101,6 +101,25 @@ def test_xtts_v2(tmp_path):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_omnivoice(tmp_path):
+    """OmniVoice is too big to run on GitHub Actions."""
+    args = [
+        "--model_name",
+        "tts_models/multilingual/multi-dataset/omnivoice",
+        "--text",
+        "This is an example.",
+        "--language_idx",
+        "en",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+    ]
+    if torch.cuda.is_available():
+        args.append("--use_cuda")
+    run_main(main, args)
+
+
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_xtts_v2_streaming(manager, device: torch.device):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig

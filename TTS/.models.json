@@ -19,6 +19,13 @@
                     "contact": "info@coqui.ai",
                     "tos_required": true
                 },
+                "omnivoice": {
+                    "description": "OmniVoice, an omnilingual zero-shot TTS model by k2-fsa with voice cloning and voice design.",
+                    "repo_id": "k2-fsa/OmniVoice",
+                    "default_vocoder": null,
+                    "license": "CC-BY-NC",
+                    "contact": "https://github.com/k2-fsa/OmniVoice"
+                },
                 "your_tts": {
                     "description": "Your TTS model accompanying the paper https://arxiv.org/abs/2112.02418",
                     "github_rls_url": "https://github.com/coqui-ai/TTS/releases/download/v0.10.1_models/tts_models--multilingual--multi-dataset--your_tts.zip",

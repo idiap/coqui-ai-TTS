@@ -112,6 +112,7 @@ notebooks = [
 ]
 # For running the TTS server
 server = ["flask>=3.0.0"]
+omnivoice = ["omnivoice>=0.2.1"]
 # Language-specific dependencies, mainly for G2P
 # Bangla
 bn = [

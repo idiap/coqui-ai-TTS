@@ -353,7 +353,7 @@ class ModelManager:
         # find downloaded files
         output_model_path = output_path
         output_config_path = output_model_path / "config.json"
-        if model not in ["tortoise-v2", "bark", "knnvc"]:
+        if model not in ["tortoise-v2", "bark", "knnvc", "omnivoice"]:
             output_model_path, output_config_path = self._find_files(output_path)
         if model == "knnvc" and not output_config_path.exists():
             knnvc_config = KNNVCConfig()
