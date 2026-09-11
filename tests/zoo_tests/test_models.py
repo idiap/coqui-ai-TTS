@@ -15,6 +15,7 @@ MODELS_WITH_SEP_TESTS = [
     "tts_models/en/multi-dataset/tortoise-v2",
     "tts_models/multilingual/multi-dataset/xtts_v1.1",
     "tts_models/multilingual/multi-dataset/xtts_v2",
+    "tts_models/multilingual/multi-dataset/vixtts_v2",
 ]
 
 # These contain np.core.multiarray.scalar which cannot be added safe globals for

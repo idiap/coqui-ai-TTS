@@ -19,6 +19,15 @@
                     "contact": "info@coqui.ai",
                     "tos_required": true
                 },
+                "vixtts_v2": {
+                    "description": "viXTTS, an XTTS-v2.0.3 model fine-tuned for Vietnamese by Thinh Le.",
+                    "repo_id": "capleaf/viXTTS",
+                    "ignore": ["samples/*", "vi_sample.wav"],
+                    "default_vocoder": null,
+                    "license": "CPML",
+                    "contact": "thinhlpg@gmail.com",
+                    "tos_required": true
+                },
                 "your_tts": {
                     "description": "Your TTS model accompanying the paper https://arxiv.org/abs/2112.02418",
                     "github_rls_url": "https://github.com/coqui-ai/TTS/releases/download/v0.10.1_models/tts_models--multilingual--multi-dataset--your_tts.zip",
