@@ -1,7 +1,22 @@
 from dataclasses import dataclass, field
 
+from TTS.config.shared_configs import ModelArgs
 from TTS.vocoder.configs.shared_configs import BaseVocoderConfig
-from TTS.vocoder.models.wavegrad import WavegradArgs
+
+
+@dataclass
+class WavegradArgs(ModelArgs):
+    in_channels: int = 80
+    out_channels: int = 1
+    use_weight_norm: bool = False
+    y_conv_channels: int = 32
+    x_conv_channels: int = 768
+    dblock_out_channels: list[int] = field(default_factory=lambda: [128, 128, 256, 512])
+    ublock_out_channels: list[int] = field(default_factory=lambda: [512, 512, 256, 128, 128])
+    upsample_factors: list[int] = field(default_factory=lambda: [4, 4, 4, 2, 2])
+    upsample_dilations: list[list[int]] = field(
+        default_factory=lambda: [[1, 2, 1, 2], [1, 2, 1, 2], [1, 2, 4, 8], [1, 2, 4, 8], [1, 2, 4, 8]]
+    )
 
 
 @dataclass

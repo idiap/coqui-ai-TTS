@@ -42,6 +42,11 @@ def get_tests_output_path():
     return path
 
 
+def get_test_speakers(n: int) -> list[str]:
+    """Return a list of `n` speaker names."""
+    return [f"speaker_{i}" for i in range(n)]
+
+
 def run_main(main_func: Callable, args: list[str] | None = None, expected_code: int = 0):
     with pytest.raises(SystemExit) as exc_info:
         main_func(args)
@@ -52,12 +57,16 @@ def get_test_data_config():
     return BaseDatasetConfig(formatter="ljspeech", path="tests/data/ljspeech/", meta_file_train="metadata.csv")
 
 
-def assertHasAttr(test_obj, obj, intendedAttr):
-    # from https://stackoverflow.com/questions/48078636/pythons-unittest-lacks-an-asserthasattr-method-what-should-i-use-instead
-    testBool = hasattr(obj, intendedAttr)
-    test_obj.assertTrue(testBool, msg=f"obj lacking an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
+def assert_parameters_change(model, model_ref, ignore=None):
+    for item1, item2 in zip(model.named_parameters(), model_ref.named_parameters()):
+        name = item1[0]
+        if ignore and name in ignore:
+            continue
+        param = item1[1]
+        param_ref = item2[1]
+        assert (param != param_ref).any(), f"param {name} with shape {param.shape} not updated!! \n{param}\n{param_ref}"
 
 
-def assertHasNotAttr(test_obj, obj, intendedAttr):
-    testBool = hasattr(obj, intendedAttr)
-    test_obj.assertFalse(testBool, msg=f"obj should not have an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
+def assert_parameters_equal(model, model_ref):
+    for param, param_ref in zip(model.parameters(), model_ref.parameters()):
+        assert (param - param_ref).sum() == 0, param

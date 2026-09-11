@@ -44,7 +44,7 @@ if __name__ == "__main__":
     config = load_config(args.config_path)
 
     # setup audio processor
-    ap = AudioProcessor(**config.audio)
+    ap = AudioProcessor(config.audio)
 
     # load dataset
     _, train_data = load_wav_data(args.data_path, 0)

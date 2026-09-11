@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 
-from TTS.tts.layers.glow_tts.glow import WN
+from TTS.tts.layers.generic.wavenet import WN
 from TTS.tts.layers.glow_tts.transformer import RelativePositionTransformer
 from TTS.tts.utils.helpers import sequence_mask
 

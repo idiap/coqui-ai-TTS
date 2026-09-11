@@ -3,9 +3,9 @@ import os
 from trainer import Trainer, TrainerArgs
 
 from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.xtts_config import XttsAudioConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
-from TTS.tts.models.xtts import XttsAudioConfig
 from TTS.utils.manage import ModelManager
 
 # Logging parameters
@@ -24,17 +24,16 @@ BATCH_SIZE = 3  # set here the batch size
 GRAD_ACUMM_STEPS = 84  # set here the grad accumulation steps
 # Note: we recommend that BATCH_SIZE * GRAD_ACUMM_STEPS need to be at least 252 for more efficient training. You can increase/decrease BATCH_SIZE but then set GRAD_ACUMM_STEPS accordingly.
 
-# Define here the dataset that you want to use for the fine-tuning on.
-config_dataset = BaseDatasetConfig(
-    formatter="ljspeech",
-    dataset_name="ljspeech",
-    path="/raid/datasets/LJSpeech-1.1_24khz/",
-    meta_file_train="/raid/datasets/LJSpeech-1.1_24khz/metadata.csv",
-    language="en",
-)
-
-# Add here the configs of the datasets
-DATASETS_CONFIG_LIST = [config_dataset]
+# Define here the dataset(s) that you want to use for the fine-tuning.
+DATASETS_CONFIG_LIST = [
+    BaseDatasetConfig(
+        formatter="ljspeech",
+        dataset_name="ljspeech",
+        path="/raid/datasets/LJSpeech-1.1_24khz/",
+        meta_file_train="/raid/datasets/LJSpeech-1.1_24khz/metadata.csv",
+        language="en",
+    )
+]
 
 # Define the path where XTTS v1.1.1 files will be downloaded
 CHECKPOINTS_OUT_PATH = os.path.join(OUT_PATH, "XTTS_v1.1_original_model_files/")
@@ -75,7 +74,7 @@ if not os.path.isfile(TOKENIZER_FILE) or not os.path.isfile(XTTS_CHECKPOINT):
 SPEAKER_REFERENCE = [
     "./tests/data/ljspeech/wavs/LJ001-0002.wav"  # speaker reference to be used in training test sentences
 ]
-LANGUAGE = config_dataset.language
+LANGUAGE = DATASETS_CONFIG_LIST[0].language
 
 
 def main():
@@ -107,6 +106,7 @@ def main():
         run_description="""
             GPT XTTS training
             """,
+        datasets=DATASETS_CONFIG_LIST,
         dashboard_logger=DASHBOARD_LOGGER,
         logger_uri=LOGGER_URI,
         audio=audio_config,
@@ -146,11 +146,11 @@ def main():
     )
 
     # init the model from config
-    model = GPTTrainer.init_from_config(config)
+    model = GPTTrainer(config)
 
     # load training samples
     train_samples, eval_samples = load_tts_samples(
-        DATASETS_CONFIG_LIST,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

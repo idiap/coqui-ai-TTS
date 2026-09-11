@@ -4,10 +4,10 @@ from collections.abc import Callable
 
 import torch
 import torch.nn.functional as F
-from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
 
+from TTS.tts.configs.delightful_tts_config import DelightfulTtsArgs
 from TTS.tts.layers.delightful_tts.conformer import Conformer
 from TTS.tts.layers.delightful_tts.encoders import (
     PhonemeLevelProsodyEncoder,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class AcousticModel(torch.nn.Module):
     def __init__(
         self,
-        args: "ModelArgs",
+        args: DelightfulTtsArgs,
         tokenizer: "TTSTokenizer" = None,
         speaker_manager: "SpeakerManager" = None,
     ):
@@ -36,7 +36,7 @@ class AcousticModel(torch.nn.Module):
         self.tokenizer = tokenizer
         self.speaker_manager = speaker_manager
 
-        self.init_multispeaker(args)
+        self.init_multispeaker()
         # self.set_embedding_dims()
 
         self.length_scale = (
@@ -161,11 +161,9 @@ class AcousticModel(torch.nn.Module):
         self.energy_scaler = torch.nn.BatchNorm1d(1, affine=False, track_running_stats=True, momentum=None)
         self.energy_scaler.requires_grad_(False)
 
-    def init_multispeaker(self, args: Coqpit):  # pylint: disable=unused-argument
+    def init_multispeaker(self):
         """Init for multi-speaker training."""
         self.embedded_speaker_dim = 0
-        self.num_speakers = self.args.num_speakers
-        self.audio_transform = None
 
         if self.speaker_manager:
             self.num_speakers = self.speaker_manager.num_speakers
@@ -193,23 +191,6 @@ class AcousticModel(torch.nn.Module):
             durations = aux_input["durations"]
 
         return sid, g, lid, durations
-
-    def get_aux_input(self, aux_input: dict):
-        sid, g, lid, _ = self._set_cond_input(aux_input)
-        return {"speaker_ids": sid, "style_wav": None, "d_vectors": g, "language_ids": lid}
-
-    def _set_speaker_input(self, aux_input: dict):
-        d_vectors = aux_input.get("d_vectors", None)
-        speaker_ids = aux_input.get("speaker_ids", None)
-
-        if d_vectors is not None and speaker_ids is not None:
-            raise ValueError("[!] Cannot use d-vectors and speaker-ids together.")
-
-        if speaker_ids is not None and not hasattr(self, "emb_g"):
-            raise ValueError("[!] Cannot use speaker-ids without enabling speaker embedding.")
-
-        g = speaker_ids if speaker_ids is not None else d_vectors
-        return g
 
     # def set_embedding_dims(self):
     #     if self.embedded_speaker_dim > 0:
@@ -425,12 +406,10 @@ class AcousticModel(torch.nn.Module):
     def inference(
         self,
         tokens: torch.Tensor,
-        speaker_idx: torch.Tensor,
-        p_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_control: float = None,  # TODO # pylint: disable=unused-argument
-        d_vectors: torch.Tensor = None,
-        pitch_transform: Callable = None,
-        energy_transform: Callable = None,
+        speaker_idx: torch.Tensor | None,
+        d_vectors: torch.Tensor | None = None,
+        pitch_transform: Callable | None = None,
+        energy_transform: Callable | None = None,
     ) -> torch.Tensor:
         src_mask = ~sequence_mask(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
         src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)  # pylint: disable=unused-variable

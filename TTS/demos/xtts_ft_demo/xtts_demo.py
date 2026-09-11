@@ -31,7 +31,7 @@ def load_model(xtts_checkpoint, xtts_config, xtts_vocab):
         return "You need to run the previous steps or manually set the `XTTS checkpoint path`, `XTTS config path`, and `XTTS vocab path` fields !!"
     config = XttsConfig()
     config.load_json(xtts_config)
-    XTTS_MODEL = Xtts.init_from_config(config)
+    XTTS_MODEL = Xtts(config)
     print("Loading XTTS model! ")
     XTTS_MODEL.load_checkpoint(config, checkpoint_path=xtts_checkpoint, vocab_path=xtts_vocab, use_deepspeed=False)
     if torch.cuda.is_available():
@@ -196,11 +196,15 @@ if __name__ == "__main__":
                 ],
             )
             progress_data = gr.Label(label="Progress:")
-            logs = gr.Textbox(
+
+            # Read logs every 1 second
+            timer = gr.Timer(1)
+            logs_tts_train = gr.Textbox(
+                value=read_logs,
+                every=timer,
                 label="Logs:",
                 interactive=False,
             )
-            demo.load(read_logs, None, logs, every=1)
 
             prompt_compute_btn = gr.Button(value="Step 1 - Create dataset")
 
@@ -275,11 +279,16 @@ if __name__ == "__main__":
                 value=args.max_audio_length,
             )
             progress_train = gr.Label(label="Progress:")
+
+            # Read logs every 1 second
+            timer = gr.Timer(1)
             logs_tts_train = gr.Textbox(
+                value=read_logs,
+                every=timer,
                 label="Logs:",
                 interactive=False,
             )
-            demo.load(read_logs, None, logs_tts_train, every=1)
+
             train_btn = gr.Button(value="Step 2 - Run the training")
 
             def train_model(

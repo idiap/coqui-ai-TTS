@@ -12,9 +12,9 @@ from TTS.utils.manage import ModelManager
 GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def set_env():
-    os.environ["COQUI_TOS_AGREED"] = "1"
+@pytest.fixture(autouse=True)
+def set_env(monkeypatch):
+    monkeypatch.setenv("COQUI_TOS_AGREED", "1")
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def test_xtts(tmp_path):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts_streaming(manager):
+def test_xtts_streaming(manager, device: torch.device):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
     from TTS.tts.models.xtts import Xtts
@@ -53,12 +53,12 @@ def test_xtts_streaming(manager):
     speaker_wav = [os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")]
     speaker_wav_2 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0002.wav")
     speaker_wav.append(speaker_wav_2)
-    model_path, _, _ = manager.download_model("tts_models/multilingual/multi-dataset/xtts_v1.1")
+    model_path, config_path, _ = manager.download_model("tts_models/multilingual/multi-dataset/xtts_v1.1")
     config = XttsConfig()
-    config.load_json(model_path / "config.json")
-    model = Xtts.init_from_config(config)
-    model.load_checkpoint(config, checkpoint_dir=str(model_path))
-    model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    config.load_json(config_path)
+    model = Xtts(config)
+    model.load_checkpoint(config, checkpoint_dir=str(model_path.parent))
+    model.to(device)
 
     print("Computing speaker latents...")
     gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=speaker_wav)
@@ -101,18 +101,18 @@ def test_xtts_v2(tmp_path):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts_v2_streaming(manager):
+def test_xtts_v2_streaming(manager, device: torch.device):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
     from TTS.tts.models.xtts import Xtts
 
     speaker_wav = [os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")]
-    model_path, _, _ = manager.download_model("tts_models/multilingual/multi-dataset/xtts_v2")
+    model_path, config_path, _ = manager.download_model("tts_models/multilingual/multi-dataset/xtts_v2")
     config = XttsConfig()
-    config.load_json(model_path / "config.json")
-    model = Xtts.init_from_config(config)
-    model.load_checkpoint(config, checkpoint_dir=str(model_path))
-    model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    config.load_json(config_path)
+    model = Xtts(config)
+    model.load_checkpoint(config, checkpoint_dir=str(model_path.parent))
+    model.to(device)
 
     print("Computing speaker latents...")
     gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=speaker_wav)

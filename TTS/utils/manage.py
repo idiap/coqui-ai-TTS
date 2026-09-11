@@ -1,20 +1,21 @@
 import json
 import logging
 import os
-import re
 import tarfile
 import zipfile
+from contextlib import nullcontext
+from importlib import resources
 from pathlib import Path
 from shutil import copyfile, rmtree
 from typing import Any, TypedDict
 
-import fsspec
 import requests
 from tqdm import tqdm
 from trainer.io import get_user_data_dir
 from typing_extensions import Required
 
-from TTS.config import load_config, read_json_with_comments
+from TTS.config import load_config
+from TTS.tts.configs.tortoise_config import TortoiseConfig
 from TTS.vc.configs.knnvc_config import KNNVCConfig
 
 logger = logging.getLogger(__name__)
@@ -27,13 +28,12 @@ class ModelItem(TypedDict, total=False):
     license: str
     author: str
     contact: str
-    commit: str | None
-    model_hash: str
     tos_required: bool
     default_vocoder: str | None
-    model_url: str | list[str]
     github_rls_url: str | list[str]
-    hf_url: list[str]
+    repo_id: str
+    allow: list[str] | None
+    ignore: list[str] | None
 
 
 LICENSE_URLS = {
@@ -45,12 +45,11 @@ LICENSE_URLS = {
     "apache 2.0": "https://choosealicense.com/licenses/apache-2.0/",
     "apache2": "https://choosealicense.com/licenses/apache-2.0/",
     "cc-by-sa 4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
-    "cpml": "https://coqui.ai/cpml.txt",
+    "cpml": "https://tts-hub.github.io/cpml",
 }
 
 
 class ModelManager:
-    tqdm_progress = None
     """Manage TTS models defined in .models.json.
     It provides an interface to list and download
     models defines in '.model.json'
@@ -77,20 +76,9 @@ class ModelManager:
         else:
             self.output_prefix = Path(output_prefix) / "tts"
         self.models_dict = {}
-        if models_file is not None:
-            self.read_models_file(models_file)
-        else:
-            # try the default location
-            path = Path(__file__).parent / "../.models.json"
-            self.read_models_file(path)
-
-    def read_models_file(self, file_path: str | os.PathLike[Any]) -> None:
-        """Read .models.json as a dict
-
-        Args:
-            file_path (str): path to .models.json.
-        """
-        self.models_dict = read_json_with_comments(file_path)
+        f = resources.open_text("TTS", ".models.json") if models_file is None else open(models_file, encoding="utf-8")
+        with f:
+            self.models_dict = json.load(f)
 
     def _list_models(self, model_type: str, model_count: int = 0) -> list[str]:
         logger.info("")
@@ -102,7 +90,8 @@ class ModelManager:
                     model_full_name = f"{model_type}--{lang}--{dataset}--{model}"
                     output_path = Path(self.output_prefix) / model_full_name
                     downloaded = " [already downloaded]" if output_path.is_dir() else ""
-                    logger.info(" %2d: %s/%s/%s/%s%s", model_count, model_type, lang, dataset, model, downloaded)
+                    hf = "*" if "repo_id" in self.models_dict[model_type][lang][dataset][model] else ""
+                    logger.info(" %2d: %s/%s/%s/%s%s%s", model_count, model_type, lang, dataset, model, hf, downloaded)
                     model_list.append(f"{model_type}/{lang}/{dataset}/{model}")
                     model_count += 1
         return model_list
@@ -121,6 +110,7 @@ class ModelManager:
             models_name_list.extend(model_list)
         logger.info("")
         logger.info("Path to downloaded models: %s", self.output_prefix)
+        logger.info("(models marked with * are stored in the Hugging Face Hub cache folder)")
         return models_name_list
 
     def log_model_details(self, model_type: str, lang: str, dataset: str, model: str) -> None:
@@ -249,11 +239,21 @@ class ModelManager:
         else:
             self._download_zip_file(model_item["github_rls_url"], output_path, self.progress_bar)
 
-    def _download_hf_model(self, model_item: ModelItem, output_path: Path) -> None:
-        if isinstance(model_item["hf_url"], list):
-            self._download_model_files(model_item["hf_url"], output_path, self.progress_bar)
-        else:
-            self._download_zip_file(model_item["hf_url"], output_path, self.progress_bar)
+    def _download_hf_model(self, model_item: ModelItem) -> Path:
+        from huggingface_hub import snapshot_download
+        from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+
+        if not self.progress_bar:
+            disable_progress_bars()
+        output_path = snapshot_download(
+            model_item["repo_id"],
+            allow_patterns=model_item.get("allow"),
+            ignore_patterns=model_item.get("ignore"),
+        )
+        if not self.progress_bar:
+            enable_progress_bars()
+
+        return Path(output_path)
 
     def download_fairseq_model(self, model_name: str, output_path: Path) -> None:
         URI_PREFIX = "https://dl.fbaipublicfiles.com/mms/tts/"
@@ -261,20 +261,7 @@ class ModelManager:
         model_download_uri = os.path.join(URI_PREFIX, f"{lang}.tar.gz")
         self._download_tar_file(model_download_uri, output_path, self.progress_bar)
 
-    @staticmethod
-    def set_model_url(model_item: ModelItem) -> ModelItem:
-        model_item["model_url"] = ""
-        if "github_rls_url" in model_item:
-            model_item["model_url"] = model_item["github_rls_url"]
-        elif "hf_url" in model_item:
-            model_item["model_url"] = model_item["hf_url"]
-        elif "fairseq" in model_item.get("model_name", ""):
-            model_item["model_url"] = "https://dl.fbaipublicfiles.com/mms/tts/"
-        elif "xtts" in model_item.get("model_name", ""):
-            model_item["model_url"] = "https://huggingface.co/coqui/"
-        return model_item
-
-    def _set_model_item(self, model_name: str) -> tuple[ModelItem, str, str, str | None]:
+    def _set_model_item(self, model_name: str) -> tuple[ModelItem, str, str]:
         # fetch model info from the dict
         if "fairseq" in model_name:
             model_type, lang, dataset, model = model_name.split("/")
@@ -286,33 +273,6 @@ class ModelManager:
                 "author": "fairseq",
                 "description": "this model is released by Meta under Fairseq repo. Visit https://github.com/facebookresearch/fairseq/tree/main/examples/mms for more info.",
             }
-        elif "xtts" in model_name and len(model_name.split("/")) != 4:
-            # loading xtts models with only model name (e.g. xtts_v2.0.2)
-            # check model name has the version number with regex
-            version_regex = r"v\d+\.\d+\.\d+"
-            if re.search(version_regex, model_name):
-                model_version = model_name.split("_")[-1]
-            else:
-                model_version = "main"
-            model_type = "tts_models"
-            lang = "multilingual"
-            dataset = "multi-dataset"
-            model = model_name
-            model_item = {
-                "model_name": model_name,
-                "model_type": model_type,
-                "default_vocoder": None,
-                "license": "CPML",
-                "contact": "info@coqui.ai",
-                "tos_required": True,
-                "hf_url": [
-                    f"https://huggingface.co/coqui/XTTS-v2/resolve/{model_version}/model.pth",
-                    f"https://huggingface.co/coqui/XTTS-v2/resolve/{model_version}/config.json",
-                    f"https://huggingface.co/coqui/XTTS-v2/resolve/{model_version}/vocab.json",
-                    f"https://huggingface.co/coqui/XTTS-v2/resolve/{model_version}/hash.md5",
-                    f"https://huggingface.co/coqui/XTTS-v2/resolve/{model_version}/speakers_xtts.pth",
-                ],
-            }
         else:
             # get model from models.json
             model_type, lang, dataset, model = model_name.split("/")
@@ -320,18 +280,16 @@ class ModelManager:
             model_item["model_type"] = model_type
 
         model_full_name = f"{model_type}--{lang}--{dataset}--{model}"
-        md5hash = model_item["model_hash"] if "model_hash" in model_item else None
-        model_item = self.set_model_url(model_item)
-        return model_item, model_full_name, model, md5hash
+        return model_item, model_full_name, model
 
     @staticmethod
     def ask_tos(model_full_path: Path) -> bool:
         """Ask the user to agree to the terms of service"""
         tos_path = model_full_path / "tos_agreed.txt"
-        print(" > You must confirm the following:")
-        print(' | > "I have purchased a commercial license from Coqui: licensing@coqui.ai"')
-        print(' | > "Otherwise, I agree to the terms of the non-commercial CPML: https://coqui.ai/cpml" - [y/n]')
-        answer = input(" | | > ")
+        print("You must confirm the following:")
+        print('  "I have purchased a commercial license from Coqui: licensing@coqui.ai"')
+        print('  "Otherwise, I agree to the terms of the non-commercial CPML: https://tts-hub.github.io/cpml" - [y/n]')
+        answer = input("   > ")
         if answer.lower() == "y":
             with open(tos_path, "w", encoding="utf-8") as f:
                 f.write("I have read, understood and agreed to the Terms and Conditions.")
@@ -348,46 +306,28 @@ class ModelManager:
             return False
         return True
 
-    def create_dir_and_download_model(self, model_name: str, model_item: ModelItem, output_path: Path) -> None:
+    def create_dir_and_download_model(self, model_name: str, model_item: ModelItem, output_path: Path) -> Path:
         output_path.mkdir(exist_ok=True, parents=True)
         # handle TOS
         if not self.tos_agreed(model_item, output_path):
             if not self.ask_tos(output_path):
                 output_path.rmdir()
-                raise Exception(" [!] You must agree to the terms of service to use this model.")
+                raise RuntimeError(" [!] You must agree to the terms of service to use this model.")
         logger.info("Downloading model to %s", output_path)
         try:
             if "fairseq" in model_name:
                 self.download_fairseq_model(model_name, output_path)
             elif "github_rls_url" in model_item:
                 self._download_github_model(model_item, output_path)
-            elif "hf_url" in model_item:
-                self._download_hf_model(model_item, output_path)
+            elif "repo_id" in model_item:
+                output_path = self._download_hf_model(model_item)
 
         except requests.RequestException as e:
             logger.exception("Failed to download the model file to %s", output_path)
             rmtree(output_path)
             raise e
-        checkpoints = list(Path(output_path).glob("*.pt*"))
-        if len(checkpoints) == 1:
-            checkpoints[0].rename(checkpoints[0].parent / "model.pth")
         self.print_model_license(model_item=model_item)
-
-    def check_if_configs_are_equal(self, model_name: str, model_item: ModelItem, output_path: Path) -> None:
-        with fsspec.open(self._find_files(output_path)[1], "r", encoding="utf-8") as f:
-            config_local = json.load(f)
-        remote_url = None
-        for url in model_item["hf_url"]:
-            if "config.json" in url:
-                remote_url = url
-                break
-
-        with fsspec.open(remote_url, "r", encoding="utf-8") as f:
-            config_remote = json.load(f)
-
-        if not config_local == config_remote:
-            logger.info("%s is already downloaded however it has been changed. Redownloading it...", model_name)
-            self.create_dir_and_download_model(model_name, model_item, output_path)
+        return output_path
 
     def download_model(self, model_name: str) -> tuple[Path, Path | None, ModelItem]:
         """Download model files given the full model name.
@@ -403,48 +343,29 @@ class ModelManager:
         Args:
             model_name (str): model name as explained above.
         """
-        model_item, model_full_name, model, md5sum = self._set_model_item(model_name)
+        model_item, model_full_name, model = self._set_model_item(model_name)
         # set the model specific output path
-        output_path = Path(self.output_prefix) / model_full_name
-        if output_path.is_dir():
-            if md5sum is not None:
-                md5sum_file = output_path / "hash.md5"
-                if md5sum_file.is_file():
-                    with md5sum_file.open() as f:
-                        if not f.read() == md5sum:
-                            logger.info("%s has been updated, clearing model cache...", model_name)
-                            self.create_dir_and_download_model(model_name, model_item, output_path)
-                        else:
-                            logger.info("%s is already downloaded.", model_name)
-                else:
-                    logger.info("%s has been updated, clearing model cache...", model_name)
-                    self.create_dir_and_download_model(model_name, model_item, output_path)
-            # if the configs are different, redownload it
-            # ToDo: we need a better way to handle it
-            if "xtts" in model_name:
-                try:
-                    self.check_if_configs_are_equal(model_name, model_item, output_path)
-                except:
-                    pass
-            else:
-                logger.info("%s is already downloaded.", model_name)
+        output_path = self.output_prefix / model_full_name
+        if output_path.is_dir() and "repo_id" not in model_item:
+            logger.info("%s is already downloaded.", model_name)
         else:
-            self.create_dir_and_download_model(model_name, model_item, output_path)
-
+            output_path = self.create_dir_and_download_model(model_name, model_item, output_path)
         # find downloaded files
         output_model_path = output_path
-        output_config_path = None
-        if (
-            model not in ["tortoise-v2", "bark", "knnvc"] and "fairseq" not in model_name and "xtts" not in model_name
-        ):  # TODO:This is stupid but don't care for now.
+        output_config_path = output_model_path / "config.json"
+        if model not in ["tortoise-v2", "bark", "knnvc"]:
             output_model_path, output_config_path = self._find_files(output_path)
-        else:
-            output_config_path = output_model_path / "config.json"
         if model == "knnvc" and not output_config_path.exists():
             knnvc_config = KNNVCConfig()
             knnvc_config.save_json(output_config_path)
-        # update paths in the config.json
-        self._update_paths(output_path, output_config_path)
+        if model == "tortoise-v2" and not output_config_path.exists():
+            output_config_path = self.output_prefix / model_full_name / "config.json"
+            if not output_config_path.is_file():
+                tortoise_config = TortoiseConfig()
+                tortoise_config.save_json(output_config_path)
+        if all(x not in model_name for x in ("fairseq", "openvoice")):
+            # Update paths in config, except for external models
+            self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item
 
     @staticmethod
@@ -458,16 +379,23 @@ class ModelManager:
             Tuple[str, str]: path to the model file and config file
         """
         model_file = None
-        config_file = None
         for f in output_path.iterdir():
             if f.name in ["model_file.pth", "model_file.pth.tar", "model.pth", "checkpoint.pth"]:
                 model_file = f
             elif f.name == "config.json":
                 config_file = f
         if model_file is None:
-            raise ValueError(" [!] Model file not found in the output path")
+            checkpoints = list(output_path.rglob("*.pt*"))
+            if len(checkpoints) == 1:
+                model_file = checkpoints[0]
+            else:
+                raise ValueError(" [!] Model file not found in the output path")
+        logger.debug("Found model checkpoint: %s", model_file)
+        configs = list(output_path.rglob("config.json"))
+        config_file = min(configs, key=lambda p: len(p.parts), default=None)
         if config_file is None:
             raise ValueError(" [!] Config file not found in the output path")
+        logger.debug("Found config file: %s", config_file)
         return model_file, config_file
 
     @staticmethod
@@ -493,61 +421,79 @@ class ModelManager:
             output_path (str): local path the model is downloaded to.
             config_path (str): local config.json path.
         """
-        output_stats_path = output_path / "scale_stats.npy"
-        output_d_vector_file_path = output_path / "speakers.json"
-        output_d_vector_file_pth_path = output_path / "speakers.pth"
-        output_speaker_ids_file_path = output_path / "speaker_ids.json"
-        output_speaker_ids_file_pth_path = output_path / "speaker_ids.pth"
-        speaker_encoder_config_path = output_path / "config_se.json"
-        speaker_encoder_model_path = self._find_speaker_encoder(output_path)
+        config = load_config(config_path)
+        has_changes = False
 
-        # update the scale_path.npy file path in the model config.json
-        self._update_path("audio.stats_path", output_stats_path, config_path)
+        def _set_path(field_name: str, new_path: Path) -> bool:
+            """Set path in config if it differs from current value.
 
-        # update the speakers.json file path in the model config.json to the current path
-        self._update_path("d_vector_file", output_d_vector_file_path, config_path)
-        self._update_path("d_vector_file", output_d_vector_file_pth_path, config_path)
-        self._update_path("model_args.d_vector_file", output_d_vector_file_path, config_path)
-        self._update_path("model_args.d_vector_file", output_d_vector_file_pth_path, config_path)
+            Returns:
+                bool: True if the value was changed, False otherwise.
+            """
+            keys = field_name.split(".")
+            sub_conf = config
+            for key in keys[:-1]:
+                if key not in sub_conf:
+                    return False
+                sub_conf = sub_conf[key]
+            if keys[-1] not in sub_conf:
+                return False
 
-        # update the speaker_ids.json file path in the model config.json to the current path
-        self._update_path("speakers_file", output_speaker_ids_file_path, config_path)
-        self._update_path("speakers_file", output_speaker_ids_file_pth_path, config_path)
-        self._update_path("model_args.speakers_file", output_speaker_ids_file_path, config_path)
-        self._update_path("model_args.speakers_file", output_speaker_ids_file_pth_path, config_path)
+            current_value = sub_conf[keys[-1]]
 
-        # update the speaker_encoder file path in the model config.json to the current path
-        self._update_path("speaker_encoder_model_path", speaker_encoder_model_path, config_path)
-        self._update_path("model_args.speaker_encoder_model_path", speaker_encoder_model_path, config_path)
-        self._update_path("speaker_encoder_config_path", speaker_encoder_config_path, config_path)
-        self._update_path("model_args.speaker_encoder_config_path", speaker_encoder_config_path, config_path)
-
-    @staticmethod
-    def _update_path(field_name: str, new_path: Path | None, config_path: Path) -> None:
-        """Update the path in the model config.json for the current environment after download"""
-        if new_path is not None and new_path.is_file():
-            config = load_config(str(config_path))
-            field_names = field_name.split(".")
-            if len(field_names) > 1:
-                # field name points to a sub-level field
-                sub_conf = config
-                for fd in field_names[:-1]:
-                    if fd in sub_conf:
-                        sub_conf = sub_conf[fd]
-                    else:
-                        return
-                if isinstance(sub_conf[field_names[-1]], list):
-                    sub_conf[field_names[-1]] = [new_path]
-                else:
-                    sub_conf[field_names[-1]] = new_path
+            if isinstance(current_value, list):
+                current_value = current_value[0] if current_value else ""
+                new_value = [new_path]
             else:
-                # field name points to a top-level field
-                if field_name not in config:
-                    return
-                if isinstance(config[field_name], list):
-                    config[field_name] = [new_path]
-                else:
-                    config[field_name] = new_path
+                new_value = new_path
+
+            if current_value and Path(current_value) == new_path:
+                return False
+            sub_conf[keys[-1]] = new_value
+            return True
+
+        def _update_path(field_name: str, new_path: Path) -> bool:
+            if not new_path.is_file():
+                return False
+
+            changed = _set_path(field_name, new_path)
+            if not field_name.startswith("audio"):
+                changed |= _set_path(f"model_args.{field_name}", new_path)
+            return changed
+
+        default_names = {
+            "audio.stats_path": ["scale_stats.npy"],
+            "d_vector_file": ["speakers.json", "speakers.pth"],
+            "speakers_file": ["speaker_ids.json", "speaker_ids.pth"],
+            "language_ids_file": ["language_ids.json"],
+            "speaker_encoder_model_path": ["model_se.pth", "model_se.pth.tar"],
+            "speaker_encoder_config_path": ["config_se.json"],
+        }
+
+        for field_name, defaults in default_names.items():
+            name = config.get(field_name) or ""
+            if isinstance(name, list):
+                name = name[0]
+            name = Path(name).name
+
+            model_args_name = ""
+            if config.get("model_args"):
+                model_args_name = config["model_args"].get(field_name) or ""
+                if isinstance(model_args_name, list):
+                    model_args_name = model_args_name[0]
+                model_args_name = Path(model_args_name).name
+
+            if _update_path(field_name, output_path / name):
+                has_changes = True
+                continue
+            elif _update_path(field_name, output_path / model_args_name):
+                has_changes = True
+                continue
+            for default in defaults:
+                if _update_path(field_name, output_path / default):
+                    has_changes = True
+
+        if has_changes:
             config.save_json(config_path)
 
     @staticmethod
@@ -559,13 +505,12 @@ class ModelManager:
         try:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            if progress_bar:
-                ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
             temp_zip_name = output_folder / file_url.split("/")[-1]
-            with open(temp_zip_name, "wb") as file:
+            with open(temp_zip_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                    if pbar:
+                        pbar.update(len(data))
                     file.write(data)
             with zipfile.ZipFile(temp_zip_name) as z:
                 z.extractall(output_folder)
@@ -594,13 +539,12 @@ class ModelManager:
         try:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            if progress_bar:
-                ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
             temp_tar_name = output_folder / file_url.split("/")[-1]
-            with open(temp_tar_name, "wb") as file:
+            with open(temp_tar_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                    if pbar:
+                        pbar.update(len(data))
                     file.write(data)
             with tarfile.open(temp_tar_name) as t:
                 t.extractall(output_folder)
@@ -630,10 +574,9 @@ class ModelManager:
             file_path = output_folder / base_filename
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
-            with open(file_path, "wb") as f:
-                if progress_bar:
-                    ModelManager.tqdm_progress = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+            ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
+            with open(file_path, "wb") as f, ctx as pbar:
                 for data in r.iter_content(block_size):
-                    if progress_bar:
-                        ModelManager.tqdm_progress.update(len(data))
+                    if pbar:
+                        pbar.update(len(data))
                     f.write(data)

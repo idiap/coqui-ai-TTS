@@ -18,7 +18,7 @@ from trainer.logging import BaseDashboardLogger, ConsoleLogger, logger_factory
 from trainer.torch import NoamLR
 from trainer.trainer_utils import get_optimizer
 
-from TTS.config import load_config, register_config
+from TTS.config import load_config
 from TTS.encoder.configs.base_encoder_config import BaseEncoderConfig
 from TTS.encoder.dataset import EncoderDataset
 from TTS.encoder.utils.generic_utils import setup_encoder_model
@@ -72,17 +72,12 @@ def process_args(
         if not args.best_path:
             args.best_path = best_model
     # init config if not already defined
-    if config is None:
-        if args.config_path:
-            # init from a file
-            config = load_config(args.config_path)
-        else:
-            # init from console args
-            from TTS.config.shared_configs import BaseTrainingConfig  # pylint: disable=import-outside-toplevel
-
-            config_base = BaseTrainingConfig()
-            config_base.parse_known_args(coqpit_overrides)
-            config = register_config(config_base.model)()
+    if config is None and args.config_path:
+        # init from a file
+        config = load_config(args.config_path)
+    else:
+        msg = "You need to specify either --config_path or --continue_path"
+        raise RuntimeError(msg)
     # override values from command-line args
     config.parse_known_args(coqpit_overrides, relaxed_parser=True)
     experiment_path = args.continue_path
@@ -312,7 +307,13 @@ def train(
             if global_step % c.save_step == 0:
                 # save model
                 save_checkpoint(
-                    c, model, optimizer, None, global_step, epoch, c.output_log_path, criterion=criterion.state_dict()
+                    c,
+                    model,
+                    c.output_log_path,
+                    current_step=global_step,
+                    epoch=epoch,
+                    optimizer=optimizer,
+                    criterion=criterion.state_dict(),
                 )
 
             end_time = time.time()
@@ -339,11 +340,10 @@ def train(
                 best_loss,
                 c,
                 model,
-                optimizer,
-                None,
-                global_step,
-                epoch,
                 c.output_log_path,
+                current_step=global_step,
+                epoch=epoch,
+                optimizer=optimizer,
                 criterion=criterion.state_dict(),
             )
             model.train()
@@ -363,13 +363,13 @@ def main(arg_list: list[str] | None = None):
     global meta_data_eval
     global train_classes
 
-    ap = AudioProcessor(**c.audio)
+    ap = AudioProcessor(c.audio)
     model = setup_encoder_model(c)
 
     optimizer = get_optimizer(c.optimizer, c.optimizer_params, c.lr, model)
 
     # pylint: disable=redefined-outer-name
-    meta_data_train, meta_data_eval = load_tts_samples(c.datasets, eval_split=True)
+    meta_data_train, meta_data_eval = load_tts_samples(c, eval_split=True)
 
     train_data_loader, train_classes, map_classid_to_classname = setup_loader(c, ap, is_val=False)
     if c.run_eval:

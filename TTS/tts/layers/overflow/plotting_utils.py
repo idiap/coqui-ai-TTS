@@ -1,6 +1,5 @@
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -22,7 +21,7 @@ def validate_numpy_array(value: Any):
         pass
     elif isinstance(value, list):
         value = np.array(value)
-    elif torch.is_tensor(value):
+    elif isinstance(value, torch.Tensor):
         value = value.cpu().numpy()
     else:
         raise TypeError("Value must be a numpy array, a torch tensor or a list")
@@ -63,6 +62,8 @@ def plot_transition_probabilities_to_numpy(states, transition_probabilities, out
         states (torch.IntTensor): the states
         transition_probabilities (torch.FloatTensor): the transition probabilities
     """
+    import matplotlib.pyplot as plt
+
     states = validate_numpy_array(states)
     transition_probabilities = validate_numpy_array(transition_probabilities)
 

@@ -3,8 +3,8 @@ import random
 import numpy as np
 import torch
 
-from TTS.vocoder.configs import WavernnConfig
-from TTS.vocoder.models.wavernn import Wavernn, WavernnArgs
+from TTS.vocoder.configs import WavernnArgs, WavernnConfig
+from TTS.vocoder.models.wavernn import Wavernn
 
 
 def test_wavernn():

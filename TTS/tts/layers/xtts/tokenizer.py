@@ -4,15 +4,11 @@ import os
 import re
 import textwrap
 from functools import cached_property
+from typing import Any
 
 import torch
+from ko_speech_tools import hangul_romanize
 from num2words import num2words
-from spacy.lang.ar import Arabic
-from spacy.lang.en import English
-from spacy.lang.es import Spanish
-from spacy.lang.hi import Hindi
-from spacy.lang.ja import Japanese
-from spacy.lang.zh import Chinese
 from tokenizers import Tokenizer
 
 from TTS.tts.layers.xtts.zh_num2words import TextNorm as zh_num2words
@@ -22,6 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_spacy_lang(lang):
+    try:
+        from spacy.lang.ar import Arabic
+        from spacy.lang.en import English
+        from spacy.lang.es import Spanish
+        from spacy.lang.hi import Hindi
+        from spacy.lang.ja import Japanese
+        from spacy.lang.zh import Chinese
+    except ImportError as e:
+        raise ImportError("enable_text_splitting=True requires Spacy: pip install spacy[ja]") from e
     """Return Spacy language used for sentence splitting."""
     if lang == "zh":
         return Chinese()
@@ -621,24 +626,11 @@ def japanese_cleaners(text, katsu):
     return text
 
 
-def korean_transliterate(text):
-    try:
-        from hangul_romanize import Transliter
-        from hangul_romanize.rule import academic
-    except ImportError as e:
-        raise ImportError("Korean requires: hangul_romanize") from e
-    r = Transliter(academic)
-    return r.translit(text)
-
-
-DEFAULT_VOCAB_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data/tokenizer.json")
-
-
 class VoiceBpeTokenizer:
-    def __init__(self, vocab_file=None):
+    def __init__(self, vocab_file: str | os.PathLike[Any] | None = None):
         self.tokenizer = None
         if vocab_file is not None:
-            self.tokenizer = Tokenizer.from_file(vocab_file)
+            self.tokenizer = Tokenizer.from_file(str(vocab_file))
         self.char_limits = {
             "en": 250,
             "de": 253,
@@ -671,9 +663,10 @@ class VoiceBpeTokenizer:
         limit = self.char_limits.get(lang, 250)
         if len(txt) > limit:
             logger.warning(
-                "The text length exceeds the character limit of %d for language '%s', this might cause truncated audio.",
+                "The text length exceeds the character limit of %d for language '%s', this might cause truncated audio: %s",
                 limit,
                 lang,
+                txt[:50] + "...",
             )
 
     def preprocess_text(self, txt, lang):
@@ -682,7 +675,7 @@ class VoiceBpeTokenizer:
             if lang == "zh":
                 txt = chinese_transliterate(txt)
             if lang == "ko":
-                txt = korean_transliterate(txt)
+                txt = hangul_romanize(txt)
         elif lang == "ja":
             txt = japanese_cleaners(txt, self.katsu)
         else:

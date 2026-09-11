@@ -10,27 +10,17 @@ from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
-from TTS.tts.configs.xtts_config import XttsConfig
+from TTS.tts.configs.xtts_config import XttsArgs, XttsConfig
 from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
 from TTS.tts.layers.xtts.dvae import DiscreteVAE
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
 from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.models.xtts import Xtts, XttsArgs
+from TTS.tts.models.xtts import Xtts
 from TTS.utils.generic_utils import is_pytorch_at_least_2_4
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class GPTTrainerConfig(XttsConfig):
-    lr: float = 5e-06
-    training_seed: int = 1
-    optimizer_wd_only_on_weights: bool = False
-    weighted_loss_attrs: dict = field(default_factory=lambda: {})
-    weighted_loss_multipliers: dict = field(default_factory=lambda: {})
-    test_sentences: list[dict] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -51,6 +41,17 @@ class GPTArgs(XttsArgs):
     vocoder: str = ""  # overide vocoder key on the config to avoid json write issues
 
 
+@dataclass
+class GPTTrainerConfig(XttsConfig):
+    lr: float = 5e-06
+    training_seed: int = 1
+    optimizer_wd_only_on_weights: bool = False
+    weighted_loss_attrs: dict = field(default_factory=dict)
+    weighted_loss_multipliers: dict = field(default_factory=dict)
+    test_sentences: list[dict] = field(default_factory=list)
+    model_args: GPTArgs = field(default_factory=GPTArgs)
+
+
 def callback_clearml_load_save(operation_type, model_info):
     # return None means skip the file upload/log, returning model_info will continue with the log/upload
     # you can also change the upload destination file name model_info.upload_filename or check the local file size with Path(model_info.local_model_path).stat().st_size
@@ -64,12 +65,13 @@ def callback_clearml_load_save(operation_type, model_info):
 
 
 class GPTTrainer(BaseTTS):
+    config: XttsConfig
+
     def __init__(self, config: Coqpit):
         """
-        Tortoise GPT training class
+        XTTS GPT training class
         """
-        super().__init__(config, ap=None, tokenizer=None)
-        self.config = config
+        super().__init__(config)
         # init XTTS model
         self.xtts = Xtts(self.config)
         # create the tokenizer with the target vocabulary
@@ -231,9 +233,8 @@ class GPTTrainer(BaseTTS):
             for idx, s_info in enumerate(self.config.test_sentences):
                 wav = self.xtts.synthesize(
                     s_info["text"],
-                    self.config,
-                    s_info["speaker_wav"],
-                    s_info["language"],
+                    speaker_wav=s_info["speaker_wav"],
+                    language=s_info["language"],
                     gpt_cond_len=3,
                 )["wav"]
                 test_audios[f"{idx}-audio"] = wav
@@ -317,7 +318,7 @@ class GPTTrainer(BaseTTS):
     def eval_step(self, batch, criterion):
         # ignore masking for more consistent evaluation
         batch["cond_idxs"] = None
-        return self.train_step(batch, criterion)
+        return super().eval_step(batch, criterion)
 
     def on_train_epoch_start(self, trainer):
         trainer.model.eval()  # the whole model to eval
@@ -361,42 +362,39 @@ class GPTTrainer(BaseTTS):
         num_gpus: int,
         rank: int | None = None,
     ) -> "DataLoader":  # pylint: disable=W0613
-        if is_eval and not config.run_eval:
-            loader = None
+        # init dataloader
+        dataset = XTTSDataset(self.config, samples, self.xtts.tokenizer, config.audio.sample_rate, is_eval)
+
+        # wait all the DDP process to be ready
+        if num_gpus > 1:
+            torch.distributed.barrier()
+
+        # sort input sequences from short to long
+        # dataset.preprocess_samples()
+
+        # get samplers
+        sampler = self.get_sampler(dataset, num_gpus)
+
+        # ignore sampler when is eval because if we changed the sampler parameter we will not be able to compare previous runs
+        if sampler is None or is_eval:
+            loader = DataLoader(
+                dataset,
+                batch_size=config.eval_batch_size if is_eval else config.batch_size,
+                shuffle=False,
+                drop_last=False,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         else:
-            # init dataloader
-            dataset = XTTSDataset(self.config, samples, self.xtts.tokenizer, config.audio.sample_rate, is_eval)
-
-            # wait all the DDP process to be ready
-            if num_gpus > 1:
-                torch.distributed.barrier()
-
-            # sort input sequences from short to long
-            # dataset.preprocess_samples()
-
-            # get samplers
-            sampler = self.get_sampler(dataset, num_gpus)
-
-            # ignore sampler when is eval because if we changed the sampler parameter we will not be able to compare previous runs
-            if sampler is None or is_eval:
-                loader = DataLoader(
-                    dataset,
-                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                    shuffle=False,
-                    drop_last=False,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
-            else:
-                loader = DataLoader(
-                    dataset,
-                    sampler=sampler,
-                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
+            loader = DataLoader(
+                dataset,
+                sampler=sampler,
+                batch_size=config.eval_batch_size if is_eval else config.batch_size,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         return loader
 
     def get_optimizer(self) -> list:
@@ -475,6 +473,7 @@ class GPTTrainer(BaseTTS):
         self,
         config,
         checkpoint_path,
+        *,
         eval=False,
         strict=True,
         cache_storage="/tmp/tts_cache",
@@ -491,15 +490,3 @@ class GPTTrainer(BaseTTS):
         if eval:
             self.xtts.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=False)
             self.eval()
-            assert not self.training
-
-    @staticmethod
-    def init_from_config(config: "GPTTrainerConfig", samples: list[list] | list[dict] = None):
-        """Initiate model from config
-
-        Args:
-            config (GPTTrainerConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-        return GPTTrainer(config)

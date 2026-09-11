@@ -1,17 +1,24 @@
-import importlib
-import os
-from inspect import isclass
+from TTS.vocoder.configs.fullband_melgan_config import FullbandMelganConfig
+from TTS.vocoder.configs.hifigan_config import HifiganConfig
+from TTS.vocoder.configs.melgan_config import MelganConfig
+from TTS.vocoder.configs.multiband_melgan_config import MultibandMelganConfig
+from TTS.vocoder.configs.parallel_wavegan_config import ParallelWaveganConfig
+from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig, BaseVocoderConfig
+from TTS.vocoder.configs.univnet_config import UnivnetConfig
+from TTS.vocoder.configs.wavegrad_config import WavegradArgs, WavegradConfig
+from TTS.vocoder.configs.wavernn_config import WavernnArgs, WavernnConfig
 
-# import all files under configs/
-configs_dir = os.path.dirname(__file__)
-for file in os.listdir(configs_dir):
-    path = os.path.join(configs_dir, file)
-    if not file.startswith("_") and not file.startswith(".") and (file.endswith(".py") or os.path.isdir(path)):
-        config_name = file[: file.find(".py")] if file.endswith(".py") else file
-        module = importlib.import_module("TTS.vocoder.configs." + config_name)
-        for attribute_name in dir(module):
-            attribute = getattr(module, attribute_name)
-
-            if isclass(attribute):
-                # Add the class to this package's variables
-                globals()[attribute_name] = attribute
+__all__ = [
+    "BaseGANVocoderConfig",
+    "BaseVocoderConfig",
+    "FullbandMelganConfig",
+    "HifiganConfig",
+    "MelganConfig",
+    "MultibandMelganConfig",
+    "ParallelWaveganConfig",
+    "UnivnetConfig",
+    "WavegradArgs",
+    "WavegradConfig",
+    "WavernnArgs",
+    "WavernnConfig",
+]

@@ -14,7 +14,7 @@ from TTS.tts.utils.text.punctuation import Punctuation
 logger = logging.getLogger(__name__)
 
 
-def _is_tool(name) -> bool:
+def _is_tool(name: str) -> bool:
     from shutil import which
 
     return which(name) is not None
@@ -27,7 +27,7 @@ espeak_version_pattern = re.compile(r"text-to-speech:\s(?P<version>\d+\.\d+(\.\d
 
 def get_espeak_version() -> str:
     """Return version of the `espeak` binary."""
-    output = subprocess.getoutput("espeak --version")
+    output = subprocess.run(["espeak", "--version"], capture_output=True, text=True, check=True).stdout
     match = espeak_version_pattern.search(output)
 
     return match.group("version")
@@ -35,7 +35,7 @@ def get_espeak_version() -> str:
 
 def get_espeakng_version() -> str:
     """Return version of the `espeak-ng` binary."""
-    output = subprocess.getoutput("espeak-ng --version")
+    output = subprocess.run(["espeak-ng", "--version"], capture_output=True, text=True, check=True).stdout
     return output.split()[3]
 
 
@@ -103,10 +103,11 @@ class ESpeak(BasePhonemizer):
     def __init__(
         self,
         language: str,
-        backend: str | None = None,
         punctuations: str = Punctuation.default_puncs(),
+        *,
+        backend: str | None = None,
         keep_puncs: bool = True,
-    ):
+    ) -> None:
         if _DEF_ESPEAK_LIB is None:
             msg = "[!] No espeak backend found. Install espeak-ng or espeak to your system."
             raise FileNotFoundError(msg)

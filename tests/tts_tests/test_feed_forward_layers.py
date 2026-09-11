@@ -4,10 +4,8 @@ from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.utils.helpers import sequence_mask
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-def test_encoder():
+def test_encoder(device):
     input_dummy = torch.rand(8, 14, 37).to(device)
     input_lengths = torch.randint(31, 37, (8,)).long().to(device)
     input_lengths[-1] = 37
@@ -49,7 +47,7 @@ def test_encoder():
     assert list(output.shape) == [8, 14, 37]
 
 
-def test_decoder():
+def test_decoder(device):
     input_dummy = torch.rand(8, 128, 37).to(device)
     input_lengths = torch.randint(31, 37, (8,)).long().to(device)
     input_lengths[-1] = 37

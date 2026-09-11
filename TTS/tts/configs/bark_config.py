@@ -1,12 +1,18 @@
 import os
 from dataclasses import dataclass, field
 
+from coqpit import Coqpit
 from trainer.io import get_user_data_dir
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.layers.bark.model import GPTConfig
 from TTS.tts.layers.bark.model_fine import FineGPTConfig
-from TTS.tts.models.bark import BarkAudioConfig
+
+
+@dataclass
+class BarkAudioConfig(Coqpit):
+    sample_rate: int = 24000
+    output_sample_rate: int = 24000
 
 
 @dataclass
@@ -46,6 +52,7 @@ class BarkConfig(BaseTTSConfig):
     """
 
     model: str = "bark"
+    _supports_cloning: bool = True
     audio: BarkAudioConfig = field(default_factory=BarkAudioConfig)
     num_chars: int = 0
     semantic_config: GPTConfig = field(default_factory=GPTConfig)

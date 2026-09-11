@@ -2,9 +2,7 @@ import logging
 
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
 
-from TTS.tts.utils.visual import plot_spectrogram
 from TTS.utils.audio import AudioProcessor
 
 logger = logging.getLogger(__name__)
@@ -31,7 +29,7 @@ def interpolate_vocoder_input(scale_factor, spec):
     return spec
 
 
-def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_prefix: str = None) -> dict:
+def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_prefix: str | None = None) -> dict:
     """Plot the predicted and the real waveform and their spectrograms.
 
     Args:
@@ -43,6 +41,10 @@ def plot_results(y_hat: torch.tensor, y: torch.tensor, ap: AudioProcessor, name_
     Returns:
         Dict: output figures keyed by the name of the figures.
     """
+    from matplotlib import pyplot as plt
+
+    from TTS.tts.utils.visual import plot_spectrogram
+
     if name_prefix is None:
         name_prefix = ""
 

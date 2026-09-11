@@ -1,11 +1,8 @@
 import re
 
-try:
-    import bangla
-    from bnnumerizer import numerize
-    from bnunicodenormalizer import Normalizer
-except ImportError as e:
-    raise ImportError("Bangla requires: bangla, bnnumerizer, bnunicodenormalizer") from e
+import bangla
+from bnnumerizer import numerize
+from bnunicodenormalizer import Normalizer
 
 # initialize
 bnorm = Normalizer()

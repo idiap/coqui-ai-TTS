@@ -1,3 +1,5 @@
+from typing import Any
+
 from TTS.tts.utils.text.japanese.phonemizer import japanese_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -6,7 +8,7 @@ _DEF_JA_PUNCS = "、.,[]()?!〽~『』「」【】"
 _TRANS_TABLE = {"、": ","}
 
 
-def trans(text):
+def trans(text: str) -> str:
     for i, j in _TRANS_TABLE.items():
         text = text.replace(i, j)
     return text
@@ -28,11 +30,11 @@ class JA_JP_Phonemizer(BasePhonemizer):
 
     language = "ja-jp"
 
-    def __init__(self, punctuations=_DEF_JA_PUNCS, keep_puncs=True, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, punctuations: str = _DEF_JA_PUNCS, *, keep_puncs: bool = True, **kwargs: Any) -> None:
         super().__init__(self.language, punctuations=punctuations, keep_puncs=keep_puncs)
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "ja_jp_phonemizer"
 
     def _phonemize(self, text: str, separator: str = "|") -> str:
@@ -41,7 +43,7 @@ class JA_JP_Phonemizer(BasePhonemizer):
             return separator.join(ph)
         return ph
 
-    def phonemize(self, text: str, separator="|", language=None) -> str:
+    def phonemize(self, text: str, separator: str = "|", language: str | None = None) -> str:
         """Custom phonemize for JP_JA
 
         Skip pre-post processing steps used by the other phonemizers.
@@ -49,13 +51,14 @@ class JA_JP_Phonemizer(BasePhonemizer):
         return self._phonemize(text, separator)
 
     @staticmethod
-    def supported_languages() -> dict:
+    def supported_languages() -> dict[str, str]:
         return {"ja-jp": "Japanese (Japan)"}
 
     def version(self) -> str:
         return "0.0.1"
 
-    def is_available(self) -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         return True
 
 

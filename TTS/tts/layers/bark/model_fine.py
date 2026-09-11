@@ -27,8 +27,8 @@ class NonCausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_embd = config.n_embd
         self.dropout = config.dropout
-        # flash attention make GPU go brrrrr but support is only in PyTorch nightly and still a bit scary
-        self.flash = hasattr(torch.nn.functional, "scaled_dot_product_attention") and self.dropout == 0.0
+        # flash attention make GPU go brrrrr
+        self.flash = self.dropout == 0.0
 
     def forward(self, x):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)

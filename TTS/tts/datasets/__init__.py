@@ -4,16 +4,21 @@ import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
+from TTS.config import get_from_config_or_model_args
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import *
-from TTS.tts.datasets.formatters import *
+from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
 
 logger = logging.getLogger(__name__)
 
 
-def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
+def split_dataset(
+    items: list[dict[str, Any]], eval_split_max_size: int | None = None, eval_split_size: float = 0.01
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split a dataset into train and eval. Consider speaker distribution in multi-speaker training.
 
     Args:
@@ -57,31 +62,36 @@ def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
     return items[:eval_split_size], items[eval_split_size:]
 
 
-def add_extra_keys(metadata, language, dataset_name):
+def add_extra_keys(metadata: list[dict[str, Any]], language: str, dataset_name: str):
     for item in metadata:
         # add language name
         item["language"] = language
         # add unique audio name
-        relfilepath = os.path.splitext(os.path.relpath(item["audio_file"], item["root_path"]))[0]
-        audio_unique_name = f"{dataset_name}#{relfilepath}"
-        item["audio_unique_name"] = audio_unique_name
+        relfilepath = Path(item["audio_file"]).relative_to(item["root_path"]).with_suffix("")
+        item["audio_unique_name"] = f"{dataset_name}#{relfilepath}"
     return metadata
 
 
 def load_tts_samples(
-    datasets: list[dict] | dict,
-    eval_split=True,
-    formatter: Callable = None,
-    eval_split_max_size=None,
-    eval_split_size=0.01,
-) -> tuple[list[list], list[list]]:
-    """Parse the dataset from the datasets config, load the samples as a list and load the attention alignments if provided.
-    If `formatter` is not None, apply the formatter to the samples else pick the formatter from the available ones based
-    on the dataset name.
+    config: BaseTTSConfig,
+    *,
+    eval_split: bool = True,
+    formatter: Formatter | None = None,
+    eval_split_max_size: int | None = None,
+    eval_split_size: float = 0.01,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse the datasets from config and automatically populate speaker info.
+
+    Load the samples as a list and load the attention alignments if provided. If
+    `formatter` is not None, apply the formatter to the samples else pick the
+    formatter from the available ones based on the dataset name.
+
+    If the dataset contains speaker information, it will be extracted and stored
+    in config.speakers. If no speaker information is present, the config
+    remains unchanged.
 
     Args:
-        datasets (list[dict], dict): A list of datasets or a single dataset dictionary. If multiple datasets are
-            in the list, they are all merged.
+        config: BaseTTSConfig instance.
 
         eval_split (bool, optional): If true, create a evaluation split. If an eval split provided explicitly, generate
             an eval split automatically. Defaults to True.
@@ -99,12 +109,18 @@ def load_tts_samples(
             If > 1, represents the absolute number of evaluation samples. Defaults to 0.01 (1%).
 
     Returns:
-        tuple[list[list], list[list]: training and evaluation splits of the dataset.
+        tuple[list[dict], list[dict]]: training and evaluation splits of the dataset.
     """
+    if not config.has("datasets"):
+        msg = (
+            "From coqui-tts 0.28.0 you need to pass a config instance to"
+            "`load_tts_samples()` that contains a `datasets` field, instead of directly"
+            "passing a BaseDatasetConfig list as before."
+        )
+        raise TypeError(msg)
     meta_data_train_all = []
-    meta_data_eval_all = [] if eval_split else None
-    if not isinstance(datasets, list):
-        datasets = [datasets]
+    meta_data_eval_all = []
+    datasets = config.datasets
     for dataset in datasets:
         formatter_name = dataset["formatter"]
         dataset_name = dataset["dataset_name"]
@@ -137,19 +153,25 @@ def load_tts_samples(
         # load attention masks for the duration predictor training
         if dataset.meta_file_attn_mask:
             meta_data = dict(load_attention_mask_meta_data(dataset["meta_file_attn_mask"]))
-            for idx, ins in enumerate(meta_data_train_all):
-                attn_file = meta_data[ins["audio_file"]].strip()
-                meta_data_train_all[idx].update({"alignment_file": attn_file})
-            if meta_data_eval_all:
-                for idx, ins in enumerate(meta_data_eval_all):
+            for meta_data_all in (meta_data_train_all, meta_data_eval_all):
+                for idx, ins in enumerate(meta_data_all):
                     attn_file = meta_data[ins["audio_file"]].strip()
-                    meta_data_eval_all[idx].update({"alignment_file": attn_file})
+                    meta_data_all[idx].update({"alignment_file": attn_file})
         # set none for the next iter
         formatter = None
+
+    # Parse speaker info
+    if get_from_config_or_model_args(config, "use_speaker_embedding"):
+        speakers = sorted(
+            set(s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s)
+        )
+        logger.debug("Found %d speakers in dataset", len(speakers))
+        if speakers:
+            config.speakers = speakers
     return meta_data_train_all, meta_data_eval_all
 
 
-def load_attention_mask_meta_data(metafile_path):
+def load_attention_mask_meta_data(metafile_path: str | os.PathLike[Any]):
     """Load meta data file created by compute_attention_masks.py"""
     with open(metafile_path, encoding="utf-8") as f:
         lines = f.readlines()
@@ -161,18 +183,15 @@ def load_attention_mask_meta_data(metafile_path):
     return meta_data
 
 
-def _get_formatter_by_name(name):
+def _get_formatter_by_name(name: str) -> Formatter:
     """Returns the respective preprocessing function."""
-    thismodule = sys.modules[__name__]
-    if not hasattr(thismodule, name.lower()):
-        msg = (
-            f"{name} formatter not found. If it is a custom formatter, pass the function to load_tts_samples() instead."
-        )
+    if name.lower() not in _FORMATTER_REGISTRY:
+        msg = f"{name} formatter not found. If it is a custom formatter, make sure to call register_formatter() first."
         raise ValueError(msg)
-    return getattr(thismodule, name.lower())
+    return _FORMATTER_REGISTRY[name.lower()]
 
 
-def find_unique_chars(data_samples):
+def find_unique_chars(data_samples: list[dict[str, Any]]) -> set[str]:
     texts = "".join(item["text"] for item in data_samples)
     chars = set(texts)
     lower_chars = filter(lambda c: c.islower(), chars)

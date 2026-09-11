@@ -1,6 +1,5 @@
 import sys
 import time
-from dataclasses import dataclass, field
 
 import numpy as np
 import torch
@@ -9,11 +8,9 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from trainer.io import load_fsspec
 
-from TTS.tts.utils.visual import plot_spectrogram
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import mulaw_decode
+from TTS.vocoder.configs import WavernnConfig
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 from TTS.vocoder.layers.losses import WaveRNNLoss
 from TTS.vocoder.layers.upsample import Stretch2d
@@ -132,59 +129,16 @@ class Upsample(nn.Module):
         return m.transpose(1, 2), aux
 
 
-@dataclass
-class WavernnArgs(Coqpit):
-    """🐸 WaveRNN model arguments.
-
-    rnn_dims (int):
-        Number of hidden channels in RNN layers. Defaults to 512.
-    fc_dims (int):
-        Number of hidden channels in fully-conntected layers. Defaults to 512.
-    compute_dims (int):
-        Number of hidden channels in the feature ResNet. Defaults to 128.
-    res_out_dim (int):
-        Number of hidden channels in the feature ResNet output. Defaults to 128.
-    num_res_blocks (int):
-        Number of residual blocks in the ResNet. Defaults to 10.
-    use_aux_net (bool):
-        enable/disable the feature ResNet. Defaults to True.
-    use_upsample_net (bool):
-        enable/ disable the upsampling networl. If False, basic upsampling is used. Defaults to True.
-    upsample_factors (list):
-        Upsampling factors. The multiply of the values must match the `hop_length`. Defaults to ```[4, 8, 8]```.
-    mode (str):
-        Output mode of the WaveRNN vocoder. `mold` for Mixture of Logistic Distribution, `gauss` for a single
-        Gaussian Distribution and `bits` for quantized bits as the model's output.
-    mulaw (bool):
-        enable / disable the use of Mulaw quantization for training. Only applicable if `mode == 'bits'`. Defaults
-        to `True`.
-    pad (int):
-            Padding applied to the input feature frames against the convolution layers of the feature network.
-            Defaults to 2.
-    """
-
-    rnn_dims: int = 512
-    fc_dims: int = 512
-    compute_dims: int = 128
-    res_out_dims: int = 128
-    num_res_blocks: int = 10
-    use_aux_net: bool = True
-    use_upsample_net: bool = True
-    upsample_factors: list[int] = field(default_factory=lambda: [4, 8, 8])
-    mode: str = "mold"  # mold [string], gauss [string], bits [int]
-    mulaw: bool = True  # apply mulaw if mode is bits
-    pad: int = 2
-    feat_dims: int = 80
-
-
 class Wavernn(BaseVocoder):
+    config: WavernnConfig
+
     def __init__(self, config: Coqpit):
         """🐸 WaveRNN model.
         Original paper - https://arxiv.org/abs/1802.08435
         Official implementation - https://github.com/fatchord/WaveRNN
 
         Args:
-            config (Coqpit): [description]
+            config: WavernnConfig
 
         Raises:
             RuntimeError: [description]
@@ -221,7 +175,6 @@ class Wavernn(BaseVocoder):
         else:
             raise RuntimeError("Unknown model mode value - ", self.args.mode)
 
-        self.ap = AudioProcessor(**config.audio.to_dict())
         self.aux_dims = self.args.res_out_dims // 4
 
         if self.args.use_upsample_net:
@@ -527,13 +480,6 @@ class Wavernn(BaseVocoder):
 
         return unfolded
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
-
     def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
         mels = batch["input"]
         waveform = batch["waveform"]
@@ -559,7 +505,8 @@ class Wavernn(BaseVocoder):
         test_loader: "DataLoader",
         output: dict,  # pylint: disable=unused-argument
     ) -> tuple[dict, dict]:
-        ap = self.ap
+        from TTS.tts.utils.visual import plot_spectrogram
+
         figures = {}
         audios = {}
         samples = test_loader.dataset.load_test_samples(1)
@@ -567,7 +514,7 @@ class Wavernn(BaseVocoder):
             x = torch.FloatTensor(sample[0])
             x = x.to(next(self.parameters()).device)
             y_hat = self.inference(x, self.config.batched, self.config.target_samples, self.config.overlap_samples)
-            x_hat = ap.melspectrogram(y_hat)
+            x_hat = self.ap.melspectrogram(y_hat)
             figures.update(
                 {
                     f"test_{idx}/ground_truth": plot_spectrogram(x.T),
@@ -606,12 +553,11 @@ class Wavernn(BaseVocoder):
         num_gpus: int,
         rank: int | None = None,
     ):
-        ap = self.ap
         dataset = WaveRNNDataset(
-            ap=ap,
+            ap=self.ap,
             items=samples,
             seq_len=config.seq_len,
-            hop_len=ap.hop_length,
+            hop_len=self.ap.hop_length,
             pad=config.model_args.pad,
             mode=config.model_args.mode,
             mulaw=config.model_args.mulaw,
@@ -632,7 +578,3 @@ class Wavernn(BaseVocoder):
     def get_criterion(self):
         # define train functions
         return WaveRNNLoss(self.args.mode)
-
-    @staticmethod
-    def init_from_config(config: "WavernnConfig"):
-        return Wavernn(config)

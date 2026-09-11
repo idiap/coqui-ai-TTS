@@ -1,46 +1,52 @@
+import logging
 import os
-from dataclasses import dataclass
+import warnings
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import torch
+import torchaudio
 from coqpit import Coqpit
-from encodec import EncodecModel
-from transformers import BertTokenizer
+from transformers import AutoProcessor, BertTokenizer, EncodecModel
 
+from TTS.tts.configs.bark_config import BarkConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig
+from TTS.tts.layers.bark.hubert.hubert_manager import HubertManager
+from TTS.tts.layers.bark.hubert.kmeans_hubert import CustomHubert
+from TTS.tts.layers.bark.hubert.tokenizer import HubertTokenizer
 from TTS.tts.layers.bark.inference_funcs import (
-    codec_decode,
     generate_coarse,
     generate_fine,
     generate_text_semantic,
-    generate_voice,
-    load_voice,
 )
 from TTS.tts.layers.bark.load_model import load_model
 from TTS.tts.layers.bark.model import GPT
 from TTS.tts.layers.bark.model_fine import FineGPT
 from TTS.tts.models.base_tts import BaseTTS
+from TTS.utils.generic_utils import (
+    is_pytorch_at_least_2_4,
+    slugify,
+    warn_synthesize_config_deprecated,
+    warn_synthesize_speaker_id_deprecated,
+)
 
-
-@dataclass
-class BarkAudioConfig(Coqpit):
-    sample_rate: int = 24000
-    output_sample_rate: int = 24000
+logger = logging.getLogger(__name__)
 
 
 class Bark(BaseTTS):
-    def __init__(
-        self,
-        config: Coqpit,
-        tokenizer: BertTokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased"),
-    ) -> None:
-        super().__init__(config=config, ap=None, tokenizer=None, speaker_manager=None, language_manager=None)
-        self.config.num_chars = len(tokenizer)
-        self.tokenizer = tokenizer
+    config: BarkConfig
+
+    def __init__(self, config: Coqpit) -> None:
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+        super().__init__(config)
+        self.config.num_chars = len(self.tokenizer)
         self.semantic_model = GPT(config.semantic_config)
         self.coarse_model = GPT(config.coarse_config)
         self.fine_model = FineGPT(config.fine_config)
-        self.encodec = EncodecModel.encodec_model_24khz()
-        self.encodec.set_target_bandwidth(6.0)
+        self.encodec = EncodecModel.from_pretrained("facebook/encodec_24khz")
+        self.processor = AutoProcessor.from_pretrained("facebook/encodec_24khz")
+        self.encodec_bandwidth = 6.0
 
     def load_bark_models(self):
         self.semantic_model, self.config = load_model(
@@ -56,20 +62,18 @@ class Bark(BaseTTS):
             ckpt_path=self.config.LOCAL_MODEL_PATHS["fine"], device=self.device, config=self.config, model_type="fine"
         )
 
-    def train_step(
-        self,
-    ):
+    def train_step(self):
         pass
 
     def text_to_semantic(
         self,
         text: str,
-        history_prompt: str | None = None,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> torch.Tensor:
         """Generate semantic array from text.
 
         Args:
@@ -91,13 +95,22 @@ class Bark(BaseTTS):
         )
         return x_semantic
 
+    @torch.inference_mode()
+    def codec_decode(self, fine_tokens: torch.Tensor) -> torch.Tensor:
+        """Turn quantized audio codes into audio array using encodec."""
+        arr = fine_tokens.unsqueeze(0)
+        arr = arr.transpose(0, 1)
+        emb = self.encodec.quantizer.decode(arr)
+        out = self.encodec.decoder(emb)
+        return out.squeeze().cpu()
+
     def semantic_to_waveform(
         self,
-        semantic_tokens: np.ndarray,
-        history_prompt: str | None = None,
+        semantic_tokens: torch.Tensor,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         temp: float = 0.7,
-        base=None,
-    ):
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from semantic input.
 
         Args:
@@ -122,19 +135,19 @@ class Bark(BaseTTS):
             temp=0.5,
             base=base,
         )
-        audio_arr = codec_decode(x_fine_gen, self)
+        audio_arr = self.codec_decode(x_fine_gen)
         return audio_arr, x_coarse_gen, x_fine_gen
 
     def generate_audio(
         self,
         text: str,
-        history_prompt: str | None = None,
+        history_prompt: tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None],
         text_temp: float = 0.7,
         waveform_temp: float = 0.7,
-        base=None,
-        allow_early_stop=True,
+        base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+        allow_early_stop: bool = True,
         **kwargs,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Generate audio array from input text.
 
         Args:
@@ -154,52 +167,111 @@ class Bark(BaseTTS):
             allow_early_stop=allow_early_stop,
             **kwargs,
         )
-        audio_arr, c, f = self.semantic_to_waveform(
+        audio_arr, coarse, fine = self.semantic_to_waveform(
             x_semantic, history_prompt=history_prompt, temp=waveform_temp, base=base
         )
-        return audio_arr, [x_semantic, c, f]
+        return audio_arr, x_semantic, coarse, fine
 
-    def generate_voice(self, audio, speaker_id, voice_dir):
-        """Generate a voice from the given audio.
+    def _generate_voice(self, speaker_wav: str | os.PathLike[Any]) -> dict[str, torch.Tensor]:
+        """Generate a new voice from the given audio."""
+        audio, sr = torchaudio.load(speaker_wav)
+        audio = torchaudio.transforms.Resample(sr, self.config.sample_rate)(audio).to(self.device)
+
+        inputs = self.processor(raw_audio=audio.squeeze(0), sampling_rate=self.config.sample_rate, return_tensors="pt")
+        codes = self.encodec.encode(inputs["input_values"], inputs["padding_mask"], self.encodec_bandwidth)[0][0, 0]
+
+        # generate semantic tokens
+        # Load the HuBERT model
+        hubert_manager = HubertManager()
+        hubert_manager.make_sure_tokenizer_installed(model_path=self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"])
+        hubert_model = CustomHubert().to(self.device)
+
+        # Load the CustomTokenizer model
+        tokenizer = HubertTokenizer.load_from_checkpoint(
+            self.config.LOCAL_MODEL_PATHS["hubert_tokenizer"], map_location=self.device
+        )
+        # semantic_tokens = self.text_to_semantic(
+        #     text, max_gen_duration_s=seconds, top_k=50, top_p=0.95, temp=0.7
+        # )  # not 100%
+        with torch.inference_mode():
+            semantic_vectors = hubert_model.forward(audio, input_sample_hz=self.config.sample_rate)
+        semantic_tokens = tokenizer.get_token(semantic_vectors)
+        return {
+            "semantic_prompt": semantic_tokens,
+            "coarse_prompt": codes[:2, :],
+            "fine_prompt": codes,
+        }
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if isinstance(speaker_wav, list):
+            warnings.warn(
+                "Bark supports only a single reference audio file, but list was provided. Using only first file."
+            )
+            speaker_wav = speaker_wav[0]
+        voice = self._generate_voice(speaker_wav)
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
+
+    def get_voices(self, voice_dir: str | os.PathLike[Any]) -> dict[str, Path]:
+        """Return all available voices in the given directory.
 
         Args:
-            audio (str): Path to the audio file.
-            speaker_id (str): Speaker name.
-            voice_dir (str): Path to the directory to save the generate voice.
+            voice_dir: Directory to search for voices.
+
+        Returns:
+            Dictionary mapping a speaker ID to its voice file.
         """
-        if voice_dir is not None:
-            voice_dirs = [voice_dir]
-            try:
-                _ = load_voice(self, speaker_id, voice_dirs)
-            except (KeyError, FileNotFoundError):
-                output_path = os.path.join(voice_dir, speaker_id + ".npz")
-                os.makedirs(voice_dir, exist_ok=True)
-                generate_voice(audio, self, output_path)
+        # For Bark we overwrite the base method to also allow loading the npz
+        # files included with the original model.
+        return {path.stem: path for path in Path(voice_dir).iterdir() if path.suffix in (".npz", ".pth")}
 
-    def _set_voice_dirs(self, voice_dirs):
-        def_voice_dir = None
-        if isinstance(self.config.DEF_SPEAKER_DIR, str):
-            os.makedirs(self.config.DEF_SPEAKER_DIR, exist_ok=True)
-            if os.path.isdir(self.config.DEF_SPEAKER_DIR):
-                def_voice_dir = self.config.DEF_SPEAKER_DIR
-        _voice_dirs = [def_voice_dir] if def_voice_dir is not None else []
-        if voice_dirs is not None:
-            if isinstance(voice_dirs, str):
-                voice_dirs = [voice_dirs]
-            _voice_dirs = voice_dirs + _voice_dirs
-        return _voice_dirs
+    def load_voice_file(
+        self,
+        speaker_id: str,
+        voice_dir: str | os.PathLike[Any],
+    ) -> dict[str, Any]:
+        """Load the voice for the given speaker.
 
-    # TODO: remove config from synthesize
-    def synthesize(self, text, config, speaker_id="random", voice_dirs=None, **kwargs):  # pylint: disable=unused-argument
+        Args:
+            speaker_id:
+                Speaker ID to load.
+            voice_dir:
+                Directory where to look for the voice.
+        """
+        # For Bark we overwrite the base method to also allow loading the npz
+        # files included with the original model.
+        voices = self.get_voices(voice_dir)
+        if speaker_id not in voices:
+            msg = f"Voice file `{slugify(speaker_id)}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
+            raise FileNotFoundError(msg)
+        if voices[speaker_id].suffix == ".npz":
+            np_voice = np.load(voices[speaker_id])
+            voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
+        else:
+            voice = torch.load(voices[speaker_id], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
+        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id])
+        return voice
+
+    def synthesize(
+        self,
+        text: str,
+        config: BaseTTSConfig | None = None,
+        *,
+        speaker: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
         """Synthesize speech with the given input text.
 
         Args:
             text (str): Input text.
-            config (BarkConfig): Config with inference parameters.
-            speaker_id (str): One of the available speaker names. If `random`, it generates a random speaker.
-            speaker_wav (str): Path to the speaker audio file for cloning a new voice. It is cloned and saved in
-                `voice_dirs` with the name `speaker_id`. Defaults to None.
-            voice_dirs (List[str]): List of paths that host reference audio files for speakers. Defaults to None.
+            config: DEPRECATED. Not used.
+            speaker: Custom speaker ID to cache or retrieve a voice.
+            speaker_wav: Path(s) to reference audio.
+            voice_dir: Folder for cached voices.
             **kwargs: Model specific inference settings used by `generate_audio()` and
                       `TTS.tts.layers.bark.inference_funcs.generate_text_semantic()`.
 
@@ -210,26 +282,24 @@ class Bark(BaseTTS):
             `conditioning_latents` as latents used at inference.
 
         """
-        speaker_id = "random" if speaker_id is None else speaker_id
-        voice_dirs = self._set_voice_dirs(voice_dirs)
-        history_prompt = load_voice(self, speaker_id, voice_dirs)
+        if config is not None:
+            warn_synthesize_config_deprecated()
+        if (speaker_id := kwargs.pop("speaker_id", None)) is not None:
+            speaker = speaker_id
+            warn_synthesize_speaker_id_deprecated()
+        history_prompt = None, None, None
+        if speaker_wav is not None or speaker is not None:
+            voice = self.clone_voice(speaker_wav, speaker, voice_dir)
+            history_prompt = (voice["semantic_prompt"], voice["coarse_prompt"], voice["fine_prompt"])
         outputs = self.generate_audio(text, history_prompt=history_prompt, **kwargs)
-        return_dict = {
+        return {
             "wav": outputs[0],
             "text_inputs": text,
         }
 
-        return return_dict
-
-    def eval_step(self): ...
-
     def forward(self): ...
 
     def inference(self): ...
-
-    @staticmethod
-    def init_from_config(config: "BarkConfig", **kwargs):  # pylint: disable=unused-argument
-        return Bark(config)
 
     # pylint: disable=unused-argument, redefined-builtin
     def load_checkpoint(
@@ -249,12 +319,12 @@ class Bark(BaseTTS):
         If eval is True, set the model to eval mode.
 
         Args:
-            config (TortoiseConfig): The model config.
+            config (BarkConfig): The model config.
             checkpoint_dir (str): The directory where the checkpoints are stored.
-            ar_checkpoint_path (str, optional): The path to the autoregressive checkpoint. Defaults to None.
-            diff_checkpoint_path (str, optional): The path to the diffusion checkpoint. Defaults to None.
-            clvp_checkpoint_path (str, optional): The path to the CLVP checkpoint. Defaults to None.
-            vocoder_checkpoint_path (str, optional): The path to the vocoder checkpoint. Defaults to None.
+            text_model_path (str, optional): The path to the text model checkpoint. Defaults to None.
+            coarse_model_path (str, optional): The path to the coarse model checkpoint. Defaults to None.
+            fine_model_path (str, optional): The path to the fine model checkpoint. Defaults to None.
+            hubert_tokenizer_path (str, optional): The path to the tokenizer checkpoint. Defaults to None.
             eval (bool, optional): Whether to set the model to eval mode. Defaults to False.
             strict (bool, optional): Whether to load the model strictly. Defaults to True.
         """

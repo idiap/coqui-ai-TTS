@@ -6,6 +6,7 @@ def test_synthesize(tmp_path):
     """Test synthesize.py with diffent arguments."""
     output_path = str(tmp_path / "output.wav")
 
+    run_main(main, ["--version"])
     run_main(main, ["--list_models"])
 
     # single speaker model

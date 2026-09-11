@@ -4,6 +4,7 @@
 
 import argparse
 import contextlib
+import importlib.metadata
 import logging
 import sys
 from argparse import RawTextHelpFormatter
@@ -215,7 +216,6 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
 
     # args for multi-speaker synthesis
     parser.add_argument("--speakers_file_path", type=str, help="JSON file for multi-speaker model.", default=None)
-    parser.add_argument("--language_ids_file_path", type=str, help="JSON file for multi-lingual model.", default=None)
     parser.add_argument(
         "--speaker_idx",
         type=str,
@@ -288,7 +288,12 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         "--voice_dir",
         type=str,
         default=None,
-        help="Voice dir for tortoise model",
+        help="Custom directory for caching of cloned voices.",
+    )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the Coqui TTS version number and exit.",
     )
 
     args = parser.parse_args(arg_list)
@@ -304,6 +309,7 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         args.model_info_by_name,
         args.source_wav,
         args.target_wav,
+        args.version,
     ]
     if not any(check_args):
         parser.parse_args(["-h"])
@@ -324,19 +330,22 @@ def main(arg_list: list[str] | None = None) -> None:
         from TTS.utils.manage import ModelManager
 
         # load model manager
-        manager = ModelManager(models_file=TTS.get_models_file_path(), progress_bar=args.progress_bar)
+        manager = ModelManager(progress_bar=args.progress_bar)
 
         tts_path = None
         tts_config_path = None
         speakers_file_path = None
-        language_ids_file_path = None
         vocoder_path = None
         vocoder_config_path = None
         encoder_path = None
         encoder_config_path = None
         vc_path = None
         vc_config_path = None
-        model_dir = None
+
+        # 0) Print version number
+        if args.version:
+            logger.info(importlib.metadata.version("coqui-tts"))
+            sys.exit(0)
 
         # 1) List pre-trained TTS models
         if args.list_models:
@@ -370,7 +379,6 @@ def main(arg_list: list[str] | None = None) -> None:
             encoder_path=args.encoder_path,
             encoder_config_path=args.encoder_config_path,
             speakers_file_path=args.speakers_file_path,
-            language_ids_file_path=args.language_ids_file_path,
             progress_bar=args.progress_bar,
         ).to(device)
 
@@ -385,7 +393,7 @@ def main(arg_list: list[str] | None = None) -> None:
             logger.info(api.speakers)
             sys.exit(0)
 
-        # query langauge ids of a multi-lingual model.
+        # query language ids of a multi-lingual model.
         if args.list_language_idxs:
             if not api.is_multi_lingual:
                 logger.info("Monolingual model.")
@@ -395,14 +403,6 @@ def main(arg_list: list[str] | None = None) -> None:
             )
             logger.info(api.languages)
             sys.exit(0)
-
-        # check the arguments against a multi-speaker model.
-        if api.is_multi_speaker and (not args.speaker_idx and not args.speaker_wav):
-            logger.error(
-                "Looks like you use a multi-speaker model. Define `--speaker_idx` to "
-                "select the target speaker. You can list the available speakers for this model by `--list_speaker_idxs`."
-            )
-            sys.exit(1)
 
         # RUN THE SYNTHESIS
         if args.text:
@@ -428,6 +428,8 @@ def main(arg_list: list[str] | None = None) -> None:
                 source_wav=args.source_wav,
                 target_wav=args.target_wav,
                 file_path=args.out_path,
+                speaker=args.speaker_idx,
+                voice_dir=args.voice_dir,
                 pipe_out=pipe_out,
             )
             logger.info("Saved VC output to %s", args.out_path)
