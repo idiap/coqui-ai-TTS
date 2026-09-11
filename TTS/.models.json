@@ -20,19 +20,12 @@
                     "tos_required": true
                 },
                 "vixtts_v2": {
-                    "description": "XTTS-v2 trained to be good at specicially vietnames ",
-                    "hf_url": [
-                        "https://huggingface.co/drewThomasson/fineTunedTTSModels/resolve/main/Viet-xtts-v2/model.pth",
-                        "https://huggingface.co/drewThomasson/fineTunedTTSModels/resolve/main/Viet-xtts-v2/config.json",
-                        "https://huggingface.co/drewThomasson/fineTunedTTSModels/resolve/main/Viet-xtts-v2/vocab.json",
-                        "https://huggingface.co/drewThomasson/fineTunedTTSModels/resolve/main/Viet-xtts-v2/hash.md5",
-                        "https://huggingface.co/coqui/XTTS-v2/resolve/main/speakers_xtts.pth"
-                    ],
-                    "model_hash": "534670e4b752002b7d7224e6ea1f467bd608c8dd3c36efaa45e1f4696e8bd1d2",
+                    "description": "viXTTS, an XTTS-v2.0.3 model fine-tuned for Vietnamese by Thinh Le.",
+                    "repo_id": "capleaf/viXTTS",
+                    "ignore": ["samples/*", "vi_sample.wav"],
                     "default_vocoder": null,
-                    "commit": "fc73d388235748d4b3c9397b565af51dfa6efae2",
                     "license": "CPML",
-                    "contact": "info@coqui.ai",
+                    "contact": "thinhlpg@gmail.com",
                     "tos_required": true
                 },
                 "your_tts": {
