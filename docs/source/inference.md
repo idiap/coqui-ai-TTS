@@ -26,8 +26,14 @@ from TTS.api import TTS
 
 tts = TTS("tts_models/multilingual/multi-dataset/omnivoice").to("cuda")
 
-# Let OmniVoice select a voice automatically.
+# OmniVoice reports its complete language list at runtime (currently 646 IDs).
+print(len(tts.languages))
+print(tts.languages)
+
+# Let OmniVoice select a voice automatically in different languages.
 tts.tts_to_file("Hello from OmniVoice.", language="en", file_path="output.wav")
+tts.tts_to_file("Xin chào từ OmniVoice.", language="vi", file_path="output-vi.wav")
+tts.tts_to_file("Hola desde OmniVoice.", language="es", file_path="output-es.wav")
 
 # Clone a voice. Supplying the transcript avoids loading an ASR model.
 tts.tts_to_file(
@@ -46,6 +52,11 @@ tts.tts_to_file(
     file_path="designed.wav",
 )
 ```
+
+The `language` argument selects one of the language IDs returned by
+`tts.languages`; `en` is used for the cloning and voice-design examples only
+because their example text is English. The integration does not hard-code an
+English-only language list.
 
 OmniVoice's code is Apache-2.0 licensed. Its pretrained weights are CC-BY-NC;
 review those noncommercial terms before downloading or using the catalogue model.
