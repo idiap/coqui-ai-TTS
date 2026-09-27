@@ -242,6 +242,8 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
+        # Normalize to match clone_voice which saves as slugify(speaker_id).pth
+        speaker_id = slugify(speaker_id)
         voices = self.get_voices(voice_dir)
         if speaker_id not in voices:
             msg = f"Voice file `{slugify(speaker_id)}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"

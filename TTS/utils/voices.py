@@ -145,6 +145,9 @@ class CloningMixin:
             voice_dir:
                 Directory where to look for the voice.
         """
+        # Normalize to match clone_voice which saves as slugify(speaker_id).pth
+        # and get_voices which keys by path.stem (slugified).
+        speaker_id = slugify(speaker_id)
         voices = self.get_voices(voice_dir)
         if speaker_id not in voices:
             msg = f"Voice file `{slugify(speaker_id)}.pth` for speaker `{speaker_id}` not found in: {voice_dir}"
