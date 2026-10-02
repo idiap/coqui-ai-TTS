@@ -81,7 +81,7 @@ def split_sentence(text, lang, text_split_length=250):
 # List of (regular expression, replacement) pairs for abbreviations:
 _abbreviations = {
     "en": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("mrs", "misess"),
             ("mr", "mister"),
@@ -104,7 +104,7 @@ _abbreviations = {
         ]
     ],
     "es": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("sra", "señora"),
             ("sr", "señor"),
@@ -117,7 +117,7 @@ _abbreviations = {
         ]
     ],
     "fr": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("mme", "madame"),
             ("mr", "monsieur"),
@@ -129,7 +129,7 @@ _abbreviations = {
         ]
     ],
     "de": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("fr", "frau"),
             ("dr", "doktor"),
@@ -139,7 +139,7 @@ _abbreviations = {
         ]
     ],
     "pt": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("sra", "senhora"),
             ("sr", "senhor"),
@@ -152,7 +152,7 @@ _abbreviations = {
         ]
     ],
     "it": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # ("sig.ra", "signora"),
             ("sig", "signore"),
@@ -164,7 +164,7 @@ _abbreviations = {
         ]
     ],
     "pl": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("p", "pani"),
             ("m", "pan"),
@@ -174,19 +174,19 @@ _abbreviations = {
         ]
     ],
     "ar": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # There are not many common abbreviations in Arabic as in English.
         ]
     ],
     "zh": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # Chinese doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
     "cs": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("dr", "doktor"),  # doctor
             ("ing", "inženýr"),  # engineer
@@ -195,7 +195,7 @@ _abbreviations = {
         ]
     ],
     "ru": [
-        (re.compile(f"\\b{x[0]}\\b", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\b" % x[0], re.IGNORECASE), x[1])
         for x in [
             ("г-жа", "госпожа"),  # Mrs.
             ("г-н", "господин"),  # Mr.
@@ -204,7 +204,7 @@ _abbreviations = {
         ]
     ],
     "nl": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("dhr", "de heer"),  # Mr.
             ("mevr", "mevrouw"),  # Mrs.
@@ -214,7 +214,7 @@ _abbreviations = {
         ]
     ],
     "tr": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("b", "bay"),  # Mr.
             ("byk", "büyük"),  # büyük
@@ -223,7 +223,7 @@ _abbreviations = {
         ]
     ],
     "hu": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             ("dr", "doktor"),  # doctor
             ("b", "bácsi"),  # Mr.
@@ -232,13 +232,13 @@ _abbreviations = {
         ]
     ],
     "ko": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # Korean doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
     "hi": [
-        (re.compile(f"\\b{x[0]}\\.", re.IGNORECASE), x[1])
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
             # Hindi doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
@@ -254,7 +254,7 @@ def expand_abbreviations_multilingual(text, lang="en"):
 
 _symbols_multilingual = {
     "en": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " and "),
             ("@", " at "),
@@ -263,10 +263,11 @@ _symbols_multilingual = {
             ("$", " dollar "),
             ("£", " pound "),
             ("°", " degree "),
+            (".", ""),
         ]
     ],
     "es": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " y "),
             ("@", " arroba "),
@@ -275,10 +276,11 @@ _symbols_multilingual = {
             ("$", " dolar "),
             ("£", " libra "),
             ("°", " grados "),
+            (".", ""),
         ]
     ],
     "fr": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " et "),
             ("@", " arobase "),
@@ -287,10 +289,11 @@ _symbols_multilingual = {
             ("$", " dollar "),
             ("£", " livre "),
             ("°", " degrés "),
+            (".", ""),
         ]
     ],
     "de": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " und "),
             ("@", " at "),
@@ -299,10 +302,11 @@ _symbols_multilingual = {
             ("$", " dollar "),
             ("£", " pfund "),
             ("°", " grad "),
+            (".", ""),
         ]
     ],
     "pt": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " e "),
             ("@", " arroba "),
@@ -311,10 +315,11 @@ _symbols_multilingual = {
             ("$", " dólar "),
             ("£", " libra "),
             ("°", " graus "),
+            (".", ""),
         ]
     ],
     "it": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " e "),
             ("@", " chiocciola "),
@@ -323,10 +328,11 @@ _symbols_multilingual = {
             ("$", " dollaro "),
             ("£", " sterlina "),
             ("°", " gradi "),
+            (".", ""),
         ]
     ],
     "pl": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " i "),
             ("@", " małpa "),
@@ -335,11 +341,12 @@ _symbols_multilingual = {
             ("$", " dolar "),
             ("£", " funt "),
             ("°", " stopnie "),
+            (".", ""),
         ]
     ],
     "ar": [
         # Arabic
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " و "),
             ("@", " على "),
@@ -348,11 +355,12 @@ _symbols_multilingual = {
             ("$", " دولار "),
             ("£", " جنيه "),
             ("°", " درجة "),
+            (".", ""),
         ]
     ],
     "zh": [
         # Chinese
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " 和 "),
             ("@", " 在 "),
@@ -361,11 +369,12 @@ _symbols_multilingual = {
             ("$", " 美元 "),
             ("£", " 英镑 "),
             ("°", " 度 "),
+            (".", ""),
         ]
     ],
     "cs": [
         # Czech
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " a "),
             ("@", " na "),
@@ -374,11 +383,12 @@ _symbols_multilingual = {
             ("$", " dolar "),
             ("£", " libra "),
             ("°", " stupně "),
+            (".", ""),
         ]
     ],
     "ru": [
         # Russian
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " и "),
             ("@", " собака "),
@@ -387,11 +397,12 @@ _symbols_multilingual = {
             ("$", " доллар "),
             ("£", " фунт "),
             ("°", " градус "),
+            (".", ""),
         ]
     ],
     "nl": [
         # Dutch
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " en "),
             ("@", " bij "),
@@ -400,10 +411,11 @@ _symbols_multilingual = {
             ("$", " dollar "),
             ("£", " pond "),
             ("°", " graden "),
+            (".", ""),
         ]
     ],
     "tr": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " ve "),
             ("@", " at "),
@@ -412,10 +424,11 @@ _symbols_multilingual = {
             ("$", " dolar "),
             ("£", " sterlin "),
             ("°", " derece "),
+            (".", ""),
         ]
     ],
     "hu": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " és "),
             ("@", " kukac "),
@@ -424,11 +437,12 @@ _symbols_multilingual = {
             ("$", " dollár "),
             ("£", " font "),
             ("°", " fok "),
+            (".", ""),
         ]
     ],
     "ko": [
         # Korean
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " 그리고 "),
             ("@", " 에 "),
@@ -437,10 +451,11 @@ _symbols_multilingual = {
             ("$", " 달러 "),
             ("£", " 파운드 "),
             ("°", " 도 "),
+            (".", ""),
         ]
     ],
     "hi": [
-        (re.compile(rf"{re.escape(x[0])}", re.IGNORECASE), x[1])
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
         for x in [
             ("&", " और "),
             ("@", " ऐट दी रेट "),
@@ -449,6 +464,7 @@ _symbols_multilingual = {
             ("$", " डॉलर "),
             ("£", " पाउंड "),
             ("°", " डिग्री "),
+            (".", ""),
         ]
     ],
 }
@@ -510,7 +526,7 @@ def _expand_decimal_point(m, lang="en"):
 
 
 def _expand_currency(m, lang="en", currency="USD"):
-    amount = float(re.sub(r"[^\d.]", "", m.group(0).replace(",", ".")))
+    amount = float((re.sub(r"[^\d.]", "", m.group(0).replace(",", "."))))
     full_amount = num2words(amount, to="currency", currency=currency, lang=lang)
 
     and_equivalents = {
@@ -855,3 +871,4 @@ if __name__ == "__main__":
     test_expand_numbers_multilingual()
     test_abbreviations_multilingual()
     test_symbols_multilingual()
+

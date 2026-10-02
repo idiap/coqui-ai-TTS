@@ -8,8 +8,43 @@ import torch.nn.functional as F
 from transformers import GenerationMixin, GPT2Config, GPT2PreTrainedModel, LogitsProcessorList
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
-# TODO: use torch.isin from Pytorch 2.4
-from transformers.pytorch_utils import isin_mps_friendly as isin
+try:
+    from transformers.pytorch_utils import isin_mps_friendly as isin
+except ImportError:
+    # Removed in transformers >= 5.1 — provide MPS-safe fallback
+    try:
+        from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_4
+    except ImportError:
+        import packaging.version
+        def is_torch_greater_or_equal_than_2_4():
+            return packaging.version.parse(
+                torch.__version__.split('+')[0]
+            ) >= packaging.version.parse("2.4.0")
+
+    def isin(elements: torch.Tensor, test_elements: torch.Tensor | int) -> torch.Tensor:
+        """Same as torch.isin without flags, but MPS-friendly.
+        Copied from transformers.pytorch_utils (removed in 5.1).
+        See https://github.com/pytorch/pytorch/issues/77764#issuecomment-2067838075
+        """
+        if elements.device.type == "mps" and not (
+            is_torch_greater_or_equal_than_2_4()
+            if callable(is_torch_greater_or_equal_than_2_4)
+            else is_torch_greater_or_equal_than_2_4
+        ):
+            test_elements = torch.tensor(test_elements)
+            if test_elements.ndim == 0:
+                test_elements = test_elements.unsqueeze(0)
+            return (
+                elements.tile(test_elements.shape[0], 1)
+                .eq(test_elements.unsqueeze(1))
+                .sum(dim=0)
+                .bool()
+                .squeeze()
+            )
+        else:
+            # Note: don't use named arguments in torch.isin,
+            # see https://github.com/pytorch/pytorch/issues/126045
+            return torch.isin(elements, test_elements)
 
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, TypicalLogitsWarper
 
