@@ -1,6 +1,13 @@
 import importlib.metadata
 
-from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.import_utils import (
+    PYTORCH_IMPORT_ERROR,
+    TORCHCODEC_IMPORT_ERROR,
+    is_torch_available,
+    is_torch_greater_or_equal,
+    is_torchaudio_available,
+    is_torchcodec_available,
+)
 
 __version__ = importlib.metadata.version("coqui-tts")
 
@@ -13,30 +20,9 @@ if "coqpit" in importlib.metadata.packages_distributions().get("coqpit", []):
     )
     raise ImportError(msg)
 
+if not is_torch_available() or not is_torchaudio_available():
+    raise ImportError(PYTORCH_IMPORT_ERROR)
 
-if is_pytorch_at_least_2_4():
-    import _codecs
-    from collections import defaultdict
-
-    import numpy as np
-    import torch
-
-    from TTS.config.shared_configs import BaseDatasetConfig
-    from TTS.tts.configs.xtts_config import XttsConfig
-    from TTS.tts.models.xtts import XttsArgs, XttsAudioConfig
-    from TTS.utils.radam import RAdam
-
-    torch.serialization.add_safe_globals([dict, defaultdict, RAdam])
-
-    # Bark
-    torch.serialization.add_safe_globals(
-        [
-            np.core.multiarray.scalar,
-            np.dtype,
-            np.dtypes.Float64DType,
-            _codecs.encode,  # TODO: safe by default from Pytorch 2.5
-        ]
-    )
-
-    # XTTS
-    torch.serialization.add_safe_globals([BaseDatasetConfig, XttsConfig, XttsAudioConfig, XttsArgs])
+if is_torch_greater_or_equal("2.9"):
+    if not is_torchcodec_available():
+        raise ImportError(TORCHCODEC_IMPORT_ERROR)

@@ -4,12 +4,11 @@ XTTS has important model changes that make cross-language voice cloning and mult
 There is no need for an excessive amount of training data that spans countless hours.
 
 ## Features
-- Voice cloning.
-- Cross-language voice cloning.
+- [Voice cloning](../cloning.md), including cross-language.
 - Multi-lingual speech generation.
 - 24khz sampling rate.
-- Streaming inference with < 200ms latency. (See [Streaming inference](#streaming-manually))
-- Fine-tuning support. (See [Training](#training))
+- [Streaming inference](#streaming-manually) with < 200ms latency.
+- [Fine-tuning](#training) support.
 
 ## Updates with v2
 - Improved voice cloning.
@@ -41,10 +40,10 @@ XTTS-v2 supports 17 languages:
 - Turkish (tr)
 
 ## License
-This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
+This model is licensed under [Coqui Public Model License](https://tts-hub.github.io/cpml).
 
 ## Contact
-Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [Github](https://github.com/idiap/coqui-ai-TTS/discussions).
+Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [GitHub](https://github.com/idiap/coqui-ai-TTS/discussions).
 
 ## Inference
 
@@ -57,11 +56,12 @@ You can check all supported languages with the following command:
     --list_language_idx
 ```
 
-You can check all Coqui available speakers with the following command:
+You can check all available Coqui speakers with the following command:
 
 ```console
- tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
-    --list_speaker_idx
+>>> tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
+        --list_speaker_idx
+['Claribel Dervla', 'Daisy Studious', 'Gracie Wise', 'Tammie Ema', 'Alison Dietlinde', 'Ana Florence', 'Annmarie Nele', 'Asya Anara', 'Brenda Stern', 'Gitta Nikolina', 'Henriette Usha', 'Sofia Hellen', 'Tammy Grit', 'Tanja Adelina', 'Vjollca Johnnie', 'Andrew Chipper', 'Badr Odhiambo', 'Dionisio Schuyler', 'Royston Min', 'Viktor Eka', 'Abrahan Mack', 'Adde Michal', 'Baldur Sanjin', 'Craig Gutsy', 'Damien Black', 'Gilberto Mathias', 'Ilkin Urbano', 'Kazuhiko Atallah', 'Ludvig Milivoj', 'Suad Qasim', 'Torcull Diarmuid', 'Viktor Menelaos', 'Zacharie Aimilios', 'Nova Hogarth', 'Maja Ruoho', 'Uta Obando', 'Lidiya Szekeres', 'Chandra MacFarland', 'Szofi Granger', 'Camilla Holmström', 'Lilya Stainthorpe', 'Zofija Kendrick', 'Narelle Moon', 'Barbora MacLean', 'Alexandra Hisakawa', 'Alma María', 'Rosemary Okafor', 'Ige Behringer', 'Filip Traverse', 'Damjan Chapman', 'Wulf Carlevaro', 'Aaron Dreschner', 'Kumar Dahl', 'Eugenio Mataracı', 'Ferran Simen', 'Xavier Hayasaka', 'Luis Moray', 'Marcos Rudaski']
 ```
 
 #### Coqui speakers
@@ -76,6 +76,11 @@ You can do inference using one of the available speakers using the following com
 ```
 
 #### Clone a voice
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
+
 You can clone a speaker voice using a single or multiple references:
 
 ##### Single reference
@@ -192,12 +197,15 @@ pip install deepspeed
 - `gpt_cond_latent`: The latent vector you get with get_conditioning_latents. (You can cache for faster inference with same speaker)
 - `speaker_embedding`: The speaker embedding you get with get_conditioning_latents. (You can cache for faster inference with same speaker)
 - `temperature`: The softmax temperature of the autoregressive model. Defaults to 0.65.
-- `length_penalty`: A length penalty applied to the autoregressive decoder. Higher settings causes the model to produce more terse outputs. Defaults to 1.0.
+- `length_penalty`: Exponential penalty to the length that is used with beam-based generation. It is applied as an exponent to
+   the sequence length, which in turn is used to divide the score of the sequence. Since the score is the log
+   likelihood of the sequence (i.e. negative), `length_penalty` > 0.0 promotes longer sequences, while
+   `length_penalty` < 0.0 encourages shorter sequences. Defaults to 1.0.
 - `repetition_penalty`: A penalty that prevents the autoregressive decoder from repeating itself during decoding. Can be used to reduce the incidence of long silences or "uhhhhhhs", etc. Defaults to 2.0.
 - `top_k`: Lower values mean the decoder produces more "likely" (aka boring) outputs. Defaults to 50.
 - `top_p`: Lower values mean the decoder produces more "likely" (aka boring) outputs. Defaults to 0.8.
 - `speed`: The speed rate of the generated audio. Defaults to 1.0. (can produce artifacts if far from 1.0)
-- `enable_text_splitting`: Whether to split the text into sentences and generate audio for each sentence. It allows you to have infinite input length but might loose important context between sentences. Defaults to True.
+- `enable_text_splitting`: Whether to split the text into sentences and generate audio for each sentence. It allows you to have infinite input length but might loose important context between sentences. Defaults to False.
 
 
 #### Inference
@@ -213,7 +221,7 @@ from TTS.tts.models.xtts import Xtts
 print("Loading model...")
 config = XttsConfig()
 config.load_json("/path/to/xtts/config.json")
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_dir="/path/to/xtts/", use_deepspeed=True)
 model.cuda()
 
@@ -254,7 +262,7 @@ from TTS.tts.models.xtts import Xtts
 print("Loading model...")
 config = XttsConfig()
 config.load_json("/path/to/xtts/config.json")
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_dir="/path/to/xtts/", use_deepspeed=True)
 model.cuda()
 
@@ -295,7 +303,7 @@ The user can run this gradio demo locally or remotely using a Colab Notebook.
 #### Run demo on Colab
 To make the `XTTS_v2` fine-tuning more accessible for users that do not have good GPUs available we did a Google Colab Notebook.
 
-The Colab Notebook is available [here](https://colab.research.google.com/drive/1GiI4_X724M8q2W-zZ-jXo7cWTV7RfaH-?usp=sharing).
+The Colab Notebook is available [here](https://colab.research.google.com/github/idiap/coqui-ai-TTS/blob/dev/TTS/demos/xtts_ft_demo/XTTS_finetune_colab.ipynb).
 
 To learn how to use this Colab Notebook please check the [XTTS fine-tuning video](https://www.youtube.com/watch?v=8tpDiiouGxc).
 
@@ -311,9 +319,11 @@ If you are not able to acess the video you need to follow the steps:
 #### Run demo locally
 
 To run the demo locally you need to do the following steps:
-1. Install   🐸 TTS following the instructions available [here](https://coqui-tts.readthedocs.io/en/latest/installation.html).
-2. Install the Gradio demo requirements with the command `python3 -m pip install -r TTS/demos/xtts_ft_demo/requirements.txt`
-3. Run the Gradio demo using the command `python3 TTS/demos/xtts_ft_demo/xtts_demo.py`
+1. Install   🐸 TTS following the instructions available
+[here](https://coqui-tts.readthedocs.io/en/latest/installation.html), e.g. `pip
+install coqui-tts`
+2. Install the Gradio demo requirements with the command `pip install gradio faster_whisper`
+3. Run the Gradio demo using the command `python3 -m TTS.demos.xtts_ft_demo.xtts_demo`
 4. Follow the steps presented in the [tutorial video](https://www.youtube.com/watch?v=8tpDiiouGxc&feature=youtu.be) to be able to fine-tune and test the fine-tuned model.
 
 
@@ -355,7 +365,7 @@ OUTPUT_WAV_PATH = "xtts-ft.wav"
 print("Loading model...")
 config = XttsConfig()
 config.load_json(CONFIG_PATH)
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_path=XTTS_CHECKPOINT, vocab_path=TOKENIZER_PATH, use_deepspeed=False)
 model.cuda()
 
@@ -393,7 +403,7 @@ torchaudio.save(OUTPUT_WAV_PATH, torch.tensor(out["wav"]).unsqueeze(0), 24000)
 
 ## XttsArgs
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.xtts.XttsArgs
+.. autoclass:: TTS.tts.configs.xtts_config.XttsArgs
     :members:
 ```
 

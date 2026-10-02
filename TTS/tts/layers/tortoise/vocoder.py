@@ -1,7 +1,3 @@
-from collections.abc import Callable
-from dataclasses import dataclass
-from enum import Enum
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -372,22 +368,6 @@ class UnivNetGenerator(nn.Module):
         audio = audio[:, :, : -(self.hop_length * 10)]
         audio = audio.clamp(min=-1, max=1)
         return audio
-
-
-@dataclass
-class VocType:
-    constructor: Callable[[], nn.Module]
-    model_path: str
-    subkey: str | None = None
-
-    def optionally_index(self, model_dict):
-        if self.subkey is not None:
-            return model_dict[self.subkey]
-        return model_dict
-
-
-class VocConf(Enum):
-    Univnet = VocType(UnivNetGenerator, "vocoder.pth", "model_g")
 
 
 if __name__ == "__main__":

@@ -1,13 +1,11 @@
-import os
+from importlib.resources import files
 
 import torch
 from tokenizers import Tokenizer
 
 from TTS.tts.utils.text.cleaners import english_cleaners
 
-DEFAULT_VOCAB_FILE = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "../../utils/assets/tortoise/tokenizer.json"
-)
+DEFAULT_VOCAB_FILE = str(files("TTS").joinpath("tts/utils/assets/tortoise/tokenizer.json"))
 
 
 class VoiceBpeTokenizer:

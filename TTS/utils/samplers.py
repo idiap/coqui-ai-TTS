@@ -14,7 +14,7 @@ class SubsetSampler(Sampler):
     """
 
     def __init__(self, indices):
-        super().__init__(indices)
+        super().__init__()
         self.indices = indices
 
     def __iter__(self):
@@ -48,7 +48,7 @@ class PerfectBatchSampler(Sampler):
         drop_last=False,
         label_key="class_name",
     ):
-        super().__init__(dataset_items)
+        super().__init__()
         assert batch_size % (num_classes_in_batch * num_gpus) == 0, (
             "Batch size must be divisible by number of classes times the number of data parallel devices (if enabled)."
         )
@@ -136,7 +136,7 @@ class SortedSampler(Sampler):
     """
 
     def __init__(self, data, sort_key: Callable = identity):
-        super().__init__(data)
+        super().__init__()
         self.data = data
         self.sort_key = sort_key
         zip_ = [(i, self.sort_key(row)) for i, row in enumerate(self.data)]

@@ -54,7 +54,7 @@ def wav_to_spec(y: torch.Tensor, n_fft: int, hop_length: int, win_length: int, *
             n_fft,
             hop_length=hop_length,
             win_length=win_length,
-            window=hann_window[wnsize_dtype_device],
+            window=hann_window[wnsize_dtype_device].clone(),
             center=center,
             pad_mode="reflect",
             normalized=False,

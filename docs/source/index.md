@@ -34,21 +34,6 @@ datasets/index
 
 ```{toctree}
 :maxdepth: 1
-:caption: Main Classes
-:hidden:
-
-configuration
-main_classes/trainer_api
-main_classes/audio_processor
-main_classes/model_api
-main_classes/dataset
-main_classes/gan
-main_classes/speaker_manager
-```
-
-
-```{toctree}
-:maxdepth: 1
 :caption: TTS Models
 :hidden:
 
@@ -60,4 +45,21 @@ models/overflow.md
 models/tortoise.md
 models/bark.md
 models/xtts.md
+```
+
+
+
+```{toctree}
+:maxdepth: 1
+:caption: Main Classes
+:hidden:
+
+main_classes/audio_processor
+configuration
+main_classes/dataset
+main_classes/gan
+main_classes/model_api
+main_classes/speaker_manager
+main_classes/synthesizer
+main_classes/trainer_api
 ```

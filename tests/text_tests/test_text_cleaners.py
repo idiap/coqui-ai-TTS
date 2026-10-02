@@ -1,11 +1,17 @@
-#!/usr/bin/env python3
+import pytest
 
+from TTS.tts.utils.text.characters import Graphemes
 from TTS.tts.utils.text.cleaners import (
     english_cleaners,
+    italian_cleaners,
+    multilingual_cleaners,
     multilingual_phoneme_cleaners,
     normalize_unicode,
     phoneme_cleaners,
+    replace_symbols,
+    romanize,
 )
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
 
 
 def test_time() -> None:
@@ -53,3 +59,78 @@ def test_normalize_unicode() -> None:
     ]
     for arg, expect in test_cases:
         assert normalize_unicode(arg) == expect
+
+
+@pytest.mark.parametrize(
+    ("text", "language", "expected"),
+    [
+        ("Игорь Стравинский", None, "Igor Stravinsky"),
+        ("Игорь Стравинский", "ukr", "Yhor Stravynsky"),
+        ("안녕하세요.", None, "annyeonghaseyo."),
+    ],
+)
+def test_romanize(text, language, expected) -> None:
+    assert romanize(text, language) == expected
+
+
+def test_italian_cleaners_numbers_and_abbreviations() -> None:
+    text = "Alle 09:05 il Sig. Bianchi ha pagato €1.234,50 per 50%"
+    expected = "alle 9 e cinque il signor bianchi ha pagato 1234 virgola 50 euro per 50 percento"
+    assert italian_cleaners(text) == expected
+
+
+def test_italian_cleaners_temperature_and_time() -> None:
+    text = "Temperatura: 3.5\N{DEGREE SIGN}C alle 14.00"
+    expected = "temperatura, 3 virgola 5 gradi celsius alle 14"
+    assert italian_cleaners(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "lang", "expected"),
+    [
+        # Semicolon is replaced with comma for most languages
+        ("Hello; world", "en", "Hello, world"),
+        ("Bonjour; monde", "fr", "Bonjour, monde"),
+        # Greek semicolon (;) functions as question mark, so it's preserved
+        ("Πού είναι;", "el", "Πού είναι;"),
+        # Hyphen handling varies by language
+        ("well-known", "en", "well known"),
+        ("well-known", "ca", "wellknown"),
+        # Ampersand expansion
+        ("Tom & Jerry", "en", "Tom  and  Jerry"),
+        ("Tom & Jerry", "fr", "Tom  et  Jerry"),
+        ("Tom & Jerry", "it", "Tom  e  Jerry"),
+        ("Tom & Jerry", "pt", "Tom  e  Jerry"),
+        ("Tom & Jerry", "ca", "Tom  i  Jerry"),
+    ],
+)
+def test_replace_symbols(text: str, lang: str, expected: str) -> None:
+    assert replace_symbols(text, lang) == expected
+
+
+@pytest.fixture(scope="module")
+def tokenizer_with_cleaner():
+    """TTSTokenizer with multilingual_phoneme_cleaners for integrated testing."""
+    return TTSTokenizer(
+        use_phonemes=False,
+        text_cleaner=multilingual_cleaners,
+        characters=Graphemes(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "lang", "expected"),
+    [
+        # Greek: semicolon preserved (it functions as question mark)
+        ("Hello; world", "el", "hello; world"),
+        # English: semicolon converted to comma
+        ("Hello; world", "en", "hello, world"),
+    ],
+)
+def test_tokenizer_language_dependent_cleaning(
+    tokenizer_with_cleaner: TTSTokenizer, text: str, lang: str, expected: str
+) -> None:
+    """Test that language-dependent cleaning works through the tokenizer pipeline."""
+    token_ids = tokenizer_with_cleaner.text_to_ids(text, language=lang)
+    result = tokenizer_with_cleaner.ids_to_text(token_ids)
+    assert result == expected

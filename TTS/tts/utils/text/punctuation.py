@@ -1,12 +1,10 @@
-import collections
 import re
 from enum import Enum
+from typing import NamedTuple
 
 import six
 
 _DEF_PUNCS = ';:,.!?¡¿—…"«»“”'
-
-_PUNC_IDX = collections.namedtuple("_punc_index", ["punc", "position"])
 
 
 class PuncPosition(Enum):
@@ -15,6 +13,11 @@ class PuncPosition(Enum):
     BEGIN = 0
     END = 1
     MIDDLE = 2
+
+
+class _PUNC_IDX(NamedTuple):
+    punc: str
+    position: PuncPosition
 
 
 class Punctuation:
@@ -39,26 +42,26 @@ class Punctuation:
         'This is. example !'
     """
 
-    def __init__(self, puncs: str = _DEF_PUNCS):
+    def __init__(self, puncs: str = _DEF_PUNCS) -> None:
         self.puncs = puncs
 
     @staticmethod
-    def default_puncs():
+    def default_puncs() -> str:
         """Return default set of punctuations."""
         return _DEF_PUNCS
 
     @property
-    def puncs(self):
+    def puncs(self) -> str:
         return self._puncs
 
     @puncs.setter
-    def puncs(self, value):
+    def puncs(self, value: str) -> None:
         if not isinstance(value, six.string_types):
             raise ValueError("[!] Punctuations must be of type str.")
         self._puncs = "".join(list(dict.fromkeys(list(value))))  # remove duplicates without changing the oreder
         self.puncs_regular_exp = re.compile(rf"(\s*[{re.escape(self._puncs)}]+\s*)+")
 
-    def strip(self, text):
+    def strip(self, text: str) -> str:
         """Remove all the punctuations by replacing with `space`.
 
         Args:
@@ -70,7 +73,7 @@ class Punctuation:
         """
         return re.sub(self.puncs_regular_exp, " ", text).rstrip().lstrip()
 
-    def strip_to_restore(self, text):
+    def strip_to_restore(self, text: str) -> tuple[list[str], list[_PUNC_IDX]]:
         """Remove punctuations from text to restore them later.
 
         Args:
@@ -81,10 +84,10 @@ class Punctuation:
             "This is. example !" -> [["This is", "example"], [".", "!"]]
 
         """
-        text, puncs = self._strip_to_restore(text)
-        return text, puncs
+        stripped, puncs = self._strip_to_restore(text)
+        return stripped, puncs
 
-    def _strip_to_restore(self, text):
+    def _strip_to_restore(self, text: str) -> tuple[list[str], list[_PUNC_IDX]]:
         """Auxiliary method for Punctuation.preserve()"""
         matches = list(re.finditer(self.puncs_regular_exp, text))
         if not matches:
@@ -117,7 +120,7 @@ class Punctuation:
         return splitted_text, puncs
 
     @classmethod
-    def restore(cls, text, puncs):
+    def restore(cls, text: list[str], puncs: list[_PUNC_IDX]) -> list[str]:
         """Restore punctuation in a text.
 
         Args:
@@ -132,7 +135,7 @@ class Punctuation:
         return cls._restore(text, puncs)
 
     @classmethod
-    def _restore(cls, text, puncs):  # pylint: disable=too-many-return-statements
+    def _restore(cls, text: list[str], puncs: list[_PUNC_IDX]) -> list[str]:
         """Auxiliary method for Punctuation.restore()"""
         if not puncs:
             return text

@@ -1,3 +1,5 @@
+from typing import Any
+
 from TTS.tts.utils.text.korean.phonemizer import korean_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -25,11 +27,11 @@ class KO_KR_Phonemizer(BasePhonemizer):
 
     language = "ko-kr"
 
-    def __init__(self, punctuations=_DEF_KO_PUNCS, keep_puncs=True, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, punctuations: str = _DEF_KO_PUNCS, *, keep_puncs: bool = True, **kwargs: Any) -> None:
         super().__init__(self.language, punctuations=punctuations, keep_puncs=keep_puncs)
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "ko_kr_phonemizer"
 
     def _phonemize(self, text: str, separator: str = "", character: str = "hangeul") -> str:
@@ -38,17 +40,18 @@ class KO_KR_Phonemizer(BasePhonemizer):
             return separator.join(ph)
         return ph
 
-    def phonemize(self, text: str, separator: str = "", character: str = "hangeul", language=None) -> str:
+    def phonemize(self, text: str, separator: str = "", character: str = "hangeul", language: str | None = None) -> str:
         return self._phonemize(text, separator, character)
 
     @staticmethod
-    def supported_languages() -> dict:
+    def supported_languages() -> dict[str, str]:
         return {"ko-kr": "hangeul(korean)"}
 
     def version(self) -> str:
         return "0.0.2"
 
-    def is_available(self) -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         return True
 
 

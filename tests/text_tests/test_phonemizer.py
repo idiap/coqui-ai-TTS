@@ -1,10 +1,14 @@
 import unittest
 
+import pytest
 from packaging.version import Version
 
-from TTS.tts.utils.text.phonemizers import ESpeak, Gruut, JA_JP_Phonemizer, ZH_CN_Phonemizer
 from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
+from TTS.tts.utils.text.phonemizers.espeak_wrapper import ESpeak, _is_tool
+from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
+from TTS.tts.utils.text.phonemizers.ja_jp_phonemizer import JA_JP_Phonemizer
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
+from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer
 
 EXAMPLE_TEXTs = [
     "Recent research at Harvard has shown meditating",
@@ -38,6 +42,7 @@ EXPECTED_ESPEAKNG_PHONEMES = [
 ]
 
 
+@pytest.mark.skipif(not _is_tool("espeak"), reason="espeak not installed")
 class TestEspeakPhonemizer(unittest.TestCase):
     def setUp(self):
         self.phonemizer = ESpeak(language="en-us", backend="espeak")
@@ -218,11 +223,15 @@ class TestJA_JPPhonemizer(unittest.TestCase):
 class TestZH_CN_Phonemizer(unittest.TestCase):
     def setUp(self):
         self.phonemizer = ZH_CN_Phonemizer()
-        self._TEST_CASES = ""
+        self._TEST_CASES = [
+            ("我来到北京清华大学", "w|o|3| |l|a|i|2|d|a|ʌ|4| |b|ɛ|i|3|d|ʑ|ɨ|ŋ|1| |t|ɕ|ɨ|ŋ|1|x|u|a|2| |d|a|4|ɕ|y|e|2"),
+            ("乒乓球拍卖完了", "p|ɨ|ŋ|1|p|ɑ|ŋ|1|t|ɕ|i|o|2| |p|a|i|1|m|a|i|4| |w|a|n|2|l|ø|5"),
+            ("中国科学技术大学", "d|ʒ|o|ŋ|1|ɡ|u|o|2| |k|ø|1|ɕ|y|e|2| |d|ʑ|i|4|ʂ|u|4| |d|a|4|ɕ|y|e|2"),
+        ]
 
     def test_phonemize(self):
-        # TODO: implement ZH phonemizer tests
-        pass
+        for text, phone in self._TEST_CASES:
+            self.assertEqual(self.phonemizer.phonemize(text, separator="|"), phone)
 
     def test_name(self):
         self.assertEqual(self.phonemizer.name(), "zh_cn_phonemizer")
@@ -288,11 +297,8 @@ class TestMultiPhonemizer(unittest.TestCase):
             MultiPhonemizer({"tr": "espeak", "fr": "xx"})
 
     def test_sub_phonemizers(self):
-        for lang in self.phonemizer.lang_to_phonemizer_name.keys():
+        for lang in self.phonemizer.lang_to_phonemizer.keys():
             self.assertEqual(lang, self.phonemizer.lang_to_phonemizer[lang].language)
-            self.assertEqual(
-                self.phonemizer.lang_to_phonemizer_name[lang], self.phonemizer.lang_to_phonemizer[lang].name()
-            )
 
     def test_name(self):
         self.assertEqual(self.phonemizer.name(), "multi-phonemizer")

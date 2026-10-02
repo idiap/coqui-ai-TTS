@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass
+from typing import Literal
 
 from coqpit import Coqpit, check_argument
 from trainer import TrainerConfig
@@ -10,104 +11,105 @@ class BaseAudioConfig(Coqpit):
     ```TTS.utils.audio.AudioProcessor.```
 
     Args:
-        fft_size (int):
-            Number of STFT frequency levels aka.size of the linear spectogram frame. Defaults to 1024.
+        fft_size:
+            Number of STFT frequency levels aka.size of the linear spectrogram frame. Defaults to 1024.
 
-        win_length (int):
+        win_length:
             Each frame of audio is windowed by window of length ```win_length``` and then padded with zeros to match
             ```fft_size```. Defaults to 1024.
 
-        hop_length (int):
+        hop_length:
             Number of audio samples between adjacent STFT columns. Defaults to 1024.
 
-        frame_shift_ms (int):
+        frame_shift_ms:
             Set ```hop_length``` based on milliseconds and sampling rate.
 
-        frame_length_ms (int):
+        frame_length_ms:
             Set ```win_length``` based on milliseconds and sampling rate.
 
-        stft_pad_mode (str):
+        stft_pad_mode:
             Padding method used in STFT. 'reflect' or 'center'. Defaults to 'reflect'.
 
-        sample_rate (int):
+        sample_rate:
             Audio sampling rate. Defaults to 22050.
 
-        resample (bool):
+        resample:
             Enable / Disable resampling audio to ```sample_rate```. Defaults to ```False```.
 
-        preemphasis (float):
-            Preemphasis coefficient. Defaults to 0.0.
+        preemphasis:
+            Preemphasis coefficient. Defaults to 0.0 (disabled).
 
-        ref_level_db (int): 20
-            Reference Db level to rebase the audio signal and ignore the level below. 20Db is assumed the sound of air.
+        ref_level_db:
+            Reference DB level to rebase the audio signal and ignore the level below. 20Db is assumed the sound of air.
             Defaults to 20.
 
-        do_sound_norm (bool):
+        do_sound_norm:
             Enable / Disable sound normalization to reconcile the volume differences among samples. Defaults to False.
 
-        log_func (str):
+        log_func:
             Numpy log function used for amplitude to DB conversion. Defaults to 'np.log10'.
 
-        do_trim_silence (bool):
+        do_trim_silence:
             Enable / Disable trimming silences at the beginning and the end of the audio clip. Defaults to ```True```.
 
-        do_amp_to_db_linear (bool, optional):
+        do_amp_to_db_linear:
             enable/disable amplitude to dB conversion of linear spectrograms. Defaults to True.
 
-        do_amp_to_db_mel (bool, optional):
+        do_amp_to_db_mel:
             enable/disable amplitude to dB conversion of mel spectrograms. Defaults to True.
 
-        pitch_fmax (float, optional):
+        pitch_fmax:
             Maximum frequency of the F0 frames. Defaults to ```640```.
 
-        pitch_fmin (float, optional):
+        pitch_fmin:
             Minimum frequency of the F0 frames. Defaults to ```1```.
 
-        trim_db (int):
+        trim_db:
             Silence threshold used for silence trimming. Defaults to 45.
 
-        do_rms_norm (bool, optional):
+        do_rms_norm:
             enable/disable RMS volume normalization when loading an audio file. Defaults to False.
 
-        db_level (int, optional):
+        db_level:
             dB level used for rms normalization. The range is -99 to 0. Defaults to None.
 
-        power (float):
-            Exponent used for expanding spectrogra levels before running Griffin Lim. It helps to reduce the
+        power:
+            Exponent used for expanding spectrogram levels before running Griffin-Lim. It helps to reduce the
             artifacts in the synthesized voice. Defaults to 1.5.
 
-        griffin_lim_iters (int):
-            Number of Griffing Lim iterations. Defaults to 60.
+        griffin_lim_iters:
+            Number of Griffin-Lim iterations. Defaults to 60.
 
-        num_mels (int):
+        num_mels:
             Number of mel-basis frames that defines the frame lengths of each mel-spectrogram frame. Defaults to 80.
 
-        mel_fmin (float): Min frequency level used for the mel-basis filters. ~50 for male and ~95 for female voices.
+        mel_fmin:
+            Min frequency level used for the mel-basis filters. ~50 for male and ~95 for female voices.
             It needs to be adjusted for a dataset. Defaults to 0.
 
-        mel_fmax (float):
+        mel_fmax:
             Max frequency level used for the mel-basis filters. It needs to be adjusted for a dataset.
 
-        spec_gain (int):
+        spec_gain:
             Gain applied when converting amplitude to DB. Defaults to 20.
 
-        signal_norm (bool):
+        signal_norm:
             enable/disable signal normalization. Defaults to True.
 
-        min_level_db (int):
-            minimum db threshold for the computed melspectrograms. Defaults to -100.
+        min_level_db:
+            Minimum DB threshold for the computed melspectrograms. Defaults to -100.
 
-        symmetric_norm (bool):
+        symmetric_norm:
             enable/disable symmetric normalization. If set True normalization is performed in the range [-k, k] else
             [0, k], Defaults to True.
 
-        max_norm (float):
+        max_norm:
             ```k``` defining the normalization range. Defaults to 4.0.
 
-        clip_norm (bool):
-            enable/disable clipping the our of range values in the normalized audio signal. Defaults to True.
+        clip_norm:
+            enable/disable clipping the out-of-range values in the normalized audio signal. Defaults to True.
 
-        stats_path (str):
+        stats_path
             Path to the computed stats file. Defaults to None.
     """
 
@@ -124,7 +126,7 @@ class BaseAudioConfig(Coqpit):
     preemphasis: float = 0.0
     ref_level_db: int = 20
     do_sound_norm: bool = False
-    log_func: str = "np.log10"
+    log_func: Literal["np.log", "np.log10"] = "np.log10"
     # silence trimming
     do_trim_silence: bool = True
     trim_db: int = 45
@@ -150,7 +152,7 @@ class BaseAudioConfig(Coqpit):
     symmetric_norm: bool = True
     max_norm: float = 4.0
     clip_norm: bool = True
-    stats_path: str = None
+    stats_path: str | None = None
 
     def check_values(
         self,
@@ -222,11 +224,11 @@ class BaseDatasetConfig(Coqpit):
             train the duration predictor.
     """
 
-    formatter: str = ""
-    dataset_name: str = ""
-    path: str = ""
+    formatter: str | None = ""
+    dataset_name: str | None = ""
+    path: str | None = ""
     meta_file_train: str = ""
-    ignored_speakers: list[str] = None
+    ignored_speakers: list[str] | None = None
     language: str = ""
     phonemizer: str = ""
     meta_file_val: str = ""
@@ -265,3 +267,8 @@ class BaseTrainingConfig(TrainerConfig):
     num_loader_workers: int = 0
     num_eval_loader_workers: int = 0
     use_noise_augment: bool = False
+
+
+@dataclass
+class ModelArgs(Coqpit):
+    """Parameters necessary for model instantiation."""

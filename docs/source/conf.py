@@ -50,6 +50,7 @@ extensions = [
     "myst_parser",
     "sphinx_copybutton",
     "sphinx_inline_tabs",
+    "click_extra.sphinx",
 ]
 
 suppress_warnings = ["autosectionlabel.*"]
@@ -65,6 +66,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "TODO/*"]
 source_suffix = [".rst", ".md"]
 
 myst_enable_extensions = [
+    "colon_fence",
     "linkify",
 ]
 
@@ -84,7 +86,7 @@ language = "en"
 autodoc_inherit_docstrings = False
 
 # Disable displaying type annotations, these can be very verbose
-autodoc_typehints = "none"
+autodoc_typehints = "description"
 
 # Enable overriding of function signatures in the first line of the docstring.
 autodoc_docstring_signature = True

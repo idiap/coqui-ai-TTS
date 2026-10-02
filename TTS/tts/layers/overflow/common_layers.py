@@ -286,7 +286,7 @@ class OverflowUtils:
         r"""
         Inverse of the sigmoid function
         """
-        if not torch.is_tensor(x):
+        if not isinstance(x, torch.Tensor):
             x = torch.tensor(x)
         return OverflowUtils.log_clamped(x / (1.0 - x))
 
@@ -295,7 +295,7 @@ class OverflowUtils:
         r"""
         Inverse of the softplus function
         """
-        if not torch.is_tensor(x):
+        if not isinstance(x, torch.Tensor):
             x = torch.tensor(x)
         return OverflowUtils.log_clamped(torch.exp(x) - 1.0)
 

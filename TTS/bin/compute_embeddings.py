@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.managers import save_file
 from TTS.tts.utils.speakers import SpeakerManager
@@ -94,19 +95,19 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         help="Path to the evaluation meta file. If not set, dataset formatter uses the default metafile if it is defined in the formatter. You either need to provide this or `config_dataset_path`",
         default=None,
     )
-    return parser.parse_args()
+    return parser.parse_args(arg_list)
 
 
 def compute_embeddings(
     model_path,
     config_path,
     output_path,
-    old_speakers_file=None,
+    old_speakers_file: str | None = None,
     old_append=False,
     config_dataset_path=None,
-    formatter_name=None,
-    dataset_name=None,
-    dataset_path=None,
+    formatter_name: str | None = None,
+    dataset_name: str | None = None,
+    dataset_path: str | None = None,
     meta_file_train=None,
     meta_file_val=None,
     disable_cuda=False,
@@ -116,7 +117,7 @@ def compute_embeddings(
 
     if config_dataset_path is not None:
         c_dataset = load_config(config_dataset_path)
-        meta_data_train, meta_data_eval = load_tts_samples(c_dataset.datasets, eval_split=not no_eval)
+        meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=not no_eval)
     else:
         c_dataset = BaseDatasetConfig()
         c_dataset.formatter = formatter_name
@@ -126,13 +127,10 @@ def compute_embeddings(
             c_dataset.meta_file_train = meta_file_train
         if meta_file_val is not None:
             c_dataset.meta_file_val = meta_file_val
-        meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=not no_eval)
+        config = BaseTTSConfig(datasets=[c_dataset])
+        meta_data_train, meta_data_eval = load_tts_samples(config, eval_split=not no_eval)
 
-    if meta_data_eval is None:
-        samples = meta_data_train
-    else:
-        samples = meta_data_train + meta_data_eval
-
+    samples = meta_data_train + meta_data_eval
     encoder_manager = SpeakerManager(
         encoder_model_path=model_path,
         encoder_config_path=config_path,
@@ -203,6 +201,7 @@ def main(arg_list: list[str] | None = None):
         disable_cuda=args.disable_cuda,
         no_eval=args.no_eval,
     )
+    sys.exit(0)
 
 
 if __name__ == "__main__":

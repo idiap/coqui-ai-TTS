@@ -3,24 +3,21 @@ import collections
 import logging
 import os
 import random
+from math import floor
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchaudio
 import tqdm
 from torch.utils.data import Dataset
 
 from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
+from TTS.utils.import_utils import is_torch_greater_or_equal
 
 logger = logging.getLogger(__name__)
-
-# to prevent too many open files error as suggested here
-# https://github.com/pytorch/pytorch/issues/11201#issuecomment-421146936
-torch.multiprocessing.set_sharing_strategy("file_system")
 
 
 def _parse_sample(item):
@@ -47,6 +44,20 @@ def string2filename(string: str) -> str:
     return base64.urlsafe_b64encode(string.encode("utf-8")).decode("utf-8", "ignore")
 
 
+def _get_audio_size_torchcodec(audiopath: str | os.PathLike[Any]) -> int:
+    try:
+        from torchcodec.decoders import AudioDecoder
+    except ImportError as e:
+        msg = "torchcodec not installed (available in the `codec` extra)"
+        raise ImportError(msg) from e
+    except RuntimeError as e:
+        msg = "Error while importing torchcodec, see the stacktrace for details."
+        raise ImportError(msg) from e
+
+    metadata = AudioDecoder(audiopath).metadata
+    return floor(metadata.duration_seconds_from_header * metadata.sample_rate)
+
+
 def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
     """Return the number of samples in the audio file."""
     if not isinstance(audiopath, str):
@@ -57,7 +68,12 @@ def get_audio_size(audiopath: str | os.PathLike[Any]) -> int:
         raise RuntimeError(msg)
 
     try:
-        return torchaudio.info(audiopath).num_frames
+        if is_torch_greater_or_equal("2.9"):
+            return _get_audio_size_torchcodec(audiopath)
+        else:
+            import torchaudio
+
+            return torchaudio.info(audiopath).num_frames
     except RuntimeError as e:
         msg = f"Failed to decode {audiopath}"
         raise RuntimeError(msg) from e
@@ -290,11 +306,11 @@ class TTSDataset(Dataset):
     def get_attn_mask(attn_file):
         return np.load(attn_file)
 
-    def get_token_ids(self, idx, text):
+    def get_token_ids(self, idx, text, language):
         if self.tokenizer.use_phonemes:
             token_ids = self.get_phonemes(idx, text)["token_ids"]
         else:
-            token_ids = self.tokenizer.text_to_ids(text)
+            token_ids = self.tokenizer.text_to_ids(text, language)
         return np.array(token_ids, dtype=np.int32)
 
     def load_data(self, idx) -> dict[str, Any]:
@@ -309,7 +325,7 @@ class TTSDataset(Dataset):
             wav = noise_augment_audio(wav)
 
         # get token ids
-        token_ids = self.get_token_ids(idx, item["text"])
+        token_ids = self.get_token_ids(idx, item["text"], item["language"])
 
         # get pre-computed attention maps
         attn = None

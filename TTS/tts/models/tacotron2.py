@@ -1,15 +1,16 @@
+from typing import Any
+
 import torch
+from coqpit import Coqpit
 from torch import nn
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
+from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.layers.tacotron.capacitron_layers import CapacitronVAE
 from TTS.tts.layers.tacotron.gst_layers import GST
 from TTS.tts.layers.tacotron.tacotron2 import Decoder, Encoder, Postnet
 from TTS.tts.models.base_tacotron import BaseTacotron
 from TTS.tts.utils.measures import alignment_diagonal_score
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.capacitron_optimizer import CapacitronOptimizer
 
 
@@ -34,29 +35,29 @@ class Tacotron2(BaseTacotron):
     Args:
         config (TacotronConfig):
             Configuration for the Tacotron2 model.
-        speaker_manager (SpeakerManager):
-            Speaker manager for multi-speaker training. Uuse only for multi-speaker training. Defaults to None.
     """
+
+    config: Tacotron2Config
 
     def __init__(
         self,
-        config: "Tacotron2Config",
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        config: Coqpit,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
-        self.decoder_output_dim = config.out_channels
+        self.decoder_output_dim = self.config.out_channels
 
         # pass all config fields to `self`
         # for fewer code change
-        for key in config:
-            setattr(self, key, config[key])
+        for key in self.config:
+            setattr(self, key, self.config[key])
 
         # init multi-speaker layers
         if self.use_speaker_embedding or self.use_d_vector_file:
-            self.init_multispeaker(config)
+            self.init_multispeaker()
             self.decoder_in_features += self.embedded_speaker_dim  # add speaker embedding dim
 
         if self.use_gst:
@@ -149,7 +150,7 @@ class Tacotron2(BaseTacotron):
         return mel_outputs, mel_outputs_postnet, alignments
 
     def forward(  # pylint: disable=dangerous-default-value
-        self, text, text_lengths, mel_specs=None, mel_lengths=None, aux_input={"speaker_ids": None, "d_vectors": None}
+        self, text, text_lengths, mel_specs=None, mel_lengths=None, aux_input: dict[str, Any] | None = None
     ):
         """Forward pass for training with Teacher Forcing.
 
@@ -160,6 +161,8 @@ class Tacotron2(BaseTacotron):
             mel_lengths: :math:`[B]`
             aux_input: 'speaker_ids': :math:`[B, 1]` and  'd_vectors': :math:`[B, C]`
         """
+        if aux_input is None:
+            aux_input = {"speaker_ids": None, "d_vectors": None}
         aux_input = self._format_aux_input(aux_input)
         outputs = {"alignments_backward": None, "decoder_outputs_backward": None}
         # compute mask for padding
@@ -173,13 +176,10 @@ class Tacotron2(BaseTacotron):
             # B x gst_dim
             encoder_outputs = self.compute_gst(encoder_outputs, mel_specs)
 
-        if self.use_speaker_embedding or self.use_d_vector_file:
-            if not self.use_d_vector_file:
-                # B x 1 x speaker_embed_dim
-                embedded_speakers = self.speaker_embedding(aux_input["speaker_ids"])[:, None]
-            else:
-                # B x 1 x speaker_embed_dim
-                embedded_speakers = torch.unsqueeze(aux_input["d_vectors"], 1)
+        embedded_speakers = self._get_speaker_conditioning(
+            aux_input, "speaker_embedding", normalize_d_vector=False, normalize_embedding=False, output_shape="BTC"
+        )
+        if embedded_speakers is not None:
             encoder_outputs = self._concat_speaker_embedding(encoder_outputs, embedded_speakers)
 
         # capacitron
@@ -274,16 +274,13 @@ class Tacotron2(BaseTacotron):
             )
 
         if self.num_speakers > 1:
-            if not self.use_d_vector_file:
-                embedded_speakers = self.speaker_embedding(aux_input["speaker_ids"])[None]
-                # reshape embedded_speakers
-                if embedded_speakers.ndim == 1:
-                    embedded_speakers = embedded_speakers[None, None, :]
-                elif embedded_speakers.ndim == 2:
-                    embedded_speakers = embedded_speakers[None, :]
-            else:
-                embedded_speakers = aux_input["d_vectors"]
-
+            embedded_speakers = self._get_speaker_conditioning(
+                aux_input,
+                "speaker_embedding",
+                normalize_d_vector=False,
+                normalize_embedding=False,
+                output_shape="BTC",
+            )
             encoder_outputs = self._concat_speaker_embedding(encoder_outputs, embedded_speakers)
 
         decoder_outputs, alignments, stop_tokens = self.decoder.inference(encoder_outputs)
@@ -375,8 +372,10 @@ class Tacotron2(BaseTacotron):
                         model_params_to_clip.append(param)
             torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)
 
-    def _create_logs(self, batch, outputs, ap):
+    def _create_logs(self, batch, outputs):
         """Create dashboard log information."""
+        from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+
         postnet_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
         alignments_backward = outputs["alignments_backward"]
@@ -387,8 +386,8 @@ class Tacotron2(BaseTacotron):
         align_img = alignments[0].data.cpu().numpy()
 
         figures = {
-            "prediction": plot_spectrogram(pred_spec, ap, output_fig=False),
-            "ground_truth": plot_spectrogram(gt_spec, ap, output_fig=False),
+            "prediction": plot_spectrogram(pred_spec, self.ap, output_fig=False),
+            "ground_truth": plot_spectrogram(gt_spec, self.ap, output_fig=False),
             "alignment": plot_alignment(align_img, output_fig=False),
         }
 
@@ -396,35 +395,5 @@ class Tacotron2(BaseTacotron):
             figures["alignment_backward"] = plot_alignment(alignments_backward[0].data.cpu().numpy(), output_fig=False)
 
         # Sample audio
-        audio = ap.inv_melspectrogram(pred_spec.T)
+        audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": audio}
-
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:  # pylint: disable=no-self-use
-        """Log training progress."""
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int) -> None:
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    @staticmethod
-    def init_from_config(config: "Tacotron2Config", samples: list[list] | list[dict] = None):
-        """Initiate model from config
-
-        Args:
-            config (Tacotron2Config): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(new_config, samples)
-        return Tacotron2(new_config, ap, tokenizer, speaker_manager)

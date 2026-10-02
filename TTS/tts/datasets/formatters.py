@@ -5,10 +5,38 @@ import re
 import xml.etree.ElementTree as ET
 from glob import glob
 from pathlib import Path
+from typing import Any, Protocol
 
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+class Formatter(Protocol):
+    def __call__(
+        self,
+        root_path: str | os.PathLike[Any],
+        meta_file: str | os.PathLike[Any],
+        ignored_speakers: list[str] | None,
+        **kwargs,
+    ) -> list[dict[str, Any]]: ...
+
+
+_FORMATTER_REGISTRY: dict[str, Formatter] = {}
+
+
+def register_formatter(name: str, formatter: Formatter) -> None:
+    """Add a formatter function to the registry.
+
+    Args:
+        name: Name of the formatter.
+        formatter: Formatter function.
+    """
+    if name.lower() in _FORMATTER_REGISTRY:
+        msg = f"Formatter {name} already exists."
+        raise ValueError(msg)
+    _FORMATTER_REGISTRY[name.lower()] = formatter
+
 
 ########################
 # DATASETS
@@ -16,8 +44,21 @@ logger = logging.getLogger(__name__)
 
 
 def cml_tts(root_path, meta_file, ignored_speakers=None):
-    """Normalizes the CML-TTS meta data file to TTS format
-    https://github.com/freds0/CML-TTS-Dataset/"""
+    """Normalize the CML-TTS meta data file to TTS format.
+
+    Website: https://github.com/freds0/CML-TTS-Dataset/
+
+    Expected metadata format (pipe-delimited CSV with header)::
+
+        wav_filename|transcript|client_id|emotion_name
+        audio/speaker1/file001.wav|This is the transcript.|speaker1|neutral
+        audio/speaker2/file002.wav|Another sentence here.|speaker2|happy
+
+    Note: The ``client_id`` and ``emotion_name`` columns are optional. If missing,
+    defaults to ``"default"`` speaker and ``"neutral"`` emotion.
+
+    Audio files are located at: ``{root_path}/{wav_filename}``
+    """
     filepath = os.path.join(root_path, meta_file)
     # ensure there are 4 columns for every line
     with open(filepath, encoding="utf8") as f:
@@ -57,7 +98,19 @@ def cml_tts(root_path, meta_file, ignored_speakers=None):
 
 
 def coqui(root_path, meta_file, ignored_speakers=None):
-    """Interal dataset formatter."""
+    """Normalize the Coqui internal dataset format to TTS format.
+
+    Expected metadata format (pipe-delimited CSV with header)::
+
+        audio_file|text|speaker_name|emotion_name
+        clips/speaker1/file001.wav|This is the transcript.|speaker1|neutral
+        clips/speaker2/file002.wav|Another sentence here.|speaker2|happy
+
+    Note: The ``speaker_name`` and ``emotion_name`` columns are optional. If missing,
+    defaults to ``"coqui"`` speaker and ``"neutral"`` emotion.
+
+    Audio files are located at: ``{root_path}/{audio_file}``
+    """
     filepath = os.path.join(root_path, meta_file)
     # ensure there are 4 columns for every line
     with open(filepath, encoding="utf8") as f:
@@ -98,7 +151,17 @@ def coqui(root_path, meta_file, ignored_speakers=None):
 
 def tweb(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     """Normalize TWEB dataset.
-    https://www.kaggle.com/bryanpark/the-world-english-bible-speech-dataset
+
+    Website: https://www.kaggle.com/bryanpark/the-world-english-bible-speech-dataset
+
+    Expected metadata format (tab-delimited)::
+
+        file001\tThis is the transcript.
+        file002\tAnother sentence here.
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/{filename}.wav``
     """
     txt_file = os.path.join(root_path, meta_file)
     items = []
@@ -113,7 +176,17 @@ def tweb(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def mozilla(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes Mozilla meta data files to TTS format"""
+    """Normalize Mozilla meta data files to TTS format.
+
+    Expected metadata format (pipe-delimited)::
+
+        This is the transcript.|file001.wav
+        Another sentence here.|file002.wav
+
+    Note: Text comes before the filename in this format.
+
+    Audio files should be in: ``{root_path}/wavs/{filename}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "mozilla"
@@ -128,7 +201,19 @@ def mozilla(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def mozilla_de(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes Mozilla meta data files to TTS format"""
+    """Normalize Mozilla German dataset meta data files to TTS format.
+
+    Expected metadata format (pipe-delimited, ISO 8859-1 encoding)::
+
+        1_0001.wav|This is the German transcript.
+        1_0002.wav|Another sentence here.
+        2_0001.wav|From a different batch.
+
+    Note: Files are organized in batch folders named ``BATCH_{N}_FINAL`` where N
+    is extracted from the filename prefix (e.g., ``1_0001.wav`` → ``BATCH_1_FINAL``).
+
+    Audio files should be in: ``{root_path}/BATCH_{N}_FINAL/{filename}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "mozilla"
@@ -144,7 +229,20 @@ def mozilla_de(root_path, meta_file, **kwargs):  # pylint: disable=unused-argume
 
 
 def mailabs(root_path, meta_files=None, ignored_speakers=None):
-    """Normalizes M-AI-Labs meta data files to TTS format
+    """Normalize M-AI-Labs meta data files to TTS format.
+
+    Website: https://github.com/imdatceleste/m-ailabs-dataset
+
+    Expected metadata format (pipe-delimited)::
+
+        file001|This is the transcript.
+        file002|Another sentence here.
+
+    Note: This dataset automatically searches for all ``metadata.csv`` files recursively
+    in ``root_path`` unless ``meta_files`` is specified. Speaker names are extracted from
+    the folder structure: ``by_book/{gender}/{speaker_name}/...``
+
+    Audio files should be in: ``{folder}/wavs/{filename}.wav``
 
     Args:
         root_path (str): root folder of the MAILAB language folder.
@@ -195,8 +293,20 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
 
 
 def ljspeech(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the LJSpeech meta data file to TTS format
-    https://keithito.com/LJ-Speech-Dataset/"""
+    """Normalize the LJSpeech meta data file to TTS format.
+
+    Website: https://keithito.com/LJ-Speech-Dataset/
+
+    Expected metadata format (pipe-delimited)::
+
+        LJ001-0001|This is the transcription.|This is the normalized transcription.
+        LJ001-0002|It'll be $16 sir.|It'll be sixteen dollars sir.
+
+    Note: ``.wav`` is automatically appended to the utterance ID and only the text
+    of the third column is used.
+
+    Audio files should be in: ``{root_path}/wavs/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "ljspeech"
@@ -204,6 +314,9 @@ def ljspeech(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
         for line in ttf:
             cols = line.split("|")
             wav_file = os.path.join(root_path, "wavs", cols[0] + ".wav")
+            if len(cols) < 3:
+                msg = "LJSpeech format expects 3 pipe-delimited columns in the metadata file."
+                raise IndexError(msg)
             text = cols[2]
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
     return items
@@ -230,8 +343,19 @@ def ljspeech_test(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
 
 
 def thorsten(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the thorsten meta data file to TTS format
-    https://github.com/thorstenMueller/deep-learning-german-tts/"""
+    """Normalize the Thorsten German TTS meta data file to TTS format.
+
+    Website: https://github.com/thorstenMueller/Thorsten-Voice
+
+    Expected metadata format (pipe-delimited)::
+
+        file001|This is the German transcript.
+        file002|Another sentence here.
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/wavs/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "thorsten"
@@ -245,8 +369,21 @@ def thorsten(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def sam_accenture(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the sam-accenture meta data file to TTS format
-    https://github.com/Sam-Accenture-Non-Binary-Voice/non-binary-voice-files"""
+    """Normalize the Sam Accenture Non-Binary Voice meta data file to TTS format.
+
+    Website: https://github.com/Sam-Accenture-Non-Binary-Voice/non-binary-voice-files
+
+    Expected metadata format (XML file, typically ``voice_over_recordings/recording_script.xml``)::
+
+        <recording>
+            <fileid id="file001">This is the transcript.</fileid>
+            <fileid id="file002">Another sentence here.</fileid>
+        </recording>
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/vo_voice_quality_transformation/{id}.wav``
+    """
     xml_file = os.path.join(root_path, "voice_over_recordings", meta_file)
     xml_root = ET.parse(xml_file).getroot()
     items = []
@@ -262,8 +399,19 @@ def sam_accenture(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
 
 
 def ruslan(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the RUSLAN meta data file to TTS format
-    https://ruslan-corpus.github.io/"""
+    """Normalize the RUSLAN meta data file to TTS format.
+
+    Website: https://ruslan-corpus.github.io/
+
+    Expected metadata format (pipe-delimited)::
+
+        file001|This is the Russian transcript.
+        file002|Another sentence here.
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/RUSLAN/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "ruslan"
@@ -277,7 +425,19 @@ def ruslan(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def css10(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the CSS10 dataset file to TTS format"""
+    """Normalize the CSS10 dataset file to TTS format.
+
+    Website: https://github.com/Kyubyong/css10
+
+    Expected metadata format (pipe-delimited)::
+
+        audio/file001.wav|This is the transcript.
+        audio/file002.wav|Another sentence here.
+
+    Note: The full audio file path (relative to ``root_path``) is included in the metadata.
+
+    Audio files are located at: ``{root_path}/{filepath}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "css10"
@@ -291,7 +451,19 @@ def css10(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def nancy(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Normalizes the Nancy meta data file to TTS format"""
+    """Normalize the Nancy meta data file to TTS format.
+
+    Website: https://www.cstr.ed.ac.uk/projects/blizzard/2011/lessac_blizzard2011/
+
+    Expected metadata format (space-delimited with quoted text)::
+
+        ( file001 "This is the transcript." )
+        ( file002 "Another sentence here." )
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/wavn/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "nancy"
@@ -305,7 +477,18 @@ def nancy(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def common_voice(root_path, meta_file, ignored_speakers=None):
-    """Normalize the common voice meta data file to TTS format."""
+    """Normalize the Mozilla Common Voice meta data file to TTS format.
+
+    Website: https://commonvoice.mozilla.org/en/datasets
+
+    Expected metadata format (tab-delimited with header)::
+
+        client_id	path	sentence	...
+        speaker001	file001.mp3	This is the transcript.	...
+        speaker002	file002.mp3	Another sentence here.	...
+
+    Audio files should be in: ``{root_path}/clips/{filename}.mp3``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     with open(txt_file, encoding="utf-8") as ttf:
@@ -319,7 +502,7 @@ def common_voice(root_path, meta_file, ignored_speakers=None):
             if isinstance(ignored_speakers, list):
                 if speaker_name in ignored_speakers:
                     continue
-            wav_file = os.path.join(root_path, "clips", cols[1].replace(".mp3", ".wav"))
+            wav_file = os.path.join(root_path, "clips", cols[1])
             items.append(
                 {"text": text, "audio_file": wav_file, "speaker_name": "MCV_" + speaker_name, "root_path": root_path}
             )
@@ -327,7 +510,22 @@ def common_voice(root_path, meta_file, ignored_speakers=None):
 
 
 def libri_tts(root_path, meta_files=None, ignored_speakers=None):
-    """https://ai.google/tools/datasets/libri-tts/"""
+    """Normalize the LibriTTS meta data file to TTS format.
+
+    Website: https://www.openslr.org/60/
+
+    Expected metadata format (tab-delimited, no header)::
+
+        84_121550_000007_000000	It's $50 sir.	It's fifty dollars sir.
+        84_121550_000007_000000	Call me at 5pm.	Call me at five P M.
+
+    Note: This dataset automatically searches for all ``*trans.tsv`` files recursively
+    in ``root_path`` unless ``meta_files`` is specified. ``.wav`` is automatically appended.
+    Only the normalized transcript (third column) is used. The speaker name is
+    the first part of the utterance ID.
+
+    Audio files should be in: ``{root_path}/{speaker}/{chapter}/{filename}.wav``
+    """
     items = []
     if not meta_files:
         meta_files = glob(f"{root_path}/**/*trans.tsv", recursive=True)
@@ -363,6 +561,17 @@ def libri_tts(root_path, meta_files=None, ignored_speakers=None):
 
 
 def custom_turkish(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+    """Normalize a custom Turkish dataset to TTS format.
+
+    Expected metadata format (pipe-delimited)::
+
+        file001|Bu bir transkript.
+        file002|Başka bir cümle.
+
+    Note: ``.wav`` is automatically appended to the file ID.
+
+    Audio files should be in: ``{root_path}/wavs/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "turkish-female"
@@ -380,9 +589,21 @@ def custom_turkish(root_path, meta_file, **kwargs):  # pylint: disable=unused-ar
     return items
 
 
-# ToDo: add the dataset link when the dataset is released publicly
 def brspeech(root_path, meta_file, ignored_speakers=None):
-    """BRSpeech 3.0 beta"""
+    """Normalize the BRSpeech 3.0 beta dataset to TTS format.
+
+    Website: https://github.com/freds0/BRSpeech-Dataset
+
+    Expected metadata format (pipe-delimited with header)::
+
+        wav_filename|transcript_raw|transcript|speaker_id
+        audio/speaker1/file001.wav|Raw text|Normalized text|speaker1
+        audio/speaker2/file002.wav|Raw text|Normalized text|speaker2
+
+    Note: Only the normalized transcript (third column) is used.
+
+    Audio files are located at: ``{root_path}/{wav_filename}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     with open(txt_file, encoding="utf-8") as ttf:
@@ -402,25 +623,24 @@ def brspeech(root_path, meta_file, ignored_speakers=None):
 
 
 def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic1", ignored_speakers=None):
-    """VCTK dataset v0.92.
+    """Normalize the VCTK dataset v0.92 to TTS format.
 
-    URL:
-        https://datashare.ed.ac.uk/bitstream/handle/10283/3443/VCTK-Corpus-0.92.zip
+    Website: https://datashare.ed.ac.uk/bitstream/handle/10283/3443/VCTK-Corpus-0.92.zip
 
-    This dataset has 2 recordings per speaker that are annotated with ```mic1``` and ```mic2```.
-    It is believed that (😄 ) ```mic1``` files are the same as the previous version of the dataset.
+    Expected metadata format (individual text files per utterance)::
 
-    mic1:
-        Audio recorded using an omni-directional microphone (DPA 4035).
-        Contains very low frequency noises.
-        This is the same audio released in previous versions of VCTK:
-        https://doi.org/10.7488/ds/1994
+        txt/p225/p225_001.txt: "Please call Stella."
+        txt/p225/p225_002.txt: "Ask her to bring these things with her from the store."
 
-    mic2:
-        Audio recorded using a small diaphragm condenser microphone with
-        very wide bandwidth (Sennheiser MKH 800).
-        Two speakers, p280 and p315 had technical issues of the audio
-        recordings using MKH 800.
+    Note: This dataset automatically searches for all ``.txt`` files in ``{root_path}/txt/``.
+    Each text file contains a single line of transcription. Audio files use ``.flac`` format.
+
+    This dataset has 2 recordings per speaker (``mic1`` and ``mic2``):
+
+    - **mic1**: Omni-directional microphone (DPA 4035). Same as previous VCTK versions.
+    - **mic2**: Small diaphragm condenser microphone (Sennheiser MKH 800). Speakers p280 and p315 have technical issues.
+
+    Audio files should be in: ``{root_path}/{wavs_path}/{speaker_id}/{file_id}_{mic}.flac``
     """
     file_ext = "flac"
     items = []
@@ -449,7 +669,20 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
 
 
 def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=None):
-    """homepages.inf.ed.ac.uk/jyamagis/release/VCTK-Corpus.tar.gz"""
+    """Normalize the older VCTK dataset to TTS format.
+
+    Website: https://datashare.ed.ac.uk/handle/10283/2651
+
+    Expected metadata format (individual text files per utterance)::
+
+        txt/p225/p225_001.txt: "Please call Stella."
+        txt/p225/p225_002.txt: "Ask her to bring these things with her from the store."
+
+    Note: This dataset automatically searches for all ``.txt`` files in ``{root_path}/txt/``.
+    Each text file contains a single line of transcription. Audio files use ``.wav`` format.
+
+    Audio files should be in: ``{root_path}/{wavs_path}/{speaker_id}/{file_id}.wav``
+    """
     items = []
     meta_files = glob(f"{os.path.join(root_path, 'txt')}/**/*.txt", recursive=True)
     for meta_file in meta_files:
@@ -469,6 +702,20 @@ def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=Non
 
 
 def synpaflex(root_path, metafiles=None, **kwargs):  # pylint: disable=unused-argument
+    """Normalize the SynPaFlex dataset to TTS format.
+
+    Website: http://synpaflex.irisa.fr/corpus/
+
+    Expected metadata format (individual text files per utterance)::
+
+        wav/file001.wav with corresponding txt/file001.txt: "This is the transcript."
+        wav/file002.wav with corresponding txt/file002.txt: "Another sentence here."
+
+    Note: This dataset automatically searches for all ``.wav`` files recursively in ``root_path``.
+    For each wav file, it looks for a corresponding ``.txt`` file in a ``txt`` folder.
+
+    Audio files are located at: ``{root_path}/**/*.wav``
+    """
     items = []
     speaker_name = "synpaflex"
     root_path = os.path.join(root_path, "")
@@ -488,7 +735,21 @@ def synpaflex(root_path, metafiles=None, **kwargs):  # pylint: disable=unused-ar
 
 
 def open_bible(root_path, meta_files="train", ignore_digits_sentences=True, ignored_speakers=None):
-    """ToDo: Refer the paper when available"""
+    """Normalize the BibleTTS dataset to TTS format.
+
+    Website: https://masakhane-io.github.io/bibleTTS/
+
+    Expected metadata format (individual text files per utterance)::
+
+        train/speaker1/file001.txt: "This is the transcript."
+        train/speaker1/file002.txt: "Another sentence here."
+
+    Note: This dataset automatically searches for all ``.txt`` files in ``{root_path}/{split}/``.
+    Each text file contains a single line of transcription. Audio files use ``.flac`` format.
+    By default, sentences containing digits are ignored.
+
+    Audio files should be in: ``{root_path}/{split}/{speaker_id}/{file_id}.flac``
+    """
     items = []
     split_dir = meta_files
     meta_files = glob(f"{os.path.join(root_path, split_dir)}/**/*.txt", recursive=True)
@@ -510,7 +771,20 @@ def open_bible(root_path, meta_files="train", ignore_digits_sentences=True, igno
 
 
 def mls(root_path, meta_files=None, ignored_speakers=None):
-    """http://www.openslr.org/94/"""
+    """Normalize the Multilingual LibriSpeech (MLS) dataset to TTS format.
+
+    Website: http://www.openslr.org/94/
+
+    Expected metadata format (tab-delimited, no header)::
+
+        speaker_book_utterance	This is the transcript.
+        1001_1234_000001	Another sentence here.
+
+    Note: ``.wav`` is automatically appended to the file ID. Speaker and book IDs
+    are extracted from the filename.
+
+    Audio files should be in: ``{root_path}/{meta_files_dir}/audio/{speaker}/{book}/{filename}.wav``
+    """
     items = []
     with open(os.path.join(root_path, meta_files), encoding="utf-8") as meta:
         for line in meta:
@@ -530,15 +804,29 @@ def mls(root_path, meta_files=None, ignored_speakers=None):
 
 # ======================================== VOX CELEB ===========================================
 def voxceleb2(root_path, meta_file=None, **kwargs):  # pylint: disable=unused-argument
-    """
-    :param meta_file   Used only for consistency with load_tts_samples api
+    """Normalize the VoxCeleb2 dataset to TTS format.
+
+    Website: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html
+
+    Note: This dataset automatically searches for all ``.wav`` files recursively in ``root_path``
+    and creates a cached metadata file. No transcriptions are provided (used for speaker encoder training).
+    Speaker IDs are extracted from the folder structure.
+
+    Audio files should be in: ``{root_path}/id{speaker_id}/{video_id}/{utterance_id}.wav``
     """
     return _voxcel_x(root_path, meta_file, voxcel_idx="2")
 
 
 def voxceleb1(root_path, meta_file=None, **kwargs):  # pylint: disable=unused-argument
-    """
-    :param meta_file   Used only for consistency with load_tts_samples api
+    """Normalize the VoxCeleb1 dataset to TTS format.
+
+    Website: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html
+
+    Note: This dataset automatically searches for all ``.wav`` files recursively in ``root_path``
+    and creates a cached metadata file. No transcriptions are provided (used for speaker encoder training).
+    Speaker IDs are extracted from the folder structure.
+
+    Audio files should be in: ``{root_path}/id{speaker_id}/{video_id}/{utterance_id}.wav``
     """
     return _voxcel_x(root_path, meta_file, voxcel_idx="1")
 
@@ -579,7 +867,18 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
 
 
 def emotion(root_path, meta_file, ignored_speakers=None):
-    """Generic emotion dataset"""
+    """Normalize a generic emotion dataset to TTS format.
+
+    Expected metadata format (comma-delimited with header)::
+
+        file_path,speaker_id,emotion_id
+        audio/speaker1/file001.wav,speaker1,happy
+        audio/speaker2/file002.wav,speaker2,sad
+
+    Note: No text transcriptions are included, only emotion labels.
+
+    Audio files are located at: ``{root_path}/{file_path}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     with open(txt_file, encoding="utf-8") as ttf:
@@ -601,7 +900,16 @@ def emotion(root_path, meta_file, ignored_speakers=None):
 
 
 def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:  # pylint: disable=unused-argument
-    """Normalizes the Baker meta data file to TTS format
+    """Normalize the Baker Chinese TTS dataset to TTS format.
+
+    Website: https://www.data-baker.com/data/index/TNtts/
+
+    Expected metadata format (pipe-delimited)::
+
+        000001|This is the Chinese transcript.
+        000002|Another sentence here.
+
+    Audio files should be in: ``{root_path}/clips_22/{filename}.wav``
 
     Args:
         root_path (str): path to the baker dataset
@@ -621,7 +929,20 @@ def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:  # pylin
 
 
 def kokoro(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Japanese single-speaker dataset from https://github.com/kaiidams/Kokoro-Speech-Dataset"""
+    """Normalize the Kokoro Japanese Speech dataset to TTS format.
+
+    Website: https://github.com/kaiidams/Kokoro-Speech-Dataset
+
+    Expected metadata format (pipe-delimited)::
+
+        file001|raw transcript|normalized transcript
+        file002|raw transcript|normalized transcript
+
+    Note: ``.wav`` is automatically appended to the file ID. The normalized transcript
+    (third column) is used with spaces removed.
+
+    Audio files should be in: ``{root_path}/wavs/{filename}.wav``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "kokoro"
@@ -635,7 +956,20 @@ def kokoro(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def kss(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
-    """Korean single-speaker dataset from https://www.kaggle.com/datasets/bryanpark/korean-single-speaker-speech-dataset"""
+    """Normalize the Korean Single Speaker (KSS) dataset to TTS format.
+
+    Website: https://www.kaggle.com/datasets/bryanpark/korean-single-speaker-speech-dataset
+
+    Expected metadata format (pipe-delimited)::
+
+        audio/file001.wav|raw transcript|normalized transcript
+        audio/file002.wav|raw transcript|normalized transcript
+
+    Note: The full audio file path (relative to ``root_path``) is included in the metadata.
+    Only the normalized transcript (third column) is used.
+
+    Audio files are located at: ``{root_path}/{filepath}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "kss"
@@ -649,6 +983,17 @@ def kss(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
 
 
 def bel_tts_formatter(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+    """Normalize the Belarusian TTS dataset to TTS format.
+
+    Expected metadata format (pipe-delimited)::
+
+        audio/file001.wav|This is the Belarusian transcript.
+        audio/file002.wav|Another sentence here.
+
+    Note: The full audio file path (relative to ``root_path``) is included in the metadata.
+
+    Audio files are located at: ``{root_path}/{filepath}``
+    """
     txt_file = os.path.join(root_path, meta_file)
     items = []
     speaker_name = "bel_tts"
@@ -659,3 +1004,35 @@ def bel_tts_formatter(root_path, meta_file, **kwargs):  # pylint: disable=unused
             text = cols[1]
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_name, "root_path": root_path})
     return items
+
+
+### Registrations
+register_formatter("cml_tts", cml_tts)
+register_formatter("coqui", coqui)
+register_formatter("tweb", tweb)
+register_formatter("mozilla", mozilla)
+register_formatter("mozilla_de", mozilla_de)
+register_formatter("mailabs", mailabs)
+register_formatter("ljspeech", ljspeech)
+register_formatter("ljspeech_test", ljspeech_test)
+register_formatter("thorsten", thorsten)
+register_formatter("sam_accenture", sam_accenture)
+register_formatter("ruslan", ruslan)
+register_formatter("css10", css10)
+register_formatter("nancy", nancy)
+register_formatter("common_voice", common_voice)
+register_formatter("libri_tts", libri_tts)
+register_formatter("custom_turkish", custom_turkish)
+register_formatter("brspeech", brspeech)
+register_formatter("vctk", vctk)
+register_formatter("vctk_old", vctk_old)
+register_formatter("synpaflex", synpaflex)
+register_formatter("open_bible", open_bible)
+register_formatter("mls", mls)
+register_formatter("voxceleb2", voxceleb2)
+register_formatter("voxceleb1", voxceleb1)
+register_formatter("emotion", emotion)
+register_formatter("baker", baker)
+register_formatter("kokoro", kokoro)
+register_formatter("kss", kss)
+register_formatter("bel_tts_formatter", bel_tts_formatter)

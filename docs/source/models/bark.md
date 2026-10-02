@@ -10,7 +10,11 @@ It is architecturally very similar to Google's [AudioLM](https://arxiv.org/abs/2
 - 👑[serp-ai](https://github.com/serp-ai/bark-with-voice-clone) for controlled voice cloning.
 
 
-## Example Use
+## Example use
+
+```{seealso}
+[Voice cloning](../cloning.md)
+```
 
 ```python
 text = "Hello, my name is Manmay , how are you?"
@@ -19,15 +23,14 @@ from TTS.tts.configs.bark_config import BarkConfig
 from TTS.tts.models.bark import Bark
 
 config = BarkConfig()
-model = Bark.init_from_config(config)
+model = Bark(config)
 model.load_checkpoint(config, checkpoint_dir="path/to/model/dir/", eval=True)
 
-# with random speaker
-output_dict = model.synthesize(text, config, speaker_id="random", voice_dirs=None)
+# Random speaker
+output_dict = model.synthesize(text)
 
-# cloning a speaker.
-# It assumes that you have a speaker file in `bark_voices/speaker_n/speaker.wav` or `bark_voices/speaker_n/speaker.npz`
-output_dict = model.synthesize(text, config, speaker_id="ljspeech", voice_dirs="bark_voices/")
+# Cloning a speaker.
+output_dict = model.synthesize(text, speaker_wav="path/to/speaker.wav")
 ```
 
 Using 🐸TTS API:
@@ -40,19 +43,16 @@ from TTS.api import TTS
 tts = TTS("tts_models/multilingual/multi-dataset/bark").to("cuda")
 
 
-# Cloning a new speaker
-# This expects to find a mp3 or wav file like `bark_voices/new_speaker/speaker.wav`
-# It computes the cloning values and stores in `bark_voices/new_speaker/speaker.npz`
+# Clone voice and cache it with the custom ID `ljspeech`.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="bark_voices/",
+                speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
                 speaker="ljspeech")
 
 
 # When you run it again it uses the stored values to generate the voice.
 tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
                 file_path="output.wav",
-                voice_dir="bark_voices/",
                 speaker="ljspeech")
 
 
@@ -64,19 +64,25 @@ tts.tts_to_file("hello world", file_path="out.wav")
 Using 🐸TTS Command line:
 
 ```console
-# cloning the `ljspeech` voice
+# Clone the `ljspeech` voice and cache it under that ID for later reuse without reference audio.
 tts --model_name  tts_models/multilingual/multi-dataset/bark \
---text "This is an example." \
---out_path "output.wav" \
---voice_dir bark_voices/ \
---speaker_idx "ljspeech"
+    --text "This is an example." \
+    --out_path "output.wav" \
+    --speaker_wav tests/data/ljspeech/wavs/*.wav
+    --speaker_idx "ljspeech"
 
 # Random voice generation
 tts --model_name  tts_models/multilingual/multi-dataset/bark \
---text "This is an example." \
---out_path "output.wav"
+    --text "This is an example." \
+    --out_path "output.wav"
 ```
 
+```{note}
+The authors of the Bark model provide a range of [preset
+voices](https://suno-ai.notion.site/8b8e8749ed514b0cbf3f699013548683?v=bc67cff786b04b50b3ceb756fd05f68c)
+in `.npz` format that you can place into the `voice_dir` and then use in the
+`speaker` argument.
+```
 
 ## Important resources & papers
 - Original Repo: https://github.com/suno-ai/bark

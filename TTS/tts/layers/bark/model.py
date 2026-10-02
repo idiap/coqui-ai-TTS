@@ -3,13 +3,11 @@ Much of this code is adapted from Andrej Karpathy's NanoGPT
 (https://github.com/karpathy/nanoGPT)
 """
 
-import math
 from dataclasses import dataclass
 
 import torch
 from coqpit import Coqpit
 from torch import nn
-from torch.nn import functional as F
 
 
 class CausalSelfAttention(nn.Module):
@@ -26,17 +24,6 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_embd = config.n_embd
         self.dropout = config.dropout
-        # flash attention make GPU go brrrrr but support is only in PyTorch nightly and still a bit scary
-        self.flash = hasattr(torch.nn.functional, "scaled_dot_product_attention")
-        if not self.flash:
-            # print("WARNING: using slow attention. Flash Attention atm needs PyTorch nightly and dropout=0.0")
-            # causal mask to ensure that attention is only applied to the left in the input sequence
-            self.register_buffer(
-                "bias",
-                torch.tril(torch.ones(config.block_size, config.block_size)).view(
-                    1, 1, config.block_size, config.block_size
-                ),
-            )
 
     def forward(self, x, past_kv=None, use_cache=False):
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
@@ -61,26 +48,18 @@ class CausalSelfAttention(nn.Module):
             present = None
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
-        if self.flash:
-            # efficient attention using Flash Attention CUDA kernels
-            if past_kv is not None:
-                # When `past_kv` is provided, we're doing incremental decoding and `q.shape[2] == 1`: q only contains
-                # the query for the last token. scaled_dot_product_attention interprets this as the first token in the
-                # sequence, so if is_causal=True it will mask out all attention from it. This is not what we want, so
-                # to work around this we set is_causal=False.
-                is_causal = False
-            else:
-                is_causal = True
-
-            # efficient attention using Flash Attention CUDA kernels
-            y = torch.nn.functional.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout, is_causal=is_causal)
+        # efficient attention using Flash Attention CUDA kernels
+        if past_kv is not None:
+            # When `past_kv` is provided, we're doing incremental decoding and `q.shape[2] == 1`: q only contains
+            # the query for the last token. scaled_dot_product_attention interprets this as the first token in the
+            # sequence, so if is_causal=True it will mask out all attention from it. This is not what we want, so
+            # to work around this we set is_causal=False.
+            is_causal = False
         else:
-            # manual implementation of attention
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-            att = att.masked_fill(self.bias[:, :, FULL_T - T : FULL_T, :FULL_T] == 0, float("-inf"))
-            att = F.softmax(att, dim=-1)
-            att = self.attn_dropout(att)
-            y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+            is_causal = True
+
+        # efficient attention using Flash Attention CUDA kernels
+        y = torch.nn.functional.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout, is_causal=is_causal)
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
 
         # output projection

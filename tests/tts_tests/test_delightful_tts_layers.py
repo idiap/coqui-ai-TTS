@@ -1,13 +1,10 @@
 import torch
 
-from TTS.tts.configs.delightful_tts_config import DelightfulTTSConfig
+from TTS.tts.configs.delightful_tts_config import DelightfulTtsArgs, DelightfulTTSConfig, VocoderConfig
 from TTS.tts.layers.delightful_tts.acoustic_model import AcousticModel
-from TTS.tts.models.delightful_tts import DelightfulTtsArgs, VocoderConfig
 from TTS.tts.utils.helpers import rand_segments
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 args = DelightfulTtsArgs()
 v_args = VocoderConfig()
@@ -26,7 +23,7 @@ config = DelightfulTTSConfig(
 tokenizer, config = TTSTokenizer.init_from_config(config)
 
 
-def test_acoustic_model():
+def test_acoustic_model(device):
     dummy_tokens = torch.rand((1, 41)).long().to(device)
     dummy_text_lens = torch.tensor([41]).long().to(device)
     dummy_spec = torch.rand((1, 100, 207)).to(device)
@@ -55,7 +52,7 @@ def test_acoustic_model():
     # output["model_outputs"].sum().backward()
 
 
-def test_hifi_decoder():
+def test_hifi_decoder(device):
     dummy_input = torch.rand((1, 207, 100)).to(device)
     dummy_spec_lens = torch.tensor([207]).to(device)
 

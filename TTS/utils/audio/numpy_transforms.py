@@ -1,13 +1,13 @@
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import librosa
 import numpy as np
 import scipy
 import soundfile as sf
-from librosa import magphase, pyin
 
 logger = logging.getLogger(__name__)
 
@@ -277,20 +277,24 @@ def compute_f0(
         >>> from TTS.config import BaseAudioConfig
         >>> from TTS.utils.audio import AudioProcessor
         >>> conf = BaseAudioConfig(pitch_fmax=640, pitch_fmin=1)
-        >>> ap = AudioProcessor(**conf)
+        >>> ap = AudioProcessor(conf)
         >>> wav = ap.load_wav(WAV_FILE, sr=ap.sample_rate)[:5 * ap.sample_rate]
         >>> pitch = ap.compute_f0(wav)
     """
-    assert pitch_fmax is not None, " [!] Set `pitch_fmax` before caling `compute_f0`."
-    assert pitch_fmin is not None, " [!] Set `pitch_fmin` before caling `compute_f0`."
+    assert pitch_fmax is not None, " [!] Set `pitch_fmax` before calling `compute_f0`."
+    assert pitch_fmin is not None, " [!] Set `pitch_fmin` before calling `compute_f0`."
 
-    f0, voiced_mask, _ = pyin(
+    if sample_rate / pitch_fmin >= win_length - 1:
+        logger.warning("pitch_fmin=%.2f is too small for win_length=%d", pitch_fmin, win_length)
+        pitch_fmin = sample_rate / (win_length - 1) + 0.1
+        logger.warning("pitch_fmin increased to %f", pitch_fmin)
+
+    f0, voiced_mask, _ = librosa.pyin(
         y=x.astype(np.double),
         fmin=pitch_fmin,
         fmax=pitch_fmax,
         sr=sample_rate,
         frame_length=win_length,
-        win_length=win_length // 2,
         hop_length=hop_length,
         pad_mode=stft_pad_mode,
         center=center,
@@ -318,12 +322,12 @@ def compute_energy(y: np.ndarray, **kwargs) -> np.ndarray:
       >>> from TTS.config import BaseAudioConfig
       >>> from TTS.utils.audio import AudioProcessor
       >>> conf = BaseAudioConfig()
-      >>> ap = AudioProcessor(**conf)
+      >>> ap = AudioProcessor(conf)
       >>> wav = ap.load_wav(WAV_FILE, sr=ap.sample_rate)[:5 * ap.sample_rate]
       >>> energy = ap.compute_energy(wav)
     """
     x = stft(y=y, **kwargs)
-    mag, _ = magphase(x)
+    mag, _ = librosa.magphase(x)
     return np.sqrt(np.sum(mag**2, axis=0))
 
 
@@ -437,7 +441,7 @@ def load_wav(
 def save_wav(
     *,
     wav: np.ndarray,
-    path: str | os.PathLike[Any],
+    path: str | os.PathLike[Any] | BytesIO,
     sample_rate: int,
     pipe_out=None,
     do_rms_norm: bool = False,
@@ -454,6 +458,12 @@ def save_wav(
         do_rms_norm (bool): Whether to apply RMS normalization
         db_level (float): Target dB level in RMS.
     """
+    if not isinstance(path, BytesIO):
+        path = Path(path)
+        path.parent.mkdir(exist_ok=True, parents=True)
+        if path.is_dir():
+            msg = f"Output path must be a file, not a directory: {path}"
+            raise IsADirectoryError(msg)
     if do_rms_norm:
         if db_level is None:
             msg = "`db_level` cannot be None with `do_rms_norm=True`"

@@ -1,5 +1,5 @@
+import scipy
 import torch
-from scipy.stats import betabinom
 from torch import nn
 from torch.nn import functional as F
 
@@ -385,7 +385,7 @@ class MonotonicDynamicConvolutionAttention(nn.Module):
         self.dynamic_filter_layer = nn.Linear(dynamic_filter_dim, attention_dim)
         self.v = nn.Linear(attention_dim, 1, bias=False)
 
-        prior = betabinom.pmf(range(prior_filter_len), prior_filter_len - 1, alpha, beta)
+        prior = scipy.stats.betabinom.pmf(range(prior_filter_len), prior_filter_len - 1, alpha, beta)
         self.register_buffer("prior", torch.FloatTensor(prior).flip(0))
 
     # pylint: disable=unused-argument

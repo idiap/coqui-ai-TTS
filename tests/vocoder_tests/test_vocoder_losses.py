@@ -10,7 +10,7 @@ from TTS.vocoder.layers.losses import MelganFeatureLoss, MultiScaleSTFTLoss, STF
 
 WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
 
-ap = AudioProcessor(**BaseAudioConfig().to_dict())
+ap = AudioProcessor(BaseAudioConfig())
 
 
 def test_torch_stft():

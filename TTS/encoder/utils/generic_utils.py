@@ -4,7 +4,7 @@ import os
 import random
 
 import numpy as np
-from scipy import signal
+import scipy
 
 from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.models.lstm import LSTMSpeakerEncoder
@@ -111,7 +111,7 @@ class AugmentWAV:
         rir_file = random.choice(self.rir_files)
         rir = self.ap.load_wav(rir_file, sr=self.ap.sample_rate)
         rir = rir / np.sqrt(np.sum(rir**2))
-        return signal.convolve(audio, rir, mode=self.rir_config["conv_mode"])[:audio_len]
+        return scipy.signal.convolve(audio, rir, mode=self.rir_config["conv_mode"])[:audio_len]
 
     def apply_one(self, audio):
         noise_type = random.choice(self.global_noise_list)

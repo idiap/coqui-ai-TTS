@@ -23,6 +23,29 @@ tts.voice_conversion_to_file(
 )
 ```
 
+You can cache the target voice by setting a custom ID in `speaker` and reusing
+that later instead of passing the reference audio again.
+```python
+from TTS.api import TTS
+
+tts = TTS("voice_conversion_models/multilingual/multi-dataset/openvoice_v2").to("cuda")
+
+# First call with target audio
+tts.voice_conversion_to_file(
+  source_wav="my/source.wav",
+  target_wav="my/target.wav",
+  speaker="MySpeaker"
+  file_path="output.wav"
+)
+
+# Later calls don't need target audio
+tts.voice_conversion_to_file(
+  source_wav="my/source.wav",
+  speaker="MySpeaker"
+  file_path="output.wav"
+)
+```
+
 Voice cloning by combining TTS and VC. The FreeVC model is used for voice
 conversion after synthesizing speech.
 
@@ -51,11 +74,14 @@ wav = tts.tts(
 ### CLI
 
 ```sh
-tts --out_path output/path/speech.wav \
-    --model_name "<language>/<dataset>/<model_name>" \
-    --source_wav <path/to/speaker/wav> \
-    --target_wav <path/to/reference/wav1> <path/to/reference/wav2>
+tts --model_name "voice_conversion_models/multilingual/multi-dataset/knnvc" \
+    --source_wav "source.wav" \
+    --target_wav "target1.wav" "target2.wav" \
+    --out_path "output.wav"
 ```
+
+You can also cache the target speaker by assigning a custom ID in
+`--speaker_idx`, so that target audio is not required for subsequent calls.
 
 ## Pretrained models
 

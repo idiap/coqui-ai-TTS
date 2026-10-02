@@ -1,7 +1,53 @@
 from dataclasses import dataclass, field
 
+from TTS.config.shared_configs import ModelArgs
 from TTS.tts.configs.shared_configs import BaseTTSConfig
-from TTS.tts.models.align_tts import AlignTTSArgs
+
+
+@dataclass
+class AlignTTSArgs(ModelArgs):
+    """
+    Args:
+        num_chars (int):
+            number of unique input to characters
+        out_channels (int):
+            number of output tensor channels. It is equal to the expected spectrogram size.
+        hidden_channels (int):
+            number of channels in all the model layers.
+        hidden_channels_ffn (int):
+            number of channels in transformer's conv layers.
+        hidden_channels_dp (int):
+            number of channels in duration predictor network.
+        num_heads (int):
+            number of attention heads in transformer networks.
+        num_transformer_layers (int):
+            number of layers in encoder and decoder transformer blocks.
+        dropout_p (int):
+            dropout rate in transformer layers.
+        length_scale (int, optional):
+            coefficient to set the speech speed. <1 slower, >1 faster. Defaults to 1.
+        external_c (bool, optional):
+            enable external speaker embeddings. Defaults to False.
+        c_in_channels (int, optional):
+            number of channels in speaker embedding vectors. Defaults to 0.
+    """
+
+    num_chars: int = None
+    out_channels: int = 80
+    hidden_channels: int = 256
+    hidden_channels_dp: int = 256
+    encoder_type: str = "fftransformer"
+    encoder_params: dict = field(
+        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 2, "num_layers": 6, "dropout_p": 0.1}
+    )
+    decoder_type: str = "fftransformer"
+    decoder_params: dict = field(
+        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 2, "num_layers": 6, "dropout_p": 0.1}
+    )
+    length_scale: float = 1.0
+    use_speaker_embedding: bool = False
+    use_d_vector_file: bool = False
+    d_vector_dim: int = 0
 
 
 @dataclass

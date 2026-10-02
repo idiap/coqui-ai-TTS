@@ -1,6 +1,8 @@
-from coqpit import Coqpit
+from typing import cast
 
 from TTS.model import BaseTrainerModel
+from TTS.utils.audio.processor import AudioProcessor
+from TTS.vocoder.configs.shared_configs import BaseVocoderConfig
 
 # pylint: skip-file
 
@@ -19,37 +21,21 @@ class BaseVocoder(BaseTrainerModel):
     """
 
     MODEL_TYPE = "vocoder"
+    config: BaseVocoderConfig
 
     def __init__(self, config):
         super().__init__()
-        self._set_model_args(config)
+        self.config = cast(BaseVocoderConfig, config)
+        self.ap = AudioProcessor(self.config.audio)
+        self._set_model_args()
 
-    def _set_model_args(self, config: Coqpit):
-        """Setup model args based on the config type.
-
-        If the config is for training with a name like "*Config", then the model args are embeded in the
-        config.model_args
-
-        If the config is for the model with a name like "*Args", then we assign the directly.
-        """
-        # don't use isintance not to import recursively
-        if "Config" in config.__class__.__name__:
-            if "characters" in config:
-                _, self.config, num_chars = self.get_characters(config)
-                self.config.num_chars = num_chars
-                if hasattr(self.config, "model_args"):
-                    config.model_args.num_chars = num_chars
-                    if "model_args" in config:
-                        self.args = self.config.model_args
-                    # This is for backward compatibility
-                    if "model_params" in config:
-                        self.args = self.config.model_params
-            else:
-                self.config = config
-                if "model_args" in config:
-                    self.args = self.config.model_args
-                # This is for backward compatibility
-                if "model_params" in config:
-                    self.args = self.config.model_params
+    def _set_model_args(self) -> None:
+        """Setup model args from the config."""
+        if isinstance(self.config, BaseVocoderConfig):
+            if "model_args" in self.config:
+                self.args = self.config.model_args
+            # This is for backward compatibility
+            if "model_params" in self.config:
+                self.args = self.config.model_params
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise ValueError("config must be an instance of BaseVocoderConfig")

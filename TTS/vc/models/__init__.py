@@ -18,4 +18,4 @@ def setup_model(config: BaseVCConfig) -> BaseVC:
     else:
         msg = f"Model {config.model} does not exist!"
         raise ValueError(msg)
-    return MyModel.init_from_config(config)
+    return MyModel(config)

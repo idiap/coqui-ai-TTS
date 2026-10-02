@@ -12,11 +12,10 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from torch.nn import functional as F
-from trainer.io import load_fsspec
 
 from TTS.tts.layers.vits.networks import PosteriorEncoder
-from TTS.tts.utils.speakers import SpeakerManager
 from TTS.utils.audio.torch_transforms import wav_to_spec
+from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models.base_vc import BaseVC
 from TTS.vc.models.freevc import Generator, ResidualCouplingBlock
@@ -87,7 +86,7 @@ class ReferenceEncoder(nn.Module):
         return L
 
 
-class OpenVoice(BaseVC):
+class OpenVoice(CloningMixin, BaseVC):
     """
     OpenVoice voice conversion model (inference only).
 
@@ -118,10 +117,10 @@ class OpenVoice(BaseVC):
     October 2023, serving as the backend of MyShell.
     """
 
-    def __init__(self, config: Coqpit, speaker_manager: SpeakerManager | None = None) -> None:
-        super().__init__(config, None, speaker_manager, None)
+    config: OpenVoiceConfig
 
-        self.init_multispeaker(config)
+    def __init__(self, config: Coqpit) -> None:
+        super().__init__(config)
 
         self.zero_g = self.args.zero_g
         self.inter_channels = self.args.inter_channels
@@ -175,28 +174,11 @@ class OpenVoice(BaseVC):
 
         self.ref_enc = ReferenceEncoder(self.spec_channels, self.gin_channels)
 
-    @staticmethod
-    def init_from_config(config: OpenVoiceConfig) -> "OpenVoice":
-        return OpenVoice(config)
-
-    def init_multispeaker(self, config: Coqpit, data: list[Any] | None = None) -> None:
-        """Initialize multi-speaker modules of a model. A model can be trained either with a speaker embedding layer
-        or with external `d_vectors` computed from a speaker encoder model.
-
-        You must provide a `speaker_manager` at initialization to set up the multi-speaker modules.
-
-        Args:
-            config (Coqpit): Model configuration.
-            data (list, optional): Dataset items to infer number of speakers. Defaults to None.
-        """
-        self.num_spks = config.num_speakers
-        if self.speaker_manager:
-            self.num_spks = self.speaker_manager.num_speakers
-
     def load_checkpoint(
         self,
-        config: OpenVoiceConfig,
+        config: Coqpit,
         checkpoint_path: str | os.PathLike[Any],
+        *,
         eval: bool = False,
         strict: bool = True,
         cache: bool = False,
@@ -210,10 +192,8 @@ class OpenVoice(BaseVC):
         self.config.audio.fft_size = config_org["data"]["filter_length"]
         self.config.audio.hop_length = config_org["data"]["hop_length"]
         self.config.audio.win_length = config_org["data"]["win_length"]
-        state = load_fsspec(str(checkpoint_path), map_location=torch.device("cpu"), cache=cache)
-        self.load_state_dict(state["model"], strict=strict)
-        if eval:
-            self.eval()
+
+        super().load_checkpoint(config, checkpoint_path, eval=eval, strict=strict, cache=cache)
 
     def forward(self) -> None: ...
     def train_step(self) -> None: ...
@@ -268,9 +248,11 @@ class OpenVoice(BaseVC):
             "z_hat": z_hat,
         }
 
-    def load_audio(self, wav: str | npt.NDArray[np.float32] | torch.Tensor | list[float]) -> torch.Tensor:
+    def load_audio(
+        self, wav: str | os.PathLike[Any] | npt.NDArray[np.float32] | torch.Tensor | list[float]
+    ) -> torch.Tensor:
         """Read and format the input audio."""
-        if isinstance(wav, str):
+        if isinstance(wav, (str, os.PathLike)):
             out = torch.from_numpy(librosa.load(wav, sr=self.config.audio.input_sample_rate)[0])
         elif isinstance(wav, np.ndarray):
             out = torch.from_numpy(wav)
@@ -278,11 +260,12 @@ class OpenVoice(BaseVC):
             out = torch.from_numpy(np.array(wav))
         else:
             out = wav
+        if out.dim() == 1:
+            out = out.unsqueeze(0)
         return out.to(self.device).float()
 
-    def extract_se(self, audio: str | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def extract_se(self, audio: str | os.PathLike[Any] | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         y = self.load_audio(audio)
-        y = y.to(self.device)
         y = y.unsqueeze(0)
         spec = wav_to_spec(
             y,
@@ -296,8 +279,31 @@ class OpenVoice(BaseVC):
 
         return g, spec
 
+    def _extract_target_se(self, tgt: list[str | os.PathLike[Any] | torch.Tensor]) -> torch.Tensor:
+        tgt_ses = []
+        for tg in tgt:
+            tgt_se, _ = self.extract_se(tg)
+            tgt_ses.append(tgt_se)
+        return torch.stack(tgt_ses).mean(dim=0)
+
+    def _clone_voice(
+        self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **generate_kwargs: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(speaker_wav, list):
+            speaker_wav = [speaker_wav]
+        voice = {"speaker_embedding": self._extract_target_se(speaker_wav)}
+        metadata = {"name": self.config["model"]}
+        return voice, metadata
+
     @torch.inference_mode()
-    def voice_conversion(self, src: str | torch.Tensor, tgt: list[str | torch.Tensor]) -> npt.NDArray[np.float32]:
+    def voice_conversion(
+        self,
+        src: str | os.PathLike[Any] | torch.Tensor,
+        tgt: list[str | os.PathLike[Any] | torch.Tensor] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+    ) -> npt.NDArray[np.float32]:
         """
         Voice conversion pass of the model.
 
@@ -309,11 +315,10 @@ class OpenVoice(BaseVC):
             Output numpy array.
         """
         src_se, src_spec = self.extract_se(src)
-        tgt_ses = []
-        for tg in tgt:
-            tgt_se, _ = self.extract_se(tg)
-            tgt_ses.append(tgt_se)
-        tgt_se = torch.stack(tgt_ses).mean(dim=0)
+        if tgt is None or all(isinstance(x, (str, os.PathLike)) for x in tgt):
+            tgt_se = self.clone_voice(tgt, speaker_id, voice_dir)["speaker_embedding"]
+        else:
+            tgt_se = self._extract_target_se(tgt)
 
         aux_input = {"g_src": src_se, "g_tgt": tgt_se}
         audio = self.inference(src_spec, aux_input)

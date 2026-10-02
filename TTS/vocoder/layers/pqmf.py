@@ -1,7 +1,7 @@
 import numpy as np
+import scipy
 import torch
 import torch.nn.functional as F
-from scipy import signal as sig
 
 
 # adapted from
@@ -15,7 +15,7 @@ class PQMF(torch.nn.Module):
         self.cutoff = cutoff
         self.beta = beta
 
-        QMF = sig.firwin(taps + 1, cutoff, window=("kaiser", beta))
+        QMF = scipy.signal.firwin(taps + 1, cutoff, window=("kaiser", beta))
         H = np.zeros((N, len(QMF)))
         G = np.zeros((N, len(QMF)))
         for k in range(N):

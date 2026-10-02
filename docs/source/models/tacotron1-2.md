@@ -22,7 +22,7 @@ If you have a limited VRAM, then you can try using the Guided Attention Loss or 
 ## Important resources & papers
 - Tacotron: [Tacotron: Towards End-to-End Speech Synthesis](https://arxiv.org/abs/1703.10135)
 - Tacotron2: [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884)
-- Double Decoder Consistency: https://coqui.ai/blog/tts/solving-attention-problems-of-tts-models-with-double-decoder-consistency
+- Double Decoder Consistency: [Solving Attention Problems of TTS models with Double Decoder Consistency](https://web.archive.org/web/20250725051603/https://coqui.ai/blog/tts/solving-attention-problems-of-tts-models-with-double-decoder-consistency/)
 - Guided Attention Loss: https://arxiv.org/abs/1710.08969
 - Forward & Backward Decoder: https://arxiv.org/abs/1907.09006
 - Forward Attention: https://arxiv.org/abs/1807.06736

@@ -1,8 +1,10 @@
+"""The Synthesizer class provides an inference API for TTS and voice conversion models."""
+
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pysbd
@@ -13,7 +15,7 @@ from TTS.config import load_config
 from TTS.tts.configs.vits_config import VitsConfig
 from TTS.tts.models import setup_model as setup_tts_model
 from TTS.tts.models.vits import Vits
-from TTS.tts.utils.synthesis import synthesis, transfer_voice, trim_silence
+from TTS.tts.utils.languages import normalize_language
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
 from TTS.utils.generic_utils import optional_to_str
@@ -23,31 +25,41 @@ from TTS.vc.models.openvoice import OpenVoice
 from TTS.vocoder.models import setup_model as setup_vocoder_model
 from TTS.vocoder.utils.generic_utils import interpolate_vocoder_input
 
+if TYPE_CHECKING:
+    from TTS.tts.models.base_tts import BaseTTS
+    from TTS.vc.models.base_vc import BaseVC
+    from TTS.vocoder.models.base_vocoder import BaseVocoder
+
+
 logger = logging.getLogger(__name__)
 
 
+PAD_SILENCE_SAMPLES = 10000
+
+
 class Synthesizer(nn.Module):
+    """Inference API for TTS and voice conversion models."""
+
     def __init__(
         self,
         *,
         tts_checkpoint: str | os.PathLike[Any] | None = None,
         tts_config_path: str | os.PathLike[Any] | None = None,
         tts_speakers_file: str | os.PathLike[Any] | None = None,
-        tts_languages_file: str | os.PathLike[Any] | None = None,
         vocoder_checkpoint: str | os.PathLike[Any] | None = None,
         vocoder_config: str | os.PathLike[Any] | None = None,
         encoder_checkpoint: str | os.PathLike[Any] | None = None,
         encoder_config: str | os.PathLike[Any] | None = None,
         vc_checkpoint: str | os.PathLike[Any] | None = None,
         vc_config: str | os.PathLike[Any] | None = None,
-        model_dir: str | os.PathLike[Any] | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
         use_cuda: bool = False,
     ) -> None:
-        """General 🐸 TTS interface for inference. It takes a tts and a vocoder
-        model and synthesize speech from the provided text.
+        """General 🐸 TTS interface for inference.
 
-        The text is divided into a list of sentences using `pysbd` and synthesize
+        It takes a TTS and a vocoder model and synthesizes speech from the provided text.
+
+        The text is divided into a list of sentences using `pysbd` and synthesizes
         speech on each sentence separately.
 
         If you have certain special characters in your text, you need to handle
@@ -65,66 +77,65 @@ class Synthesizer(nn.Module):
             vc_checkpoint (str, optional): path to the voice conversion model file. Defaults to `""`,
             vc_config (str, optional): path to the voice conversion config file. Defaults to `""`,
             use_cuda (bool, optional): enable/disable cuda. Defaults to False.
+
         """
         super().__init__()
-        self.tts_checkpoint = optional_to_str(tts_checkpoint)
-        self.tts_config_path = optional_to_str(tts_config_path)
+        self.tts_checkpoint = Path(optional_to_str(tts_checkpoint))
+        self.tts_config_path = Path(optional_to_str(tts_config_path))
         self.tts_speakers_file = optional_to_str(tts_speakers_file)
-        self.tts_languages_file = optional_to_str(tts_languages_file)
         self.vocoder_checkpoint = optional_to_str(vocoder_checkpoint)
         self.vocoder_config = optional_to_str(vocoder_config)
         self.encoder_checkpoint = optional_to_str(encoder_checkpoint)
         self.encoder_config = optional_to_str(encoder_config)
         self.vc_checkpoint = optional_to_str(vc_checkpoint)
         self.vc_config = optional_to_str(vc_config)
-        model_dir = optional_to_str(model_dir)
-        self.use_cuda = use_cuda
 
-        self.tts_model = None
-        self.vocoder_model = None
-        self.vc_model = None
-        self.speaker_manager = None
-        self.tts_speakers = {}
-        self.language_manager = None
-        self.num_languages = 0
-        self.tts_languages = {}
-        self.d_vector_dim = 0
-        self.seg = self._get_segmenter("en")
+        self.tts_model: BaseTTS | None = None
+        self.vocoder_model: BaseVocoder | None = None
+        self.vc_model: BaseVC | None = None
         self.use_cuda = use_cuda
-        self.voice_dir = voice_dir
         if self.use_cuda:
             assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
+        checkpoint_dir = None
         if tts_checkpoint:
-            self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda)
+            if "fairseq" in str(self.tts_checkpoint):
+                self._load_fairseq(self.tts_checkpoint, use_cuda=use_cuda)
+            else:
+                self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda=use_cuda)
+            checkpoint_dir = self.tts_checkpoint if self.tts_checkpoint.is_dir() else self.tts_checkpoint.parent
 
-        if vc_checkpoint and model_dir == "":
-            self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda)
+        if vc_checkpoint:
+            if "OpenVoice" in self.vc_checkpoint:
+                self._load_openvoice(Path(vc_checkpoint), use_cuda=use_cuda)
+            else:
+                self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda=use_cuda)
+            checkpoint_dir = Path(self.vc_checkpoint).parent
 
         if vocoder_checkpoint:
-            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda)
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda=use_cuda)
 
-        if model_dir:
-            if "fairseq" in model_dir:
-                self._load_fairseq_from_dir(model_dir, use_cuda)
-            elif "openvoice" in model_dir:
-                self._load_openvoice_from_dir(Path(model_dir), use_cuda)
-            else:
-                self._load_tts_from_dir(model_dir, use_cuda)
+        if checkpoint_dir is None:
+            msg = "Need to initialize a TTS or VC model via tts_checkpoint/vc_checkpoint"
+            raise RuntimeError(msg)
+        self.voice_dir = Path(voice_dir) if voice_dir is not None else checkpoint_dir / "voices"
+        self._set_segmenters()
 
-    @staticmethod
-    def _get_segmenter(lang: str):
-        """get the sentence segmenter for the given language.
+    def _set_segmenters(self) -> None:
+        """Set the sentence segmenters for the model's languages."""
+        if self.tts_model is not None:
+            self.segmenter = {}
+            for language in self.tts_model.language_manager.language_names:
+                seg_language = normalize_language(language)
+                if seg_language not in pysbd.languages.LANGUAGE_CODES:
+                    logger.info(
+                        "Language `%s` not supported by pySBD, using English for sentence splitting.", seg_language
+                    )
+                    seg_language = "en"
+                self.segmenter[language] = pysbd.Segmenter(language=seg_language, clean=True)
+            logger.info("Segmenters initialized for: %s", self.segmenter.keys())
 
-        Args:
-            lang (str): target language code.
-
-        Returns:
-            [type]: [description]
-        """
-        return pysbd.Segmenter(language=lang, clean=True)
-
-    def _load_vc(self, vc_checkpoint: str, vc_config_path: str, use_cuda: bool) -> None:
+    def _load_vc(self, vc_checkpoint: str, vc_config_path: str, *, use_cuda: bool) -> None:
         """Load the voice conversion model.
 
         1. Load the model config.
@@ -134,10 +145,10 @@ class Synthesizer(nn.Module):
 
         Args:
             vc_checkpoint (str): path to the model checkpoint.
-            tts_config_path (str): path to the model config file.
+            vc_config_path (str): path to the model config file.
             use_cuda (bool): enable/disable CUDA use.
+
         """
-        # pylint: disable=global-statement
         self.vc_config = load_config(vc_config_path)
         self.output_sample_rate = self.vc_config.audio.get(
             "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
@@ -147,87 +158,69 @@ class Synthesizer(nn.Module):
         if use_cuda:
             self.vc_model.cuda()
 
-    def _load_fairseq_from_dir(self, model_dir: str, use_cuda: bool) -> None:
+    def _load_fairseq(self, checkpoint_path: Path, *, use_cuda: bool) -> None:
         """Load the fairseq model from a directory.
 
-        We assume it is VITS and the model knows how to load itself from the directory and there is a config.json file in the directory.
+        We assume it is VITS and the model knows how to load itself from the
+        directory and there is a config.json file in the directory.
         """
         self.tts_config = VitsConfig()
-        self.tts_model = Vits.init_from_config(self.tts_config)
-        self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_dir=model_dir, eval=True)
+        self.tts_model = Vits(self.tts_config)
+        self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_path, eval=True)
         self.tts_config = self.tts_model.config
         self.output_sample_rate = self.tts_config.audio["sample_rate"]
         if use_cuda:
             self.tts_model.cuda()
 
-    def _load_openvoice_from_dir(self, checkpoint: Path, use_cuda: bool) -> None:
-        """Load the OpenVoice model from a directory.
+    def _load_openvoice(self, checkpoint: Path, *, use_cuda: bool) -> None:
+        """Load the OpenVoice model from a checkpoint file.
 
-        We assume the model knows how to load itself from the directory and
-        there is a config.json file in the directory.
+        We assume there is a config.json file in the same directory.
         """
         self.vc_config = OpenVoiceConfig()
-        self.vc_model = OpenVoice.init_from_config(self.vc_config)
+        self.vc_model = OpenVoice(self.vc_config)
         self.vc_model.load_checkpoint(self.vc_config, checkpoint, eval=True)
         self.vc_config = self.vc_model.config
         self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
         if use_cuda:
             self.vc_model.cuda()
 
-    def _load_tts_from_dir(self, model_dir: str, use_cuda: bool) -> None:
-        """Load the TTS model from a directory.
-
-        We assume the model knows how to load itself from the directory and there is a config.json file in the directory.
-        """
-        config = load_config(os.path.join(model_dir, "config.json"))
-        self.tts_config = config
-        self.output_sample_rate = self.tts_config.audio["output_sample_rate"]
-        self.tts_model = setup_tts_model(config)
-        self.tts_model.load_checkpoint(config, checkpoint_dir=model_dir, eval=True)
-        if use_cuda:
-            self.tts_model.cuda()
-
-    def _load_tts(self, tts_checkpoint: str, tts_config_path: str, use_cuda: bool) -> None:
+    def _load_tts(self, tts_checkpoint: Path, tts_config_path: Path | None = None, *, use_cuda: bool) -> None:
         """Load the TTS model.
 
-        1. Load the model config.
-        2. Init the model from the config.
-        3. Load the model weights.
-        4. Move the model to the GPU if CUDA is enabled.
-        5. Init the speaker manager in the model.
-
         Args:
-            tts_checkpoint (str): path to the model checkpoint.
-            tts_config_path (str): path to the model config file.
-            use_cuda (bool): enable/disable CUDA use.
+            tts_checkpoint: Path to checkpoint file or directory.
+            tts_config_path: Path to config.json. If None, inferred from checkpoint directory.
+            use_cuda: Enable/disable CUDA use.
+
         """
-        # pylint: disable=global-statement
+        checkpoint_dir = tts_checkpoint if tts_checkpoint.is_dir() else tts_checkpoint.parent
+        if tts_config_path is None:
+            tts_config_path = checkpoint_dir / "config.json"
         self.tts_config = load_config(tts_config_path)
-        self.output_sample_rate = self.tts_config.audio["sample_rate"]
+        self.output_sample_rate = self.tts_config.audio.get("output_sample_rate", self.tts_config.audio["sample_rate"])
         if self.tts_config["use_phonemes"] and self.tts_config["phonemizer"] is None:
-            raise ValueError("Phonemizer is not defined in the TTS config.")
+            msg = "Phonemizer is not defined in the TTS config."
+            raise ValueError(msg)
 
         self.tts_model = setup_tts_model(config=self.tts_config)
 
-        if not self.encoder_checkpoint:
-            self._set_speaker_encoder_paths_from_tts_config()
+        if not self.encoder_checkpoint and self.tts_config.model_args.get("speaker_encoder_config_path"):
+            self.encoder_checkpoint = self.tts_config.model_args.speaker_encoder_model_path
+            self.encoder_config = self.tts_config.model_args.speaker_encoder_config_path
 
-        self.tts_model.load_checkpoint(self.tts_config, tts_checkpoint, eval=True)
+        if tts_checkpoint.is_dir():
+            # We assume the model knows how to load itself from a directory
+            self.tts_model.load_checkpoint(self.tts_config, checkpoint_dir=tts_checkpoint, eval=True)
+        else:
+            self.tts_model.load_checkpoint(self.tts_config, checkpoint_path=tts_checkpoint, eval=True)
         if use_cuda:
             self.tts_model.cuda()
 
         if self.encoder_checkpoint and hasattr(self.tts_model, "speaker_manager"):
             self.tts_model.speaker_manager.init_encoder(self.encoder_checkpoint, self.encoder_config, use_cuda)
 
-    def _set_speaker_encoder_paths_from_tts_config(self):
-        """Set the encoder paths from the tts model config for models with speaker encoders."""
-        if hasattr(self.tts_config, "model_args") and hasattr(
-            self.tts_config.model_args, "speaker_encoder_config_path"
-        ):
-            self.encoder_checkpoint = self.tts_config.model_args.speaker_encoder_model_path
-            self.encoder_config = self.tts_config.model_args.speaker_encoder_config_path
-
-    def _load_vocoder(self, model_file: str, model_config: str, use_cuda: bool) -> None:
+    def _load_vocoder(self, model_file: str, model_config: str, *, use_cuda: bool) -> None:
         """Load the vocoder model.
 
         1. Load the vocoder config.
@@ -239,47 +232,104 @@ class Synthesizer(nn.Module):
             model_file (str): path to the model checkpoint.
             model_config (str): path to the model config file.
             use_cuda (bool): enable/disable CUDA use.
+
         """
         self.vocoder_config = load_config(model_config)
         self.output_sample_rate = self.vocoder_config.audio["sample_rate"]
-        self.vocoder_ap = AudioProcessor(**self.vocoder_config.audio)
+        self.vocoder_ap = AudioProcessor(self.vocoder_config.audio)
         self.vocoder_model = setup_vocoder_model(self.vocoder_config)
         self.vocoder_model.load_checkpoint(self.vocoder_config, model_file, eval=True)
         if use_cuda:
             self.vocoder_model.cuda()
 
-    def split_into_sentences(self, text) -> list[str]:
-        """Split give text into sentences.
+    def _run_vocoder(
+        self,
+        mel_postnet_spec: torch.Tensor,
+        vocoder_device: str | torch.device,
+    ) -> torch.Tensor:
+        """Run the vocoder model on mel spectrogram output.
 
         Args:
-            text (str): input text in string format.
+            mel_postnet_spec: Mel spectrogram tensor from TTS model.
+            vocoder_device: Device to run vocoder on.
+
+        Returns:
+            Waveform as numpy array.
+
+        """
+        mel_postnet_spec = mel_postnet_spec.detach().cpu().numpy()
+        # denormalize tts output based on tts audio config
+        mel_postnet_spec = self.tts_model.ap.denormalize(mel_postnet_spec.T).T
+        # renormalize spectrogram based on vocoder config
+        vocoder_input = self.vocoder_ap.normalize(mel_postnet_spec.T)
+        # compute scale factor for possible sample rate mismatch
+        scale_factor = [
+            1,
+            self.vocoder_config["audio"]["sample_rate"] / self.tts_model.ap.sample_rate,
+        ]
+        if scale_factor[1] != 1:
+            logger.info("Interpolating TTS model output.")
+            vocoder_input = interpolate_vocoder_input(scale_factor, vocoder_input)
+        else:
+            vocoder_input = torch.tensor(vocoder_input).unsqueeze(0)
+        return self.vocoder_model.inference(vocoder_input.to(vocoder_device))
+
+    def split_into_sentences(self, text: str, language: str | None = None) -> list[str]:
+        """Split given text into sentences.
+
+        Args:
+            text: input text in string format.
+            language: language of the text for language-dependent splitting.
 
         Returns:
             List[str]: list of sentences.
-        """
-        return self.seg.segment(text)
 
-    def save_wav(self, wav: list[int], path: str, pipe_out=None) -> None:
+        """
+        if language is None:
+            language = self.tts_model.language_manager.language_names[0]
+        logger.info("Splitting into sentences (language: %s).", language)
+        return self.segmenter[language].segment(text)
+
+    def save_wav(self, wav: list[int] | torch.Tensor | np.ndarray, path: str, pipe_out=None) -> None:
         """Save the waveform as a file.
 
         Args:
             wav (List[int]): waveform as a list of values.
             path (str): output path to save the waveform.
             pipe_out (BytesIO, optional): Flag to stdout the generated TTS wav file for shell pipe.
+
         """
         # if tensor convert to numpy
-        if torch.is_tensor(wav):
+        if isinstance(wav, torch.Tensor):
             wav = wav.cpu().numpy()
         if isinstance(wav, list):
             wav = np.array(wav)
         save_wav(wav=wav, path=path, sample_rate=self.output_sample_rate, pipe_out=pipe_out)
 
-    def voice_conversion(self, source_wav: str, target_wav: str | list[str], **kwargs) -> list[int]:
+    def voice_conversion(
+        self,
+        source_wav: str,
+        target_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
+        *,
+        speaker_id: str | None = None,
+        voice_dir: str | os.PathLike[Any] | None = None,
+        **kwargs: Any,
+    ) -> list[int]:
+        """Run a voice conversion model."""
         start_time = time.time()
+        if self.vc_model is None:
+            msg = "Voice conversion model not loaded"
+            raise RuntimeError(msg)
+        if target_wav is None and speaker_id is None:
+            msg = "Need to specify at least one of `target_wav` and `speaker_id`"
+            raise RuntimeError(msg)
 
-        if not isinstance(target_wav, list):
+        voice_dir = Path(voice_dir) if voice_dir is not None else self.voice_dir
+        if target_wav is not None and not isinstance(target_wav, list):
             target_wav = [target_wav]
-        output = self.vc_model.voice_conversion(source_wav, target_wav, **kwargs)
+        output = self.vc_model.voice_conversion(
+            source_wav, target_wav, speaker_id=speaker_id, voice_dir=voice_dir, **kwargs
+        )
         if self.vocoder_model is not None:
             output = self.vocoder_model.inference(output)
 
@@ -293,16 +343,18 @@ class Synthesizer(nn.Module):
     def tts(
         self,
         text: str = "",
-        speaker_name: str = "",
-        language_name: str = "",
-        speaker_wav=None,
+        speaker_name: str | None = "",
+        language_name: str | None = None,
+        speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]] | None = None,
         style_wav=None,
         style_text=None,
-        reference_wav=None,
-        reference_speaker_name=None,
+        source_wav=None,
+        source_speaker_name=None,
+        *,
         split_sentences: bool = True,
-        **kwargs,
-    ) -> list[int]:
+        return_dict: bool = False,
+        **kwargs: Any,
+    ) -> list[int] | dict[str, Any]:
         """🐸 TTS magic. Run all the models and generate speech.
 
         Args:
@@ -312,103 +364,38 @@ class Synthesizer(nn.Module):
             speaker_wav (Union[str, List[str]], optional): path to the speaker wav for voice cloning. Defaults to None.
             style_wav ([type], optional): style waveform for GST. Defaults to None.
             style_text ([type], optional): transcription of style_wav for Capacitron. Defaults to None.
-            reference_wav ([type], optional): reference waveform for voice conversion. Defaults to None.
-            reference_speaker_name ([type], optional): speaker id of reference waveform. Defaults to None.
+            source_wav ([type], optional): source waveform for voice conversion. Defaults to None.
+            source_speaker_name ([type], optional): speaker id of source waveform. Defaults to None.
             split_sentences (bool, optional): split the input text into sentences. Defaults to True.
+            return_dict (bool, optional): return additional outputs as a dictionary. Defaults to False.
             **kwargs: additional arguments to pass to the TTS model.
+
         Returns:
             List[int]: [description]
+
         """
+        if self.tts_model is None:
+            msg = "Text-to-speech model not loaded"
+            raise RuntimeError(msg)
         start_time = time.time()
+        segments = []
+        current_time = 0.0
         wavs = []
 
-        if not text and not reference_wav:
-            raise ValueError(
-                "You need to define either `text` (for sythesis) or a `reference_wav` (for voice conversion) to use the Coqui TTS API."
+        if not text and not speaker_wav and not speaker_name:
+            msg = (
+                "You need to define at least either `text` (for synthesis) or a "
+                "`speaker_wav` or cached `speaker` name (for voice conversion) to use the Coqui TTS API."
             )
+            raise ValueError(msg)
 
         if text:
             sens = [text]
             if split_sentences:
-                sens = self.split_into_sentences(text)
-                logger.info("Text split into sentences.")
+                sens = self.split_into_sentences(text, language_name)
             logger.info("Input: %s", sens)
 
-        # handle multi-speaker
-        if "voice_dir" in kwargs:
-            self.voice_dir = kwargs["voice_dir"]
-            kwargs.pop("voice_dir")
-        speaker_embedding = None
-        speaker_id = None
-        if self.tts_speakers_file or hasattr(self.tts_model.speaker_manager, "name_to_id"):
-            if speaker_name and isinstance(speaker_name, str) and not self.tts_config.model == "xtts":
-                if self.tts_config.use_d_vector_file:
-                    # get the average speaker embedding from the saved d_vectors.
-                    speaker_embedding = self.tts_model.speaker_manager.get_mean_embedding(
-                        speaker_name, num_samples=None, randomize=False
-                    )
-                    speaker_embedding = np.array(speaker_embedding)[None, :]  # [1 x embedding_dim]
-                else:
-                    # get speaker idx from the speaker name
-                    speaker_id = self.tts_model.speaker_manager.name_to_id[speaker_name]
-            # handle Neon models with single speaker.
-            elif len(self.tts_model.speaker_manager.name_to_id) == 1:
-                speaker_id = list(self.tts_model.speaker_manager.name_to_id.values())[0]
-            elif not speaker_name and not speaker_wav:
-                raise ValueError(
-                    " [!] Looks like you are using a multi-speaker model. "
-                    "You need to define either a `speaker_idx` or a `speaker_wav` to use a multi-speaker model."
-                )
-            else:
-                speaker_embedding = None
-        else:
-            if speaker_name and self.voice_dir is None:
-                raise ValueError(
-                    f" [!] Missing speakers.json file path for selecting speaker {speaker_name}."
-                    "Define path for speaker.json if it is a multi-speaker model or remove defined speaker idx. "
-                )
-
-        # handle multi-lingual
-        language_id = None
-        if self.tts_languages_file or (
-            hasattr(self.tts_model, "language_manager")
-            and self.tts_model.language_manager is not None
-            and not self.tts_config.model == "xtts"
-        ):
-            if len(self.tts_model.language_manager.name_to_id) == 1:
-                language_id = list(self.tts_model.language_manager.name_to_id.values())[0]
-
-            elif language_name and isinstance(language_name, str):
-                try:
-                    language_id = self.tts_model.language_manager.name_to_id[language_name]
-                except KeyError as e:
-                    raise ValueError(
-                        f" [!] Looks like you use a multi-lingual model. "
-                        f"Language {language_name} is not in the available languages: "
-                        f"{self.tts_model.language_manager.name_to_id.keys()}."
-                    ) from e
-
-            elif not language_name:
-                raise ValueError(
-                    " [!] Look like you use a multi-lingual model. "
-                    "You need to define either a `language_name` or a `style_wav` to use a multi-lingual model."
-                )
-
-            else:
-                raise ValueError(
-                    f" [!] Missing language_ids.json file path for selecting language {language_name}."
-                    "Define path for language_ids.json if it is a multi-lingual model or remove defined language idx. "
-                )
-
-        # compute a new d_vector from the given clip.
-        if (
-            speaker_wav is not None
-            and self.tts_model.speaker_manager is not None
-            and hasattr(self.tts_model.speaker_manager, "encoder_ap")
-            and self.tts_model.speaker_manager.encoder_ap is not None
-        ):
-            speaker_embedding = self.tts_model.speaker_manager.compute_embedding_from_clip(speaker_wav)
-
+        voice_dir = Path(d) if (d := kwargs.pop("voice_dir", None)) is not None else self.voice_dir
         vocoder_device = "cpu"
         use_gl = self.vocoder_model is None
         if not use_gl:
@@ -416,126 +403,58 @@ class Synthesizer(nn.Module):
         if self.use_cuda:
             vocoder_device = "cuda"
 
-        if not reference_wav:  # not voice conversion
+        if not source_wav:  # not voice conversion
             for sen in sens:
-                if hasattr(self.tts_model, "synthesize"):
-                    outputs = self.tts_model.synthesize(
-                        text=sen,
-                        config=self.tts_config,
-                        speaker_id=speaker_name,
-                        voice_dirs=self.voice_dir,
-                        d_vector=speaker_embedding,
-                        speaker_wav=speaker_wav,
-                        language=language_name,
-                        **kwargs,
-                    )
+                outputs = self.tts_model.synthesize(
+                    text=sen,
+                    speaker=speaker_name,
+                    voice_dir=voice_dir,
+                    speaker_wav=speaker_wav,
+                    language=language_name,
+                    use_griffin_lim=use_gl,
+                    **kwargs,
+                )
+                if use_gl:
+                    waveform = outputs["wav"]
                 else:
-                    # synthesize voice
-                    outputs = synthesis(
-                        model=self.tts_model,
-                        text=sen,
-                        CONFIG=self.tts_config,
-                        use_cuda=self.use_cuda,
-                        speaker_id=speaker_id,
-                        style_wav=style_wav,
-                        style_text=style_text,
-                        use_griffin_lim=use_gl,
-                        d_vector=speaker_embedding,
-                        language_id=language_id,
-                    )
-                waveform = outputs["wav"]
-                if not use_gl:
-                    mel_postnet_spec = outputs["outputs"]["model_outputs"][0].detach().cpu().numpy()
-                    # denormalize tts output based on tts audio config
-                    mel_postnet_spec = self.tts_model.ap.denormalize(mel_postnet_spec.T).T
-                    # renormalize spectrogram based on vocoder config
-                    vocoder_input = self.vocoder_ap.normalize(mel_postnet_spec.T)
-                    # compute scale factor for possible sample rate mismatch
-                    scale_factor = [
-                        1,
-                        self.vocoder_config["audio"]["sample_rate"] / self.tts_model.ap.sample_rate,
-                    ]
-                    if scale_factor[1] != 1:
-                        logger.info("Interpolating TTS model output.")
-                        vocoder_input = interpolate_vocoder_input(scale_factor, vocoder_input)
-                    else:
-                        vocoder_input = torch.tensor(vocoder_input).unsqueeze(0)  # pylint: disable=not-callable
-                    # run vocoder model
-                    # [1, T, C]
-                    waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-                if torch.is_tensor(waveform) and waveform.device != torch.device("cpu") and not use_gl:
-                    waveform = waveform.cpu()
-                if not use_gl:
-                    waveform = waveform.numpy()
+                    waveform = self._run_vocoder(outputs["outputs"]["model_outputs"][0], vocoder_device)
+                if isinstance(waveform, torch.Tensor):
+                    waveform = waveform.cpu().numpy()
                 waveform = waveform.squeeze()
 
                 # trim silence
-                if "do_trim_silence" in self.tts_config.audio and self.tts_config.audio["do_trim_silence"]:
-                    waveform = trim_silence(waveform, self.tts_model.ap)
+                if self.tts_config.audio.get("do_trim_silence"):
+                    waveform = waveform[: self.tts_model.ap.find_endpoint(waveform)]
 
                 wavs += list(waveform)
-                wavs += [0] * 10000
+                wavs += [0] * PAD_SILENCE_SAMPLES
+
+                if return_dict:
+                    wav_duration_sec = len(waveform) / self.tts_config.audio["sample_rate"]
+                    segment = {
+                        "id": len(segments),
+                        "start": current_time,
+                        "end": current_time + wav_duration_sec,
+                        "text": sen,
+                    }
+                    segments.append(segment)
+                    current_time += wav_duration_sec
+                    current_time += PAD_SILENCE_SAMPLES / self.tts_config.audio["sample_rate"]
+
         else:
-            # get the speaker embedding or speaker id for the reference wav file
-            reference_speaker_embedding = None
-            reference_speaker_id = None
-            if self.tts_speakers_file or hasattr(self.tts_model.speaker_manager, "name_to_id"):
-                if reference_speaker_name and isinstance(reference_speaker_name, str):
-                    if self.tts_config.use_d_vector_file:
-                        # get the speaker embedding from the saved d_vectors.
-                        reference_speaker_embedding = self.tts_model.speaker_manager.get_embeddings_by_name(
-                            reference_speaker_name
-                        )[0]
-                        reference_speaker_embedding = np.array(reference_speaker_embedding)[
-                            None, :
-                        ]  # [1 x embedding_dim]
-                    else:
-                        # get speaker idx from the speaker name
-                        reference_speaker_id = self.tts_model.speaker_manager.name_to_id[reference_speaker_name]
-                else:
-                    reference_speaker_embedding = self.tts_model.speaker_manager.compute_embedding_from_clip(
-                        reference_wav
-                    )
-            outputs = transfer_voice(
-                model=self.tts_model,
-                CONFIG=self.tts_config,
-                use_cuda=self.use_cuda,
-                reference_wav=reference_wav,
-                speaker_id=speaker_id,
-                d_vector=speaker_embedding,
-                use_griffin_lim=use_gl,
-                reference_speaker_id=reference_speaker_id,
-                reference_d_vector=reference_speaker_embedding,
+            outputs = self.tts_model.voice_conversion(
+                source_wav, speaker_wav, source_speaker=source_speaker_name, speaker=speaker_name, voice_dir=voice_dir
             )
-            waveform = outputs
-            if not use_gl:
-                mel_postnet_spec = outputs[0].detach().cpu().numpy()
-                # denormalize tts output based on tts audio config
-                mel_postnet_spec = self.tts_model.ap.denormalize(mel_postnet_spec.T).T
-                # renormalize spectrogram based on vocoder config
-                vocoder_input = self.vocoder_ap.normalize(mel_postnet_spec.T)
-                # compute scale factor for possible sample rate mismatch
-                scale_factor = [
-                    1,
-                    self.vocoder_config["audio"]["sample_rate"] / self.tts_model.ap.sample_rate,
-                ]
-                if scale_factor[1] != 1:
-                    logger.info("Interpolating TTS model output.")
-                    vocoder_input = interpolate_vocoder_input(scale_factor, vocoder_input)
-                else:
-                    vocoder_input = torch.tensor(vocoder_input).unsqueeze(0)  # pylint: disable=not-callable
-                # run vocoder model
-                # [1, T, C]
-                waveform = self.vocoder_model.inference(vocoder_input.to(vocoder_device))
-            if torch.is_tensor(waveform) and waveform.device != torch.device("cpu"):
-                waveform = waveform.cpu()
-            if not use_gl:
-                waveform = waveform.numpy()
-            wavs = waveform.squeeze()
+            wavs = outputs if use_gl else self._run_vocoder(outputs[0], vocoder_device)
+            if isinstance(wavs, torch.Tensor):
+                wavs = wavs.cpu().numpy()
+            wavs = wavs.squeeze()
 
         # compute stats
         process_time = time.time() - start_time
         audio_time = len(wavs) / self.tts_config.audio["sample_rate"]
         logger.info("Processing time: %.3f", process_time)
         logger.info("Real-time factor: %.3f", process_time / audio_time)
+        if return_dict:
+            return {"wav": wavs, "text": text, "segments": segments}
         return wavs

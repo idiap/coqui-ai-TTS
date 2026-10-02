@@ -1,52 +1,44 @@
 import logging
 
-from TTS.tts.utils.text.phonemizers import DEF_LANG_TO_PHONEMIZER, get_phonemizer_by_name
+from TTS.tts.utils.text.phonemizers import get_default_phonemizer, get_phonemizer_by_name
 
 logger = logging.getLogger(__name__)
 
 
 class MultiPhonemizer:
-    """🐸TTS multi-phonemizer that operates phonemizers for multiple langugages
+    """🐸TTS multi-phonemizer that operates phonemizers for multiple languages.
 
     Args:
         custom_lang_to_phonemizer (Dict):
             Custom phonemizer mapping if you want to change the defaults. In the format of
-            `{"lang_code", "phonemizer_name"}`. When it is None, `DEF_LANG_TO_PHONEMIZER` is used. Defaults to `{}`.
+            `{"lang_code", "phonemizer_name"}`. When the phonemizer name is
+            None, a default phonemizer is used. Defaults to `{}`.
 
     TODO: find a way to pass custom kwargs to the phonemizers
     """
 
-    lang_to_phonemizer = {}
-
-    def __init__(self, lang_to_phonemizer_name: dict = {}) -> None:  # pylint: disable=dangerous-default-value
-        for k, v in lang_to_phonemizer_name.items():
-            if v == "" and k in DEF_LANG_TO_PHONEMIZER.keys():
-                lang_to_phonemizer_name[k] = DEF_LANG_TO_PHONEMIZER[k]
-            elif v == "":
-                raise ValueError(f"Phonemizer wasn't set for language {k} and doesn't have a default.")
-        self.lang_to_phonemizer_name = lang_to_phonemizer_name
-        self.lang_to_phonemizer = self.init_phonemizers(self.lang_to_phonemizer_name)
+    def __init__(self, lang_to_phonemizer_name: dict[str, str | None] | None = None) -> None:
+        self.lang_to_phonemizer = {}
+        if lang_to_phonemizer_name is None:
+            lang_to_phonemizer_name = {}
+        for lang, name in lang_to_phonemizer_name.items():
+            if not name:
+                name = get_default_phonemizer(lang)
+            self.lang_to_phonemizer[lang] = get_phonemizer_by_name(name, language=lang)
 
     @staticmethod
-    def init_phonemizers(lang_to_phonemizer_name: dict) -> dict:
-        lang_to_phonemizer = {}
-        for k, v in lang_to_phonemizer_name.items():
-            lang_to_phonemizer[k] = get_phonemizer_by_name(v, language=k)
-        return lang_to_phonemizer
-
-    @staticmethod
-    def name():
+    def name() -> str:
         return "multi-phonemizer"
 
-    def phonemize(self, text, separator="|", language=""):
-        if language == "":
+    def phonemize(self, text: str, separator: str = "|", language: str | None = None) -> str:
+        if language is None:
             raise ValueError("Language must be set for multi-phonemizer to phonemize.")
         return self.lang_to_phonemizer[language].phonemize(text, separator)
 
-    def supported_languages(self) -> list:
+    def supported_languages(self) -> list[str]:
         return list(self.lang_to_phonemizer.keys())
 
-    def print_logs(self, level: int = 0):
+    def print_logs(self, level: int = 0) -> None:
         indent = "\t" * level
         logger.info("%s| phoneme language: %s", indent, self.supported_languages())
         logger.info("%s| phoneme backend: %s", indent, self.name())

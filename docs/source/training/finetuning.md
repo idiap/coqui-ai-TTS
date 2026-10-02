@@ -52,7 +52,7 @@ them and fine-tune it for your own dataset. This will help you in two main ways:
     You should choose the model based on your requirements. Some models are fast and some are better in speech quality.
     One lazy way to test a model is running the model on the hardware you want to use and see how it works. For
     simple testing, you can use the `tts` command on the terminal. For more info
-    see [here](../inference.md).
+    see the [inference page](../inference.md).
 
 3. Download the model.
 

@@ -43,7 +43,7 @@ def _validate_input(
     x = tensors[0]
 
     for t in tensors:
-        assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
+        assert isinstance(t, torch.Tensor), f"Expected torch.Tensor, got {type(t)}"
         assert t.device == x.device, f"Expected tensors to be on {x.device}, got {t.device}"
 
         if size_range is None:

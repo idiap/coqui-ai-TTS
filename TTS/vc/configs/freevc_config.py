@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from coqpit import Coqpit
 
+from TTS.config.shared_configs import ModelArgs
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
 
@@ -50,7 +51,7 @@ class FreeVCAudioConfig(Coqpit):
 
 
 @dataclass
-class FreeVCArgs(Coqpit):
+class FreeVCArgs(ModelArgs):
     """FreeVC model arguments
 
     Args:
@@ -172,9 +173,6 @@ class FreeVCConfig(BaseVCConfig):
         lr_scheduler_disc_params (dict):
             Parameters for the learning rate scheduler of the discriminator. Defaults to `{'gamma': 0.999875, "last_epoch":-1}`.
 
-        scheduler_after_epoch (bool):
-            If true, step the schedulers after each epoch else after each step. Defaults to `False`.
-
         optimizer (str):
             Name of the optimizer to use with both the generator and the discriminator networks. One of the
             `torch.optim.*`. Defaults to `AdamW`.
@@ -221,12 +219,6 @@ class FreeVCConfig(BaseVCConfig):
         test_sentences (List[List]):
             List of sentences with speaker and language information to be used for testing.
 
-        language_ids_file (str):
-            Path to the language ids file.
-
-        use_language_embedding (bool):
-            If true, language embedding is used. Defaults to `False`.
-
     Note:
         Check :class:`TTS.tts.configs.shared_configs.BaseVCConfig` for the inherited parameters.
 
@@ -253,23 +245,12 @@ class FreeVCConfig(BaseVCConfig):
 
     # sampler params
     use_weighted_sampler: bool = False  # TODO: move it to the base config
-    weighted_sampler_attrs: dict = field(default_factory=lambda: {})
-    weighted_sampler_multipliers: dict = field(default_factory=lambda: {})
+    weighted_sampler_attrs: dict = field(default_factory=dict)
+    weighted_sampler_multipliers: dict = field(default_factory=dict)
 
     # overrides
     r: int = 1  # DO NOT CHANGE
     add_blank: bool = True
-
-    # multi-speaker settings
-    # use speaker embedding layer
-    num_speakers: int = 0
-    speakers_file: str = None
-    speaker_embedding_channels: int = 256
-
-    # use d-vectors
-    use_d_vector_file: bool = False
-    d_vector_file: list[str] = None
-    d_vector_dim: int = None
 
     def __post_init__(self):
         for key, val in self.model_args.items():

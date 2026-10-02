@@ -59,6 +59,16 @@ class GANDataset(Dataset):
         self.cache = self.manager.list()
         self.cache += [None for _ in range(len(self.item_list))]
 
+    def __getstate__(self):
+        # Exclude manager from pickling - the cache proxy itself is picklable
+        # and will communicate with the Manager server in the main process
+        state = self.__dict__.copy()
+        state.pop("manager", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     @staticmethod
     def find_wav_files(path):
         return glob.glob(os.path.join(path, "**", "*.wav"), recursive=True)

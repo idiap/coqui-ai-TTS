@@ -1,12 +1,14 @@
 import logging
 import os
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from torch import nn
-from trainer.io import load_fsspec
+from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
+from TTS.tts.configs.neuralhmm_tts_config import NeuralhmmTTSConfig
 from TTS.tts.layers.losses import NLLLoss
 from TTS.tts.layers.overflow.common_layers import Encoder, OverflowUtils
 from TTS.tts.layers.overflow.neural_hmm import NeuralHMM
@@ -15,9 +17,6 @@ from TTS.tts.layers.overflow.plotting_utils import (
     plot_transition_probabilities_to_numpy,
 )
 from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 from TTS.utils.generic_utils import format_aux_input, is_pytorch_at_least_2_4
 
 logger = logging.getLogger(__name__)
@@ -65,22 +64,23 @@ class NeuralhmmTTS(BaseTTS):
     Check :class:`TTS.tts.configs.neuralhmm_tts_config.NeuralhmmTTSConfig` for class arguments.
     """
 
+    config: NeuralhmmTTSConfig
+
     def __init__(
         self,
-        config: "NeuralhmmTTSConfig",
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        config: Coqpit,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
         # pass all config fields to `self`
         # for fewer code change
-        self.config = config
-        for key in config:
-            setattr(self, key, config[key])
+        for key in self.config:
+            setattr(self, key, self.config[key])
 
-        self.encoder = Encoder(config.num_chars, config.state_per_phone, config.encoder_in_out_features)
+        self.encoder = Encoder(self.config.num_chars, self.config.state_per_phone, self.config.encoder_in_out_features)
         self.neural_hmm = NeuralHMM(
             frame_channels=self.out_channels,
             ar_order=self.ar_order,
@@ -173,9 +173,6 @@ class NeuralhmmTTS(BaseTTS):
         loss_dict.update(self._training_stats(batch))
         return outputs, loss_dict
 
-    def eval_step(self, batch: dict, criterion: nn.Module):
-        return self.train_step(batch, criterion)
-
     def _format_aux_input(self, aux_input: dict, default_input_dict):
         """Set missing fields to their default value.
 
@@ -237,31 +234,6 @@ class NeuralhmmTTS(BaseTTS):
     def get_criterion():
         return NLLLoss()
 
-    @staticmethod
-    def init_from_config(config: "NeuralhmmTTSConfig", samples: list[list] | list[dict] = None):
-        """Initiate model from config
-
-        Args:
-            config (VitsConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return NeuralhmmTTS(new_config, ap, tokenizer, speaker_manager)
-
-    def load_checkpoint(
-        self, config: Coqpit, checkpoint_path: str, eval: bool = False, strict: bool = True, cache=False
-    ):  # pylint: disable=unused-argument, redefined-builtin
-        state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
-        self.load_state_dict(state["model"])
-        if eval:
-            self.eval()
-            assert not self.training
-
     def on_init_start(self, trainer):
         """If the current dataset does not have normalisation statistics and initialisation transition_probability it computes them otherwise loads."""
         if not os.path.isfile(trainer.config.mel_statistics_parameter_path) or trainer.config.force_generate_statistics:
@@ -303,13 +275,15 @@ class NeuralhmmTTS(BaseTTS):
             logger.info("Data parameters loaded with value: %s", (data_mean, data_std, init_transition_prob))
 
         trainer.config.flat_start_params["transition_p"] = (
-            init_transition_prob.item() if torch.is_tensor(init_transition_prob) else init_transition_prob
+            init_transition_prob.item() if isinstance(init_transition_prob, torch.Tensor) else init_transition_prob
         )
         OverflowUtils.update_flat_start_transition(trainer.model, init_transition_prob)
         trainer.model.update_mean_std(statistics)
 
     @torch.inference_mode()
-    def _create_logs(self, batch, outputs, ap):  # pylint: disable=no-self-use, unused-argument
+    def _create_logs(self, batch, outputs):
+        from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+
         alignments, transition_vectors = outputs["alignments"], outputs["transition_vectors"]
         means = torch.stack(outputs["means"], dim=1)
 
@@ -342,16 +316,17 @@ class NeuralhmmTTS(BaseTTS):
                 states[start:end], transition_probability_synthesising[start:end]
             )
 
-        audio = ap.inv_melspectrogram(inference_output["model_outputs"][0].T.cpu().numpy())
+        audio = self.ap.inv_melspectrogram(inference_output["model_outputs"][0].T.cpu().numpy())
         return figures, {"audios": audio}
 
-    def train_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
-        """Log training progress."""
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.train_figures(steps, figures)
-        logger.train_audios(steps, audios, self.ap.sample_rate)
-
-    def eval_log(self, batch: dict, outputs: dict, logger: "Logger", assets: dict, steps: int):  # pylint: disable=unused-argument
+    def eval_log(
+        self,
+        batch: dict[str, Any],
+        outputs: dict[str, Any] | list[dict[str, Any]],
+        logger: BaseDashboardLogger,
+        assets: dict[str, Any],
+        steps: int,
+    ) -> None:
         """Compute and log evaluation metrics."""
         # Plot model parameters histograms
         if isinstance(logger, TensorboardLogger):
@@ -359,17 +334,4 @@ class NeuralhmmTTS(BaseTTS):
             for tag, value in self.named_parameters():
                 tag = tag.replace(".", "/")
                 logger.writer.add_histogram(tag, value.data.cpu().numpy(), steps)
-
-        figures, audios = self._create_logs(batch, outputs, self.ap)
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
-
-    def test_log(
-        self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        logger.test_audios(steps, outputs[1], self.ap.sample_rate)
-        logger.test_figures(steps, outputs[0])
+        super().eval_log(batch, outputs, logger, assets, steps)

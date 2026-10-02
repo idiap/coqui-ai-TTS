@@ -27,7 +27,7 @@ class TestOpenVoice(unittest.TestCase):
         model = OpenVoice(config).to(device)
         wav = model.load_audio(WAV_FILE)
         wav2 = model.load_audio(wav)
-        assert all(torch.isclose(wav, wav2))
+        assert torch.all(torch.isclose(wav, wav2))
 
     def test_voice_conversion(self):
         config = OpenVoiceConfig()
@@ -35,7 +35,7 @@ class TestOpenVoice(unittest.TestCase):
         model.eval()
 
         source_wav, target_wav = self._create_inputs_inference()
-        output_wav = model.voice_conversion(source_wav, target_wav)
+        output_wav = model.voice_conversion(source_wav, [target_wav])
         assert output_wav.shape[0] == source_wav.shape[0] - source_wav.shape[0] % config.audio.hop_length, (
             f"{output_wav.shape} != {source_wav.shape}"
         )

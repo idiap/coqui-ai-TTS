@@ -1,5 +1,6 @@
 import pytest
 
+from tests import get_test_speakers
 from tests.integration import create_config, run_tts_train
 from TTS.tts.configs.align_tts_config import AlignTTSConfig
 from TTS.tts.configs.delightful_tts_config import DelightfulTTSConfig
@@ -22,7 +23,7 @@ SPEAKER_ARGS = (
     },
     {
         "use_speaker_embedding": True,
-        "num_speakers": 4,
+        "speakers": get_test_speakers(4),
     },
 )
 SPEAKER_ARG_IDS = ["single", "dvector", "speaker_emb"]

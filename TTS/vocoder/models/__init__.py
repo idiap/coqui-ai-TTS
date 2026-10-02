@@ -5,7 +5,7 @@ import re
 from coqpit import Coqpit
 
 from TTS.utils.generic_utils import to_camel
-from TTS.vocoder.configs.shared_configs import BaseGANVocoderConfig, BaseVocoderConfig
+from TTS.vocoder.configs import BaseGANVocoderConfig, BaseVocoderConfig
 from TTS.vocoder.models.base_vocoder import BaseVocoder
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
             except ModuleNotFoundError as e:
                 raise ValueError(f"Model {config.model} does not exist!") from e
     logger.info("Vocoder model: %s", config.model)
-    return MyModel.init_from_config(config)
+    return MyModel(config)
 
 
 def setup_generator(c: BaseGANVocoderConfig):

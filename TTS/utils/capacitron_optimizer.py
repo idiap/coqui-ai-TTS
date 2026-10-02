@@ -2,11 +2,13 @@ from collections.abc import Generator
 
 from trainer.trainer_utils import get_optimizer
 
+from TTS.tts.configs.tacotron_config import TacotronConfig
+
 
 class CapacitronOptimizer:
     """Double optimizer class for the Capacitron model."""
 
-    def __init__(self, config: dict, model_params: Generator) -> None:
+    def __init__(self, config: TacotronConfig, model_params: Generator) -> None:
         self.primary_params, self.secondary_params = self.split_model_parameters(model_params)
 
         optimizer_names = list(config.optimizer_params.keys())

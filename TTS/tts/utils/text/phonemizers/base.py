@@ -1,7 +1,8 @@
 import abc
 import logging
+from typing import Any
 
-from TTS.tts.utils.text.punctuation import Punctuation
+from TTS.tts.utils.text.punctuation import _PUNC_IDX, Punctuation
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,9 @@ class BasePhonemizer(abc.ABC):
             Whether to preserve punctuation marks or not.
     """
 
-    def __init__(self, language, punctuations=Punctuation.default_puncs(), keep_puncs=False):
+    def __init__(
+        self, language: str, punctuations: str = Punctuation.default_puncs(), *, keep_puncs: bool = False
+    ) -> None:
         # ensure the backend is installed on the system
         if not self.is_available():
             raise RuntimeError(f"{self.name()} not installed on your system")  # pragma: nocover
@@ -45,7 +48,7 @@ class BasePhonemizer(abc.ABC):
         self._keep_puncs = keep_puncs
         self._punctuator = Punctuation(punctuations)
 
-    def _init_language(self, language):
+    def _init_language(self, language: str) -> str:
         """Language initialization
 
         This method may be overloaded in child classes (see Segments backend)
@@ -56,43 +59,42 @@ class BasePhonemizer(abc.ABC):
         return language
 
     @property
-    def language(self):
+    def language(self) -> str:
         """The language code configured to be used for phonemization"""
         return self._language
 
     @staticmethod
     @abc.abstractmethod
-    def name():
+    def name() -> str:
         """The name of the backend"""
         ...
 
     @classmethod
     @abc.abstractmethod
-    def is_available(cls):
+    def is_available(cls) -> bool:
         """Returns True if the backend is installed, False otherwise"""
         ...
 
-    @classmethod
     @abc.abstractmethod
-    def version(cls):
+    def version(self) -> str:
         """Return the backend version as a tuple (major, minor, patch)"""
         ...
 
     @staticmethod
     @abc.abstractmethod
-    def supported_languages():
+    def supported_languages() -> list[str] | dict[str, Any]:
         """Return a dict of language codes -> name supported by the backend"""
         ...
 
-    def is_supported_language(self, language):
+    def is_supported_language(self, language: str) -> bool:
         """Returns True if `language` is supported by the backend"""
         return language in self.supported_languages()
 
     @abc.abstractmethod
-    def _phonemize(self, text, separator):
+    def _phonemize(self, text: str, separator: str) -> str:
         """The main phonemization method"""
 
-    def _phonemize_preprocess(self, text) -> tuple[list[str], list]:
+    def _phonemize_preprocess(self, text: str) -> tuple[list[str], list[_PUNC_IDX]]:
         """Preprocess the text before phonemization
 
         1. remove spaces
@@ -106,7 +108,7 @@ class BasePhonemizer(abc.ABC):
             return self._punctuator.strip_to_restore(text)
         return [self._punctuator.strip(text)], []
 
-    def _phonemize_postprocess(self, phonemized, punctuations) -> str:
+    def _phonemize_postprocess(self, phonemized: list[str], punctuations: list[_PUNC_IDX]) -> str:
         """Postprocess the raw phonemized output
 
         Override this if you need a different behaviour
@@ -115,7 +117,7 @@ class BasePhonemizer(abc.ABC):
             return self._punctuator.restore(phonemized, punctuations)[0]
         return phonemized[0]
 
-    def phonemize(self, text: str, separator="|", language: str = None) -> str:  # pylint: disable=unused-argument
+    def phonemize(self, text: str, separator: str = "|", language: str | None = None) -> str:
         """Returns the `text` phonemized for the given language
 
         Args:
@@ -128,15 +130,14 @@ class BasePhonemizer(abc.ABC):
         Returns:
             (str): Phonemized text
         """
-        text, punctuations = self._phonemize_preprocess(text)
+        preprocessed, punctuations = self._phonemize_preprocess(text)
         phonemized = []
-        for t in text:
+        for t in preprocessed:
             p = self._phonemize(t, separator)
             phonemized.append(p)
-        phonemized = self._phonemize_postprocess(phonemized, punctuations)
-        return phonemized
+        return self._phonemize_postprocess(phonemized, punctuations)
 
-    def print_logs(self, level: int = 0):
+    def print_logs(self, level: int = 0) -> None:
         indent = "\t" * level
         logger.info("%s| phoneme language: %s", indent, self.language)
         logger.info("%s| phoneme backend: %s", indent, self.name())

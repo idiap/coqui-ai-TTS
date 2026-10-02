@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 
-from coqpit import Coqpit
-
-from TTS.config.shared_configs import BaseAudioConfig
+from TTS.config.shared_configs import BaseAudioConfig, ModelArgs
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
 
@@ -19,7 +17,7 @@ class KNNVCAudioConfig(BaseAudioConfig):
 
 
 @dataclass
-class KNNVCArgs(Coqpit):
+class KNNVCArgs(ModelArgs):
     """Model arguments.
 
     Args:

@@ -14,7 +14,7 @@ conf = BaseAudioConfig(mel_fmax=8000, pitch_fmax=640, pitch_fmin=1)
 @pytest.fixture
 def ap():
     """Set up audio processor."""
-    return AudioProcessor(**conf)
+    return AudioProcessor(conf)
 
 
 norms = [
@@ -54,7 +54,9 @@ def test_audio_synthesis(tmp_path, ap, norms):
         f"symmetric_{symmetric_norm}-clip_norm_{clip_norm}.wav"
     )
     print(" | > Creating wav file at : ", file_name)
-    ap.save_wav(wav_, tmp_path / file_name)
+    with pytest.raises(IsADirectoryError, match="Output path must be a file"):
+        ap.save_wav(wav_, tmp_path)
+    ap.save_wav(wav_, tmp_path / "subdir_to_be_created" / file_name)
 
 
 def test_normalize(ap):
@@ -165,14 +167,14 @@ def test_normalize(ap):
     assert (x - x_).sum() < 1e-3
 
 
-def test_scaler(ap):
+def test_scaler():
     scaler_stats_path = os.path.join(get_tests_input_path(), "scale_stats.npy")
     conf.stats_path = scaler_stats_path
     conf.preemphasis = 0.0
     conf.do_trim_silence = True
     conf.signal_norm = True
 
-    ap = AudioProcessor(**conf)
+    ap = AudioProcessor(conf)
     mel_mean, mel_std, linear_mean, linear_std, _ = ap.load_stats(scaler_stats_path)
     ap.setup_scaler(mel_mean, mel_std, linear_mean, linear_std)
 

@@ -28,8 +28,6 @@ class TacotronConfig(BaseTTSConfig):
             Instance of `CapacitronConfig` class.
         num_chars (int):
             Number of characters used by the model. It must be defined before initializing the model. Defaults to None.
-        num_speakers (int):
-            Number of speakers for multi-speaker models. Defaults to 1.
         r (int):
             Initial number of output frames that the decoder computed per iteration. Larger values makes training and inference
             faster but reduces the quality of the output frames. This must be equal to the largest `r` value used in
@@ -150,7 +148,6 @@ class TacotronConfig(BaseTTSConfig):
     capacitron_vae: CapacitronVAEConfig = None
 
     # model specific params
-    num_speakers: int = 1
     num_chars: int = 0
     r: int = 2
     gradual_training: list[list[int]] = None
