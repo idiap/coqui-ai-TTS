@@ -121,8 +121,8 @@ jobs:
           fi
       - name: Integration tests for shard ${{ matrix.shard }}
         run: |
-          uv run --extra cpu --extra codec \
-            pytest tests/integration --collect-only --quiet | \
+          uv run --resolution=${{ matrix.uv-resolution }} --extra cpu \
+            --extra codec --extra languages pytest tests/integration --collect-only --quiet | \
             grep "::" > integration_tests.txt
           total_shards=6
           shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)

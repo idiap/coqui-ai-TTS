@@ -510,11 +510,12 @@ class Xtts(BaseTTS):
             "speaker_embedding": speaker_embedding,
         }
 
-    def handle_chunks(self, wav_gen, wav_gen_prev, wav_overlap, overlap_len):
-        """Handle chunk formatting in streaming mode"""
-        wav_chunk = wav_gen[:-overlap_len]
+    def handle_chunks(self, wav_gen, wav_gen_prev, wav_overlap, overlap_len, is_final=False):
+        """Handle chunk formatting, retaining the overlap only until the final chunk."""
+        chunk_end = None if is_final else -overlap_len
+        wav_chunk = wav_gen[:chunk_end]
         if wav_gen_prev is not None:
-            wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) : -overlap_len]
+            wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) : chunk_end]
         if wav_overlap is not None:
             # cross fade the overlap section
             if overlap_len > len(wav_chunk):
@@ -522,7 +523,7 @@ class Xtts(BaseTTS):
                 if wav_gen_prev is not None:
                     wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) :]
                 else:
-                    # not expecting will hit here as problem happens on last chunk
+                    # unreachable in practice: wav_overlap is only set together with wav_gen_prev
                     wav_chunk = wav_gen[-overlap_len:]
                 return wav_chunk, wav_gen, None
             else:
@@ -531,7 +532,7 @@ class Xtts(BaseTTS):
                 wav_chunk[:overlap_len] = wav_overlap * torch.linspace(1.0, 0.0, overlap_len).to(wav_overlap.device)
                 wav_chunk[:overlap_len] += crossfade_wav
 
-        wav_overlap = wav_gen[-overlap_len:]
+        wav_overlap = None if is_final else wav_gen[-overlap_len:]
         wav_gen_prev = wav_gen
         return wav_chunk, wav_gen_prev, wav_overlap
 
@@ -615,7 +616,7 @@ class Xtts(BaseTTS):
                         ).transpose(1, 2)
                     wav_gen = self.hifigan_decoder(gpt_latents, g=speaker_embedding.to(self.device))
                     wav_chunk, wav_gen_prev, wav_overlap = self.handle_chunks(
-                        wav_gen.squeeze(), wav_gen_prev, wav_overlap, overlap_wav_len
+                        wav_gen.squeeze(), wav_gen_prev, wav_overlap, overlap_wav_len, is_final=is_end
                     )
                     last_tokens = []
                     yield wav_chunk
