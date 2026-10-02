@@ -26,7 +26,11 @@ except ImportError:
         Copied from transformers.pytorch_utils (removed in 5.1).
         See https://github.com/pytorch/pytorch/issues/77764#issuecomment-2067838075
         """
-        if elements.device.type == "mps" and not is_torch_greater_or_equal_than_2_4():
+        if elements.device.type == "mps" and not (
+            is_torch_greater_or_equal_than_2_4()
+            if callable(is_torch_greater_or_equal_than_2_4)
+            else is_torch_greater_or_equal_than_2_4
+        ):
             test_elements = torch.tensor(test_elements)
             if test_elements.ndim == 0:
                 test_elements = test_elements.unsqueeze(0)
