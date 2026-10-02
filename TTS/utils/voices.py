@@ -101,13 +101,13 @@ class CloningMixin:
         voice, model_metadata = self._clone_voice(speaker_wav, **generate_kwargs)
         logger.info("Generated voice from reference audio")
         if speaker_id is not None and voice_dir is not None:
-            speaker_id = slugify(speaker_id)
-            voice_fn = Path(voice_dir) / f"{speaker_id}.pth"
+            speaker_id_slug = slugify(speaker_id)
+            voice_fn = Path(voice_dir) / f"{speaker_id_slug}.pth"
             voice_fn.parent.mkdir(exist_ok=True, parents=True)
             speaker_wav = speaker_wav if isinstance(speaker_wav, list) else [speaker_wav]
-            metadata = self._create_voice_metadata(model_metadata, speaker_id, [str(p) for p in speaker_wav])
+            metadata = self._create_voice_metadata(model_metadata, speaker_id_slug, [str(p) for p in speaker_wav])
             voices = self.get_voices(voice_dir)
-            if speaker_id in voices:
+            if speaker_id_slug in voices:
                 logger.info("Voice `%s` already exists in `%s`, overwriting it", speaker_id, voice_fn)
             voice_dict = {**voice, "metadata": metadata.to_dict()}
             torch.save(voice_dict, voice_fn)
@@ -145,15 +145,13 @@ class CloningMixin:
             voice_dir:
                 Directory where to look for the voice.
         """
-        # Normalize to match clone_voice which saves as slugify(speaker_id).pth
-        # and get_voices which keys by path.stem (slugified).
-        speaker_id = slugify(speaker_id)
+        speaker_id_slug = slugify(speaker_id)
         voices = self.get_voices(voice_dir)
-        if speaker_id not in voices:
-            msg = f"Voice file `{slugify(speaker_id)}.pth` for speaker `{speaker_id}` not found in: {voice_dir}"
+        if speaker_id_slug not in voices:
+            msg = f"Voice file `{speaker_id_slug}.pth` for speaker `{speaker_id}` not found in: {voice_dir}"
             raise FileNotFoundError(msg)
-        voice = torch.load(voices[speaker_id], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
-        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id])
+        voice = torch.load(voices[speaker_id_slug], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
+        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])
         return voice
 
     def get_voices(self, voice_dir: str | os.PathLike[Any]) -> dict[str, Path]:

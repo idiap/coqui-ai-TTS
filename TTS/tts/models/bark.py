@@ -242,18 +242,17 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
-        # Normalize to match clone_voice which saves as slugify(speaker_id).pth
-        speaker_id = slugify(speaker_id)
+        speaker_id_slug = slugify(speaker_id)
         voices = self.get_voices(voice_dir)
-        if speaker_id not in voices:
-            msg = f"Voice file `{slugify(speaker_id)}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
+        if speaker_id_slug not in voices:
+            msg = f"Voice file `{speaker_id_slug}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
             raise FileNotFoundError(msg)
-        if voices[speaker_id].suffix == ".npz":
-            np_voice = np.load(voices[speaker_id])
+        if voices[speaker_id_slug].suffix == ".npz":
+            np_voice = np.load(voices[speaker_id_slug])
             voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
         else:
-            voice = torch.load(voices[speaker_id], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
-        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id])
+            voice = torch.load(voices[speaker_id_slug], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
+        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])
         return voice
 
     def synthesize(
