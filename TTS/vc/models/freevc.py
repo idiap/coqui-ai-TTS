@@ -482,7 +482,3 @@ class FreeVC(CloningMixin, BaseVC):
             g_tgt = self._extract_target_se(tgt)
         audio = self.inference(c, g=g_tgt)
         return audio[0][0].data.cpu().float().numpy()
-
-    def eval_step(): ...
-
-    def train_step(): ...

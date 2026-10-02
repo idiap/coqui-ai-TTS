@@ -25,7 +25,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.28.0.dev0"
+version = "0.28.0"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
 requires-python = ">=3.10, <3.15"
@@ -75,7 +75,7 @@ dependencies = [
     # Training
     "matplotlib>=3.8.4",
     # Coqui stack
-    "coqui-tts-trainer>=0.3.0,<0.4.0",
+    "coqui-tts-trainer>=0.4.0,<0.5.0",
     "coqpit-config>=0.2.5,<0.3.0",
     "monotonic-alignment-search>=0.1.0",
     "ko-speech-tools>=0.1.0",

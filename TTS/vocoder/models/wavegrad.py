@@ -9,7 +9,11 @@ from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer import Trainer
+from trainer.config import TrainerConfig
+from trainer.logging import BaseDashboardLogger
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.vocoder.configs import WavegradConfig
 from TTS.vocoder.datasets import WaveGradDataset
@@ -230,7 +234,9 @@ class Wavegrad(BaseVocoder):
             )
             self.compute_noise_level(betas)
 
-    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         # format data
         x = batch["input"]
         y = batch["waveform"]
@@ -245,37 +251,22 @@ class Wavegrad(BaseVocoder):
         loss = criterion(noise, noise_hat)
         return {"model_output": noise_hat}, {"loss": loss}
 
-    def train_log(  # pylint: disable=no-self-use
-        self,
-        batch: dict,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        pass
+    @torch.inference_mode()
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        return self.train_step(batch, criterion, optimizer_idx)
 
     @torch.inference_mode()
-    def eval_step(self, batch: dict, criterion: nn.Module) -> tuple[dict, dict]:
-        return self.train_step(batch, criterion)
-
-    def eval_log(  # pylint: disable=no-self-use
-        self,
-        batch: dict,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> None:
-        pass
-
-    def test(self, assets: dict, test_loader: "DataLoader", outputs=None):  # pylint: disable=unused-argument
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         # setup noise schedule and inference
         noise_schedule = self.config["test_noise_schedule"]
         betas = np.linspace(noise_schedule["min_val"], noise_schedule["max_val"], noise_schedule["num_steps"])
         self.compute_noise_level(betas)
-        samples = test_loader.dataset.load_test_samples(1)
-        for sample in samples:
+        figures = {}
+        audios = {}
+        samples = trainer.get_eval_dataloader(trainer.eval_samples).dataset.load_test_samples(1)
+        for idx, sample in enumerate(samples):
             x = sample[0]
             x = x[None, :, :].to(next(self.parameters()).device)
             y = sample[1]
@@ -283,23 +274,31 @@ class Wavegrad(BaseVocoder):
             # compute voice
             y_pred = self.inference(x)
             # compute spectrograms
-            figures = plot_results(y_pred, y, self.ap, "test")
+            figures.update(plot_results(y_pred, y, self.ap, f"test_{idx}/"))
             # Sample audio
             sample_voice = y_pred[0].squeeze(0).detach().cpu().numpy()
-        return figures, {"test/audio": sample_voice}
+            audios.update({f"test_{idx}/audio": sample_voice})
+        return {"figures": figures, "audios": audios}
 
-    def get_optimizer(self):
+    def test_log(
+        self,
+        outputs: dict[str, Any],
+        logger: BaseDashboardLogger,
+        steps: int,
+    ) -> None:
+        logger.eval_figures(steps, outputs["figures"])
+        logger.eval_audios(steps, outputs["audios"], self.ap.sample_rate)
+
+    def get_optimizer(self) -> torch.optim.Optimizer:
         return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
 
-    def get_scheduler(self, optimizer):
-        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, optimizer)
+    def get_scheduler(self, optimizer: list[torch.optim.Optimizer]) -> torch.optim.lr_scheduler._LRScheduler | None:
+        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, optimizer[0])
 
-    @staticmethod
-    def get_criterion():
+    def get_criterion(self) -> nn.Module:
         return torch.nn.L1Loss()
 
-    @staticmethod
-    def format_batch(batch: dict) -> dict:
+    def format_batch(self, batch: list) -> dict[str, Any]:
         # return a whole audio segment
         m, y = batch[0], batch[1]
         y = y.unsqueeze(1)
@@ -307,14 +306,12 @@ class Wavegrad(BaseVocoder):
 
     def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: True,
-        samples: list,
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ):
+        config: TrainerConfig,
+        *,
+        is_eval: bool = True,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
         dataset = WaveGradDataset(
             ap=self.ap,
             items=samples,
@@ -327,11 +324,11 @@ class Wavegrad(BaseVocoder):
             use_noise_augment=False,
             use_cache=config.use_cache,
         )
-        sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+        sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() else None
         loader = DataLoader(
             dataset,
             batch_size=self.config.batch_size,
-            shuffle=num_gpus <= 1,
+            shuffle=not is_dist_avail_and_initialized(),
             drop_last=False,
             sampler=sampler,
             num_workers=self.config.num_eval_loader_workers if is_eval else self.config.num_loader_workers,
@@ -339,7 +336,7 @@ class Wavegrad(BaseVocoder):
         )
         return loader
 
-    def on_epoch_start(self, trainer):  # pylint: disable=unused-argument
+    def on_epoch_start(self, trainer: Trainer) -> None:
         noise_schedule = self.config["train_noise_schedule"]
         betas = np.linspace(noise_schedule["min_val"], noise_schedule["max_val"], noise_schedule["num_steps"])
         self.compute_noise_level(betas)

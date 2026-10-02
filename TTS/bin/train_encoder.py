@@ -312,7 +312,7 @@ def train(
                     c.output_log_path,
                     current_step=global_step,
                     epoch=epoch,
-                    optimizer=optimizer,
+                    optimizer=[optimizer],
                     criterion=criterion.state_dict(),
                 )
 
@@ -343,7 +343,7 @@ def train(
                 c.output_log_path,
                 current_step=global_step,
                 epoch=epoch,
-                optimizer=optimizer,
+                optimizer=[optimizer],
                 criterion=criterion.state_dict(),
             )
             model.train()

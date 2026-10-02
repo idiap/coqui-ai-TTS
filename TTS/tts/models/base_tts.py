@@ -11,8 +11,10 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer import Trainer, TrainerConfig
 from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.config import get_from_config_or_model_args
 from TTS.config.shared_configs import BaseAudioConfig, ModelArgs
@@ -66,7 +68,25 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             self.ap = AudioProcessor(self.config.audio)
         self.speaker_manager = SpeakerManager.init_from_config(self.config)
         self.language_manager = LanguageManager.init_from_config(self.config)
+        self._register_speaker_encoder()
+        self.register_load_state_dict_post_hook(self._filter_encoder_keys)
         self._set_model_args()
+
+    def _register_speaker_encoder(self) -> None:
+        """Register the speaker encoder as a submodule so it moves with the model."""
+        if self.speaker_manager is not None and self.speaker_manager.encoder is not None:
+            self.speaker_encoder = self.speaker_manager.encoder
+
+    @staticmethod
+    def _filter_encoder_keys(module, incompatible_keys) -> None:
+        """Remove speaker encoder keys from missing-key check."""
+        for i in range(len(incompatible_keys.missing_keys) - 1, -1, -1):
+            if incompatible_keys.missing_keys[i].startswith("speaker_encoder."):
+                del incompatible_keys.missing_keys[i]
+
+    def state_dict(self, *args, **kwargs) -> dict:
+        sd = super().state_dict(*args, **kwargs)
+        return {k: v for k, v in sd.items() if not k.startswith("speaker_encoder.")}
 
     def _set_model_args(self) -> None:
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
@@ -250,7 +270,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             "audio_unique_names": batch["audio_unique_names"],
         }
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset) -> torch.utils.data.Sampler | None:
         weights = None
         data_items = dataset.samples
 
@@ -282,22 +302,20 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
 
         # sampler for DDP
         if sampler is None:
-            sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+            sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() else None
         else:  # If a sampler is already defined use this sampler and DDP sampler together
-            sampler = DistributedSamplerWrapper(sampler) if num_gpus > 1 else sampler
+            sampler = DistributedSamplerWrapper(sampler) if is_dist_avail_and_initialized() else sampler
 
         return sampler
 
     def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ) -> "DataLoader":
+        config: TrainerConfig,
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
         # setup multi-speaker attributes
         if self.speaker_manager is not None:
             speaker_id_mapping = (
@@ -346,14 +364,14 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         )
 
         # wait all the DDP process to be ready
-        if num_gpus > 1:
+        if is_dist_avail_and_initialized():
             dist.barrier()
 
         # sort input sequences from short to long
         dataset.preprocess_samples()
 
         # get samplers
-        sampler = self.get_sampler(config, dataset, num_gpus)
+        sampler = self.get_sampler(config, dataset)
 
         return DataLoader(
             dataset,
@@ -366,18 +384,15 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             pin_memory=False,
         )
 
-    def _create_logs(
-        self, batch: dict[str, Any], outputs: dict[str, Any] | list[dict[str, Any]]
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise NotImplementedError
 
     @torch.inference_mode()
     def train_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         """Create visualizations and waveform examples.
@@ -389,7 +404,6 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             batch: Model inputs used at the previous training step.
             outputs: Model outputs generated at the previous training step.
             logger: Logger instance.
-            assets: Training assets.
         """
         figures, audios = self._create_logs(batch, outputs)
         logger.train_figures(steps, figures)
@@ -398,7 +412,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     @torch.inference_mode()
     def eval_step(
         self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         """Perform a single evaluation step.
 
         Run the model forward ... and compute losses. In most cases, you can
@@ -420,9 +434,8 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def eval_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         figures, audios = self._create_logs(batch, outputs)
@@ -430,13 +443,10 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
-    def test_run(self, assets: dict) -> dict[str, Any]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
-
-        Args:
-            assets (dict): A dict of training assets. For `tts` models, it must include `{'audio_processor': ap}`.
 
         Returns:
             Dictionary with test figures and audios to be projected to Tensorboard.
@@ -468,15 +478,14 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def test_log(
         self,
         outputs: dict[str, Any],
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
+        logger: BaseDashboardLogger,
+        steps: int,
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
         if "figures" in outputs:
             logger.test_figures(steps, outputs["figures"])
 
-    def on_init_start(self, trainer: "Trainer") -> None:
+    def on_init_start(self, trainer: Trainer) -> None:
         """Save the speaker.pth at the beginning of the training and update the config."""
         if self.speaker_manager is not None:
             output_path = os.path.join(trainer.output_path, "speakers.pth")
