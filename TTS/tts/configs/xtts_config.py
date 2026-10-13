@@ -171,6 +171,7 @@ class XttsConfig(BaseTTSConfig):
             "ko",
             "ja",
             "hi",
+            "vi",
         ]
     )
 

@@ -101,6 +101,27 @@ def test_xtts_v2(tmp_path):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
+def test_vixtts_v2(tmp_path):
+    """viXTTS is too big to run on GitHub Actions. Test it locally with a reference voice."""
+    args = [
+        "--model_name",
+        "tts_models/multilingual/multi-dataset/vixtts_v2",
+        "--text",
+        "Xin chào, đây là một ví dụ.",
+        "--language_idx",
+        "vi",
+        "--out_path",
+        str(tmp_path / "output.wav"),
+        "--no-progress_bar",
+        "--speaker_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
+    ]
+    if torch.cuda.is_available():
+        args.append("--use_cuda")
+    run_main(main, args)
+
+
+@pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
 def test_xtts_v2_streaming(manager, device: torch.device):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig

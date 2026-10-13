@@ -621,6 +621,7 @@ class VoiceBpeTokenizer:
             "hu": 224,
             "ko": 95,
             "hi": 150,
+            "vi": 250,
         }
 
     @cached_property
@@ -649,6 +650,10 @@ class VoiceBpeTokenizer:
                 txt = hangul_romanize(txt)
         elif lang == "ja":
             txt = japanese_cleaners(txt, self.katsu)
+        elif lang == "vi":
+            # viXTTS has a Vietnamese-aware tokenizer. Preserve Vietnamese
+            # characters and only apply the model's basic normalization.
+            txt = collapse_whitespace(lowercase(txt))
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
@@ -849,6 +854,11 @@ def test_symbols_multilingual():
     for a, b, lang in test_cases:
         out = expand_symbols_multilingual(a, lang=lang)
         assert out == b, f"'{out}' vs '{b}'"
+
+
+def test_vietnamese_preprocessing():
+    tokenizer = VoiceBpeTokenizer()
+    assert tokenizer.preprocess_text("  XIN   CHÀO  ", "vi") == "xin chào"
 
 
 if __name__ == "__main__":
