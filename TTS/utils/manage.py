@@ -76,9 +76,8 @@ class ModelManager:
         else:
             self.output_prefix = Path(output_prefix) / "tts"
         self.models_dict = {}
-        f = resources.open_text("TTS", ".models.json") if models_file is None else open(models_file, encoding="utf-8")
-        with f:
-            self.models_dict = json.load(f)
+        path = resources.files("TTS").joinpath(".models.json") if models_file is None else Path(models_file)
+        self.models_dict = json.loads(path.read_text(encoding="utf-8"))
 
     def _list_models(self, model_type: str, model_count: int = 0) -> list[str]:
         logger.info("")
