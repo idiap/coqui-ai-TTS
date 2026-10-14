@@ -326,7 +326,6 @@ def main(arg_list: list[str] | None = None) -> None:
 
     with contextlib.redirect_stdout(None if args.pipe_out else sys.stdout):
         # Late-import to make things load faster
-        from TTS.api import TTS
         from TTS.utils.manage import ModelManager
 
         # load model manager
@@ -364,6 +363,8 @@ def main(arg_list: list[str] | None = None) -> None:
             sys.exit(0)
 
         # 3) Load a model for further info or TTS/VC
+        from TTS.api import TTS
+
         device = args.device
         if args.use_cuda:
             device = "cuda"
