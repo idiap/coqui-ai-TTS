@@ -71,12 +71,10 @@ def test_voice_conversion(tmp_path):
         "tts_models/multilingual/multi-dataset/your_tts",
         "--out_path",
         str(tmp_path / "output.wav"),
-        "--speaker_wav",
-        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
-        "--reference_wav",
+        "--source_wav",
         os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav"),
-        "--language_idx",
-        "en",
+        "--target_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
         "--no-progress_bar",
     ]
     run_main(main, args)
