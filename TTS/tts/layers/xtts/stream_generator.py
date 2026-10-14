@@ -386,7 +386,8 @@ class NewGenerationMixin(GenerationMixin):
         batch_size, cur_len = input_ids.shape[:2]
         this_peer_finished = False
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
-        model_kwargs = self._get_initial_cache_position(cur_len, input_ids.device, model_kwargs)
+        if hasattr(self, "_get_initial_cache_position"):  # removed in transformers 5.4
+            model_kwargs = self._get_initial_cache_position(cur_len, input_ids.device, model_kwargs)
 
         # auto-regressive generation
         is_first_iteration = True
