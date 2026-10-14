@@ -42,8 +42,6 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
         assert labels is None  # Training not supported by this inference model.
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        # assert len(past_key_values) + len(input_ids) == attention_mask.shape[1]
-
         # Create embedding
         prefix_len = self.cached_prefix_emb.shape[1]
         if input_ids.shape[1] != 1:
@@ -59,8 +57,9 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
             emb = torch.cat([prefix_emb, gen_emb], dim=1)
         else:
             emb = self.embeddings(input_ids)
+            # Not using attention_mask here because transformers>=5.18 drops it from generate() if it is all ones
             emb = emb + self.pos_embedding.get_fixed_embedding(
-                attention_mask.shape[1] - (prefix_len + 1), attention_mask.device
+                past_key_values.get_seq_length() - prefix_len, input_ids.device
             )
         transformer_outputs = self.transformer(
             inputs_embeds=emb,
