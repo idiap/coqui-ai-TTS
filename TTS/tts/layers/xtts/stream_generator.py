@@ -186,12 +186,6 @@ class NewGenerationMixin(GenerationMixin):
             if model_input_name == "input_ids" and len(model_kwargs["attention_mask"].shape) > 2:
                 raise ValueError("`attention_mask` passed to `generate` must be 2D.")
 
-        if self.config.is_encoder_decoder and "encoder_outputs" not in model_kwargs:
-            # if model is encoder decoder encoder_outputs are created and added to `model_kwargs`
-            model_kwargs = self._prepare_encoder_decoder_kwargs_for_generation(
-                inputs_tensor, model_kwargs, model_input_name, generation_config
-            )
-
         # 5. Prepare `input_ids` which will be used for auto-regressive generation
         # if decoder-only then inputs_tensor has to be `input_ids`
         input_ids = inputs_tensor
