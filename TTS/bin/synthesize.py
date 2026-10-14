@@ -251,18 +251,6 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     )
     # aux args
     parser.add_argument(
-        "--reference_wav",
-        type=str,
-        help="Reference wav file to convert in the voice of the speaker_idx or speaker_wav",
-        default=None,
-    )
-    parser.add_argument(
-        "--reference_speaker_idx",
-        type=str,
-        help="speaker ID of the reference_wav speaker (If not provided the embedding will be computed using the Speaker Encoder).",
-        default=None,
-    )
-    parser.add_argument(
         "--progress_bar",
         action=argparse.BooleanOptionalAction,
         help="Show a progress bar for the model download.",
@@ -304,7 +292,6 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         args.list_models,
         args.list_speaker_idxs,
         args.list_language_idxs,
-        args.reference_wav,
         args.model_info_by_idx,
         args.model_info_by_name,
         args.source_wav,
@@ -417,10 +404,8 @@ def main(arg_list: list[str] | None = None) -> None:
                 speaker_wav=args.speaker_wav,
                 pipe_out=pipe_out,
                 file_path=args.out_path,
-                reference_wav=args.reference_wav,
                 style_wav=args.capacitron_style_wav,
                 style_text=args.capacitron_style_text,
-                reference_speaker_name=args.reference_speaker_idx,
                 voice_dir=args.voice_dir,
             )
             logger.info("Saved TTS output to %s", args.out_path)
