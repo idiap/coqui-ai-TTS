@@ -300,6 +300,13 @@ To make `XTTS_v2` GPT encoder training easier for beginner users we did a gradio
 
 The user can run this gradio demo locally or remotely using a Colab Notebook.
 
+```{warning}
+The demo creates a public Gradio share link (`https://*.gradio.live`). Anyone
+with this link has full access to the demo, including uploading files and
+reading/writing files on the machine running it. Do not share the link or
+publish notebook outputs/logs that contain it.
+```
+
 #### Run demo on Colab
 To make the `XTTS_v2` fine-tuning more accessible for users that do not have good GPUs available we did a Google Colab Notebook.
 
