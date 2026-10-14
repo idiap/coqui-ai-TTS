@@ -389,9 +389,15 @@ class NewGenerationMixin(GenerationMixin):
         model_kwargs = self._get_initial_cache_position(cur_len, input_ids.device, model_kwargs)
 
         # auto-regressive generation
+        is_first_iteration = True
         while self._has_unfinished_sequences(this_peer_finished, synced_gpus, device=input_ids.device):
             # prepare model inputs
-            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            # transformers>=5.3 only slices the inputs to the tokens not yet in the cache if `next_sequence_length` is set
+            next_sequence_length = None if is_first_iteration or not model_kwargs["use_cache"] else 1
+            model_inputs = self.prepare_inputs_for_generation(
+                input_ids, next_sequence_length=next_sequence_length, **model_kwargs
+            )
+            is_first_iteration = False
 
             # forward pass to get next token
             outputs = self(**model_inputs, return_dict=True)
