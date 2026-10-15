@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from torch.nn.utils import parametrize
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
 from tests import get_test_speakers, get_tests_data_path, get_tests_input_path, get_tests_output_path
@@ -108,6 +109,117 @@ def test_load_audio():
     spec_amp = db_to_amp(spec_db)
 
     assert (spec - spec_amp).abs().max() == pytest.approx(0, abs=1e-4)
+
+
+class _NotCopyable:
+    def __deepcopy__(self, memo):
+        raise TypeError("must not be copied")
+
+
+class _NotCopyableModule(_NotCopyable, torch.nn.Module):
+    pass
+
+
+@pytest.fixture
+def onnx_vits() -> Vits:
+    """Small VITS model for ONNX export tests."""
+    args = VitsArgs(
+        num_chars=32,
+        hidden_channels=16,
+        hidden_channels_ffn_text_encoder=32,
+        num_layers_text_encoder=1,
+        num_layers_posterior_encoder=1,
+        num_layers_flow=1,
+        upsample_initial_channel_decoder=32,
+        upsample_rates_decoder=[2, 2],
+        upsample_kernel_sizes_decoder=[4, 4],
+        resblock_kernel_sizes_decoder=[3],
+        resblock_dilation_sizes_decoder=[[1, 3, 5]],
+        init_discriminator=False,
+        inference_noise_scale=0,
+        inference_noise_scale_dp=0,
+    )
+    config = VitsConfig(model_args=args)
+    config.audio.hop_length = 4
+    model = Vits(config)
+    # Some convolutions are zero-initialized (unlike in trained checkpoints). ONNX would
+    # deduplicate these identical weights into Identity nodes instead of initializers.
+    with torch.no_grad():
+        for module in model.modules():
+            if isinstance(module, torch.nn.Conv1d) and not torch.count_nonzero(module.weight):
+                module.weight.normal_(0, 0.01)
+    return model
+
+
+def _run_onnx(path: Path, tokens: torch.Tensor, scales: list[float]) -> torch.Tensor:
+    ort = pytest.importorskip("onnxruntime")
+    session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    inputs = {
+        "input": tokens.numpy(),
+        "input_lengths": torch.tensor([tokens.shape[1]]).numpy(),
+        "scales": torch.tensor(scales).numpy(),
+    }
+    return torch.from_numpy(session.run(["output"], inputs)[0])
+
+
+def test_export_onnx_keeps_model_unchanged(onnx_vits, tmp_path):
+    pytest.importorskip("onnx")
+    model = onnx_vits
+    # Neither of these may be copied for the export.
+    model.disc = disc = _NotCopyableModule()
+    model.onnx_sess = onnx_sess = _NotCopyable()
+    # Mix train and eval modes to check that all are preserved.
+    model.posterior_encoder.eval()
+
+    normalized_modules = {
+        name for name, module in model.named_modules() if parametrize.is_parametrized(module, "weight")
+    }
+    assert normalized_modules
+    state = {name: value.clone() for name, value in model.state_dict().items()}
+    training = {name: module.training for name, module in model.named_modules()}
+    forward = model.forward
+    scales = (model.inference_noise_scale, model.length_scale, model.inference_noise_scale_dp)
+
+    model.export_onnx(str(tmp_path / "vits.onnx"), verbose=False)
+
+    assert normalized_modules == {
+        name for name, module in model.named_modules() if parametrize.is_parametrized(module, "weight")
+    }
+    assert training == {name: module.training for name, module in model.named_modules()}
+    assert model.forward == forward
+    assert (model.inference_noise_scale, model.length_scale, model.inference_noise_scale_dp) == scales
+    assert model.disc is disc
+    assert model.onnx_sess is onnx_sess
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(value, state[name], rtol=0, atol=0)
+
+
+def test_export_onnx_quantization(onnx_vits, tmp_path):
+    """Convolution weights are exported as constants, so they can be quantized."""
+    onnx = pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    from onnxruntime.quantization import quantize_dynamic
+
+    model = onnx_vits
+    output_path = tmp_path / "vits.onnx"
+    model.export_onnx(str(output_path), verbose=False)
+
+    graph = onnx.load(output_path).graph
+    initializers = {initializer.name for initializer in graph.initializer}
+    convs = [node for node in graph.node if node.op_type in {"Conv", "ConvTranspose"}]
+    assert convs
+    assert all(node.input[1] in initializers for node in convs)
+
+    quantized_path = tmp_path / "vits-quantized.onnx"
+    quantize_dynamic(str(output_path), str(quantized_path))
+    onnx.checker.check_model(str(quantized_path))
+
+    model.eval()
+    tokens = torch.randint(0, model.args.num_chars, (1, 10))
+    with torch.no_grad():
+        expected = model.inference(tokens, aux_input={"x_lengths": torch.tensor([10])})["model_outputs"]
+    actual = _run_onnx(output_path, tokens, [0.0, 1.0, 0.0])
+    torch.testing.assert_close(actual, expected)
 
 
 def test_init_multispeaker():
