@@ -108,4 +108,4 @@ class BarkConfig(BaseTTSConfig):
             "coarse": {"path": os.path.join(self.REMOTE_BASE_URL, "coarse.pt")},
             "fine": {"path": os.path.join(self.REMOTE_BASE_URL, "fine.pt")},
         }
-        self.sample_rate = self.SAMPLE_RATE  # pylint: disable=attribute-defined-outside-init
+        self.sample_rate = self.SAMPLE_RATE

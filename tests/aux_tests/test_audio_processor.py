@@ -113,7 +113,7 @@ def test_normalize(ap):
     assert (x_old - x).sum() == 0
     # check value range
     assert x_norm.max() <= ap.max_norm + 1, x_norm.max()
-    assert x_norm.min() >= -ap.max_norm - 2, x_norm.min()  # pylint: disable=invalid-unary-operand-type
+    assert x_norm.min() >= -ap.max_norm - 2, x_norm.min()
     assert x_norm.min() <= 0, x_norm.min()
     # check denorm.
     x_ = ap.denormalize(x_norm)
@@ -131,7 +131,7 @@ def test_normalize(ap):
     assert (x_old - x).sum() == 0
     # check value range
     assert x_norm.max() <= ap.max_norm, x_norm.max()
-    assert x_norm.min() >= -ap.max_norm, x_norm.min()  # pylint: disable=invalid-unary-operand-type
+    assert x_norm.min() >= -ap.max_norm, x_norm.min()
     assert x_norm.min() <= 0, x_norm.min()
     # check denorm.
     x_ = ap.denormalize(x_norm)
@@ -161,7 +161,7 @@ def test_normalize(ap):
 
     assert (x_old - x).sum() == 0
     assert x_norm.max() <= ap.max_norm, x_norm.max()
-    assert x_norm.min() >= -ap.max_norm, x_norm.min()  # pylint: disable=invalid-unary-operand-type
+    assert x_norm.min() >= -ap.max_norm, x_norm.min()
     assert x_norm.min() < 0, x_norm.min()
     x_ = ap.denormalize(x_norm)
     assert (x - x_).sum() < 1e-3

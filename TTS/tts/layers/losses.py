@@ -14,7 +14,6 @@ from TTS.utils.audio.torch_transforms import TorchSTFT
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=abstract-method
 # relates https://github.com/pytorch/pytorch/issues/42305
 class L1LossMasked(nn.Module):
     def __init__(self, seq_len_norm):
@@ -146,7 +145,6 @@ class SSIMLoss(torch.nn.Module):
 
 
 class AttentionEntropyLoss(nn.Module):
-    # pylint: disable=R0201
     def forward(self, align):
         """
         Forces attention to be more decisive by penalizing
@@ -267,7 +265,6 @@ class GuidedAttentionLoss(torch.nn.Module):
 
 
 class Huber(nn.Module):
-    # pylint: disable=R0201
     def forward(self, x, y, length=None):
         """
         Shapes:
@@ -312,7 +309,7 @@ class ForwardSumLoss(nn.Module):
 class NLLLoss(nn.Module):
     """Negative log likelihood loss."""
 
-    def forward(self, log_prob: torch.Tensor) -> dict:  # pylint: disable=no-self-use
+    def forward(self, log_prob: torch.Tensor) -> dict:
         """Compute the loss.
 
         Args:
@@ -366,7 +363,6 @@ class TacotronLoss(torch.nn.Module):
         if c.postnet_ssim_alpha > 0 or c.decoder_ssim_alpha > 0:
             self.criterion_ssim = SSIMLoss()
         # stopnet loss
-        # pylint: disable=not-callable
         self.criterion_st = BCELossMasked(pos_weight=torch.tensor(self.stopnet_pos_weight)) if c.stopnet else None
 
         # For dev pruposes only
@@ -555,13 +551,13 @@ def mse_loss_custom(x, y):
     """MSE loss using the torch back-end without reduction.
     It uses less VRAM than the raw code"""
     expanded_x, expanded_y = torch.broadcast_tensors(x, y)
-    return torch._C._nn.mse_loss(expanded_x, expanded_y, 0)  # pylint: disable=protected-access, c-extension-no-member
+    return torch._C._nn.mse_loss(expanded_x, expanded_y, 0)
 
 
 class MDNLoss(nn.Module):
     """Mixture of Density Network Loss as described in https://arxiv.org/pdf/2003.01950.pdf."""
 
-    def forward(self, logp, text_lengths, mel_lengths):  # pylint: disable=no-self-use
+    def forward(self, logp, text_lengths, mel_lengths):
         """
         Shapes:
             mu: [B, D, T]

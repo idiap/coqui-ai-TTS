@@ -14,8 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 # Only support eager mode and TF>=2.0.0
-# pylint: disable=no-member, invalid-name, relative-beyond-top-level
-# pylint: disable=too-many-locals, too-many-statements, too-many-arguments, too-many-instance-attributes
 """voxceleb 1 & 2"""
 
 import csv

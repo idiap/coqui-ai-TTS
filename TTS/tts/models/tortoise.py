@@ -721,7 +721,7 @@ class Tortoise(BaseTTS):
         eval: bool = False,
         strict: bool = True,
         **kwargs,
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    ):
         """Load a model checkpoints from a directory. This model is with multiple checkpoint files and it
         expects to have all the files to be under the given `checkpoint_dir` with the rigth names.
         If eval is True, set the model to eval mode.

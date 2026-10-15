@@ -12,7 +12,7 @@ from TTS.tts.utils.helpers import (
 )
 
 
-def test_average_over_durations():  # pylint: disable=no-self-use
+def test_average_over_durations():
     pitch = T.rand(1, 1, 128)
 
     durations = T.randint(1, 5, (1, 21))

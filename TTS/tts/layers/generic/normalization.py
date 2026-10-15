@@ -77,7 +77,7 @@ class ActNorm(nn.Module):
         - outputs: (B, C, T)
     """
 
-    def __init__(self, channels, ddi=False, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, channels, ddi=False, **kwargs):
         super().__init__()
         self.channels = channels
         self.initialized = not ddi
@@ -85,7 +85,7 @@ class ActNorm(nn.Module):
         self.logs = nn.Parameter(torch.zeros(1, channels, 1))
         self.bias = nn.Parameter(torch.zeros(1, channels, 1))
 
-    def forward(self, x, x_mask=None, reverse=False, **kwargs):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, reverse=False, **kwargs):
         if x_mask is None:
             x_mask = torch.ones(x.size(0), 1, x.size(2)).to(device=x.device, dtype=x.dtype)
         x_len = torch.sum(x_mask, [1, 2])

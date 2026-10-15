@@ -510,7 +510,7 @@ class ModelManager:
             temp_zip_name.unlink()  # delete zip after extract
         except zipfile.BadZipFile:
             logger.exception("Bad zip file - %s", file_url)
-            raise zipfile.BadZipFile  # pylint: disable=raise-missing-from
+            raise zipfile.BadZipFile
         # move the files to the outer path
         for file_path in z.namelist():
             src_path = output_folder / file_path
@@ -545,7 +545,7 @@ class ModelManager:
             temp_tar_name.unlink()  # delete tar after extract
         except tarfile.ReadError:
             logger.exception("Bad tar file - %s", file_url)
-            raise tarfile.ReadError  # pylint: disable=raise-missing-from
+            raise tarfile.ReadError
         # move the files to the outer path
         for file_path in (output_folder / tar_names[0]).iterdir():
             src_path = file_path

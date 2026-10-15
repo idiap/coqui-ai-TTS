@@ -4,8 +4,6 @@ from TTS.model import BaseTrainerModel
 from TTS.utils.audio.processor import AudioProcessor
 from TTS.vocoder.configs.shared_configs import BaseVocoderConfig
 
-# pylint: skip-file
-
 
 class BaseVocoder(BaseTrainerModel):
     """Base `vocoder` class. Every new `vocoder` model must inherit this.

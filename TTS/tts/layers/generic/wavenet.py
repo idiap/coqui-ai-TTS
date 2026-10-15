@@ -90,7 +90,7 @@ class WN(torch.nn.Module):
         if not weight_norm:
             self.remove_weight_norm()
 
-    def forward(self, x, x_mask=None, g=None, **kwargs):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None, **kwargs):
         output = torch.zeros_like(x)
         n_channels_tensor = torch.IntTensor([self.hidden_channels])
         x_mask = 1.0 if x_mask is None else x_mask

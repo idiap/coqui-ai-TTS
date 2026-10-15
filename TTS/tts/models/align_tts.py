@@ -96,7 +96,6 @@ class AlignTTS(BaseTTS):
 
     @staticmethod
     def compute_log_probs(mu, log_sigma, y):
-        # pylint: disable=protected-access, c-extension-no-member
         y = y.transpose(1, 2).unsqueeze(1)  # [B, 1, T1, D]
         mu = mu.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
         log_sigma = log_sigma.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
@@ -180,7 +179,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(self, x, x_lengths, y, y_lengths, aux_input=None, phase=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input=None, phase=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -236,7 +235,7 @@ class AlignTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x, aux_input=None):  # pylint: disable=unused-argument
+    def inference(self, x, aux_input=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -306,7 +305,7 @@ class AlignTTS(BaseTTS):
         return figures, {"audio": train_audio}
 
     def get_criterion(self) -> nn.Module:
-        from TTS.tts.layers.losses import AlignTTSLoss  # pylint: disable=import-outside-toplevel
+        from TTS.tts.layers.losses import AlignTTSLoss
 
         return AlignTTSLoss(self.config)
 

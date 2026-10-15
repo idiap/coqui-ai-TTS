@@ -232,7 +232,7 @@ class BaseTacotron(BaseTTS):
             gst_outputs = torch.zeros(1, 1, self.gst.gst_embedding_dim).type_as(inputs)
         else:
             # compute style tokens
-            gst_outputs = self.gst_layer(style_input, speaker_embedding)  # pylint: disable=not-callable
+            gst_outputs = self.gst_layer(style_input, speaker_embedding)
         inputs = self._concat_speaker_embedding(inputs, gst_outputs)
         return inputs
 
@@ -246,7 +246,7 @@ class BaseTacotron(BaseTTS):
         ) = self.capacitron_vae_layer(
             reference_mel_info,
             text_info,
-            speaker_embedding,  # pylint: disable=not-callable
+            speaker_embedding,
         )
 
         VAE_outputs = VAE_outputs.to(inputs.device)

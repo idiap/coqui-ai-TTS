@@ -218,12 +218,12 @@ class Tacotron(BaseTacotron):
                 style_text_embedding = self.embedding(aux_input["style_text"])
                 style_text_length = torch.tensor([style_text_embedding.size(1)], dtype=torch.int64).to(
                     encoder_outputs.device
-                )  # pylint: disable=not-callable
+                )
             reference_mel_length = (
                 torch.tensor([aux_input["style_mel"].size(1)], dtype=torch.int64).to(encoder_outputs.device)
                 if aux_input["style_mel"] is not None
                 else None
-            )  # pylint: disable=not-callable
+            )
             # B x capacitron_VAE_embedding_dim
             encoder_outputs, *_ = self.compute_capacitron_VAE_embedding(
                 encoder_outputs,

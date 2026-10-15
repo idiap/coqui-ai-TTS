@@ -31,7 +31,7 @@ class RelativePositionTransformerEncoder(nn.Module):
         )
         self.rel_pos_transformer = RelativePositionTransformer(hidden_channels, out_channels, hidden_channels, **params)
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         if x_mask is None:
             x_mask = 1
         o = self.prenet(x) * x_mask
@@ -65,7 +65,7 @@ class ResidualConv1dBNEncoder(nn.Module):
             ]
         )
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         if x_mask is None:
             x_mask = 1
         o = self.prenet(x) * x_mask
@@ -143,7 +143,6 @@ class Encoder(nn.Module):
         # init encoder
         if encoder_type.lower() == "relative_position_transformer":
             # text encoder
-            # pylint: disable=unexpected-keyword-arg
             self.encoder = RelativePositionTransformerEncoder(
                 in_hidden_channels, out_channels, in_hidden_channels, encoder_params
             )
@@ -153,7 +152,6 @@ class Encoder(nn.Module):
             assert in_hidden_channels == out_channels, (
                 "[!] must be `in_channels` == `out_channels` when encoder type is 'fftransformer'"
             )
-            # pylint: disable=unexpected-keyword-arg
             self.encoder = FFTransformerBlock(in_hidden_channels, **encoder_params)
         else:
             raise NotImplementedError(" [!] unknown encoder type.")

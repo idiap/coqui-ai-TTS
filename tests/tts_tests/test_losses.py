@@ -7,7 +7,7 @@ from TTS.tts.utils.helpers import sequence_mask
 
 
 class L1LossMaskedTests(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         # test input == target
         layer = L1LossMasked(seq_len_norm=False)
         dummy_input = T.ones(4, 8, 128).float()
@@ -71,7 +71,7 @@ class L1LossMaskedTests(unittest.TestCase):
 
 
 class MSELossMaskedTests(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         # test input == target
         layer = MSELossMasked(seq_len_norm=False)
         dummy_input = T.ones(4, 8, 128).float()
@@ -135,7 +135,7 @@ class MSELossMaskedTests(unittest.TestCase):
 
 
 class SSIMLossTests(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         # test input == target
         layer = SSIMLoss()
         dummy_input = T.ones(4, 57, 128).float()
@@ -203,7 +203,7 @@ class SSIMLossTests(unittest.TestCase):
 
 
 class BCELossTest(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         layer = BCELossMasked(pos_weight=5.0)
 
         length = T.tensor([95])

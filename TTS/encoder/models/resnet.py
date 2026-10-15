@@ -147,7 +147,6 @@ class ResNetSpeakerEncoder(BaseEncoder):
 
         return nn.Sequential(*layers)
 
-    # pylint: disable=R0201
     def new_parameter(self, *size):
         out = nn.Parameter(torch.FloatTensor(*size))
         nn.init.xavier_normal_(out)

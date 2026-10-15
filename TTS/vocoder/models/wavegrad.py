@@ -109,7 +109,7 @@ class Wavegrad(BaseVocoder):
         return x
 
     def load_noise_schedule(self, path):
-        beta = np.load(path, allow_pickle=True).item()["beta"]  # pylint: disable=unexpected-keyword-arg
+        beta = np.load(path, allow_pickle=True).item()["beta"]
         self.compute_noise_level(beta)
 
     @torch.inference_mode()
@@ -153,8 +153,6 @@ class Wavegrad(BaseVocoder):
         alpha_hat = np.cumprod(alpha)
         noise_level = np.concatenate([[1.0], alpha_hat**0.5], axis=0)
         noise_level = alpha_hat**0.5
-
-        # pylint: disable=not-callable
         self.beta = torch.tensor(beta.astype(np.float32))
         self.alpha = torch.tensor(alpha.astype(np.float32))
         self.alpha_hat = torch.tensor(alpha_hat.astype(np.float32))

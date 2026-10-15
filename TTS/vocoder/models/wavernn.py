@@ -27,7 +27,6 @@ def stream(string, variables):
     sys.stdout.write(f"\r{string}" % variables)
 
 
-# pylint: disable=abstract-method
 # relates https://github.com/pytorch/pytorch/issues/42305
 class ResBlock(nn.Module):
     def __init__(self, dims):

@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 import torch
-import torch.nn as nn  # pylint: disable=consider-using-from-import
+import torch.nn as nn
 import torch.nn.functional as F
 
 from TTS.tts.layers.delightful_tts.conv_layers import ConvNorm
@@ -49,7 +49,7 @@ class BottleneckLayer(nn.Module):
         norm="weightnorm",
         non_linearity="relu",
         kernel_size=3,
-        use_partial_padding=False,  # pylint: disable=unused-argument
+        use_partial_padding=False,
     ):
         super().__init__()
 

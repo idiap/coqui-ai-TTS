@@ -6,7 +6,7 @@ from TTS.tts.datasets.formatters import common_voice, register_formatter
 
 
 class TestTTSFormatters(unittest.TestCase):
-    def test_common_voice_preprocessor(self):  # pylint: disable=no-self-use
+    def test_common_voice_preprocessor(self):
         root_path = get_tests_input_path()
         meta_file = "common_voice.tsv"
         items = common_voice(root_path, meta_file)

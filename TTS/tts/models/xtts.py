@@ -631,7 +631,7 @@ class Xtts(BaseTTS):
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
 
-    def eval(self):  # pylint: disable=redefined-builtin
+    def eval(self):
         """Sets the model to evaluation mode. Overrides the default eval() method to also set the GPT model to eval mode."""
         self.gpt.init_gpt_for_inference()
         super().eval()

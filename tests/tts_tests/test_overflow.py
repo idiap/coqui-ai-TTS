@@ -226,9 +226,7 @@ def test_neural_hmm_mask_lengths(get_neural_hmm, get_embedded_input, device):
         input_dummy, input_lengths, mel_spec.transpose(1, 2), mel_lengths
     )
     log_c = torch.randn(mel_spec.shape[0], mel_spec.shape[1], device=device)
-    log_c, log_alpha_scaled = neural_hmm._mask_lengths(  # pylint: disable=protected-access
-        mel_lengths, log_c, log_alpha_scaled
-    )
+    log_c, log_alpha_scaled = neural_hmm._mask_lengths(mel_lengths, log_c, log_alpha_scaled)
     assertions = []
     for i in range(mel_spec.shape[0]):
         assertions.append(log_c[i, mel_lengths[i] :].sum() == 0.0)
@@ -243,10 +241,8 @@ def test_neural_hmm_process_ar_timestep(get_neural_hmm, get_embedded_input, conf
     model = get_neural_hmm()
     input_dummy, _input_lengths, mel_spec, _mel_lengths = get_embedded_input()
 
-    h_post_prenet, c_post_prenet = model._init_lstm_states(  # pylint: disable=protected-access
-        input_dummy.shape[0], config.memory_rnn_dim, mel_spec
-    )
-    h_post_prenet, c_post_prenet = model._process_ar_timestep(  # pylint: disable=protected-access
+    h_post_prenet, c_post_prenet = model._init_lstm_states(input_dummy.shape[0], config.memory_rnn_dim, mel_spec)
+    h_post_prenet, c_post_prenet = model._process_ar_timestep(
         1,
         mel_spec,
         h_post_prenet,
@@ -261,7 +257,7 @@ def test_neural_hmm_add_go_token(get_neural_hmm, get_embedded_input):
     model = get_neural_hmm()
     _input_dummy, _input_lengths, mel_spec, _mel_lengths = get_embedded_input()
 
-    out = model._add_go_token(mel_spec)  # pylint: disable=protected-access
+    out = model._add_go_token(mel_spec)
     assert out.shape == mel_spec.shape
     assert (out[:, 1:] == mel_spec[:, :-1]).all(), "Go token not appended properly"
 
@@ -275,9 +271,7 @@ def test_neural_hmm_forward_algorithm_variables(get_neural_hmm, get_embedded_inp
         log_alpha_scaled,
         transition_matrix,
         _,
-    ) = model._initialize_forward_algorithm_variables(  # pylint: disable=protected-access
-        mel_spec, input_dummy.shape[1] * config.state_per_phone
-    )
+    ) = model._initialize_forward_algorithm_variables(mel_spec, input_dummy.shape[1] * config.state_per_phone)
 
     assert log_c.shape == (mel_spec.shape[0], mel_spec.shape[1])
     assert log_alpha_scaled.shape == (
@@ -301,9 +295,7 @@ def test_neural_hmm_get_absorption_state_scaling_factor(get_neural_hmm, get_embe
         log_alpha_scaled,
         transition_matrix,
         _,
-    ) = model._initialize_forward_algorithm_variables(  # pylint: disable=protected-access
-        mel_spec, input_dummy.shape[1] * config.state_per_phone
-    )
+    ) = model._initialize_forward_algorithm_variables(mel_spec, input_dummy.shape[1] * config.state_per_phone)
     log_alpha_scaled = torch.rand_like(log_alpha_scaled).clamp(1e-3)
     transition_matrix = torch.randn_like(transition_matrix).sigmoid().log()
     sum_final_log_c = model.get_absorption_state_scaling_factor(

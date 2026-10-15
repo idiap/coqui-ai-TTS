@@ -38,7 +38,7 @@ def generate_text_semantic(
     allow_early_stop: bool = True,
     base: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
     use_kv_caching: bool = True,
-    **kwargs,  # pylint: disable=unused-argument
+    **kwargs,
 ) -> torch.Tensor:
     """Generate semantic tokens from text.
 

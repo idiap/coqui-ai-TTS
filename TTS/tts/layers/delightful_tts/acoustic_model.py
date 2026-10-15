@@ -185,7 +185,7 @@ class AcousticModel(torch.nn.Module):
         if "d_vectors" in aux_input and aux_input["d_vectors"] is not None:
             g = F.normalize(aux_input["d_vectors"])  # .unsqueeze_(-1)
             if g.ndim == 2:
-                g = g  #  .unsqueeze_(0) # pylint: disable=self-assigning-variable
+                g = g  #  .unsqueeze_(0)
 
         if "durations" in aux_input and aux_input["durations"] is not None:
             durations = aux_input["durations"]
@@ -199,14 +199,12 @@ class AcousticModel(torch.nn.Module):
     #         self.embedding_dims = 0
 
     def _init_speaker_embedding(self):
-        # pylint: disable=attribute-defined-outside-init
         if self.num_speakers > 0:
             logger.info("Initialization of speaker-embedding layers.")
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.emb_g = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
 
     def _init_d_vector(self):
-        # pylint: disable=attribute-defined-outside-init
         if hasattr(self, "emb_g"):
             raise ValueError("[!] Speaker embedding layer already initialized before d_vector settings.")
         self.embedded_speaker_dim = self.args.d_vector_dim
@@ -260,9 +258,7 @@ class AcousticModel(torch.nn.Module):
         aligner_mas = aligner_mas.transpose(1, 2)  # [B, T_max, T_max2] -> [B, T_max2, T_max]
         return aligner_durations, aligner_soft, aligner_logprob, aligner_mas
 
-    def average_utterance_prosody(  # pylint: disable=no-self-use
-        self, u_prosody_pred: torch.Tensor, src_mask: torch.Tensor
-    ) -> torch.Tensor:
+    def average_utterance_prosody(self, u_prosody_pred: torch.Tensor, src_mask: torch.Tensor) -> torch.Tensor:
         lengths = ((~src_mask) * 1.0).sum(1)
         u_prosody_pred = u_prosody_pred.sum(1, keepdim=True) / lengths.view(-1, 1, 1)
         return u_prosody_pred
@@ -280,9 +276,7 @@ class AcousticModel(torch.nn.Module):
         d_vectors: torch.Tensor = None,
         speaker_idx: torch.Tensor = None,
     ) -> dict[str, torch.Tensor]:
-        sid, g, _lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
-            {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
-        )  # pylint: disable=unused-variable
+        sid, g, _lid, _ = self._set_cond_input({"d_vectors": d_vectors, "speaker_ids": speaker_idx})
 
         src_mask = ~sequence_mask(src_lens)  # [B, T_src]
         mel_mask = ~sequence_mask(mel_lens)  # [B, T_mel]
@@ -412,10 +406,8 @@ class AcousticModel(torch.nn.Module):
         energy_transform: Callable | None = None,
     ) -> torch.Tensor:
         src_mask = ~sequence_mask(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
-        src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)  # pylint: disable=unused-variable
-        sid, g, _lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
-            {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
-        )  # pylint: disable=unused-variable
+        src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)
+        sid, g, _lid, _ = self._set_cond_input({"d_vectors": d_vectors, "speaker_ids": speaker_idx})
 
         token_embeddings = self.src_word_emb(tokens)
         token_embeddings = token_embeddings.masked_fill(src_mask.unsqueeze(-1), 0.0)

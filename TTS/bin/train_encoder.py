@@ -356,7 +356,6 @@ def main(arg_list: list[str] | None = None):
     parser = train_config.init_argparse(arg_prefix="")
     args, overrides = parser.parse_known_args(arg_list)
     c, OUT_PATH, _AUDIO_PATH, _c_logger, dashboard_logger = process_args((args, overrides))
-    # pylint: disable=global-variable-undefined
     global meta_data_train
     global meta_data_eval
     global train_classes
@@ -365,8 +364,6 @@ def main(arg_list: list[str] | None = None):
     model = setup_encoder_model(c)
 
     optimizer = get_optimizer(c.optimizer, c.optimizer_params, c.lr, model)
-
-    # pylint: disable=redefined-outer-name
     meta_data_train, meta_data_eval = load_tts_samples(c, eval_split=True)
 
     train_data_loader, train_classes, map_classid_to_classname = setup_loader(c, ap, is_val=False)
@@ -418,8 +415,8 @@ if __name__ == "__main__":
     #     try:
     #         sys.exit(0)
     #     except SystemExit:
-    #         os._exit(0)  # pylint: disable=protected-access
-    # except Exception:  # pylint: disable=broad-except
+    #         os._exit(0)
+    # except Exception:
     #     remove_experiment_folder(OUT_PATH)
     #     traceback.print_exc()
     #     sys.exit(1)

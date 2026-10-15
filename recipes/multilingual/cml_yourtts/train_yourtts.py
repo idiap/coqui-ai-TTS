@@ -13,8 +13,6 @@ from TTS.utils.downloaders import download_libri_tts
 
 def main():
     torch.set_num_threads(24)
-
-    # pylint: disable=W0105
     """
         This recipe replicates the first experiment proposed in the CML-TTS paper (https://arxiv.org/abs/2306.10097). It uses the YourTTS model.
         YourTTS model is based on the VITS model however it uses external speaker embeddings extracted from a pre-trained speaker encoder and has small architecture changes.
