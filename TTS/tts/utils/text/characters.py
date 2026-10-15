@@ -144,7 +144,7 @@ class BaseVocabulary:
         try:
             return self._char_to_id[char]
         except KeyError as e:
-            msg = f" [!] {repr(char)} is not in the vocabulary."
+            msg = f" [!] {char!r} is not in the vocabulary."
             raise KeyError(msg) from e
 
     def id_to_char(self, idx: int) -> str:

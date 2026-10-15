@@ -841,7 +841,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
     # if not exists meta file, crawl recursively for 'wav' files
     if meta_file is not None:
         with open(str(meta_file), encoding="utf-8") as f:
-            return [x.strip().split("|") for x in f.readlines()]
+            return [x.strip().split("|") for x in f]
 
     elif not cache_to.exists():
         cnt = 0
@@ -863,7 +863,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
             raise ValueError(f"Found too few instances for Voxceleb. Should be around {expected_count}, is: {cnt}")
 
     with open(str(cache_to), encoding="utf-8") as f:
-        return [x.strip().split("|") for x in f.readlines()]
+        return [x.strip().split("|") for x in f]
 
 
 def emotion(root_path, meta_file, ignored_speakers=None):

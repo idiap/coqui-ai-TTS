@@ -17,7 +17,7 @@ DEF_LANG_TO_PHONEMIZER: dict[str, str] = {}
 def _register_bangla() -> None:
     """Register the Bangla phonemizer if available."""
     if is_phonemizer_available("bn_phonemizer"):
-        from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer  # noqa: PLC0415
+        from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
 
         DEF_LANG_TO_PHONEMIZER["bn"] = BN_Phonemizer.name()
         PHONEMIZERS[BN_Phonemizer.name()] = BN_Phonemizer
@@ -26,7 +26,7 @@ def _register_bangla() -> None:
 def _register_chinese() -> None:
     """Register the Chinese phonemizer if available."""
     if is_phonemizer_available("zh_cn_phonemizer"):
-        from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer  # noqa: PLC0415
+        from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer
 
         DEF_LANG_TO_PHONEMIZER["zh-cn"] = ZH_CN_Phonemizer.name()
         PHONEMIZERS[ZH_CN_Phonemizer.name()] = ZH_CN_Phonemizer
@@ -41,7 +41,7 @@ def _register_espeak() -> None:
 def _register_gruut() -> None:
     """Register Gruut and its supported languages if available."""
     if is_phonemizer_available("gruut"):
-        from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut  # noqa: PLC0415
+        from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
 
         DEF_LANG_TO_PHONEMIZER.update({lang: Gruut.name() for lang in Gruut.supported_languages()})
         PHONEMIZERS[Gruut.name()] = Gruut
@@ -50,7 +50,7 @@ def _register_gruut() -> None:
 def _register_japanese() -> None:
     """Register the Japanese phonemizer if available."""
     if is_phonemizer_available("ja_jp_phonemizer"):
-        from TTS.tts.utils.text.phonemizers.ja_jp_phonemizer import JA_JP_Phonemizer  # noqa: PLC0415
+        from TTS.tts.utils.text.phonemizers.ja_jp_phonemizer import JA_JP_Phonemizer
 
         DEF_LANG_TO_PHONEMIZER["ja-jp"] = JA_JP_Phonemizer.name()
         PHONEMIZERS[JA_JP_Phonemizer.name()] = JA_JP_Phonemizer
@@ -59,7 +59,7 @@ def _register_japanese() -> None:
 def _register_korean() -> None:
     """Register the Korean phonemizer if available."""
     if is_phonemizer_available("ko_kr_phonemizer"):
-        from TTS.tts.utils.text.phonemizers.ko_kr_phonemizer import KO_KR_Phonemizer  # noqa: PLC0415
+        from TTS.tts.utils.text.phonemizers.ko_kr_phonemizer import KO_KR_Phonemizer
 
         DEF_LANG_TO_PHONEMIZER["ko-kr"] = KO_KR_Phonemizer.name()
         PHONEMIZERS[KO_KR_Phonemizer.name()] = KO_KR_Phonemizer

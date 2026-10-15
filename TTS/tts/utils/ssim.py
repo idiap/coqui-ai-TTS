@@ -88,7 +88,7 @@ def ssim(
     y: torch.Tensor,
     kernel_size: int = 11,
     kernel_sigma: float = 1.5,
-    data_range: int | float = 1.0,
+    data_range: float = 1.0,
     reduction: str = "mean",
     full: bool = False,
     downsample: bool = True,
@@ -217,7 +217,7 @@ class SSIMLoss(_Loss):
         k2: float = 0.03,
         downsample: bool = True,
         reduction: str = "mean",
-        data_range: int | float = 1.0,
+        data_range: float = 1.0,
     ) -> None:
         super().__init__()
 

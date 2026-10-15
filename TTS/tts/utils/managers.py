@@ -192,7 +192,7 @@ class EmbeddingManager(BaseIDManager):
         # cache embeddings_by_names for fast inference using a bigger speakers.json
         embeddings_by_names = {}
         for x in embeddings.values():
-            if x["name"] not in embeddings_by_names.keys():
+            if x["name"] not in embeddings_by_names:
                 embeddings_by_names[x["name"]] = [x["embedding"]]
             else:
                 embeddings_by_names[x["name"]].append(x["embedding"])
@@ -263,7 +263,7 @@ class EmbeddingManager(BaseIDManager):
         """
         embeddings_by_names = {}
         for x in self.embeddings.values():
-            if x["name"] not in embeddings_by_names.keys():
+            if x["name"] not in embeddings_by_names:
                 embeddings_by_names[x["name"]] = [x["embedding"]]
             else:
                 embeddings_by_names[x["name"]].append(x["embedding"])

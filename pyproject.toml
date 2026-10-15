@@ -261,7 +261,9 @@ lint.ignore = [
     "E741", # ambiguous variable name
     "F821", # TODO: enable
     "F841", # TODO: enable
+    "N999", # invalid module name (TTS)
     "PLC0415", # TODO: enable
+    "PLR0402", # allow `import torch.nn as nn`
     "PLW0602", # TODO: enable
     "PLW2901", # TODO: enable
     "PLW0127", # TODO: enable

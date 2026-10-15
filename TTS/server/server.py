@@ -210,7 +210,7 @@ def tts():
             )
         except Exception as e:
             logger.error("TTS synthesis failed: %s", str(e))
-            return {"error": f"TTS synthesis failed: {str(e)}"}, 500
+            return {"error": f"TTS synthesis failed: {e!s}"}, 500
 
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)

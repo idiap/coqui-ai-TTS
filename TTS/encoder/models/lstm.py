@@ -85,12 +85,11 @@ class LSTMSpeakerEncoder(BaseEncoder):
         Shapes:
             - x: :math:`(N, 1, T_{in})` or :math:`(N, D_{spec}, T_{in})`
         """
-        with torch.no_grad():
-            with torch.autocast("cuda", enabled=False):
-                if self.use_torch_spec:
-                    x.squeeze_(1)
-                    x = self.torch_spec(x)
-                x = self.instancenorm(x).transpose(1, 2)
+        with torch.no_grad(), torch.autocast("cuda", enabled=False):
+            if self.use_torch_spec:
+                x.squeeze_(1)
+                x = self.torch_spec(x)
+            x = self.instancenorm(x).transpose(1, 2)
         d = self.layers(x)
         if self.use_lstm_with_projection:
             d = d[:, -1]

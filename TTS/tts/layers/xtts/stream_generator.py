@@ -31,7 +31,7 @@ def setup_seed(seed: int) -> None:
 
 class NewGenerationMixin(GenerationMixin):
     @torch.inference_mode()
-    def generate(  # noqa: PLR0911
+    def generate(
         self,
         inputs: torch.Tensor | None = None,
         generation_config: GenerationConfig | None = None,

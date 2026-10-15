@@ -16,15 +16,15 @@ def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     """Load models directly from configuration."""
     if "discriminator_model" in config and "generator_model" in config:
         MyModel = importlib.import_module("TTS.vocoder.models.gan")
-        MyModel = getattr(MyModel, "GAN")
+        MyModel = MyModel.GAN
     else:
         MyModel = importlib.import_module("TTS.vocoder.models." + config.model.lower())
         if config.model.lower() == "wavernn":
-            MyModel = getattr(MyModel, "Wavernn")
+            MyModel = MyModel.Wavernn
         elif config.model.lower() == "gan":
-            MyModel = getattr(MyModel, "GAN")
+            MyModel = MyModel.GAN
         elif config.model.lower() == "wavegrad":
-            MyModel = getattr(MyModel, "Wavegrad")
+            MyModel = MyModel.Wavegrad
         else:
             try:
                 MyModel = getattr(MyModel, to_camel(config.model))

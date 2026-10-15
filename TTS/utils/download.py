@@ -104,8 +104,7 @@ def download_url(
         raise RuntimeError(f"The hash of {filepath} does not match. Delete the file manually and retry.")
 
     with open(filepath, mode) as fpointer:
-        for chunk in stream_url(url, start_byte=local_size, progress_bar=progress_bar):
-            fpointer.write(chunk)
+        fpointer.writelines(stream_url(url, start_byte=local_size, progress_bar=progress_bar))
 
     with open(filepath, "rb") as file_obj:
         if hash_value and not validate_file(file_obj, hash_value, hash_type):

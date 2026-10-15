@@ -472,7 +472,6 @@ class GaussianDiffusion:
             model_epsilon, model_var = th.split(model_output, model_output.shape[1] // 2, dim=1)
             return model_epsilon, model_var
 
-        #
         """
         print(self.betas)
         print(th.tensor(self.betas))
