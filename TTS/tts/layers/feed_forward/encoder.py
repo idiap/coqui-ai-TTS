@@ -75,7 +75,6 @@ class ResidualConv1dBNEncoder(nn.Module):
 
 
 class Encoder(nn.Module):
-    # pylint: disable=dangerous-default-value
     """Factory class for Speedy Speech encoder enables different encoder types internally.
 
     Args:
@@ -124,9 +123,16 @@ class Encoder(nn.Module):
         in_hidden_channels,
         out_channels,
         encoder_type="residual_conv_bn",
-        encoder_params={"kernel_size": 4, "dilations": 4 * [1, 2, 4] + [1], "num_conv_blocks": 2, "num_res_blocks": 13},
+        encoder_params=None,
         c_in_channels=0,
     ):
+        if encoder_params is None:
+            encoder_params = {
+                "kernel_size": 4,
+                "dilations": 4 * [1, 2, 4] + [1],
+                "num_conv_blocks": 2,
+                "num_res_blocks": 13,
+            }
         super().__init__()
         self.out_channels = out_channels
         self.in_channels = in_hidden_channels

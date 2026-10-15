@@ -41,7 +41,9 @@ def route_args(router, args, depth):
 
 # classes
 class SequentialSequence(nn.Module):
-    def __init__(self, layers, args_route={}, layer_dropout=0.0):
+    def __init__(self, layers, args_route=None, layer_dropout=0.0):
+        if args_route is None:
+            args_route = {}
         super().__init__()
         assert all(len(route) == len(layers) for route in args_route.values()), (
             "each argument route map must have the same depth as the number of sequential layers"

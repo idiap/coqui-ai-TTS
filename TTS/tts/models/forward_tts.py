@@ -354,7 +354,7 @@ class ForwardTTS(BaseTTS):
         dr: torch.Tensor | None = None,
         pitch: torch.Tensor | None = None,
         energy: torch.Tensor | None = None,
-        aux_input: dict = {"d_vectors": None, "speaker_ids": None},  # pylint: disable=unused-argument
+        aux_input: dict | None = None,  # pylint: disable=unused-argument
     ) -> dict:
         """Model's forward pass.
 
@@ -377,6 +377,8 @@ class ForwardTTS(BaseTTS):
             - g: :math:`[B, C]`
             - pitch: :math:`[B, 1, T]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
         g = self._get_speaker_conditioning(aux_input, "emb_g", normalize_d_vector=False, normalize_embedding=False)
         # compute sequence masks
         y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).float()

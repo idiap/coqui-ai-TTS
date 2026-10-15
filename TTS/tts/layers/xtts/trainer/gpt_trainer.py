@@ -342,7 +342,7 @@ class GPTTrainer(BaseTTS):
         self,
         x,
         aux_input=None,
-    ):  # pylint: disable=dangerous-default-value
+    ):
         return None
 
     def get_criterion(self):
@@ -477,10 +477,12 @@ class GPTTrainer(BaseTTS):
         strict: bool = True,
         cache_storage="/tmp/tts_cache",
         target_protocol="s3",
-        target_options={"anon": True},
-    ):  # pylint: disable=unused-argument, disable=W0201, disable=W0102, redefined-builtin
+        target_options=None,
+    ):  # pylint: disable=unused-argument, disable=W0201, redefined-builtin
         """Load the model checkpoint and setup for training or inference"""
 
+        if target_options is None:
+            target_options = {"anon": True}
         state = self.xtts.get_compatible_checkpoint_state_dict(checkpoint_path)
 
         # load the model weights

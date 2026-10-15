@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class KernelPredictor(torch.nn.Module):
     """Kernel predictor for the location-variable convolutions"""
 
-    def __init__(  # pylint: disable=dangerous-default-value
+    def __init__(
         self,
         cond_channels,
         conv_in_channels,
@@ -16,7 +16,7 @@ class KernelPredictor(torch.nn.Module):
         kpnet_conv_size=3,
         kpnet_dropout=0.0,
         kpnet_nonlinear_activation="LeakyReLU",
-        kpnet_nonlinear_activation_params={"negative_slope": 0.1},
+        kpnet_nonlinear_activation_params=None,
     ):
         """
         Args:
@@ -26,6 +26,8 @@ class KernelPredictor(torch.nn.Module):
             conv_layers (int):
             kpnet_
         """
+        if kpnet_nonlinear_activation_params is None:
+            kpnet_nonlinear_activation_params = {"negative_slope": 0.1}
         super().__init__()
 
         self.conv_in_channels = conv_in_channels

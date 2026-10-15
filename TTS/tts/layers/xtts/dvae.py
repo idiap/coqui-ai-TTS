@@ -218,8 +218,10 @@ class DiscreteVAE(nn.Module):
         normalization=None,  # ((0.5,) * 3, (0.5,) * 3),
         record_codes=False,
         discretization_loss_averaging_steps=100,
-        lr_quantizer_args={},
+        lr_quantizer_args=None,
     ):
+        if lr_quantizer_args is None:
+            lr_quantizer_args = {}
         super().__init__()
         has_resblocks = num_resnet_blocks > 0
 
