@@ -591,9 +591,8 @@ def chn2num(chinese_string, numbering_type=NUMBERING_TYPES[1]):
         if integer_symbols and isinstance(integer_symbols[0], CNU) and integer_symbols[0].power == 1:
             integer_symbols = [system.digits[1]] + integer_symbols
 
-        if len(integer_symbols) > 1:
-            if isinstance(integer_symbols[-1], CND) and isinstance(integer_symbols[-2], CNU):
-                integer_symbols.append(CNU(integer_symbols[-2].power - 1, None, None, None, None))
+        if len(integer_symbols) > 1 and isinstance(integer_symbols[-1], CND) and isinstance(integer_symbols[-2], CNU):
+            integer_symbols.append(CNU(integer_symbols[-2].power - 1, None, None, None, None))
 
         result = []
         unit_count = 0
@@ -700,9 +699,13 @@ def num2chn(
             if isinstance(v, CND) and v.value == 2:
                 next_symbol = result_symbols[i + 1] if i < len(result_symbols) - 1 else None
                 previous_symbol = result_symbols[i - 1] if i > 0 else None
-                if isinstance(next_symbol, CNU) and isinstance(previous_symbol, CNU | type(None)):
-                    if next_symbol.power != 1 and ((previous_symbol is None) or (previous_symbol.power != 1)):
-                        result_symbols[i] = liang
+                if (
+                    isinstance(next_symbol, CNU)
+                    and isinstance(previous_symbol, CNU | type(None))
+                    and next_symbol.power != 1
+                    and ((previous_symbol is None) or (previous_symbol.power != 1))
+                ):
+                    result_symbols[i] = liang
 
     # if big is True, '两' will not be used and `alt_two` has no impact on output
     if big:

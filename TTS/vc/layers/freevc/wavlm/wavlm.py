@@ -97,7 +97,7 @@ def compute_mask_indices(
             lengths = np.random.poisson(mask_length, size=num_mask)
             lengths = [int(round(x)) for x in lengths]  # noqa: RUF046
         else:
-            raise Exception("unknown mask selection " + mask_type)
+            raise ValueError("unknown mask selection " + mask_type)
 
         if sum(lengths) == 0:
             lengths[0] = min(mask_length, sz - 1)
@@ -107,7 +107,7 @@ def compute_mask_indices(
 
             def arrange(s, e, length, keep_length):
                 span_start = np.random.randint(s, e - length)
-                mask_idc.extend(span_start + i for i in range(length))
+                mask_idc.extend(span_start + i for i in range(length))  # noqa: B023
 
                 new_parts = []
                 if span_start - s - min_space >= keep_length:

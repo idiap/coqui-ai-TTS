@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 import pysbd
 import pytest
@@ -24,7 +25,7 @@ def mock_synthesizer():
     """Mock synthesizer with segmenters for testing sentence splitting."""
 
     class _MockLanguageManager:
-        language_names = ["en", "el"]
+        language_names: ClassVar[list[str]] = ["en", "el"]
 
     class _MockTTSModel:
         language_manager = _MockLanguageManager()

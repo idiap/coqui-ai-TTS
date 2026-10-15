@@ -160,7 +160,7 @@ def test_decoder_forward_backward(get_decoder, create_inputs, num_flow_blocks_de
     decoder = get_decoder(num_flow_blocks_dec, hidden_channels_dec)
     _, _, mel_spec, mel_lengths = create_inputs()
     z, z_len, _ = decoder(mel_spec.transpose(1, 2), mel_lengths)
-    mel_spec_, mel_lengths_, _ = decoder(z, z_len, reverse=True)
+    mel_spec_, _, _ = decoder(z, z_len, reverse=True)
     mask = sequence_mask(z_len).unsqueeze(1)
     mel_spec = mel_spec[:, : z.shape[2], :].transpose(1, 2) * mask
     z = z * mask

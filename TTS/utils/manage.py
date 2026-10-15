@@ -321,7 +321,7 @@ class ModelManager:
         except requests.RequestException as e:
             logger.exception("Failed to download the model file to %s", output_path)
             rmtree(output_path)
-            raise e
+            raise
         self.print_model_license(model_item=model_item)
         return output_path
 

@@ -235,10 +235,8 @@ class TestGlowTTS(unittest.TestCase):
         print(f" > Num parameters for GlowTTS model:{count_parameters(model)}")
         # pass the state to ref model
         model_ref.load_state_dict(copy.deepcopy(model.state_dict()))
-        count = 0
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
             assert (param - param_ref).sum() == 0, param
-            count += 1
         optimizer = optim.Adam(model.parameters(), lr=0.001)
         for _ in range(5):
             optimizer.zero_grad()

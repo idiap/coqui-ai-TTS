@@ -45,7 +45,7 @@ class BaseVC(BaseTrainerModel):
         elif isinstance(self.config, ModelArgs):
             self.args = self.config
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise TypeError("config must be either a *Config or *Args")
 
     def get_data_loader(
         self, config: TrainerConfig, *, is_eval: bool = False, samples: list[Any] | None = None, verbose: bool = True

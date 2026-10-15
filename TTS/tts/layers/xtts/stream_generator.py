@@ -157,19 +157,19 @@ class NewGenerationMixin(GenerationMixin):
         self._prepare_special_tokens(generation_config, kwargs_has_attention_mask, device=device)
 
         # decoder-only models must use left-padding for batched generation.
-        if not self.config.is_encoder_decoder:
-            # If `input_ids` was given, check if the last id in any sequence is `pad_token_id`
-            # Note: If using, `inputs_embeds` this check does not work, because we want to be more hands-off.
-            if (
-                generation_config._pad_token_tensor is not None
-                and batch_size > 1
-                and len(inputs_tensor.shape) == 2
-                and torch.sum(inputs_tensor[:, -1] == generation_config._pad_token_tensor) > 0
-            ):
-                logger.warning(
-                    "A decoder-only architecture is being used, but right-padding was detected! For correct "
-                    "generation results, please set `padding_side='left'` when initializing the tokenizer."
-                )
+        # If `input_ids` was given, check if the last id in any sequence is `pad_token_id`
+        # Note: If using, `inputs_embeds` this check does not work, because we want to be more hands-off.
+        if (
+            not self.config.is_encoder_decoder
+            and generation_config._pad_token_tensor is not None
+            and batch_size > 1
+            and len(inputs_tensor.shape) == 2
+            and torch.sum(inputs_tensor[:, -1] == generation_config._pad_token_tensor) > 0
+        ):
+            logger.warning(
+                "A decoder-only architecture is being used, but right-padding was detected! For correct "
+                "generation results, please set `padding_side='left'` when initializing the tokenizer."
+            )
 
         # 4. Define other model kwargs
         # decoder-only models with inputs_embeds forwarding must use caching (otherwise we can't detect whether we are
@@ -181,10 +181,13 @@ class NewGenerationMixin(GenerationMixin):
             model_kwargs["attention_mask"] = self._prepare_attention_mask_for_generation(
                 inputs_tensor, generation_config, model_kwargs
             )
-        elif kwargs_has_attention_mask:
-            # TODO (joao): generalize this check with other types of inputs
-            if model_input_name == "input_ids" and len(model_kwargs["attention_mask"].shape) > 2:
-                raise ValueError("`attention_mask` passed to `generate` must be 2D.")
+        # TODO (joao): generalize this check with other types of inputs
+        elif (
+            kwargs_has_attention_mask
+            and model_input_name == "input_ids"
+            and len(model_kwargs["attention_mask"].shape) > 2
+        ):
+            raise ValueError("`attention_mask` passed to `generate` must be 2D.")
 
         # 5. Prepare `input_ids` which will be used for auto-regressive generation
         # if decoder-only then inputs_tensor has to be `input_ids`

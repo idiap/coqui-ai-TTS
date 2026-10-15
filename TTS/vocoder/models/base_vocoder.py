@@ -38,4 +38,4 @@ class BaseVocoder(BaseTrainerModel):
             if "model_params" in self.config:
                 self.args = self.config.model_params
         else:
-            raise ValueError("config must be an instance of BaseVocoderConfig")
+            raise TypeError("config must be an instance of BaseVocoderConfig")

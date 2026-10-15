@@ -33,9 +33,9 @@ def route_args(router, args, depth):
 
     for key in matched_keys:
         val = args[key]
-        for depth, ((f_args, g_args), routes) in enumerate(zip(routed_args, router[key])):
+        for d, ((f_args, g_args), routes) in enumerate(zip(routed_args, router[key])):
             new_f_args, new_g_args = (({key: val} if route else {}) for route in routes)
-            routed_args[depth] = ({**f_args, **new_f_args}, {**g_args, **new_g_args})
+            routed_args[d] = ({**f_args, **new_f_args}, {**g_args, **new_g_args})
     return routed_args
 
 
@@ -193,9 +193,7 @@ class Transformer(nn.Module):
     ):
         super().__init__()
         layers = nn.ModuleList([])
-        sparse_layer = cast_tuple(sparse_attn, depth)
-
-        for ind, sparse_attn in zip(range(depth), sparse_layer):
+        for ind in range(depth):
             attn = Attention(
                 dim,
                 causal=causal,

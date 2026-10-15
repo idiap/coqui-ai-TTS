@@ -186,9 +186,8 @@ class ESpeak(BasePhonemizer):
         if tie:
             args.append(f"--tie={tie}")
 
-        tmp = tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8")
-        tmp.write(text)
-        tmp.close()
+        with tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8") as tmp:
+            tmp.write(text)
         args.append("-f")
         args.append(tmp.name)
 

@@ -84,7 +84,8 @@ class XTTSDataset(torch.utils.data.Dataset):
         for sample in self.samples:
             try:
                 tseq, _, wav, _, _, _ = self.load_item(sample)
-            except:
+            except Exception:
+                logger.exception("Failed to load eval sample %s", sample["audio_file"])
                 continue
             # Basically, this audio file is nonexistent or too long to be supported by the dataset.
             if (
