@@ -530,12 +530,11 @@ class MultiheadAttention(nn.Module):
 
         if incremental_state is not None:
             saved_state = self._get_input_buffer(incremental_state)
-            if saved_state is not None and "prev_key" in saved_state:
-                # previous time steps are cached - no need to recompute
-                # key and value if they are static
-                if static_kv:
-                    assert self.encoder_decoder_attention and not self.self_attention
-                    key = value = None
+            # previous time steps are cached - no need to recompute
+            # key and value if they are static
+            if saved_state is not None and "prev_key" in saved_state and static_kv:
+                assert self.encoder_decoder_attention and not self.self_attention
+                key = value = None
         else:
             saved_state = None
 

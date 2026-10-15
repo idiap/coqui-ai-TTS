@@ -352,7 +352,7 @@ class AddCoords(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.rank == 1:
-            batch_size_shape, channel_in_shape, dim_x = x.shape  # pylint: disable=unused-variable
+            batch_size_shape, _channel_in_shape, dim_x = x.shape  # pylint: disable=unused-variable
             xx_range = torch.arange(dim_x, dtype=torch.int32)
             xx_channel = xx_range[None, None, :]
 
@@ -368,7 +368,7 @@ class AddCoords(nn.Module):
                 out = torch.cat([out, rr], dim=1)
 
         elif self.rank == 2:
-            batch_size_shape, channel_in_shape, dim_y, dim_x = x.shape
+            batch_size_shape, _channel_in_shape, dim_y, dim_x = x.shape
             xx_ones = torch.ones([1, 1, 1, dim_x], dtype=torch.int32)
             yy_ones = torch.ones([1, 1, 1, dim_y], dtype=torch.int32)
 

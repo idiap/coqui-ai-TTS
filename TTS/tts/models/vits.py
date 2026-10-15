@@ -93,9 +93,8 @@ class VitsDataset(TTSDataset):
         raw_text = item["text"]
 
         wav, _ = load_audio(item["audio_file"])
-        if self.model_args.encoder_sample_rate is not None:
-            if wav.size(1) % self.model_args.encoder_sample_rate != 0:
-                wav = wav[:, : -int(wav.size(1) % self.model_args.encoder_sample_rate)]
+        if self.model_args.encoder_sample_rate is not None and wav.size(1) % self.model_args.encoder_sample_rate != 0:
+            wav = wav[:, : -int(wav.size(1) % self.model_args.encoder_sample_rate)]
 
         wav_filename = os.path.basename(item["audio_file"])
 

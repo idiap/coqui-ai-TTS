@@ -1,3 +1,4 @@
+import pytest
 import torch as T
 
 from TTS.tts.utils.helpers import (
@@ -47,11 +48,8 @@ def test_segment():
     for idx, start_indx in enumerate(segment_ids):
         assert x[idx, :, start_indx : start_indx + 4].sum() == segments[idx, :, :].sum()
 
-    try:
-        segments = segment(x, segment_ids, segment_size=10)
-        raise Exception("Should have failed")
-    except:
-        pass
+    with pytest.raises(RuntimeError):
+        segment(x, segment_ids, segment_size=10)
 
     segments = segment(x, segment_ids, segment_size=10, pad_short=True)
     for idx, start_indx in enumerate(segment_ids):
@@ -64,11 +62,8 @@ def test_rand_segments():
     segments, seg_idxs = rand_segments(x, x_lens, segment_size=2)
     assert segments.shape == (2, 3, 2)
     assert all(seg_idxs >= 0), seg_idxs
-    try:
-        segments, _ = rand_segments(x, x_lens, segment_size=5)
-        raise Exception("Should have failed")
-    except:
-        pass
+    with pytest.raises(AssertionError):
+        rand_segments(x, x_lens, segment_size=5)
     x_lens_back = x_lens.clone()
     segments, seg_idxs = rand_segments(x, x_lens.clone(), segment_size=5, pad_short=True, let_short_samples=True)
     assert segments.shape == (2, 3, 5)

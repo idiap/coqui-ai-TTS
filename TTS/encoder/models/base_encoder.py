@@ -105,7 +105,7 @@ class BaseEncoder(nn.Module):
         elif c.loss == "softmaxproto":
             criterion = SoftmaxAngleProtoLoss(c.model_params["proj_dim"], num_classes)
         else:
-            raise Exception(f"The {c.loss}  not is a loss supported")
+            raise ValueError(f"The {c.loss}  not is a loss supported")
         return criterion
 
     def load_checkpoint(
@@ -124,7 +124,7 @@ class BaseEncoder(nn.Module):
         except (KeyError, RuntimeError) as error:
             # If eval raise the error
             if eval:
-                raise error
+                raise
 
             logger.info("Partial model initialization.")
             model_dict = self.state_dict()
@@ -136,8 +136,8 @@ class BaseEncoder(nn.Module):
         if criterion is not None and "criterion" in state:
             try:
                 criterion.load_state_dict(state["criterion"])
-            except (KeyError, RuntimeError) as error:
-                logger.exception("Criterion load ignored because of: %s", error)
+            except (KeyError, RuntimeError):
+                logger.exception("Criterion load ignored")
 
         # instance and load the criterion for the encoder classifier in inference time
         if (

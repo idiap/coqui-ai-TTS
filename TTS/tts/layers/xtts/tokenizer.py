@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import re
@@ -554,12 +555,11 @@ def expand_numbers_multilingual(text, lang="en"):
             text = re.sub(_comma_number_re, _remove_commas, text)
         else:
             text = re.sub(_dot_number_re, _remove_dots, text)
-        try:
+        # currency expansion is not supported for all languages
+        with contextlib.suppress(Exception):
             text = re.sub(_currency_re["GBP"], lambda m: _expand_currency(m, lang, "GBP"), text)
             text = re.sub(_currency_re["USD"], lambda m: _expand_currency(m, lang, "USD"), text)
             text = re.sub(_currency_re["EUR"], lambda m: _expand_currency(m, lang, "EUR"), text)
-        except:
-            pass
         if lang != "tr":
             text = re.sub(_decimal_number_re, lambda m: _expand_decimal_point(m, lang), text)
         text = re.sub(_ordinal_re[lang], lambda m: _expand_ordinal(m, lang), text)

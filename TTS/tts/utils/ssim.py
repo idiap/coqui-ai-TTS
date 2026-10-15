@@ -1,6 +1,8 @@
 # Adopted from https://github.com/photosynthesis-team/piq
 
 
+from typing import ClassVar
+
 import torch
 import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
@@ -207,7 +209,7 @@ class SSIMLoss(_Loss):
         DOI:`10.1109/TIP.2003.819861`
     """
 
-    __constants__ = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]
+    __constants__: ClassVar[list[str]] = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]
 
     def __init__(
         self,

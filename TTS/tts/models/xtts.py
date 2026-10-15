@@ -36,7 +36,7 @@ def wav_to_mel_cloning(
     wav,
     mel_norms_file="../experiments/clips_mel_norms.pth",
     mel_norms=None,
-    device=torch.device("cpu"),
+    device="cpu",
     n_fft=4096,
     hop_length=1024,
     win_length=4096,

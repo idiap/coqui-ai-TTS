@@ -26,9 +26,7 @@ def eval_decorator(fn):
     return inner
 
 
-def dvae_wav_to_mel(
-    wav, mel_norms_file="../experiments/clips_mel_norms.pth", mel_norms=None, device=torch.device("cpu")
-):
+def dvae_wav_to_mel(wav, mel_norms_file="../experiments/clips_mel_norms.pth", mel_norms=None, device="cpu"):
     mel_stft = torchaudio.transforms.MelSpectrogram(
         n_fft=1024,
         hop_length=256,

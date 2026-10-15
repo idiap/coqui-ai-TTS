@@ -1438,20 +1438,20 @@ class DPM_Solver:
                         order,
                     ] * K
                     timesteps_outer = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=K, device=device)
-                for step, order in enumerate(orders):
+                for step, step_order in enumerate(orders):
                     s, t = timesteps_outer[step], timesteps_outer[step + 1]
                     timesteps_inner = self.get_time_steps(
                         skip_type=skip_type,
                         t_T=s.item(),
                         t_0=t.item(),
-                        N=order,
+                        N=step_order,
                         device=device,
                     )
                     lambda_inner = self.noise_schedule.marginal_lambda(timesteps_inner)
                     h = lambda_inner[-1] - lambda_inner[0]
-                    r1 = None if order <= 1 else (lambda_inner[1] - lambda_inner[0]) / h
-                    r2 = None if order <= 2 else (lambda_inner[2] - lambda_inner[0]) / h
-                    x = self.singlestep_dpm_solver_update(x, s, t, order, solver_type=solver_type, r1=r1, r2=r2)
+                    r1 = None if step_order <= 1 else (lambda_inner[1] - lambda_inner[0]) / h
+                    r2 = None if step_order <= 2 else (lambda_inner[2] - lambda_inner[0]) / h
+                    x = self.singlestep_dpm_solver_update(x, s, t, step_order, solver_type=solver_type, r1=r1, r2=r2)
                     if self.correcting_xt_fn is not None:
                         x = self.correcting_xt_fn(x, t, step)
                     if return_intermediate:

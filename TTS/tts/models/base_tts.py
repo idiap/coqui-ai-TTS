@@ -113,7 +113,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         elif isinstance(self.config, ModelArgs):
             self.args = self.config
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise TypeError("config must be either a *Config or *Args")
 
     @property
     def num_speakers(self) -> int:
@@ -705,4 +705,4 @@ class BaseTTSE2E(BaseTTS):
         elif isinstance(self.config, ModelArgs):
             self.args = self.config
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise TypeError("config must be either a *Config or *Args")
