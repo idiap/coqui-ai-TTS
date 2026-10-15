@@ -61,18 +61,21 @@ class ResNetSpeakerEncoder(BaseEncoder):
     Adapted from: https://github.com/clovaai/voxceleb_trainer
     """
 
-    # pylint: disable=W0102
     def __init__(
         self,
         input_dim=64,
         proj_dim=512,
-        layers=[3, 4, 6, 3],
-        num_filters=[32, 64, 128, 256],
+        layers=None,
+        num_filters=None,
         encoder_type="ASP",
         log_input=False,
         use_torch_spec=False,
         audio_config=None,
     ):
+        if num_filters is None:
+            num_filters = [32, 64, 128, 256]
+        if layers is None:
+            layers = [3, 4, 6, 3]
         super().__init__()
 
         self.encoder_type = encoder_type

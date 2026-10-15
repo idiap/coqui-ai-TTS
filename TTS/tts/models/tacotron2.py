@@ -147,9 +147,7 @@ class Tacotron2(BaseTacotron):
         mel_outputs_postnet = mel_outputs_postnet.transpose(1, 2)
         return mel_outputs, mel_outputs_postnet, alignments
 
-    def forward(  # pylint: disable=dangerous-default-value
-        self, text, text_lengths, mel_specs=None, mel_lengths=None, aux_input: dict[str, Any] | None = None
-    ):
+    def forward(self, text, text_lengths, mel_specs=None, mel_lengths=None, aux_input: dict[str, Any] | None = None):
         """Forward pass for training with Teacher Forcing.
 
         Shapes:

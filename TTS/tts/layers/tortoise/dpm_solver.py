@@ -215,13 +215,13 @@ def model_wrapper(
     model,
     noise_schedule,
     model_type="noise",
-    model_kwargs={},
+    model_kwargs=None,
     guidance_type="uncond",
     condition=None,
     unconditional_condition=None,
     guidance_scale=1.0,
     classifier_fn=None,
-    classifier_kwargs={},
+    classifier_kwargs=None,
 ):
     """Create a wrapper function for the noise prediction model.
 
@@ -311,6 +311,11 @@ def model_wrapper(
     Returns:
         A noise prediction model that accepts the noised data and the continuous time as the inputs.
     """
+
+    if classifier_kwargs is None:
+        classifier_kwargs = {}
+    if model_kwargs is None:
+        model_kwargs = {}
 
     def get_model_input_time(t_continuous):
         """

@@ -279,13 +279,15 @@ class GlowTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def decoder_inference(self, y, y_lengths, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=dangerous-default-value
+    def decoder_inference(self, y, y_lengths, aux_input=None):
         """
         Shapes:
             - y: :math:`[B, T, C]`
             - y_lengths: :math:`B`
             - g: :math:`[B, C] or B`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
         y = y.transpose(1, 2)
         y_max_length = y.size(2)
         g = self._get_speaker_conditioning(aux_input, "emb_g")

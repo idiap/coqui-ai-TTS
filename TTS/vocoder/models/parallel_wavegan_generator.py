@@ -26,7 +26,6 @@ class ParallelWaveganGenerator(torch.nn.Module):
     an output waveform from an input noise.
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_channels=1,
@@ -41,9 +40,11 @@ class ParallelWaveganGenerator(torch.nn.Module):
         dropout=0.0,
         bias=True,
         use_weight_norm=True,
-        upsample_factors=[4, 4, 4, 4],
+        upsample_factors=None,
         inference_padding=2,
     ):
+        if upsample_factors is None:
+            upsample_factors = [4, 4, 4, 4]
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels

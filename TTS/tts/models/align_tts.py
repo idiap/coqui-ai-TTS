@@ -180,7 +180,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input=None, phase=None):  # pylint: disable=unused-argument
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -189,6 +189,8 @@ class AlignTTS(BaseTTS):
             - dr: :math:`[B, T_max]`
             - g: :math:`[B, C]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
         y = y.transpose(1, 2)
         g = aux_input.get("d_vectors", None)
         o_de, o_dr_log, dr_mas_log, attn, mu, log_sigma, logp = None, None, None, None, None, None, None
@@ -234,13 +236,15 @@ class AlignTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x, aux_input={"d_vectors": None}):  # pylint: disable=unused-argument
+    def inference(self, x, aux_input=None):  # pylint: disable=unused-argument
         """
         Shapes:
             - x: :math:`[B, T_max]`
             - x_lengths: :math:`[B]`
             - g: :math:`[B, C]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
         g = aux_input.get("d_vectors", None)
         x_lengths = torch.tensor(x.shape[1:2]).to(x.device)
         # pad input to prevent dropping the last word

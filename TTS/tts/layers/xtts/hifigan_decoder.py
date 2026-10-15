@@ -18,22 +18,32 @@ class HifiDecoder(torch.nn.Module):
         ar_mel_length_compression=1024,
         decoder_input_dim=1024,
         resblock_type_decoder="1",
-        resblock_dilation_sizes_decoder=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
-        resblock_kernel_sizes_decoder=[3, 7, 11],
-        upsample_rates_decoder=[8, 8, 2, 2],
+        resblock_dilation_sizes_decoder=None,
+        resblock_kernel_sizes_decoder=None,
+        upsample_rates_decoder=None,
         upsample_initial_channel_decoder=512,
-        upsample_kernel_sizes_decoder=[16, 16, 4, 4],
+        upsample_kernel_sizes_decoder=None,
         d_vector_dim=512,
         cond_d_vector_in_each_upsampling_layer=True,
-        speaker_encoder_audio_config={
-            "fft_size": 512,
-            "win_length": 400,
-            "hop_length": 160,
-            "sample_rate": 16000,
-            "preemphasis": 0.97,
-            "num_mels": 64,
-        },
+        speaker_encoder_audio_config=None,
     ):
+        if speaker_encoder_audio_config is None:
+            speaker_encoder_audio_config = {
+                "fft_size": 512,
+                "win_length": 400,
+                "hop_length": 160,
+                "sample_rate": 16000,
+                "preemphasis": 0.97,
+                "num_mels": 64,
+            }
+        if upsample_kernel_sizes_decoder is None:
+            upsample_kernel_sizes_decoder = [16, 16, 4, 4]
+        if upsample_rates_decoder is None:
+            upsample_rates_decoder = [8, 8, 2, 2]
+        if resblock_kernel_sizes_decoder is None:
+            resblock_kernel_sizes_decoder = [3, 7, 11]
+        if resblock_dilation_sizes_decoder is None:
+            resblock_dilation_sizes_decoder = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
         super().__init__()
         self.input_sample_rate = input_sample_rate
         self.output_sample_rate = output_sample_rate

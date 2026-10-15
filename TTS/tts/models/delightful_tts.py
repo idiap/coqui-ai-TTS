@@ -486,9 +486,9 @@ class DelightfulTTS(BaseTTSE2E):
         return model_outputs
 
     @torch.inference_mode()
-    def inference(
-        self, x, aux_input={"d_vectors": None, "speaker_ids": None, "pitch_transform": None, "energy_transform": None}
-    ):
+    def inference(self, x, aux_input=None):
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None, "pitch_transform": None, "energy_transform": None}
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
             d_vectors=aux_input.get("d_vectors", None),
@@ -508,7 +508,9 @@ class DelightfulTTS(BaseTTSE2E):
         return model_outputs
 
     @torch.inference_mode()
-    def inference_spec_decoder(self, x, aux_input={"d_vectors": None, "speaker_ids": None}):
+    def inference_spec_decoder(self, x, aux_input=None):
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
             d_vectors=aux_input["d_vectors"],

@@ -32,7 +32,6 @@ class BaseEncoder(nn.Module):
     It defines common `encoder` specific functions.
     """
 
-    # pylint: disable=W0102
     def __init__(self):
         super().__init__()
 
