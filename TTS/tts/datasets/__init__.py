@@ -163,7 +163,7 @@ def load_tts_samples(
     # Parse speaker info
     if get_from_config_or_model_args(config, "use_speaker_embedding"):
         speakers = sorted(
-            set(s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s)
+            {s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s}
         )
         logger.debug("Found %d speakers in dataset", len(speakers))
         if speakers:

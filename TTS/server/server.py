@@ -1,5 +1,3 @@
-#!flask/bin/python
-
 """TTS demo server."""
 
 import argparse

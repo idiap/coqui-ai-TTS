@@ -317,7 +317,7 @@ class ConformerMultiHeadedSelfAttention(nn.Module):
         mask: torch.Tensor,
         encoding: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        batch_size, seq_length, _ = key.size()  # pylint: disable=unused-variable
+        batch_size, _seq_length, _ = key.size()  # pylint: disable=unused-variable
         encoding = encoding[:, : key.shape[1]]
         encoding = encoding.repeat(batch_size, 1, 1)
         outputs, attn = self.attention(query, key, value, pos_embedding=encoding, mask=mask)

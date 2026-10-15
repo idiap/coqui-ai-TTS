@@ -22,9 +22,13 @@ class RAdam(Optimizer):
             for param in params:
                 if "betas" in param and (param["betas"][0] != betas[0] or param["betas"][1] != betas[1]):
                     param["buffer"] = [[None, None, None] for _ in range(10)]
-        defaults = dict(
-            lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, buffer=[[None, None, None] for _ in range(10)]
-        )
+        defaults = {
+            "lr": lr,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "buffer": [[None, None, None] for _ in range(10)],
+        }
         super().__init__(params, defaults)
 
     def __setstate__(self, state):  # pylint: disable=useless-super-delegation

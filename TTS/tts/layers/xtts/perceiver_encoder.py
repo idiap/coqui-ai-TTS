@@ -168,7 +168,7 @@ class RMSNorm(nn.Module):
 
         assert exists(cond)
         gamma, beta = self.to_gamma_beta(cond).chunk(2, dim=-1)
-        gamma, beta = map(lambda t: rearrange(t, "b d -> b 1 d"), (gamma, beta))
+        gamma, beta = (rearrange(t, "b d -> b 1 d") for t in (gamma, beta))
         return out * gamma + beta
 
 
@@ -290,7 +290,7 @@ class Attention(nn.Module):
             context = torch.cat((x, context), dim=-2)
 
         q, k, v = (self.to_q(x), *self.to_kv(context).chunk(2, dim=-1))
-        q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
+        q, k, v = (rearrange(t, "b n (h d) -> b h n d", h=h) for t in (q, k, v))
 
         out = self.attend(q, k, v, mask=mask)
 

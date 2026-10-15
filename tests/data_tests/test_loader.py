@@ -309,5 +309,5 @@ def test_creates_config_speakers():
     config = GlowTTSConfig(datasets=[dataset_config_multi], use_speaker_embedding=True)
     assert config.speakers == []
 
-    train_samples, eval_samples = load_tts_samples(config, eval_split=False)
+    _train_samples, _eval_samples = load_tts_samples(config, eval_split=False)
     assert config.speakers == ["ljspeech-1", "ljspeech-2", "ljspeech-3", "ljspeech-4"]

@@ -259,7 +259,7 @@ class CheckpointedLayer(nn.Module):
         self.wrap = wrap
 
     def forward(self, x, *args, **kwargs):
-        for k, v in kwargs.items():
+        for v in kwargs.values():
             assert not (isinstance(v, torch.Tensor) and v.requires_grad)  # This would screw up checkpointing.
         partial = functools.partial(self.wrap, **kwargs)
         return partial(x, *args)

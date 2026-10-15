@@ -73,8 +73,8 @@ def pick_and_pop(keys, d):
 
 
 def group_dict_by_key(cond, d):
-    return_val = [dict(), dict()]
-    for key in d.keys():
+    return_val = [{}, {}]
+    for key in d:
         match = bool(cond(key))
         ind = int(not match)
         return_val[ind][key] = d[key]

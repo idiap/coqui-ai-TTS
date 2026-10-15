@@ -117,13 +117,12 @@ class BaseTacotron(BaseTTS):
             style_mel = _compute_style_mel(style_wav)
             style_mel = style_mel.transpose(1, 2)  # [1, time, depth]
 
-        if not isinstance(style_mel, dict):
-            if style_text is not None:
-                if language is None and self.language_manager.num_languages == 1:
-                    language = self.language_manager.language_names[0]
-                style_text = torch.tensor(
-                    self.tokenizer.text_to_ids(style_text, language=language), dtype=torch.long, device=self.device
-                ).unsqueeze(0)
+        if not isinstance(style_mel, dict) and style_text is not None:
+            if language is None and self.language_manager.num_languages == 1:
+                language = self.language_manager.language_names[0]
+            style_text = torch.tensor(
+                self.tokenizer.text_to_ids(style_text, language=language), dtype=torch.long, device=self.device
+            ).unsqueeze(0)
         extra_aux_input = {"style_mel": style_mel, "style_text": style_text}
         return super().synthesize(*args, language=language, extra_aux_input=extra_aux_input, **kwargs)
 
@@ -303,7 +302,6 @@ class BaseTacotron(BaseTTS):
             # Capacitron model specific gradient clipping
             model_params_to_clip = []
             for name, param in self.named_parameters():
-                if param.requires_grad:
-                    if name != "capacitron_vae_layer.beta":
-                        model_params_to_clip.append(param)
+                if param.requires_grad and name != "capacitron_vae_layer.beta":
+                    model_params_to_clip.append(param)
             torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)

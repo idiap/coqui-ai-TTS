@@ -94,10 +94,9 @@ def rand_segments(
     """
     _x_lenghts = x_lengths.clone()
     B, _, T = x.size()
-    if pad_short:
-        if T < segment_size:
-            x = torch.nn.functional.pad(x, (0, segment_size - T))
-            T = segment_size
+    if pad_short and T < segment_size:
+        x = torch.nn.functional.pad(x, (0, segment_size - T))
+        T = segment_size
     if _x_lenghts is None:
         _x_lenghts = T
     len_diff = _x_lenghts - segment_size

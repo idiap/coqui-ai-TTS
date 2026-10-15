@@ -280,7 +280,7 @@ class AcousticModel(torch.nn.Module):
         d_vectors: torch.Tensor = None,
         speaker_idx: torch.Tensor = None,
     ) -> dict[str, torch.Tensor]:
-        sid, g, lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
+        sid, g, _lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
             {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
         )  # pylint: disable=unused-variable
 
@@ -413,7 +413,7 @@ class AcousticModel(torch.nn.Module):
     ) -> torch.Tensor:
         src_mask = ~sequence_mask(torch.tensor([tokens.shape[1]], dtype=torch.int64, device=tokens.device))
         src_lens = torch.tensor(tokens.shape[1:2]).to(tokens.device)  # pylint: disable=unused-variable
-        sid, g, lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
+        sid, g, _lid, _ = self._set_cond_input(  # pylint: disable=unused-variable
             {"d_vectors": d_vectors, "speaker_ids": speaker_idx}
         )  # pylint: disable=unused-variable
 

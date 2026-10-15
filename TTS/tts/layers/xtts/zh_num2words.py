@@ -588,9 +588,8 @@ def chn2num(chinese_string, numbering_type=NUMBERING_TYPES[1]):
         一亿一千三百万 to 一亿 一千万 三百万
         """
 
-        if integer_symbols and isinstance(integer_symbols[0], CNU):
-            if integer_symbols[0].power == 1:
-                integer_symbols = [system.digits[1]] + integer_symbols
+        if integer_symbols and isinstance(integer_symbols[0], CNU) and integer_symbols[0].power == 1:
+            integer_symbols = [system.digits[1]] + integer_symbols
 
         if len(integer_symbols) > 1:
             if isinstance(integer_symbols[-1], CND) and isinstance(integer_symbols[-2], CNU):
@@ -628,7 +627,7 @@ def chn2num(chinese_string, numbering_type=NUMBERING_TYPES[1]):
             elif isinstance(s, CNU):
                 value[-1] *= pow(10, s.power)
                 if s.power > last_power:
-                    value[:-1] = list(map(lambda v: v * pow(10, s.power), value[:-1]))
+                    value[:-1] = [v * pow(10, s.power) for v in value[:-1]]
                     last_power = s.power
                 value.append(0)
         return sum(value)
@@ -1046,9 +1045,8 @@ def remove_space(text):
     tokens = text.split()
     new = []
     for k, t in enumerate(tokens):
-        if k != 0:
-            if IN_EN_CHARS.get(tokens[k - 1][-1]) and IN_EN_CHARS.get(t[0]):
-                new.append(" ")
+        if k != 0 and IN_EN_CHARS.get(tokens[k - 1][-1]) and IN_EN_CHARS.get(t[0]):
+            new.append(" ")
         new.append(t)
     return "".join(new)
 
