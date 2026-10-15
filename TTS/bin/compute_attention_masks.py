@@ -165,8 +165,7 @@ def compute_attention_masks(
 
         output_file = output_path / "metadata_attn_mask.txt"
         with open(output_file, "w", encoding="utf-8") as f:
-            for p in file_paths:
-                f.write(f"{p[0]}|{p[1]}\n")
+            f.writelines(f"{p[0]}|{p[1]}\n" for p in file_paths)
         logger.info("Metafile created: %s", output_file)
 
 

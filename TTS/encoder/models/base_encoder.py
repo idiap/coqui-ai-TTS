@@ -79,9 +79,7 @@ class BaseEncoder(nn.Module):
             num_frames = num_frames * self.audio_config["hop_length"]
 
         max_len = x.shape[1]
-
-        if max_len < num_frames:
-            num_frames = max_len
+        num_frames = min(num_frames, max_len)
 
         offsets = np.linspace(0, max_len - num_frames, num=num_eval)
 

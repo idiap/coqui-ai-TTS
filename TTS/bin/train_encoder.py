@@ -318,7 +318,7 @@ def train(
 
             end_time = time.time()
 
-        print("")
+        print()
         print(
             f">>> Epoch:{epoch}  AvgLoss: {tot_loss / len(data_loader):.5f} GradNorm:{grad_norm:.5f}  "
             f"EpochTime:{epoch_time:.2f} AvGLoaderTime:{avg_loader_time:.2f} ",
@@ -357,7 +357,7 @@ def main(arg_list: list[str] | None = None):
     train_config = TrainArgs()
     parser = train_config.init_argparse(arg_prefix="")
     args, overrides = parser.parse_known_args(arg_list)
-    c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = process_args((args, overrides))
+    c, OUT_PATH, _AUDIO_PATH, _c_logger, dashboard_logger = process_args((args, overrides))
     # pylint: disable=global-variable-undefined
     global meta_data_train
     global meta_data_eval
