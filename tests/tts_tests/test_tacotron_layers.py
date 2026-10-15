@@ -64,7 +64,7 @@ class DecoderTests(unittest.TestCase):
         dummy_input = T.rand(4, 8, 256)
         dummy_memory = T.rand(4, 2, 80)
 
-        output, alignment, stop_tokens = layer(dummy_input, dummy_memory, mask=None)
+        output, _alignment, stop_tokens = layer(dummy_input, dummy_memory, mask=None)
 
         assert output.shape[0] == 4
         assert output.shape[1] == 80, f"size not {output.shape[1]}"

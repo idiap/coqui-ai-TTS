@@ -28,7 +28,7 @@ def preprocess_wav(fpath_or_wav: str | Path | np.ndarray, source_sr: int | None 
     this argument will be ignored.
     """
     # Load the wav from disk if needed
-    if isinstance(fpath_or_wav, str) or isinstance(fpath_or_wav, Path):
+    if isinstance(fpath_or_wav, (str, Path)):
         wav, source_sr = librosa.load(fpath_or_wav, sr=None)
     else:
         wav = fpath_or_wav

@@ -96,7 +96,7 @@ class GPTTrainer(BaseTTS):
                 self.args.gpt_checkpoint, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
             )
             # deal with coqui Trainer exported model
-            if "model" in gpt_checkpoint.keys() and "config" in gpt_checkpoint.keys():
+            if "model" in gpt_checkpoint and "config" in gpt_checkpoint:
                 logger.info("Coqui Trainer checkpoint detected! Converting it!")
                 gpt_checkpoint = gpt_checkpoint["model"]
                 states_keys = list(gpt_checkpoint.keys())
@@ -433,9 +433,9 @@ class GPTTrainer(BaseTTS):
                     if v.is_bias or v.is_norm or v.is_emb:
                         param_names_notweights.add(fpn)
 
-            params_names_notweights = sorted(list(param_names_notweights))
+            params_names_notweights = sorted(param_names_notweights)
             params_notweights = [param_map[k] for k in params_names_notweights]
-            params_names_weights = sorted(list(all_param_names ^ param_names_notweights))
+            params_names_weights = sorted(all_param_names ^ param_names_notweights)
             params_weights = [param_map[k] for k in params_names_weights]
 
             groups = [

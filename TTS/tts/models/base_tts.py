@@ -498,7 +498,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
 
     def _get_language_id(self, language: str | None) -> int | None:
         if self.language_manager.num_languages == 1:
-            return list(self.language_manager.name_to_id.values())[0]
+            return next(iter(self.language_manager.name_to_id.values()))
         if self.language_manager.num_languages > 1:
             if language is not None:
                 try:
@@ -535,7 +535,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             return None, None
 
         if len(self.speaker_manager.name_to_id) == 1:
-            speaker_id = list(self.speaker_manager.name_to_id.values())[0]
+            speaker_id = next(iter(self.speaker_manager.name_to_id.values()))
             return torch.tensor([speaker_id], device=self.device), None
 
         speaker_exists = True

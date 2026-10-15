@@ -166,7 +166,7 @@ class BCELossMasked(nn.Module):
         pos_weight (float): weight for positive samples. If set < 1, penalize early stopping. Defaults to None.
     """
 
-    def __init__(self, pos_weight: float = None):
+    def __init__(self, pos_weight: float | None = None):
         super().__init__()
         self.register_buffer("pos_weight", torch.tensor([pos_weight]))
 

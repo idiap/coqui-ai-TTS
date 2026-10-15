@@ -28,8 +28,8 @@ def stable_softmax(t, dim=-1, alpha=32**2):
 
 
 def route_args(router, args, depth):
-    routed_args = [(dict(), dict()) for _ in range(depth)]
-    matched_keys = [key for key in args.keys() if key in router]
+    routed_args = [({}, {}) for _ in range(depth)]
+    matched_keys = [key for key in args if key in router]
 
     for key in matched_keys:
         val = args[key]

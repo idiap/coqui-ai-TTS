@@ -216,7 +216,7 @@ class SpeakerEncoder(torch.nn.Module):
 
         if mel_len > partial_frames:
             mel_slices = self.compute_partial_slices(mel_len, partial_frames, partial_hop)
-            mels = list(mel[:, s] for s in mel_slices)
+            mels = [mel[:, s] for s in mel_slices]
             mels.append(last_mel)
             mels = torch.stack(tuple(mels), 0).squeeze(1)
 
@@ -388,7 +388,7 @@ class FreeVC(CloningMixin, BaseVC):
         """
         if c_lengths is None:
             c_lengths = (torch.ones(c.size(0)) * c.size(-1)).to(c.device)
-        z_p, m_p, logs_p, c_mask = self.enc_p(c, c_lengths)
+        z_p, _m_p, _logs_p, c_mask = self.enc_p(c, c_lengths)
         z = self.flow(z_p, c_mask, g=g, reverse=True)
         o = self.dec(z * c_mask, g=g)
         return o

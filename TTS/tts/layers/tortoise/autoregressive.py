@@ -566,7 +566,7 @@ class UnifiedVoice(nn.Module):
         **hf_generate_kwargs,
     ):
         text_inputs = F.pad(text_inputs, (0, 1), value=self.stop_text_token)
-        text_inputs, text_targets = self.build_aligned_inputs_and_targets(
+        text_inputs, _text_targets = self.build_aligned_inputs_and_targets(
             text_inputs, self.start_text_token, self.stop_text_token
         )
         text_emb = self.text_embedding(text_inputs) + self.text_pos_embedding(text_inputs)

@@ -190,7 +190,7 @@ class AlignTTS(BaseTTS):
             - g: :math:`[B, C]`
         """
         y = y.transpose(1, 2)
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        g = aux_input.get("d_vectors", None)
         o_de, o_dr_log, dr_mas_log, attn, mu, log_sigma, logp = None, None, None, None, None, None, None
         if phase == 0:
             # train encoder and MDN
@@ -241,7 +241,7 @@ class AlignTTS(BaseTTS):
             - x_lengths: :math:`[B]`
             - g: :math:`[B, C]`
         """
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        g = aux_input.get("d_vectors", None)
         x_lengths = torch.tensor(x.shape[1:2]).to(x.device)
         # pad input to prevent dropping the last word
         # x = torch.nn.functional.pad(x, pad=(0, 5), mode='constant', value=0)

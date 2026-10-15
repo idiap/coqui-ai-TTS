@@ -402,7 +402,7 @@ class AddCoords(nn.Module):
                 out = torch.cat([out, rr], dim=1)
 
         elif self.rank == 3:
-            batch_size_shape, channel_in_shape, dim_z, dim_y, dim_x = x.shape
+            batch_size_shape, _channel_in_shape, dim_z, dim_y, dim_x = x.shape
             xx_ones = torch.ones([1, 1, 1, 1, dim_x], dtype=torch.int32)
             yy_ones = torch.ones([1, 1, 1, 1, dim_y], dtype=torch.int32)
             zz_ones = torch.ones([1, 1, 1, 1, dim_z], dtype=torch.int32)

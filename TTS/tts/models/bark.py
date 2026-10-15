@@ -249,7 +249,7 @@ class Bark(BaseTTS):
             raise FileNotFoundError(msg)
         if voices[speaker_id_slug].suffix == ".npz":
             np_voice = np.load(voices[speaker_id_slug])
-            voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
+            voice = {key: torch.tensor(np_voice[key]) for key in np_voice}
         else:
             voice = torch.load(voices[speaker_id_slug], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
         logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])

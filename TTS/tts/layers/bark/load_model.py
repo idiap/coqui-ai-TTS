@@ -133,9 +133,9 @@ def load_model(ckpt_path, device, config, model_type="text"):
         if k.startswith(unwanted_prefix):
             state_dict[k[len(unwanted_prefix) :]] = state_dict.pop(k)
     extra_keys = set(state_dict.keys()) - set(model.state_dict().keys())
-    extra_keys = set(k for k in extra_keys if not k.endswith(".attn.bias"))
+    extra_keys = {k for k in extra_keys if not k.endswith(".attn.bias")}
     missing_keys = set(model.state_dict().keys()) - set(state_dict.keys())
-    missing_keys = set(k for k in missing_keys if not k.endswith(".attn.bias"))
+    missing_keys = {k for k in missing_keys if not k.endswith(".attn.bias")}
     if len(extra_keys) != 0:
         raise ValueError(f"extra keys found: {extra_keys}")
     if len(missing_keys) != 0:

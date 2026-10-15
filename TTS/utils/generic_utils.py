@@ -81,7 +81,7 @@ def get_import_path(obj: object) -> str:
     Returns:
         str: The import path of the class.
     """
-    return ".".join([type(obj).__module__, type(obj).__name__])
+    return f"{type(obj).__module__}.{type(obj).__name__}"
 
 
 def format_aux_input(def_args: dict, kwargs: dict) -> dict:

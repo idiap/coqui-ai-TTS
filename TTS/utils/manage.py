@@ -300,18 +300,15 @@ class ModelManager:
         """Check if the user has agreed to the terms of service"""
         if model_item.get("tos_required"):
             tos_path = os.path.join(model_full_path, "tos_agreed.txt")
-            if os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1":
-                return True
-            return False
+            return os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1"
         return True
 
     def create_dir_and_download_model(self, model_name: str, model_item: ModelItem, output_path: Path) -> Path:
         output_path.mkdir(exist_ok=True, parents=True)
         # handle TOS
-        if not self.tos_agreed(model_item, output_path):
-            if not self.ask_tos(output_path):
-                output_path.rmdir()
-                raise RuntimeError(" [!] You must agree to the terms of service to use this model.")
+        if not self.tos_agreed(model_item, output_path) and not self.ask_tos(output_path):
+            output_path.rmdir()
+            raise RuntimeError(" [!] You must agree to the terms of service to use this model.")
         logger.info("Downloading model to %s", output_path)
         try:
             if "fairseq" in model_name:

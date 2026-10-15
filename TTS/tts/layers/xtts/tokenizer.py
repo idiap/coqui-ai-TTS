@@ -69,9 +69,8 @@ def split_sentence(text, lang, text_split_length=250):
             else:
                 text_splits.append(str(sentence))
 
-        if len(text_splits) > 1:
-            if text_splits[0] == "":
-                del text_splits[0]
+        if len(text_splits) > 1 and text_splits[0] == "":
+            del text_splits[0]
     else:
         text_splits = [text.lstrip()]
 

@@ -21,7 +21,7 @@ class TextEncoder(nn.Module):
         num_layers: int,
         kernel_size: int,
         dropout_p: float,
-        language_emb_dim: int = None,
+        language_emb_dim: int | None = None,
     ):
         """Text Encoder for VITS model.
 

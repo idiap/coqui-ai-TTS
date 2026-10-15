@@ -156,7 +156,7 @@ def generate_text_semantic(
             pbar.update(100 - pbar_state)
             break
         del logits, relevant_logits, probs, item_next
-        req_pbar_state = np.min([100, int(round(100 * n / n_tot_steps))])
+        req_pbar_state = np.min([100, round(100 * n / n_tot_steps)])
         if req_pbar_state > pbar_state:
             pbar.update(req_pbar_state - pbar_state)
         pbar_state = req_pbar_state
@@ -257,7 +257,7 @@ def generate_coarse(
                 int(np.floor(len(x_coarse_history) / semantic_to_coarse_ratio)),
             ]
         )
-        n_coarse_hist_provided = int(round(n_semantic_hist_provided * semantic_to_coarse_ratio))
+        n_coarse_hist_provided = int(round(n_semantic_hist_provided * semantic_to_coarse_ratio))  # noqa: RUF046
         x_semantic_history = x_semantic_history[-n_semantic_hist_provided:]
         x_coarse_history = x_coarse_history[-n_coarse_hist_provided:]
         # TODO: bit of a hack for time alignment (sounds better)
@@ -266,7 +266,7 @@ def generate_coarse(
         x_semantic_history = torch.tensor([], dtype=torch.int32)
         x_coarse_history = torch.tensor([], dtype=torch.int32)
     # start loop
-    n_steps = int(
+    n_steps = int(  # noqa: RUF046
         round(
             np.floor(len(x_semantic) * semantic_to_coarse_ratio / model.config.N_COARSE_CODEBOOKS)
             * model.config.N_COARSE_CODEBOOKS
@@ -281,7 +281,7 @@ def generate_coarse(
     n_window_steps = int(np.ceil(n_steps / sliding_window_len))
     n_step = 0
     for _ in tqdm.tqdm(range(n_window_steps), total=n_window_steps, disable=silent):
-        semantic_idx = base_semantic_idx + int(round(n_step / semantic_to_coarse_ratio))
+        semantic_idx = base_semantic_idx + round(n_step / semantic_to_coarse_ratio)
         # pad from right side
         x_in = x_semantic_in[:, np.max([0, semantic_idx - max_semantic_history]) :]
         x_in = x_in[:, :256]
