@@ -34,9 +34,9 @@ class ReferenceEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
     ):
         super().__init__()
@@ -118,9 +118,9 @@ class UtteranceLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,
@@ -190,9 +190,9 @@ class PhonemeLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,

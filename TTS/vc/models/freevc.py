@@ -13,11 +13,11 @@ from torch.nn import functional as F
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 
-import TTS.vc.layers.freevc.modules as modules
 from TTS.tts.layers.vits.discriminator import DiscriminatorS
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.freevc_config import FreeVCConfig
+from TTS.vc.layers.freevc import modules
 from TTS.vc.layers.freevc.commons import init_weights, rand_slice_segments
 from TTS.vc.layers.freevc.mel_processing import mel_spectrogram_torch
 from TTS.vc.layers.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx

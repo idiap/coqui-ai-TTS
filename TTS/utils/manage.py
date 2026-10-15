@@ -298,7 +298,7 @@ class ModelManager:
     @staticmethod
     def tos_agreed(model_item: ModelItem, model_full_path: Path) -> bool:
         """Check if the user has agreed to the terms of service"""
-        if "tos_required" in model_item and model_item["tos_required"]:
+        if model_item.get("tos_required"):
             tos_path = os.path.join(model_full_path, "tos_agreed.txt")
             if os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1":
                 return True
@@ -482,10 +482,7 @@ class ModelManager:
                     model_args_name = model_args_name[0]
                 model_args_name = Path(model_args_name).name
 
-            if _update_path(field_name, output_path / name):
-                has_changes = True
-                continue
-            elif _update_path(field_name, output_path / model_args_name):
+            if _update_path(field_name, output_path / name) or _update_path(field_name, output_path / model_args_name):
                 has_changes = True
                 continue
             for default in defaults:
@@ -505,7 +502,7 @@ class ModelManager:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
             ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
-            temp_zip_name = output_folder / file_url.split("/")[-1]
+            temp_zip_name = output_folder / file_url.rsplit("/", maxsplit=1)[-1]
             with open(temp_zip_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if pbar:
@@ -539,7 +536,7 @@ class ModelManager:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
             ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
-            temp_tar_name = output_folder / file_url.split("/")[-1]
+            temp_tar_name = output_folder / file_url.rsplit("/", maxsplit=1)[-1]
             with open(temp_tar_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if pbar:

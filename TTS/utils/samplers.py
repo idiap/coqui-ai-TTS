@@ -56,7 +56,7 @@ class PerfectBatchSampler(Sampler):
         label_indices = {}
         for idx, item in enumerate(dataset_items):
             label = item[label_key]
-            if label not in label_indices.keys():
+            if label not in label_indices:
                 label_indices[label] = [idx]
             else:
                 label_indices[label].append(idx)

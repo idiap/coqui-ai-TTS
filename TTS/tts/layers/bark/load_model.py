@@ -84,10 +84,7 @@ def load_model(ckpt_path, device, config, model_type="text"):
 
     if device == "cpu":
         logger.warning("No GPU being used. Careful, inference might be extremely slow!")
-    if model_type == "text":
-        ConfigClass = GPTConfig
-        ModelClass = GPT
-    elif model_type == "coarse":
+    if model_type == "text" or model_type == "coarse":
         ConfigClass = GPTConfig
         ModelClass = GPT
     elif model_type == "fine":

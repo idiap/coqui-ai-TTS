@@ -152,9 +152,7 @@ def get_activation_fn(activation: str):
         return gelu_accurate
     elif activation == "tanh":
         return torch.tanh
-    elif activation == "linear":
-        return lambda x: x
-    elif activation == "glu":
+    elif activation == "linear" or activation == "glu":
         return lambda x: x
     else:
         raise RuntimeError(f"--activation-fn {activation} not supported")
