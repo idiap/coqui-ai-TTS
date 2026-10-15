@@ -71,8 +71,7 @@ def preprocess_audios():
 
         # write files that do not have speech
         with open(os.path.join(args.output_dir, "filtered_files.txt"), "w", encoding="utf-8") as f:
-            for file in filtered_files:
-                f.write(str(file) + "\n")
+            f.writelines(str(file) + "\n" for file in filtered_files)
     else:
         print("> No files Found !")
 

@@ -77,7 +77,7 @@ class Logger:
     def __init__(self, filename="log.out"):
         self.log_file = filename
         self.terminal = sys.stdout
-        self.log = open(self.log_file, "w")
+        self.log = open(self.log_file, "w")  # noqa: SIM115
 
     def write(self, message):
         self.terminal.write(message)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
 
             prompt_compute_btn = gr.Button(value="Step 1 - Create dataset")
 
-            def preprocess_dataset(audio_path, language, out_path, progress=gr.Progress(track_tqdm=True)):
+            def preprocess_dataset(audio_path, language, out_path, progress=gr.Progress(track_tqdm=True)):  # noqa: B008
                 clear_gpu_cache()
                 out_path = os.path.join(out_path, "dataset")
                 os.makedirs(out_path, exist_ok=True)
@@ -307,7 +307,7 @@ if __name__ == "__main__":
                 try:
                     # convert seconds to waveform frames
                     max_audio_length = int(max_audio_length * 22050)
-                    config_path, original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
+                    config_path, _original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
                         language,
                         num_epochs,
                         batch_size,

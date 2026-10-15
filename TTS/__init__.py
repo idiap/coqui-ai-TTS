@@ -23,6 +23,5 @@ if "coqpit" in importlib.metadata.packages_distributions().get("coqpit", []):
 if not is_torch_available() or not is_torchaudio_available():
     raise ImportError(PYTORCH_IMPORT_ERROR)
 
-if is_torch_greater_or_equal("2.9"):
-    if not is_torchcodec_available():
-        raise ImportError(TORCHCODEC_IMPORT_ERROR)
+if is_torch_greater_or_equal("2.9") and not is_torchcodec_available():
+    raise ImportError(TORCHCODEC_IMPORT_ERROR)
