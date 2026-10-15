@@ -17,8 +17,6 @@ from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
 
-# pylint: disable=unused-variable
-
 # create a dummy config for testing data loaders.
 c = BaseTTSConfig(text_cleaner="english_cleaners", num_loader_workers=0, batch_size=2, use_noise_augment=False)
 c.r = 5

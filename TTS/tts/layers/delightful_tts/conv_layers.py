@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn  # pylint: disable=consider-using-from-import
+import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -143,10 +143,10 @@ class ConvLSTMLinear(nn.Module):
         context = nn.utils.rnn.pad_sequence(context_embedded, batch_first=True)
         return context
 
-    def run_unsorted_inputs(self, fn, context, lens):  # pylint: disable=no-self-use
+    def run_unsorted_inputs(self, fn, context, lens):
         lens_sorted, ids_sorted = torch.sort(lens, descending=True)
         unsort_ids = [0] * lens.size(0)
-        for i in range(len(ids_sorted)):  # pylint: disable=consider-using-enumerate
+        for i in range(len(ids_sorted)):
             unsort_ids[ids_sorted[i]] = i
         lens_sorted = lens_sorted.long().cpu()
 
@@ -352,7 +352,7 @@ class AddCoords(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.rank == 1:
-            batch_size_shape, _channel_in_shape, dim_x = x.shape  # pylint: disable=unused-variable
+            batch_size_shape, _channel_in_shape, dim_x = x.shape
             xx_range = torch.arange(dim_x, dtype=torch.int32)
             xx_channel = xx_range[None, None, :]
 

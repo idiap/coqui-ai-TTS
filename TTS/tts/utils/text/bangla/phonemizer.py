@@ -58,7 +58,7 @@ def tag_text(text: str):
 
 
 def normalize(sen):
-    global bnorm  # pylint: disable=global-statement
+    global bnorm
     _words = [bnorm(word)["normalized"] for word in sen.split()]
     return " ".join([word for word in _words if word is not None])
 

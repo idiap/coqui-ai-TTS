@@ -9,8 +9,6 @@ from TTS.config.shared_configs import ModelArgs
 from TTS.model import BaseTrainerModel
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
-# pylint: skip-file
-
 logger = logging.getLogger(__name__)
 
 

@@ -82,7 +82,7 @@ def download_url(
     """
 
     req = urllib.request.Request(url, method="HEAD")
-    req_info = urllib.request.urlopen(req).info()  # pylint: disable=consider-using-with
+    req_info = urllib.request.urlopen(req).info()
 
     # Detect filename
     filename = filename or req_info.get_filename() or os.path.basename(url)
@@ -200,7 +200,7 @@ def download_kaggle_dataset(dataset_path: str, dataset_name: str, output_path: s
     """
     data_path = os.path.join(output_path, dataset_name)
     try:
-        import kaggle  # pylint: disable=import-outside-toplevel
+        import kaggle
 
         kaggle.api.authenticate()
         logger.info("Downloading %s...", dataset_name)

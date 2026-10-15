@@ -301,8 +301,6 @@ class Bark(BaseTTS):
     def forward(self): ...
 
     def inference(self): ...
-
-    # pylint: disable=unused-argument, redefined-builtin
     def load_checkpoint(
         self,
         config,

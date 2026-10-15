@@ -9,7 +9,6 @@ import logging
 import sys
 from argparse import RawTextHelpFormatter
 
-# pylint: disable=redefined-outer-name, unused-argument
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 logger = logging.getLogger(__name__)

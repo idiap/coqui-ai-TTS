@@ -2,7 +2,7 @@
 import math
 
 import torch
-import torch.nn as nn  # pylint: disable=consider-using-from-import
+import torch.nn as nn
 import torch.nn.functional as F
 
 from TTS.tts.layers.delightful_tts.conv_layers import Conv1dGLU, DepthWiseConv1d, PointwiseConv1d, calc_same_padding
@@ -90,8 +90,8 @@ class ConformerBlock(torch.nn.Module):
         self,
         d_model: int,
         n_head: int,
-        d_k: int,  # pylint: disable=unused-argument
-        d_v: int,  # pylint: disable=unused-argument
+        d_k: int,
+        d_v: int,
         kernel_size_conv_mod: int,
         speaker_embedding_dim: int,
         dropout: float,
@@ -317,7 +317,7 @@ class ConformerMultiHeadedSelfAttention(nn.Module):
         mask: torch.Tensor,
         encoding: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        batch_size, _seq_length, _ = key.size()  # pylint: disable=unused-variable
+        batch_size, _seq_length, _ = key.size()
         encoding = encoding[:, : key.shape[1]]
         encoding = encoding.repeat(batch_size, 1, 1)
         outputs, attn = self.attention(query, key, value, pos_embedding=encoding, mask=mask)
@@ -398,7 +398,7 @@ class RelativeMultiHeadAttention(nn.Module):
 
         return self.out_proj(context), attn
 
-    def _relative_shift(self, pos_score: torch.Tensor) -> torch.Tensor:  # pylint: disable=no-self-use
+    def _relative_shift(self, pos_score: torch.Tensor) -> torch.Tensor:
         batch_size, num_heads, seq_length1, seq_length2 = pos_score.size()
         zeros = torch.zeros((batch_size, num_heads, seq_length1, 1), device=pos_score.device)
         padded_pos_score = torch.cat([zeros, pos_score], dim=-1)

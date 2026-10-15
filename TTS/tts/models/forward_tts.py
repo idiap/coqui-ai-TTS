@@ -354,7 +354,7 @@ class ForwardTTS(BaseTTS):
         dr: torch.Tensor | None = None,
         pitch: torch.Tensor | None = None,
         energy: torch.Tensor | None = None,
-        aux_input: dict | None = None,  # pylint: disable=unused-argument
+        aux_input: dict | None = None,
     ) -> dict:
         """Model's forward pass.
 
@@ -443,7 +443,7 @@ class ForwardTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x: torch.Tensor, aux_input: dict[str, Any] | None = None):  # pylint: disable=unused-argument
+    def inference(self, x: torch.Tensor, aux_input: dict[str, Any] | None = None):
         """Model's inference pass.
 
         Args:
@@ -592,7 +592,7 @@ class ForwardTTS(BaseTTS):
         return figures, {"audio": train_audio}
 
     def get_criterion(self) -> nn.Module:
-        from TTS.tts.layers.losses import ForwardTTSLoss  # pylint: disable=import-outside-toplevel
+        from TTS.tts.layers.losses import ForwardTTSLoss
 
         return ForwardTTSLoss(self.config)
 

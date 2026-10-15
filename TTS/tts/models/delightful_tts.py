@@ -133,7 +133,6 @@ class ForwardTTSE2eDataset(TTSDataset):
             token_ids = self.get_token_ids(idx, item["text"], item["language"])
         except:
             logger.exception("%s %s", idx, item)
-            # pylint: disable=raise-missing-from
             raise OSError
         f0 = None
         if self.compute_f0:
@@ -166,7 +165,6 @@ class ForwardTTSE2eDataset(TTSDataset):
     def load_or_compute_attn_prior(self, token_ids, wav, rel_wav_path):
         """Load or compute and save the attention prior."""
         attn_prior_file = os.path.join(self.attn_prior_cache_path, f"{rel_wav_path}.npy")
-        # pylint: disable=no-else-return
         if os.path.exists(attn_prior_file):
             return np.load(attn_prior_file)
         else:
@@ -366,7 +364,7 @@ class DelightfulTTS(BaseTTSE2E):
             num_mels=self.ap.num_mels,
             mel_fmax=self.ap.mel_fmax,
             mel_fmin=self.ap.mel_fmin,
-        )  # pylint: disable=function-redefined
+        )
 
     def on_init_start(self, trainer: Trainer) -> None:
         self.train_disc = self.config.steps_to_start_discriminator <= 0
@@ -549,7 +547,7 @@ class DelightfulTTS(BaseTTSE2E):
             )
 
             # cache tensors for the generator pass
-            self.model_outputs_cache = outputs  # pylint: disable=attribute-defined-outside-init
+            self.model_outputs_cache = outputs
 
             if self.train_disc:
                 # compute scores and features
@@ -1074,9 +1072,7 @@ class DelightfulTTS(BaseTTSE2E):
             trainer (Trainer): Trainer object.
         """
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
-        self.train_disc = (  # pylint: disable=attribute-defined-outside-init
-            trainer.total_steps_done >= self.config.steps_to_start_discriminator
-        )
+        self.train_disc = trainer.total_steps_done >= self.config.steps_to_start_discriminator
 
 
 class DelightfulTTSLoss(nn.Module):

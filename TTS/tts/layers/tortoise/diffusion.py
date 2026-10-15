@@ -1105,7 +1105,7 @@ class SpacedDiffusion(GaussianDiffusion):
         self.use_timesteps = set(use_timesteps)
         self.timestep_map = []
         self.original_num_steps = len(kwargs["betas"])
-        base_diffusion = GaussianDiffusion(**kwargs)  # pylint: disable=missing-kwoa
+        base_diffusion = GaussianDiffusion(**kwargs)
         last_alpha_cumprod = 1.0
         new_betas = []
         for i, alpha_cumprod in enumerate(base_diffusion.alphas_cumprod):
@@ -1116,13 +1116,13 @@ class SpacedDiffusion(GaussianDiffusion):
         kwargs["betas"] = np.array(new_betas)
         super().__init__(**kwargs)
 
-    def p_mean_variance(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def p_mean_variance(self, model, *args, **kwargs):
         return super().p_mean_variance(self._wrap_model(model), *args, **kwargs)
 
-    def training_losses(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def training_losses(self, model, *args, **kwargs):
         return super().training_losses(self._wrap_model(model), *args, **kwargs)
 
-    def autoregressive_training_losses(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def autoregressive_training_losses(self, model, *args, **kwargs):
         return super().autoregressive_training_losses(self._wrap_model(model, True), *args, **kwargs)
 
     def condition_mean(self, cond_fn, *args, **kwargs):

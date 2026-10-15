@@ -99,7 +99,6 @@ class GAN(BaseVocoder):
             y_hat = self.model_g(x)[:, :, : y.size(2)]
 
             # cache for generator loss
-            # pylint: disable=W0201
             self.y_hat_g = y_hat
             self.y_hat_sub = None
             self.y_sub_g = None

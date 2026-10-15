@@ -276,7 +276,6 @@ class Decoder(nn.Module):
     """
 
     # Pylint gets confused by PyTorch conventions here
-    # pylint: disable=attribute-defined-outside-init
 
     def __init__(
         self,

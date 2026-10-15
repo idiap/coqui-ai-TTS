@@ -391,7 +391,7 @@ class Vits(BaseTTS):
             self.interpolate_factor = self.config.audio["sample_rate"] / self.args.encoder_sample_rate
             self.audio_resampler = torchaudio.transforms.Resample(
                 orig_freq=self.config.audio["sample_rate"], new_freq=self.args.encoder_sample_rate
-            )  # pylint: disable=W0201
+            )
 
     def on_epoch_start(self, trainer: Trainer) -> None:
         """Freeze layers at the beginning of an epoch"""
@@ -588,7 +588,6 @@ class Vits(BaseTTS):
             wavs_batch = torch.cat((wav_seg, o), dim=0)
 
             # resample audio to speaker encoder sample_rate
-            # pylint: disable=W0105
             if self.audio_transform is not None:
                 wavs_batch = self.audio_transform(wavs_batch)
 
@@ -822,7 +821,7 @@ class Vits(BaseTTS):
             )
 
             # cache tensors for the generator pass
-            self.model_outputs_cache = outputs  # pylint: disable=attribute-defined-outside-init
+            self.model_outputs_cache = outputs
 
             # compute scores and features
             scores_disc_fake, _, scores_disc_real, _ = self.disc(
@@ -1155,7 +1154,7 @@ class Vits(BaseTTS):
     def get_criterion(self) -> list[nn.Module]:
         """Get criterions for each optimizer. The index in the output list matches the optimizer idx used in
         `train_step()`"""
-        from TTS.tts.layers.losses import (  # pylint: disable=import-outside-toplevel
+        from TTS.tts.layers.losses import (
             VitsDiscriminatorLoss,
             VitsGeneratorLoss,
         )
@@ -1191,7 +1190,7 @@ class Vits(BaseTTS):
             self.eval()
             assert not self.training
 
-    def load_fairseq_checkpoint(self, config, checkpoint_path: Path, eval=False, strict=True):  # pylint: disable=unused-argument, redefined-builtin
+    def load_fairseq_checkpoint(self, config, checkpoint_path: Path, eval=False, strict=True):
         """Load VITS checkpoints released by fairseq here: https://github.com/facebookresearch/fairseq/tree/main/examples/mms
         Performs some changes for compatibility.
 

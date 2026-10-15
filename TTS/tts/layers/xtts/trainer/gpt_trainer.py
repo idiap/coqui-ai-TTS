@@ -478,7 +478,7 @@ class GPTTrainer(BaseTTS):
         cache_storage="/tmp/tts_cache",
         target_protocol="s3",
         target_options=None,
-    ):  # pylint: disable=unused-argument, disable=W0201, redefined-builtin
+    ):
         """Load the model checkpoint and setup for training or inference"""
 
         if target_options is None:

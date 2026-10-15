@@ -123,7 +123,7 @@ class HifiDecoder(torch.nn.Module):
         """
         return self.forward(c, g=g)
 
-    def load_checkpoint(self, checkpoint_path, eval=False):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, checkpoint_path, eval=False):
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"))
         # remove unused keys
         state = state["model"]

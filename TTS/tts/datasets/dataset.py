@@ -740,7 +740,7 @@ class F0Dataset:
         self,
         samples: list[list] | list[dict],
         ap: "AudioProcessor",
-        audio_config=None,  # pylint: disable=unused-argument
+        audio_config=None,
         cache_path: str | None = None,
         precompute_num_workers: int = 0,
         normalize_f0: bool = True,

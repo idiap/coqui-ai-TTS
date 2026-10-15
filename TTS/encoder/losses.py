@@ -21,9 +21,7 @@ class GE2ELoss(nn.Module):
             - init_b (float): definies the initial value of b in Equation (5) of [1]
         """
         super().__init__()
-        # pylint: disable=E1102
         self.w = nn.Parameter(torch.tensor(init_w))
-        # pylint: disable=E1102
         self.b = nn.Parameter(torch.tensor(init_b))
         self.loss_method = loss_method
 
@@ -36,7 +34,6 @@ class GE2ELoss(nn.Module):
         if self.loss_method == "contrast":
             self.embed_loss = self.embed_loss_contrast
 
-    # pylint: disable=R0201
     def calc_new_centroids(self, dvecs, centroids, spkr, utt):
         """
         Calculates the new centroids excluding the reference utterance
@@ -75,7 +72,6 @@ class GE2ELoss(nn.Module):
             cos_sim_matrix.append(cs_row)
         return torch.stack(cos_sim_matrix)
 
-    # pylint: disable=R0201
     def embed_loss_softmax(self, dvecs, cos_sim_matrix):
         """
         Calculates the loss on each embedding $L(e_{ji})$ by taking softmax
@@ -90,7 +86,6 @@ class GE2ELoss(nn.Module):
             L.append(L_row)
         return torch.stack(L)
 
-    # pylint: disable=R0201
     def embed_loss_contrast(self, dvecs, cos_sim_matrix):
         """
         Calculates the loss on each embedding $L(e_{ji})$ by contrast loss with closest centroid
@@ -137,9 +132,7 @@ class AngleProtoLoss(nn.Module):
 
     def __init__(self, init_w=10.0, init_b=-5.0):
         super().__init__()
-        # pylint: disable=E1102
         self.w = nn.Parameter(torch.tensor(init_w))
-        # pylint: disable=E1102
         self.b = nn.Parameter(torch.tensor(init_b))
         self.criterion = torch.nn.CrossEntropyLoss()
 

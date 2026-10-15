@@ -4,11 +4,9 @@ import torch as T
 
 from TTS.tts.layers.tacotron.tacotron import CBHG, Decoder, Encoder, Prenet
 
-# pylint: disable=unused-variable
-
 
 class PrenetTests(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         layer = Prenet(128, out_features=[256, 128])
         dummy_input = T.rand(4, 128)
 
@@ -20,7 +18,6 @@ class PrenetTests(unittest.TestCase):
 
 class CBHGTests(unittest.TestCase):
     def test_in_out(self):
-        # pylint: disable=attribute-defined-outside-init
         layer = self.cbhg = CBHG(
             128,
             K=8,
@@ -73,7 +70,7 @@ class DecoderTests(unittest.TestCase):
 
 
 class EncoderTests(unittest.TestCase):
-    def test_in_out(self):  # pylint: disable=no-self-use
+    def test_in_out(self):
         layer = Encoder(128)
         dummy_input = T.rand(4, 8, 128)
 

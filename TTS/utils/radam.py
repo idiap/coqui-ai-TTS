@@ -31,7 +31,7 @@ class RAdam(Optimizer):
         }
         super().__init__(params, defaults)
 
-    def __setstate__(self, state):  # pylint: disable=useless-super-delegation
+    def __setstate__(self, state):
         super().__setstate__(state)
 
     def step(self, closure=None):

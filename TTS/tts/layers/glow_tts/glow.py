@@ -81,7 +81,7 @@ class InvConvNear(nn.Module):
         to 2d by reshaping the input for efficiency.
     """
 
-    def __init__(self, channels, num_splits=4, no_jacobian=False, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, channels, num_splits=4, no_jacobian=False, **kwargs):
         super().__init__()
         assert num_splits % 2 == 0
         self.channels = channels
@@ -95,7 +95,7 @@ class InvConvNear(nn.Module):
             w_init[:, 0] = -1 * w_init[:, 0]
         self.weight = nn.Parameter(w_init)
 
-    def forward(self, x, x_mask=None, reverse=False, **kwargs):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, reverse=False, **kwargs):
         """
         Shapes:
             - x: :math:`[B, C, T]`
@@ -194,7 +194,7 @@ class CouplingBlock(nn.Module):
         # coupling layers
         self.wn = WN(hidden_channels, hidden_channels, kernel_size, dilation_rate, num_layers, c_in_channels, dropout_p)
 
-    def forward(self, x, x_mask=None, reverse=False, g=None, **kwargs):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, reverse=False, g=None, **kwargs):
         """
         Shapes:
             - x: :math:`[B, C, T]`
