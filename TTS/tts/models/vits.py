@@ -35,6 +35,7 @@ from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequenc
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio.torch_transforms import spec_to_mel, wav_to_mel, wav_to_spec
+from TTS.utils.import_utils import is_torch_greater_or_equal
 from TTS.utils.samplers import BucketBatchSampler
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
@@ -1295,6 +1296,7 @@ class Vits(BaseTTS):
             input_names.append("langid")
 
         # export to ONNX
+        export_kwargs = {"dynamo": False} if is_torch_greater_or_equal("2.5") else {}
         torch.onnx.export(
             model=model,
             args=dummy_input,
@@ -1308,7 +1310,7 @@ class Vits(BaseTTS):
                 "input_lengths": {0: "batch_size"},
                 "output": {0: "batch_size", 1: "time1", 2: "time2"},
             },
-            dynamo=False,
+            **export_kwargs,
         )
 
     def load_onnx(self, model_path: str, cuda=False):
