@@ -78,7 +78,7 @@ jobs:
       - name: Unit tests
         run: >
           uv run --resolution=${{ matrix.uv-resolution }} --extra cpu
-          --extra codec --extra server --extra languages make ${{ matrix.subset }}
+          --extra codec --extra server --extra languages --extra onnx make ${{ matrix.subset }}
       - name: Upload coverage data
         uses: actions/upload-artifact@v6
         with:
