@@ -222,6 +222,23 @@ def test_export_onnx_quantization(onnx_vits, tmp_path):
     torch.testing.assert_close(actual, expected)
 
 
+def test_export_onnx_scales(onnx_vits, tmp_path):
+    """All scales are model inputs instead of being fixed at export time."""
+    pytest.importorskip("onnx")
+    output_path = tmp_path / "vits.onnx"
+    onnx_vits.export_onnx(str(output_path), verbose=False)
+    tokens = torch.randint(0, onnx_vits.args.num_chars, (1, 10))
+
+    reference = _run_onnx(output_path, tokens, [0.0, 1.0, 0.0])
+    assert _run_onnx(output_path, tokens, [0.0, 2.0, 0.0]).shape[-1] > reference.shape[-1]
+    noise = _run_onnx(output_path, tokens, [0.667, 1.0, 0.0])
+    assert noise.shape == reference.shape
+    assert not torch.allclose(noise, reference)
+    # Duration predictor noise changes the durations and therefore the output values.
+    noise_dp = _run_onnx(output_path, tokens, [0.0, 1.0, 0.8])
+    assert noise_dp.shape != reference.shape or not torch.allclose(noise_dp, reference)
+
+
 def test_init_multispeaker():
     args = VitsArgs(use_speaker_embedding=True)
     model = Vits(VitsConfig(model_args=args, speakers=get_test_speakers(10)))

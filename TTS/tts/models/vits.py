@@ -1260,12 +1260,9 @@ class Vits(BaseTTS):
                 parametrize.remove_parametrizations(module, "weight")
 
         def onnx_inference(text, text_lengths, scales, sid=None, langid=None):
-            noise_scale = scales[0]
-            length_scale = scales[1]
-            noise_scale_dp = scales[2]
-            model.noise_scale = noise_scale
-            model.length_scale = length_scale
-            model.noise_scale_dp = noise_scale_dp
+            model.inference_noise_scale = scales[0]
+            model.length_scale = scales[1]
+            model.inference_noise_scale_dp = scales[2]
             return model.inference(
                 text,
                 aux_input={
