@@ -112,6 +112,11 @@ notebooks = [
 ]
 # For running the TTS server
 server = ["flask>=3.0.0"]
+# For ONNX export and inference
+onnx = [
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+]
 # Language-specific dependencies, mainly for G2P
 # Bangla
 bn = [
@@ -141,7 +146,7 @@ languages = [
 ]
 # Installs all extras (except torch, dev and docs)
 all = [
-    "coqui-tts[notebooks,server,languages]",
+    "coqui-tts[notebooks,server,languages,onnx]",
 ]
 
 [tool.uv]

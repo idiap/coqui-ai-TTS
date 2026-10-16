@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+from copy import deepcopy
 from dataclasses import replace
 from itertools import chain
 from pathlib import Path
@@ -14,6 +15,7 @@ from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.utils import parametrize
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from trainer.io import load_fsspec
@@ -33,6 +35,7 @@ from TTS.tts.utils.helpers import generate_path, rand_segments, segment, sequenc
 from TTS.tts.utils.text.characters import BaseCharacters, BaseVocabulary, _characters, _pad, _phonemes, _punctuations
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio.torch_transforms import spec_to_mel, wav_to_mel, wav_to_spec
+from TTS.utils.import_utils import is_torch_greater_or_equal
 from TTS.utils.samplers import BucketBatchSampler
 from TTS.vocoder.models.hifigan_generator import HifiganGenerator
 from TTS.vocoder.utils.generic_utils import plot_results
@@ -1241,25 +1244,27 @@ class Vits(BaseTTS):
             verbose (bool): Print verbose information. Defaults to True.
         """
 
-        # rollback values
-        _forward = self.forward
-        disc = None
-        if hasattr(self, "disc"):
-            disc = self.disc
-        training = self.training
-
-        # set export mode
-        self.disc = None
-        self.eval()
+        # Export a copy so this model is left unchanged. The discriminator is not needed
+        # and an ONNX session can't be copied, so skip both. The dummy inputs are on CPU,
+        # so export from there regardless of this model's device.
+        memo = {id(getattr(self, name, None)): None for name in ("disc", "onnx_sess")}
+        model = deepcopy(self, memo).cpu()
+        model.eval()
+        # Materialize convolution weights as constants so that ONNX quantization can find them.
+        for module in model.modules():
+            if parametrize.is_parametrized(module, "weight"):
+                # Removing a parametrization deletes the `weight` property from the module's
+                # `Parametrized*` class. `deepcopy` shares that class between this model and
+                # the copy, so give each module its own class first to keep this model intact.
+                cls = type(module)
+                module.__class__ = type(cls.__name__, cls.__bases__, dict(vars(cls)))
+                parametrize.remove_parametrizations(module, "weight")
 
         def onnx_inference(text, text_lengths, scales, sid=None, langid=None):
-            noise_scale = scales[0]
-            length_scale = scales[1]
-            noise_scale_dp = scales[2]
-            self.noise_scale = noise_scale
-            self.length_scale = length_scale
-            self.noise_scale_dp = noise_scale_dp
-            return self.inference(
+            model.inference_noise_scale = scales[0]
+            model.length_scale = scales[1]
+            model.inference_noise_scale_dp = scales[2]
+            return model.inference(
                 text,
                 aux_input={
                     "x_lengths": text_lengths,
@@ -1270,29 +1275,30 @@ class Vits(BaseTTS):
                 },
             )["model_outputs"]
 
-        self.forward = onnx_inference
+        model.forward = onnx_inference
 
         # set dummy inputs
         dummy_input_length = 100
         sequences = torch.randint(low=0, high=2, size=(1, dummy_input_length), dtype=torch.long)
         sequence_lengths = torch.LongTensor([sequences.size(1)])
-        scales = torch.FloatTensor([self.inference_noise_scale, self.length_scale, self.inference_noise_scale_dp])
+        scales = torch.FloatTensor([model.inference_noise_scale, model.length_scale, model.inference_noise_scale_dp])
         dummy_input = (sequences, sequence_lengths, scales)
         input_names = ["input", "input_lengths", "scales"]
 
-        if self.num_speakers > 0:
+        if model.num_speakers > 0:
             speaker_id = torch.LongTensor([0])
             dummy_input += (speaker_id,)
             input_names.append("sid")
 
-        if self.language_manager.num_languages > 0 and self.embedded_language_dim > 0:
+        if model.language_manager.num_languages > 0 and model.embedded_language_dim > 0:
             language_id = torch.LongTensor([0])
             dummy_input += (language_id,)
             input_names.append("langid")
 
         # export to ONNX
+        export_kwargs = {"dynamo": False} if is_torch_greater_or_equal("2.5") else {}
         torch.onnx.export(
-            model=self,
+            model=model,
             args=dummy_input,
             opset_version=18,
             f=output_path,
@@ -1304,15 +1310,8 @@ class Vits(BaseTTS):
                 "input_lengths": {0: "batch_size"},
                 "output": {0: "batch_size", 1: "time1", 2: "time2"},
             },
-            dynamo=False,
+            **export_kwargs,
         )
-
-        # rollback
-        self.forward = _forward
-        if training:
-            self.train()
-        if disc is not None:
-            self.disc = disc
 
     def load_onnx(self, model_path: str, cuda=False):
         import onnxruntime as ort
