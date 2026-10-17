@@ -14,8 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 # Only support eager mode and TF>=2.0.0
-# pylint: disable=no-member, invalid-name, relative-beyond-top-level
-# pylint: disable=too-many-locals, too-many-statements, too-many-arguments, too-many-instance-attributes
 """voxceleb 1 & 2"""
 
 import csv
@@ -172,9 +170,8 @@ def convert_audio_and_make_label(input_dir, subset, output_dir, output_file):
                 # Convert AAC to WAV.
                 aac_file = os.path.join(root, filename)
                 wav_file = aac_file + ".wav"
-                if not os.path.exists(wav_file):
-                    if not decode_aac_with_ffmpeg(aac_file, wav_file):
-                        raise RuntimeError("Audio decoding failed.")
+                if not os.path.exists(wav_file) and not decode_aac_with_ffmpeg(aac_file, wav_file):
+                    raise RuntimeError("Audio decoding failed.")
             else:
                 continue
             speaker_name = root.split(os.path.sep)[-2]

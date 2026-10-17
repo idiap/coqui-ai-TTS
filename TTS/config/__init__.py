@@ -110,9 +110,8 @@ def load_config(config_path: str | os.PathLike[Any]) -> BaseTrainingConfig:
 
 def get_from_config_or_model_args(config: Coqpit, arg_name: str, def_val: Any = None) -> Any:
     """Get the given argument from `config.model_args` if exist or in `config`."""
-    if getattr(config, "model_args", None) is not None:
-        if arg_name in config.model_args:
-            return config.model_args[arg_name]
+    if getattr(config, "model_args", None) is not None and arg_name in config.model_args:
+        return config.model_args[arg_name]
     if hasattr(config, arg_name):
         return config[arg_name]
     return def_val

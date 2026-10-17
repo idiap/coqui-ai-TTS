@@ -12,7 +12,6 @@ import soundfile as sf
 logger = logging.getLogger(__name__)
 
 # For using kwargs
-# pylint: disable=unused-argument
 
 
 def build_mel_basis(
@@ -75,7 +74,6 @@ def amp_to_db(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> 
     return gain * _log(np.maximum(1e-8, x), base)
 
 
-# pylint: disable=no-self-use
 def db_to_amp(*, x: np.ndarray, gain: float = 1, base: float = 10, **kwargs) -> np.ndarray:
     """Convert decibels spectrogram to amplitude spectrogram.
 

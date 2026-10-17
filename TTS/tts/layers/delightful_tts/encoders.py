@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn  # pylint: disable=consider-using-from-import
+import torch.nn as nn
 import torch.nn.functional as F
 
 from TTS.tts.layers.delightful_tts.conformer import ConformerMultiHeadedSelfAttention
@@ -34,9 +34,9 @@ class ReferenceEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
     ):
         super().__init__()
@@ -106,9 +106,7 @@ class ReferenceEncoder(nn.Module):
 
         return x, memory, mel_masks
 
-    def calculate_channels(  # pylint: disable=no-self-use
-        self, L: int, kernel_size: int, stride: int, pad: int, n_convs: int
-    ) -> int:
+    def calculate_channels(self, L: int, kernel_size: int, stride: int, pad: int, n_convs: int) -> int:
         for _ in range(n_convs):
             L = (L - kernel_size + 2 * pad) // stride + 1
         return L
@@ -118,9 +116,9 @@ class UtteranceLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,
@@ -190,9 +188,9 @@ class PhonemeLevelProsodyEncoder(nn.Module):
     def __init__(
         self,
         num_mels: int,
-        ref_enc_filters: list[int | int | int | int | int | int],
+        ref_enc_filters: list[int],
         ref_enc_size: int,
-        ref_enc_strides: list[int | int | int | int | int],
+        ref_enc_strides: list[int],
         ref_enc_gru_size: int,
         dropout: float,
         n_hidden: int,

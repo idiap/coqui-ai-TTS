@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Licensed under WTFPL or the Unlicense or CC0.
 # This uses Python 3, but it's easy to port to Python 2 by changing
 # strings to u'xx'.

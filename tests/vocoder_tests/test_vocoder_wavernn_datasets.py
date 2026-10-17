@@ -58,14 +58,11 @@ def test_parametrized_wavernn_dataset(tmp_path, params):
     )
 
     max_iter = 10
-    count_iter = 0
-
-    for data in loader:
+    for count_iter, data in enumerate(loader, start=1):
         x_input, mels, _ = data
         expected_feat_shape = (ap.num_mels, (x_input.shape[-1] // hop_len) + (pad * 2))
         assert np.all(mels.shape[1:] == expected_feat_shape), f" [!] {mels.shape} vs {expected_feat_shape}"
 
         assert (mels.shape[2] - pad * 2) * hop_len == x_input.shape[1]
-        count_iter += 1
         if count_iter == max_iter:
             break

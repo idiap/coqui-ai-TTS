@@ -29,8 +29,6 @@ from TTS.utils.audio.numpy_transforms import (
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=too-many-public-methods
-
 
 class AudioProcessor:
     """Audio Processor for TTS.
@@ -121,7 +119,6 @@ class AudioProcessor:
         Returns:
             np.ndarray: Normalized spectrogram.
         """
-        # pylint: disable=no-else-return
         S = S.copy()
         if self.signal_norm:
             # mean-var scaling
@@ -140,7 +137,7 @@ class AudioProcessor:
                 if self.clip_norm:
                     S_norm = np.clip(
                         S_norm,
-                        -self.max_norm,  # pylint: disable=invalid-unary-operand-type
+                        -self.max_norm,
                         self.max_norm,
                     )
                 return S_norm
@@ -162,7 +159,6 @@ class AudioProcessor:
         Returns:
             np.ndarray: Denormalized spectrogram.
         """
-        # pylint: disable=no-else-return
         S_denorm = S.copy()
         if self.signal_norm:
             # mean-var scaling
@@ -177,7 +173,7 @@ class AudioProcessor:
                 if self.clip_norm:
                     S_denorm = np.clip(
                         S_denorm,
-                        -self.max_norm,  # pylint: disable=invalid-unary-operand-type
+                        -self.max_norm,
                         self.max_norm,
                     )
                 S_denorm = ((S_denorm + self.max_norm) * -self.min_level_db / (2 * self.max_norm)) + self.min_level_db
@@ -199,7 +195,7 @@ class AudioProcessor:
             Tuple[np.array, np.array, np.array, np.array, Dict]: loaded statistics and the config used to
                 compute them.
         """
-        stats = np.load(stats_path, allow_pickle=True).item()  # pylint: disable=unexpected-keyword-arg
+        stats = np.load(stats_path, allow_pickle=True).item()
         mel_mean = stats["mel_mean"]
         mel_std = stats["mel_std"]
         linear_mean = stats["linear_mean"]
@@ -216,7 +212,6 @@ class AudioProcessor:
                 )
         return mel_mean, mel_std, linear_mean, linear_std, stats_config
 
-    # pylint: disable=attribute-defined-outside-init
     def setup_scaler(
         self, mel_mean: np.ndarray, mel_std: np.ndarray, linear_mean: np.ndarray, linear_std: np.ndarray
     ) -> None:

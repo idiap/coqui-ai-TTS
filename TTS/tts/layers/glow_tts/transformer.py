@@ -346,8 +346,8 @@ class RelativePositionTransformer(nn.Module):
         num_layers: int,
         kernel_size=1,
         dropout_p=0.0,
-        rel_attn_window_size: int = None,
-        input_length: int = None,
+        rel_attn_window_size: int | None = None,
+        input_length: int | None = None,
         layer_norm_type: str = "1",
     ):
         super().__init__()

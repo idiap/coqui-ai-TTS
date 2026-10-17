@@ -79,15 +79,15 @@ class FineGPT(GPT):
         self.config = config
         self.n_codes_total = config.n_codes_total
         self.transformer = nn.ModuleDict(
-            dict(
-                wtes=nn.ModuleList(
+            {
+                "wtes": nn.ModuleList(
                     [nn.Embedding(config.input_vocab_size, config.n_embd) for _ in range(config.n_codes_total)]
                 ),
-                wpe=nn.Embedding(config.block_size, config.n_embd),
-                drop=nn.Dropout(config.dropout),
-                h=nn.ModuleList([FineBlock(config) for _ in range(config.n_layer)]),
-                ln_f=nn.LayerNorm(config.n_embd),
-            )
+                "wpe": nn.Embedding(config.block_size, config.n_embd),
+                "drop": nn.Dropout(config.dropout),
+                "h": nn.ModuleList([FineBlock(config) for _ in range(config.n_layer)]),
+                "ln_f": nn.LayerNorm(config.n_embd),
+            }
         )
         self.lm_heads = nn.ModuleList(
             [

@@ -47,8 +47,7 @@ class EncoderDataset(Dataset):
             if self.data_augmentation_p and ("additive" in augmentation_config or "rir" in augmentation_config):
                 self.augmentator = AugmentWAV(ap, augmentation_config)
 
-            if "gaussian" in augmentation_config.keys():
-                self.gaussian_augmentation_config = augmentation_config["gaussian"]
+            self.gaussian_augmentation_config = augmentation_config.get("gaussian", None)
 
         logger.info("DataLoader initialization")
         logger.info(" | Classes per batch: %d", num_classes_in_batch)
@@ -66,7 +65,7 @@ class EncoderDataset(Dataset):
         for item in self.items:
             path_ = item["audio_file"]
             class_name = item[self.config.class_name_key]
-            if class_name in class_to_utters.keys():
+            if class_name in class_to_utters:
                 class_to_utters[class_name].append(path_)
             else:
                 class_to_utters[class_name] = [
@@ -108,7 +107,7 @@ class EncoderDataset(Dataset):
         self.classname_to_classid = {key: i for i, key in enumerate(self.classes)}
 
     def get_map_classid_to_classname(self):
-        return dict((c_id, c_n) for c_n, c_id in self.classname_to_classid.items())
+        return {c_id: c_n for c_n, c_id in self.classname_to_classid.items()}
 
     def __getitem__(self, idx):
         return self.items[idx]
@@ -128,9 +127,8 @@ class EncoderDataset(Dataset):
             offset = random.randint(0, wav.shape[0] - self.seq_len)
             wav = wav[offset : offset + self.seq_len]
 
-            if self.augmentator is not None and self.data_augmentation_p:
-                if random.random() < self.data_augmentation_p:
-                    wav = self.augmentator.apply_one(wav)
+            if self.augmentator is not None and self.data_augmentation_p and random.random() < self.data_augmentation_p:
+                wav = self.augmentator.apply_one(wav)
 
             if not self.use_torch_spec:
                 mel = self.ap.melspectrogram(wav)

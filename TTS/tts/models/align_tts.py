@@ -1,7 +1,10 @@
+from typing import Any
+
 import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
+from trainer import Trainer
 
 from TTS.tts.configs.align_tts_config import AlignTTSConfig
 from TTS.tts.layers.align_tts.mdn import MDNBlock
@@ -93,7 +96,6 @@ class AlignTTS(BaseTTS):
 
     @staticmethod
     def compute_log_probs(mu, log_sigma, y):
-        # pylint: disable=protected-access, c-extension-no-member
         y = y.transpose(1, 2).unsqueeze(1)  # [B, 1, T1, D]
         mu = mu.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
         log_sigma = log_sigma.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
@@ -177,7 +179,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input=None, phase=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -186,8 +188,10 @@ class AlignTTS(BaseTTS):
             - dr: :math:`[B, T_max]`
             - g: :math:`[B, C]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
         y = y.transpose(1, 2)
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        g = aux_input.get("d_vectors", None)
         o_de, o_dr_log, dr_mas_log, attn, mu, log_sigma, logp = None, None, None, None, None, None, None
         if phase == 0:
             # train encoder and MDN
@@ -231,14 +235,16 @@ class AlignTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x, aux_input={"d_vectors": None}):  # pylint: disable=unused-argument
+    def inference(self, x, aux_input=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
             - x_lengths: :math:`[B]`
             - g: :math:`[B, C]`
         """
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
+        g = aux_input.get("d_vectors", None)
         x_lengths = torch.tensor(x.shape[1:2]).to(x.device)
         # pad input to prevent dropping the last word
         # x = torch.nn.functional.pad(x, pad=(0, 5), mode='constant', value=0)
@@ -252,7 +258,9 @@ class AlignTTS(BaseTTS):
         outputs = {"model_outputs": o_de.transpose(1, 2), "alignments": attn}
         return outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         text_input = batch["text_input"]
         text_lengths = batch["text_lengths"]
         mel_input = batch["mel_input"]
@@ -275,7 +283,7 @@ class AlignTTS(BaseTTS):
 
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
         model_outputs = outputs["model_outputs"]
@@ -296,8 +304,8 @@ class AlignTTS(BaseTTS):
         train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
 
-    def get_criterion(self):
-        from TTS.tts.layers.losses import AlignTTSLoss  # pylint: disable=import-outside-toplevel
+    def get_criterion(self) -> nn.Module:
+        from TTS.tts.layers.losses import AlignTTSLoss
 
         return AlignTTSLoss(self.config)
 
@@ -318,6 +326,6 @@ class AlignTTS(BaseTTS):
             phase = None
         return phase
 
-    def on_epoch_start(self, trainer):
+    def on_epoch_start(self, trainer: Trainer) -> None:
         """Set AlignTTS training phase on epoch start."""
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)

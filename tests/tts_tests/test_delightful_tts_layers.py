@@ -73,7 +73,7 @@ def test_hifi_decoder(device):
     ).to(device)
     waveform_decoder = waveform_decoder.train()
 
-    vocoder_input_slices, slice_ids = rand_segments(  # pylint: disable=unused-variable
+    vocoder_input_slices, _slice_ids = rand_segments(
         x=dummy_input.transpose(1, 2),
         x_lengths=dummy_spec_lens,
         segment_size=32,

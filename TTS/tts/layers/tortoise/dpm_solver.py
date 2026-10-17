@@ -16,7 +16,7 @@ class NoiseScheduleVP:
         continuous_beta_1=20.0,
         dtype=torch.float32,
     ):
-        """Create a wrapper class for the forward SDE (VP type).
+        r"""Create a wrapper class for the forward SDE (VP type).
 
         ***
         Update: We support discrete-time diffusion models by implementing a picewise linear interpolation for log_alpha_t.
@@ -215,13 +215,13 @@ def model_wrapper(
     model,
     noise_schedule,
     model_type="noise",
-    model_kwargs={},
+    model_kwargs=None,
     guidance_type="uncond",
     condition=None,
     unconditional_condition=None,
     guidance_scale=1.0,
     classifier_fn=None,
-    classifier_kwargs={},
+    classifier_kwargs=None,
 ):
     """Create a wrapper function for the noise prediction model.
 
@@ -311,6 +311,11 @@ def model_wrapper(
     Returns:
         A noise prediction model that accepts the noised data and the continuous time as the inputs.
     """
+
+    if classifier_kwargs is None:
+        classifier_kwargs = {}
+    if model_kwargs is None:
+        model_kwargs = {}
 
     def get_model_input_time(t_continuous):
         """
@@ -1438,20 +1443,20 @@ class DPM_Solver:
                         order,
                     ] * K
                     timesteps_outer = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=K, device=device)
-                for step, order in enumerate(orders):
+                for step, step_order in enumerate(orders):
                     s, t = timesteps_outer[step], timesteps_outer[step + 1]
                     timesteps_inner = self.get_time_steps(
                         skip_type=skip_type,
                         t_T=s.item(),
                         t_0=t.item(),
-                        N=order,
+                        N=step_order,
                         device=device,
                     )
                     lambda_inner = self.noise_schedule.marginal_lambda(timesteps_inner)
                     h = lambda_inner[-1] - lambda_inner[0]
-                    r1 = None if order <= 1 else (lambda_inner[1] - lambda_inner[0]) / h
-                    r2 = None if order <= 2 else (lambda_inner[2] - lambda_inner[0]) / h
-                    x = self.singlestep_dpm_solver_update(x, s, t, order, solver_type=solver_type, r1=r1, r2=r2)
+                    r1 = None if step_order <= 1 else (lambda_inner[1] - lambda_inner[0]) / h
+                    r2 = None if step_order <= 2 else (lambda_inner[2] - lambda_inner[0]) / h
+                    x = self.singlestep_dpm_solver_update(x, s, t, step_order, solver_type=solver_type, r1=r1, r2=r2)
                     if self.correcting_xt_fn is not None:
                         x = self.correcting_xt_fn(x, t, step)
                     if return_intermediate:

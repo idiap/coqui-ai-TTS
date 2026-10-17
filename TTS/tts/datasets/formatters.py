@@ -149,7 +149,7 @@ def coqui(root_path, meta_file, ignored_speakers=None):
     return items
 
 
-def tweb(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def tweb(root_path, meta_file, **kwargs):
     """Normalize TWEB dataset.
 
     Website: https://www.kaggle.com/bryanpark/the-world-english-bible-speech-dataset
@@ -175,7 +175,7 @@ def tweb(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def mozilla(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def mozilla(root_path, meta_file, **kwargs):
     """Normalize Mozilla meta data files to TTS format.
 
     Expected metadata format (pipe-delimited)::
@@ -200,7 +200,7 @@ def mozilla(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def mozilla_de(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def mozilla_de(root_path, meta_file, **kwargs):
     """Normalize Mozilla German dataset meta data files to TTS format.
 
     Expected metadata format (pipe-delimited, ISO 8859-1 encoding)::
@@ -270,9 +270,8 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
             continue
         speaker_name = speaker_name_match.group("speaker_name")
         # ignore speakers
-        if isinstance(ignored_speakers, list):
-            if speaker_name in ignored_speakers:
-                continue
+        if isinstance(ignored_speakers, list) and speaker_name in ignored_speakers:
+            continue
         logger.info(csv_file)
         with open(txt_file, encoding="utf-8") as ttf:
             for line in ttf:
@@ -292,7 +291,7 @@ def mailabs(root_path, meta_files=None, ignored_speakers=None):
     return items
 
 
-def ljspeech(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def ljspeech(root_path, meta_file, **kwargs):
     """Normalize the LJSpeech meta data file to TTS format.
 
     Website: https://keithito.com/LJ-Speech-Dataset/
@@ -322,7 +321,7 @@ def ljspeech(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def ljspeech_test(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def ljspeech_test(root_path, meta_file, **kwargs):
     """Normalizes the LJSpeech meta data file for TTS testing
     https://keithito.com/LJ-Speech-Dataset/"""
     txt_file = os.path.join(root_path, meta_file)
@@ -342,7 +341,7 @@ def ljspeech_test(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
     return items
 
 
-def thorsten(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def thorsten(root_path, meta_file, **kwargs):
     """Normalize the Thorsten German TTS meta data file to TTS format.
 
     Website: https://github.com/thorstenMueller/Thorsten-Voice
@@ -368,7 +367,7 @@ def thorsten(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def sam_accenture(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def sam_accenture(root_path, meta_file, **kwargs):
     """Normalize the Sam Accenture Non-Binary Voice meta data file to TTS format.
 
     Website: https://github.com/Sam-Accenture-Non-Binary-Voice/non-binary-voice-files
@@ -398,7 +397,7 @@ def sam_accenture(root_path, meta_file, **kwargs):  # pylint: disable=unused-arg
     return items
 
 
-def ruslan(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def ruslan(root_path, meta_file, **kwargs):
     """Normalize the RUSLAN meta data file to TTS format.
 
     Website: https://ruslan-corpus.github.io/
@@ -424,7 +423,7 @@ def ruslan(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def css10(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def css10(root_path, meta_file, **kwargs):
     """Normalize the CSS10 dataset file to TTS format.
 
     Website: https://github.com/Kyubyong/css10
@@ -450,7 +449,7 @@ def css10(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def nancy(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def nancy(root_path, meta_file, **kwargs):
     """Normalize the Nancy meta data file to TTS format.
 
     Website: https://www.cstr.ed.ac.uk/projects/blizzard/2011/lessac_blizzard2011/
@@ -499,9 +498,8 @@ def common_voice(root_path, meta_file, ignored_speakers=None):
             text = cols[2]
             speaker_name = cols[0]
             # ignore speakers
-            if isinstance(ignored_speakers, list):
-                if speaker_name in ignored_speakers:
-                    continue
+            if isinstance(ignored_speakers, list) and speaker_name in ignored_speakers:
+                continue
             wav_file = os.path.join(root_path, "clips", cols[1])
             items.append(
                 {"text": text, "audio_file": wav_file, "speaker_name": "MCV_" + speaker_name, "root_path": root_path}
@@ -544,9 +542,8 @@ def libri_tts(root_path, meta_files=None, ignored_speakers=None):
                 wav_file = os.path.join(_root_path, file_name + ".wav")
                 text = cols[2]
                 # ignore speakers
-                if isinstance(ignored_speakers, list):
-                    if speaker_name in ignored_speakers:
-                        continue
+                if isinstance(ignored_speakers, list) and speaker_name in ignored_speakers:
+                    continue
                 items.append(
                     {
                         "text": text,
@@ -560,7 +557,7 @@ def libri_tts(root_path, meta_files=None, ignored_speakers=None):
     return items
 
 
-def custom_turkish(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def custom_turkish(root_path, meta_file, **kwargs):
     """Normalize a custom Turkish dataset to TTS format.
 
     Expected metadata format (pipe-delimited)::
@@ -615,9 +612,8 @@ def brspeech(root_path, meta_file, ignored_speakers=None):
             text = cols[2]
             speaker_id = cols[3]
             # ignore speakers
-            if isinstance(ignored_speakers, list):
-                if speaker_id in ignored_speakers:
-                    continue
+            if isinstance(ignored_speakers, list) and speaker_id in ignored_speakers:
+                continue
             items.append({"text": text, "audio_file": wav_file, "speaker_name": speaker_id, "root_path": root_path})
     return items
 
@@ -649,9 +645,8 @@ def vctk(root_path, meta_files=None, wavs_path="wav48_silence_trimmed", mic="mic
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
         # ignore speakers
-        if isinstance(ignored_speakers, list):
-            if speaker_id in ignored_speakers:
-                continue
+        if isinstance(ignored_speakers, list) and speaker_id in ignored_speakers:
+            continue
         with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readlines()[0]
         # p280 has no mic2 recordings
@@ -689,9 +684,8 @@ def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=Non
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
         # ignore speakers
-        if isinstance(ignored_speakers, list):
-            if speaker_id in ignored_speakers:
-                continue
+        if isinstance(ignored_speakers, list) and speaker_id in ignored_speakers:
+            continue
         with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readlines()[0]
         wav_file = os.path.join(root_path, wavs_path, speaker_id, file_id + ".wav")
@@ -701,7 +695,7 @@ def vctk_old(root_path, meta_files=None, wavs_path="wav48", ignored_speakers=Non
     return items
 
 
-def synpaflex(root_path, metafiles=None, **kwargs):  # pylint: disable=unused-argument
+def synpaflex(root_path, metafiles=None, **kwargs):
     """Normalize the SynPaFlex dataset to TTS format.
 
     Website: http://synpaflex.irisa.fr/corpus/
@@ -757,9 +751,8 @@ def open_bible(root_path, meta_files="train", ignore_digits_sentences=True, igno
         _, speaker_id, txt_file = os.path.relpath(meta_file, root_path).split(os.sep)
         file_id = txt_file.split(".")[0]
         # ignore speakers
-        if isinstance(ignored_speakers, list):
-            if speaker_id in ignored_speakers:
-                continue
+        if isinstance(ignored_speakers, list) and speaker_id in ignored_speakers:
+            continue
         with open(meta_file, encoding="utf-8") as file_text:
             text = file_text.readline().replace("\n", "")
         # ignore sentences that contains digits
@@ -793,9 +786,8 @@ def mls(root_path, meta_files=None, ignored_speakers=None):
             speaker, book, *_ = file.split("_")
             wav_file = os.path.join(root_path, os.path.dirname(meta_files), "audio", speaker, book, file + ".wav")
             # ignore speakers
-            if isinstance(ignored_speakers, list):
-                if speaker in ignored_speakers:
-                    continue
+            if isinstance(ignored_speakers, list) and speaker in ignored_speakers:
+                continue
             items.append(
                 {"text": text, "audio_file": wav_file, "speaker_name": "MLS_" + speaker, "root_path": root_path}
             )
@@ -803,7 +795,7 @@ def mls(root_path, meta_files=None, ignored_speakers=None):
 
 
 # ======================================== VOX CELEB ===========================================
-def voxceleb2(root_path, meta_file=None, **kwargs):  # pylint: disable=unused-argument
+def voxceleb2(root_path, meta_file=None, **kwargs):
     """Normalize the VoxCeleb2 dataset to TTS format.
 
     Website: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html
@@ -817,7 +809,7 @@ def voxceleb2(root_path, meta_file=None, **kwargs):  # pylint: disable=unused-ar
     return _voxcel_x(root_path, meta_file, voxcel_idx="2")
 
 
-def voxceleb1(root_path, meta_file=None, **kwargs):  # pylint: disable=unused-argument
+def voxceleb1(root_path, meta_file=None, **kwargs):
     """Normalize the VoxCeleb1 dataset to TTS format.
 
     Website: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html
@@ -841,7 +833,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
     # if not exists meta file, crawl recursively for 'wav' files
     if meta_file is not None:
         with open(str(meta_file), encoding="utf-8") as f:
-            return [x.strip().split("|") for x in f.readlines()]
+            return [x.strip().split("|") for x in f]
 
     elif not cache_to.exists():
         cnt = 0
@@ -863,7 +855,7 @@ def _voxcel_x(root_path, meta_file, voxcel_idx):
             raise ValueError(f"Found too few instances for Voxceleb. Should be around {expected_count}, is: {cnt}")
 
     with open(str(cache_to), encoding="utf-8") as f:
-        return [x.strip().split("|") for x in f.readlines()]
+        return [x.strip().split("|") for x in f]
 
 
 def emotion(root_path, meta_file, ignored_speakers=None):
@@ -890,16 +882,15 @@ def emotion(root_path, meta_file, ignored_speakers=None):
             speaker_id = cols[1]
             emotion_id = cols[2].replace("\n", "")
             # ignore speakers
-            if isinstance(ignored_speakers, list):
-                if speaker_id in ignored_speakers:
-                    continue
+            if isinstance(ignored_speakers, list) and speaker_id in ignored_speakers:
+                continue
             items.append(
                 {"audio_file": wav_file, "speaker_name": speaker_id, "emotion_name": emotion_id, "root_path": root_path}
             )
     return items
 
 
-def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:  # pylint: disable=unused-argument
+def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:
     """Normalize the Baker Chinese TTS dataset to TTS format.
 
     Website: https://www.data-baker.com/data/index/TNtts/
@@ -928,7 +919,7 @@ def baker(root_path: str, meta_file: str, **kwargs) -> list[list[str]]:  # pylin
     return items
 
 
-def kokoro(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def kokoro(root_path, meta_file, **kwargs):
     """Normalize the Kokoro Japanese Speech dataset to TTS format.
 
     Website: https://github.com/kaiidams/Kokoro-Speech-Dataset
@@ -955,7 +946,7 @@ def kokoro(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def kss(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def kss(root_path, meta_file, **kwargs):
     """Normalize the Korean Single Speaker (KSS) dataset to TTS format.
 
     Website: https://www.kaggle.com/datasets/bryanpark/korean-single-speaker-speech-dataset
@@ -982,7 +973,7 @@ def kss(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
     return items
 
 
-def bel_tts_formatter(root_path, meta_file, **kwargs):  # pylint: disable=unused-argument
+def bel_tts_formatter(root_path, meta_file, **kwargs):
     """Normalize the Belarusian TTS dataset to TTS format.
 
     Expected metadata format (pipe-delimited)::

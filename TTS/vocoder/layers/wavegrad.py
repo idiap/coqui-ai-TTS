@@ -65,7 +65,6 @@ class FiLM(nn.Module):
         self.output_conv = weight_norm(self.output_conv)
 
 
-@torch.jit.script
 def shif_and_scale(x, scale, shift):
     o = shift + scale * x
     return o

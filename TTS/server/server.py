@@ -1,5 +1,3 @@
-#!flask/bin/python
-
 """TTS demo server."""
 
 import argparse
@@ -209,8 +207,8 @@ def tts():
                 text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav
             )
         except Exception as e:
-            logger.error("TTS synthesis failed: %s", str(e))
-            return {"error": f"TTS synthesis failed: {str(e)}"}, 500
+            logger.exception("TTS synthesis failed")
+            return {"error": f"TTS synthesis failed: {e!s}"}, 500
 
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)

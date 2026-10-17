@@ -48,7 +48,7 @@ class Bark(BaseTTS):
         self.processor = AutoProcessor.from_pretrained("facebook/encodec_24khz")
         self.encodec_bandwidth = 6.0
 
-    def load_bark_models(self):
+    def load_bark_models(self) -> None:
         self.semantic_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["text"], device=self.device, config=self.config, model_type="text"
         )
@@ -61,9 +61,6 @@ class Bark(BaseTTS):
         self.fine_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["fine"], device=self.device, config=self.config, model_type="fine"
         )
-
-    def train_step(self):
-        pass
 
     def text_to_semantic(
         self,
@@ -225,7 +222,10 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
-        return {path.stem: path for path in Path(voice_dir).iterdir() if path.suffix in (".npz", ".pth")}
+        voice_dir = Path(voice_dir)
+        if not voice_dir.is_dir():
+            return {}
+        return {path.stem: path for path in voice_dir.iterdir() if path.suffix in (".npz", ".pth")}
 
     def load_voice_file(
         self,
@@ -249,7 +249,7 @@ class Bark(BaseTTS):
             raise FileNotFoundError(msg)
         if voices[speaker_id_slug].suffix == ".npz":
             np_voice = np.load(voices[speaker_id_slug])
-            voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
+            voice = {key: torch.tensor(np_voice[key]) for key in np_voice}
         else:
             voice = torch.load(voices[speaker_id_slug], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
         logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])
@@ -301,8 +301,6 @@ class Bark(BaseTTS):
     def forward(self): ...
 
     def inference(self): ...
-
-    # pylint: disable=unused-argument, redefined-builtin
     def load_checkpoint(
         self,
         config,

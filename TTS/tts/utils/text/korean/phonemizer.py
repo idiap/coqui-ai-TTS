@@ -16,7 +16,7 @@ def korean_text_to_phonemes(text, character: str = "hangeul") -> str:
         output = '하늘' (Unicode :\u1112\u1161\u1102\u1173\u11af), (ᄒ + ᅡ + ᄂ + ᅳ + ᆯ)
 
     """
-    global g2p  # pylint: disable=global-statement
+    global g2p
     if g2p is None:
         g2p = kst.G2p()
 

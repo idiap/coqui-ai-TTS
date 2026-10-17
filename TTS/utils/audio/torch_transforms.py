@@ -109,7 +109,7 @@ def wav_to_mel(
     return spec_to_mel(spec, n_fft, num_mels, sample_rate, fmin, fmax)
 
 
-class TorchSTFT(nn.Module):  # pylint: disable=abstract-method
+class TorchSTFT(nn.Module):
     """Some of the audio processing funtions using Torch for faster batch processing.
 
     Args:

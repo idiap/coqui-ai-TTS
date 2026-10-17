@@ -483,7 +483,7 @@ class TransitionModel(nn.Module):
     """Transition Model of the HMM, it represents the probability of transitioning
     form current state to all other states"""
 
-    def forward(self, log_alpha_scaled, transition_vector, inputs_len):  # pylint: disable=no-self-use
+    def forward(self, log_alpha_scaled, transition_vector, inputs_len):
         r"""
         product of the past state with transitional probabilities in log space
 

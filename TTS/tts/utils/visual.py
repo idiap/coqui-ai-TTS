@@ -40,7 +40,7 @@ def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
         spectrogram_ = spectrogram.T
     spectrogram_ = spectrogram_.astype(np.float32) if spectrogram_.dtype == np.float16 else spectrogram_
     if ap is not None:
-        spectrogram_ = ap.denormalize(spectrogram_)  # pylint: disable=protected-access
+        spectrogram_ = ap.denormalize(spectrogram_)
     fig = plt.figure(figsize=fig_size)
     plt.imshow(spectrogram_, aspect="auto", origin="lower")
     plt.colorbar()
@@ -68,7 +68,7 @@ def plot_pitch(pitch, spectrogram, ap=None, fig_size=(30, 10), output_fig=False)
         spectrogram_ = spectrogram.T
     spectrogram_ = spectrogram_.astype(np.float32) if spectrogram_.dtype == np.float16 else spectrogram_
     if ap is not None:
-        spectrogram_ = ap.denormalize(spectrogram_)  # pylint: disable=protected-access
+        spectrogram_ = ap.denormalize(spectrogram_)
 
     old_fig_size = plt.rcParams["figure.figsize"]
     if fig_size is not None:

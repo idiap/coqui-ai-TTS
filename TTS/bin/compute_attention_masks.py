@@ -115,7 +115,7 @@ def compute_attention_masks(
     # create data loader
     config.datasets = [BaseDatasetConfig(formatter=formatter, meta_file_train=metafile, path=data_path)]
     samples, _ = load_tts_samples(config, eval_split=False)
-    loader = model.get_data_loader(config, assets=None, is_eval=True, samples=samples, verbose=True, num_gpus=0)
+    loader = model.get_data_loader(config, samples=samples, is_eval=True, verbose=True)
 
     # compute attentions
     file_paths = []
@@ -165,8 +165,7 @@ def compute_attention_masks(
 
         output_file = output_path / "metadata_attn_mask.txt"
         with open(output_file, "w", encoding="utf-8") as f:
-            for p in file_paths:
-                f.write(f"{p[0]}|{p[1]}\n")
+            f.writelines(f"{p[0]}|{p[1]}\n" for p in file_paths)
         logger.info("Metafile created: %s", output_file)
 
 

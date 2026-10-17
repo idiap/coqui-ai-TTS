@@ -45,8 +45,8 @@ DVAE_CHECKPOINT_LINK = "https://huggingface.co/coqui/XTTS-v1/resolve/v1.1.2/dvae
 MEL_NORM_LINK = "https://huggingface.co/coqui/XTTS-v1/resolve/v1.1.2/mel_stats.pth"
 
 # Set the path to the downloaded files
-DVAE_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, DVAE_CHECKPOINT_LINK.split("/")[-1])
-MEL_NORM_FILE = os.path.join(CHECKPOINTS_OUT_PATH, MEL_NORM_LINK.split("/")[-1])
+DVAE_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, DVAE_CHECKPOINT_LINK.rsplit("/", maxsplit=1)[-1])
+MEL_NORM_FILE = os.path.join(CHECKPOINTS_OUT_PATH, MEL_NORM_LINK.rsplit("/", maxsplit=1)[-1])
 
 # download DVAE files if needed
 if not os.path.isfile(DVAE_CHECKPOINT) or not os.path.isfile(MEL_NORM_FILE):
@@ -59,8 +59,8 @@ TOKENIZER_FILE_LINK = "https://huggingface.co/coqui/XTTS-v1/resolve/v1.1.2/vocab
 XTTS_CHECKPOINT_LINK = "https://huggingface.co/coqui/XTTS-v1/resolve/v1.1.2/model.pth"
 
 # XTTS transfer learning parameters: You we need to provide the paths of XTTS model checkpoint that you want to do the fine tuning.
-TOKENIZER_FILE = os.path.join(CHECKPOINTS_OUT_PATH, TOKENIZER_FILE_LINK.split("/")[-1])  # vocab.json file
-XTTS_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, XTTS_CHECKPOINT_LINK.split("/")[-1])  # model.pth file
+TOKENIZER_FILE = os.path.join(CHECKPOINTS_OUT_PATH, TOKENIZER_FILE_LINK.rsplit("/", maxsplit=1)[-1])  # vocab.json file
+XTTS_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, XTTS_CHECKPOINT_LINK.rsplit("/", maxsplit=1)[-1])  # model.pth file
 
 # download XTTS v1.1 files if needed
 if not os.path.isfile(TOKENIZER_FILE) or not os.path.isfile(XTTS_CHECKPOINT):

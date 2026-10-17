@@ -66,7 +66,7 @@ def import_class(module_path: str) -> type[Any]:
     Returns:
         object: The imported class.
     """
-    class_name = module_path.split(".")[-1]
+    class_name = module_path.rsplit(".", maxsplit=1)[-1]
     module_path = ".".join(module_path.split(".")[:-1])
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
@@ -81,7 +81,7 @@ def get_import_path(obj: object) -> str:
     Returns:
         str: The import path of the class.
     """
-    return ".".join([type(obj).__module__, type(obj).__name__])
+    return f"{type(obj).__module__}.{type(obj).__name__}"
 
 
 def format_aux_input(def_args: dict, kwargs: dict) -> dict:

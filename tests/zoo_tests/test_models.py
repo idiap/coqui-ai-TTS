@@ -1,9 +1,9 @@
-#!/usr/bin/env python3`
 import os
 import shutil
 
 import huggingface_hub.constants
 import pytest
+import torch
 
 from tests import get_tests_data_path, run_main
 from TTS.api import TTS
@@ -43,40 +43,46 @@ model_names = [name for i, name in enumerate(model_names) if i % num_partitions 
 
 
 @pytest.mark.parametrize("model_name", model_names)
-def test_models(tmp_path, model_name):
+def test_models(tmp_path, model_name, check_output, device: torch.device):
     print(f"\n > Run - {model_name}")
     file_path = tmp_path / "output.wav"
     if "tts_models" in model_name:
-        api = TTS(model_name, progress_bar=False)
+        api = TTS(model_name, progress_bar=False).to(device)
+        assert all(p.device.type == device.type for p in api.parameters())
         speaker = None
         language = api.languages[0] if api.languages else None
         speaker = api.speakers[0] if api.speakers else None
         api.tts_to_file("This is an example.", speaker=speaker, language=language, file_path=file_path)
+        check_output(file_path)
     elif "voice_conversion_models" in model_name:
-        api = TTS(model_name, progress_bar=False)
+        api = TTS(model_name, progress_bar=False).to(device)
+        assert all(p.device.type == device.type for p in api.parameters())
         speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
         reference_wav1 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0028.wav")
         reference_wav2 = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav")
         api.voice_conversion_to_file(speaker_wav, [reference_wav1, reference_wav2], file_path=file_path)
+        check_output(file_path)
     else:
         # only download the model
         ModelManager(output_prefix=tmp_path, progress_bar=False).download_model(model_name)
     print(f" | > OK: {model_name}")
 
 
-def test_voice_conversion(tmp_path):
+def test_voice_conversion(tmp_path, check_output):
     print(" > Run voice conversion inference using YourTTS model.")
     args = [
         "--model_name",
         "tts_models/multilingual/multi-dataset/your_tts",
         "--out_path",
         str(tmp_path / "output.wav"),
-        "--speaker_wav",
-        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
-        "--reference_wav",
+        "--source_wav",
         os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0032.wav"),
-        "--language_idx",
-        "en",
+        "--target_wav",
+        os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
         "--no-progress_bar",
     ]
+    if torch.cuda.is_available():
+        args.append("--use_cuda")
     run_main(main, args)
+    assert (tmp_path / "output.wav").is_file()
+    check_output(tmp_path / "output.wav")

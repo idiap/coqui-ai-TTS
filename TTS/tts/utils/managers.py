@@ -160,7 +160,7 @@ class EmbeddingManager(BaseIDManager):
     def embedding_dim(self) -> int:
         """Dimensionality of embeddings. If embeddings are not loaded, returns zero."""
         if self.embeddings:
-            return len(self.embeddings[list(self.embeddings.keys())[0]]["embedding"])
+            return len(self.embeddings[next(iter(self.embeddings))]["embedding"])
         return 0
 
     @property
@@ -188,11 +188,11 @@ class EmbeddingManager(BaseIDManager):
         embeddings = load_file(file_path)
         speakers = sorted({x["name"] for x in embeddings.values()})
         name_to_id = {name: i for i, name in enumerate(speakers)}
-        clip_ids = list(set(clip_name for clip_name in embeddings.keys()))
+        clip_ids = list(set(embeddings.keys()))
         # cache embeddings_by_names for fast inference using a bigger speakers.json
         embeddings_by_names = {}
         for x in embeddings.values():
-            if x["name"] not in embeddings_by_names.keys():
+            if x["name"] not in embeddings_by_names:
                 embeddings_by_names[x["name"]] = [x["embedding"]]
             else:
                 embeddings_by_names[x["name"]].append(x["embedding"])
@@ -263,7 +263,7 @@ class EmbeddingManager(BaseIDManager):
         """
         embeddings_by_names = {}
         for x in self.embeddings.values():
-            if x["name"] not in embeddings_by_names.keys():
+            if x["name"] not in embeddings_by_names:
                 embeddings_by_names[x["name"]] = [x["embedding"]]
             else:
                 embeddings_by_names[x["name"]].append(x["embedding"])

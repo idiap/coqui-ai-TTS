@@ -73,8 +73,8 @@ def pick_and_pop(keys, d):
 
 
 def group_dict_by_key(cond, d):
-    return_val = [dict(), dict()]
-    for key in d.keys():
+    return_val = [{}, {}]
+    for key in d:
         match = bool(cond(key))
         ind = int(not match)
         return_val[ind][key] = d[key]
@@ -885,7 +885,7 @@ class AttentionLayers(nn.Module):
                 layer = FeedForward(dim, **ff_kwargs)
                 layer = layer if not macaron else Scale(0.5, layer)
             else:
-                raise Exception(f"invalid layer type {layer_type}")
+                raise ValueError(f"invalid layer type {layer_type}")
 
             if layer_shift_tokens > 0:
                 shift_range_upper = layer_shift_tokens + 1

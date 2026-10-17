@@ -35,7 +35,7 @@ class BaseTrainerModel(TrainerModel):
         return cls(config)
 
     @abstractmethod
-    def inference(self, input: torch.Tensor, aux_input: dict[str, Any] = {}) -> dict[str, Any]:
+    def inference(self, input: torch.Tensor, aux_input: dict[str, Any] | None = None) -> dict[str, Any]:
         """Forward pass for inference.
 
         Must return a dictionary with the main model output and all the auxiliary outputs. The key ```model_outputs```
@@ -51,6 +51,8 @@ class BaseTrainerModel(TrainerModel):
             Dict: [description]
 
         """
+        if aux_input is None:
+            aux_input = {}
         outputs_dict = {"model_outputs": None}
         ...
         return outputs_dict

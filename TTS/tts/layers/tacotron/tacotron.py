@@ -111,17 +111,18 @@ class CBHG(nn.Module):
         - output: (B, T_in, C*2)
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_features,
         K=16,
         conv_bank_features=128,
-        conv_projections=[128, 128],
+        conv_projections=None,
         highway_features=128,
         gru_features=128,
         num_highways=4,
     ):
+        if conv_projections is None:
+            conv_projections = [128, 128]
         super().__init__()
         self.in_features = in_features
         self.conv_bank_features = conv_bank_features
@@ -275,7 +276,6 @@ class Decoder(nn.Module):
     """
 
     # Pylint gets confused by PyTorch conventions here
-    # pylint: disable=attribute-defined-outside-init
 
     def __init__(
         self,

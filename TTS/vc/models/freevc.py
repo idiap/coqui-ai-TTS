@@ -13,11 +13,11 @@ from torch.nn import functional as F
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn.utils.parametrize import remove_parametrizations
 
-import TTS.vc.layers.freevc.modules as modules
 from TTS.tts.layers.vits.discriminator import DiscriminatorS
 from TTS.tts.utils.helpers import sequence_mask
 from TTS.utils.voices import CloningMixin
 from TTS.vc.configs.freevc_config import FreeVCConfig
+from TTS.vc.layers.freevc import modules
 from TTS.vc.layers.freevc.commons import init_weights, rand_slice_segments
 from TTS.vc.layers.freevc.mel_processing import mel_spectrogram_torch
 from TTS.vc.layers.freevc.speaker_encoder.speaker_encoder import SpeakerEncoder as SpeakerEncoderEx
@@ -216,7 +216,7 @@ class SpeakerEncoder(torch.nn.Module):
 
         if mel_len > partial_frames:
             mel_slices = self.compute_partial_slices(mel_len, partial_frames, partial_hop)
-            mels = list(mel[:, s] for s in mel_slices)
+            mels = [mel[:, s] for s in mel_slices]
             mels.append(last_mel)
             mels = torch.stack(tuple(mels), 0).squeeze(1)
 
@@ -388,7 +388,7 @@ class FreeVC(CloningMixin, BaseVC):
         """
         if c_lengths is None:
             c_lengths = (torch.ones(c.size(0)) * c.size(-1)).to(c.device)
-        z_p, m_p, logs_p, c_mask = self.enc_p(c, c_lengths)
+        z_p, _m_p, _logs_p, c_mask = self.enc_p(c, c_lengths)
         z = self.flow(z_p, c_mask, g=g, reverse=True)
         o = self.dec(z * c_mask, g=g)
         return o
@@ -482,7 +482,3 @@ class FreeVC(CloningMixin, BaseVC):
             g_tgt = self._extract_target_se(tgt)
         audio = self.inference(c, g=g_tgt)
         return audio[0][0].data.cpu().float().numpy()
-
-    def eval_step(): ...
-
-    def train_step(): ...

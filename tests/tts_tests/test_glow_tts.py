@@ -73,7 +73,7 @@ class TestGlowTTS(unittest.TestCase):
                 self.assertTrue(f.initialized)
 
     def _test_forward(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         # create model
         config = GlowTTSConfig(num_chars=32)
         model = GlowTTS(config).to(device)
@@ -94,7 +94,7 @@ class TestGlowTTS(unittest.TestCase):
         self._test_forward(3)
 
     def _test_forward_with_d_vector(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         d_vector = torch.rand(batch_size, 256).to(device)
         # create model
         config = GlowTTSConfig(
@@ -157,7 +157,7 @@ class TestGlowTTS(unittest.TestCase):
         self.assertEqual(outputs["total_durations_log"].shape, input_dummy.shape + (1,))
 
     def _test_inference(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, _mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         config = GlowTTSConfig(num_chars=32)
         model = GlowTTS(config).to(device)
         model.eval()
@@ -169,7 +169,7 @@ class TestGlowTTS(unittest.TestCase):
         self._test_inference(3)
 
     def _test_inference_with_d_vector(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, _mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         d_vector = torch.rand(batch_size, 256).to(device)
         config = GlowTTSConfig(
             num_chars=32,
@@ -187,7 +187,7 @@ class TestGlowTTS(unittest.TestCase):
         self._test_inference_with_d_vector(3)
 
     def _test_inference_with_speaker_ids(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, _mel_lengths, speaker_ids = self._create_inputs(batch_size)
         speaker_ids = torch.randint(0, 24, (batch_size,)).long().to(device)
         # create model
         config = GlowTTSConfig(
@@ -204,7 +204,7 @@ class TestGlowTTS(unittest.TestCase):
         self._test_inference_with_speaker_ids(3)
 
     def _test_inference_with_MAS(self, batch_size):
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         # create model
         config = GlowTTSConfig(num_chars=32)
         model = GlowTTS(config).to(device)
@@ -224,7 +224,7 @@ class TestGlowTTS(unittest.TestCase):
 
     def test_train_step(self):
         batch_size = BATCH_SIZE
-        input_dummy, input_lengths, mel_spec, mel_lengths, speaker_ids = self._create_inputs(batch_size)
+        input_dummy, input_lengths, mel_spec, mel_lengths, _speaker_ids = self._create_inputs(batch_size)
         criterion = GlowTTSLoss()
         # model to train
         config = GlowTTSConfig(num_chars=32)
@@ -235,10 +235,8 @@ class TestGlowTTS(unittest.TestCase):
         print(f" > Num parameters for GlowTTS model:{count_parameters(model)}")
         # pass the state to ref model
         model_ref.load_state_dict(copy.deepcopy(model.state_dict()))
-        count = 0
         for param, param_ref in zip(model.parameters(), model_ref.parameters()):
             assert (param - param_ref).sum() == 0, param
-            count += 1
         optimizer = optim.Adam(model.parameters(), lr=0.001)
         for _ in range(5):
             optimizer.zero_grad()
@@ -278,8 +276,8 @@ class TestGlowTTS(unittest.TestCase):
         )
         criterion = model.get_criterion()
         outputs, _ = model.train_step(batch, criterion)
-        model.train_log(batch, outputs, logger, None, 1)
-        model.eval_log(batch, outputs, logger, None, 1)
+        model.train_log(batch, outputs, logger, 1)
+        model.eval_log(batch, outputs, logger, 1)
         logger.finish()
 
     def test_test_run(self):

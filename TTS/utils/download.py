@@ -82,7 +82,7 @@ def download_url(
     """
 
     req = urllib.request.Request(url, method="HEAD")
-    req_info = urllib.request.urlopen(req).info()  # pylint: disable=consider-using-with
+    req_info = urllib.request.urlopen(req).info()
 
     # Detect filename
     filename = filename or req_info.get_filename() or os.path.basename(url)
@@ -104,8 +104,7 @@ def download_url(
         raise RuntimeError(f"The hash of {filepath} does not match. Delete the file manually and retry.")
 
     with open(filepath, mode) as fpointer:
-        for chunk in stream_url(url, start_byte=local_size, progress_bar=progress_bar):
-            fpointer.write(chunk)
+        fpointer.writelines(stream_url(url, start_byte=local_size, progress_bar=progress_bar))
 
     with open(filepath, "rb") as file_obj:
         if hash_value and not validate_file(file_obj, hash_value, hash_type):
@@ -201,7 +200,7 @@ def download_kaggle_dataset(dataset_path: str, dataset_name: str, output_path: s
     """
     data_path = os.path.join(output_path, dataset_name)
     try:
-        import kaggle  # pylint: disable=import-outside-toplevel
+        import kaggle
 
         kaggle.api.authenticate()
         logger.info("Downloading %s...", dataset_name)

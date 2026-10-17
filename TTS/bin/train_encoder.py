@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # TODO: use Trainer
 
 import logging
@@ -312,13 +310,13 @@ def train(
                     c.output_log_path,
                     current_step=global_step,
                     epoch=epoch,
-                    optimizer=optimizer,
+                    optimizer=[optimizer],
                     criterion=criterion.state_dict(),
                 )
 
             end_time = time.time()
 
-        print("")
+        print()
         print(
             f">>> Epoch:{epoch}  AvgLoss: {tot_loss / len(data_loader):.5f} GradNorm:{grad_norm:.5f}  "
             f"EpochTime:{epoch_time:.2f} AvGLoaderTime:{avg_loader_time:.2f} ",
@@ -343,7 +341,7 @@ def train(
                 c.output_log_path,
                 current_step=global_step,
                 epoch=epoch,
-                optimizer=optimizer,
+                optimizer=[optimizer],
                 criterion=criterion.state_dict(),
             )
             model.train()
@@ -357,8 +355,7 @@ def main(arg_list: list[str] | None = None):
     train_config = TrainArgs()
     parser = train_config.init_argparse(arg_prefix="")
     args, overrides = parser.parse_known_args(arg_list)
-    c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = process_args((args, overrides))
-    # pylint: disable=global-variable-undefined
+    c, OUT_PATH, _AUDIO_PATH, _c_logger, dashboard_logger = process_args((args, overrides))
     global meta_data_train
     global meta_data_eval
     global train_classes
@@ -367,8 +364,6 @@ def main(arg_list: list[str] | None = None):
     model = setup_encoder_model(c)
 
     optimizer = get_optimizer(c.optimizer, c.optimizer_params, c.lr, model)
-
-    # pylint: disable=redefined-outer-name
     meta_data_train, meta_data_eval = load_tts_samples(c, eval_split=True)
 
     train_data_loader, train_classes, map_classid_to_classname = setup_loader(c, ap, is_val=False)
@@ -420,8 +415,8 @@ if __name__ == "__main__":
     #     try:
     #         sys.exit(0)
     #     except SystemExit:
-    #         os._exit(0)  # pylint: disable=protected-access
-    # except Exception:  # pylint: disable=broad-except
+    #         os._exit(0)
+    # except Exception:
     #     remove_experiment_folder(OUT_PATH)
     #     traceback.print_exc()
     #     sys.exit(1)

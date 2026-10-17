@@ -92,12 +92,12 @@ def compute_mask_indices(
             lengths = np.random.randint(mask_other, mask_length * 2 + 1, size=num_mask)
         elif mask_type == "normal":
             lengths = np.random.normal(mask_length, mask_other, size=num_mask)
-            lengths = [max(1, int(round(x))) for x in lengths]
+            lengths = [max(1, int(round(x))) for x in lengths]  # noqa: RUF046
         elif mask_type == "poisson":
             lengths = np.random.poisson(mask_length, size=num_mask)
-            lengths = [int(round(x)) for x in lengths]
+            lengths = [int(round(x)) for x in lengths]  # noqa: RUF046
         else:
-            raise Exception("unknown mask selection " + mask_type)
+            raise ValueError("unknown mask selection " + mask_type)
 
         if sum(lengths) == 0:
             lengths[0] = min(mask_length, sz - 1)
@@ -107,7 +107,7 @@ def compute_mask_indices(
 
             def arrange(s, e, length, keep_length):
                 span_start = np.random.randint(s, e - length)
-                mask_idc.extend(span_start + i for i in range(length))
+                mask_idc.extend(span_start + i for i in range(length))  # noqa: B023
 
                 new_parts = []
                 if span_start - s - min_space >= keep_length:
@@ -337,7 +337,7 @@ class WavLM(nn.Module):
         features = self.dropout_input(features)
 
         if mask:
-            x, mask_indices = self.apply_mask(features, padding_mask)
+            x, _mask_indices = self.apply_mask(features, padding_mask)
         else:
             x = features
 
@@ -451,7 +451,7 @@ class ConvFeatureExtractionModel(nn.Module):
                 in_d = dim
                 if (i + 1) % 2 == 0:
                     self.conv_layers.append(torch.nn.MaxPool2d(2, stride=2, ceil_mode=True))
-                    idim = int(math.ceil(idim / 2))
+                    idim = math.ceil(idim / 2)
         else:
             pass
 

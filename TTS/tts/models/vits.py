@@ -17,10 +17,12 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.utils import parametrize
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import WeightedRandomSampler
+from torch.utils.data.sampler import BatchSampler, WeightedRandomSampler
+from trainer import Trainer
 from trainer.io import load_fsspec
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig, CharactersConfig
 from TTS.tts.configs.vits_config import VitsArgs, VitsConfig
@@ -91,9 +93,8 @@ class VitsDataset(TTSDataset):
         raw_text = item["text"]
 
         wav, _ = load_audio(item["audio_file"])
-        if self.model_args.encoder_sample_rate is not None:
-            if wav.size(1) % self.model_args.encoder_sample_rate != 0:
-                wav = wav[:, : -int(wav.size(1) % self.model_args.encoder_sample_rate)]
+        if self.model_args.encoder_sample_rate is not None and wav.size(1) % self.model_args.encoder_sample_rate != 0:
+            wav = wav[:, : -int(wav.size(1) % self.model_args.encoder_sample_rate)]
 
         wav_filename = os.path.basename(item["audio_file"])
 
@@ -243,7 +244,7 @@ class Vits(BaseTTS):
             )
 
         self.init_multispeaker()
-        self.init_multilingual(self.config)
+        self.init_multilingual()
         self.init_upsampling()
 
         self.length_scale = self.args.length_scale
@@ -359,23 +360,19 @@ class Vits(BaseTTS):
                     new_freq=self.speaker_manager.encoder.audio_config["sample_rate"],
                 )
 
-    def _init_speaker_embedding(self):
+    def _init_speaker_embedding(self) -> None:
         if self.num_speakers > 0:
             logger.info("Initialization of speaker-embedding layers.")
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.emb_g = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
 
-    def _init_d_vector(self):
+    def _init_d_vector(self) -> None:
         if hasattr(self, "emb_g"):
             raise ValueError("[!] Speaker embedding layer already initialized before d_vector settings.")
         self.embedded_speaker_dim = self.args.d_vector_dim
 
-    def init_multilingual(self, config: Coqpit):
-        """Initialize multilingual modules of a model.
-
-        Args:
-            config (Coqpit): Model configuration.
-        """
+    def init_multilingual(self) -> None:
+        """Initialize multilingual modules of a model."""
         # For one language this does not necessarily make sense, but need to support
         # it for existing models that do this.
         if self.args.use_language_embedding and self.language_manager.num_languages > 0:
@@ -386,7 +383,7 @@ class Vits(BaseTTS):
         else:
             self.embedded_language_dim = 0
 
-    def init_upsampling(self):
+    def init_upsampling(self) -> None:
         """
         Initialize upsampling modules of a model.
         """
@@ -394,16 +391,13 @@ class Vits(BaseTTS):
             self.interpolate_factor = self.config.audio["sample_rate"] / self.args.encoder_sample_rate
             self.audio_resampler = torchaudio.transforms.Resample(
                 orig_freq=self.config.audio["sample_rate"], new_freq=self.args.encoder_sample_rate
-            )  # pylint: disable=W0201
+            )
 
-    def on_epoch_start(self, trainer):  # pylint: disable=W0613
+    def on_epoch_start(self, trainer: Trainer) -> None:
         """Freeze layers at the beginning of an epoch"""
         self._freeze_layers()
-        # set the device of speaker encoder
-        if self.args.use_speaker_encoder_as_loss:
-            self.speaker_manager.encoder = self.speaker_manager.encoder.to(self.device)
 
-    def on_init_end(self, trainer):  # pylint: disable=W0613
+    def on_init_end(self, trainer: Trainer) -> None:
         """Reinit layes if needed"""
         if self.args.reinit_DP:
             before_dict = get_module_weights_sum(self.duration_predictor)
@@ -425,7 +419,7 @@ class Vits(BaseTTS):
                     raise RuntimeError(" [!] The weights of Text Encoder was not reinit check it !")
             logger.info("Text Encoder was reinit.")
 
-    def _freeze_layers(self):
+    def _freeze_layers(self) -> None:
         if self.args.freeze_encoder:
             for param in self.text_encoder.parameters():
                 param.requires_grad = False
@@ -594,7 +588,6 @@ class Vits(BaseTTS):
             wavs_batch = torch.cat((wav_seg, o), dim=0)
 
             # resample audio to speaker encoder sample_rate
-            # pylint: disable=W0105
             if self.audio_transform is not None:
                 wavs_batch = self.audio_transform(wavs_batch)
 
@@ -624,7 +617,7 @@ class Vits(BaseTTS):
         return outputs
 
     @staticmethod
-    def _set_x_lengths(x, aux_input):
+    def _set_x_lengths(x: torch.Tensor, aux_input: dict[str, Any]) -> torch.Tensor:
         if "x_lengths" in aux_input and aux_input["x_lengths"] is not None:
             return aux_input["x_lengths"]
         return torch.tensor(x.shape[1:2]).to(x.device)
@@ -791,7 +784,9 @@ class Vits(BaseTTS):
         o_hat = self.waveform_decoder(z_hat * y_mask, g=g_tgt)
         return o_hat, y_mask, (z, z_p, z_hat)
 
-    def train_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int) -> tuple[dict, dict]:
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Perform a single training step. Run the model forward pass and compute losses.
 
         Args:
@@ -826,7 +821,7 @@ class Vits(BaseTTS):
             )
 
             # cache tensors for the generator pass
-            self.model_outputs_cache = outputs  # pylint: disable=attribute-defined-outside-init
+            self.model_outputs_cache = outputs
 
             # compute scores and features
             scores_disc_fake, _, scores_disc_real, _ = self.disc(
@@ -835,7 +830,7 @@ class Vits(BaseTTS):
 
             # compute loss
             with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
-                loss_dict = criterion[optimizer_idx](
+                loss_dict = criterion(
                     scores_disc_real,
                     scores_disc_fake,
                 )
@@ -873,7 +868,7 @@ class Vits(BaseTTS):
 
             # compute losses
             with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
-                loss_dict = criterion[optimizer_idx](
+                loss_dict = criterion(
                     mel_slice_hat=mel_slice.float(),
                     mel_slice=mel_slice_hat.float(),
                     z_p=self.model_outputs_cache["z_p"].float(),
@@ -894,23 +889,23 @@ class Vits(BaseTTS):
 
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def _create_logs(self, batch, outputs: list[dict[str, Any]]):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment
 
-        y_hat = outputs[1]["model_outputs"]
-        y = outputs[1]["waveform_seg"]
+        y_hat = outputs["model_outputs_1"]
+        y = outputs["waveform_seg_1"]
         figures = plot_results(y_hat, y, self.ap)
-        sample_voice = y_hat[0].squeeze(0).detach().cpu().numpy()
+        sample_voice = y_hat[0].float().squeeze(0).detach().cpu().numpy()
         audios = {"audio": sample_voice}
 
-        alignments = outputs[1]["alignments"]
+        alignments = outputs["alignments_1"]
         align_img = alignments[0].data.cpu().numpy().T
 
         figures.update({"alignment": plot_alignment(align_img, output_fig=False)})
         return figures, audios
 
     @torch.inference_mode()
-    def test_run(self, assets) -> dict[str, Any]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         """Vits-specific test run method.
 
         Returns:
@@ -1018,7 +1013,7 @@ class Vits(BaseTTS):
         batch["mel"] = batch["mel"] * sequence_mask(batch["mel_lens"]).unsqueeze(1)
         return batch
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1, is_eval=False):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset, is_eval=False) -> torch.utils.data.Sampler | None:
         weights = None
         data_items = dataset.samples
         if getattr(config, "use_weighted_sampler", False):
@@ -1047,22 +1042,20 @@ class Vits(BaseTTS):
             batch_sampler = None
         # sampler for DDP
         if batch_sampler is None:
-            batch_sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+            batch_sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() else None
         else:  # If a sampler is already defined use this sampler and DDP sampler together
             batch_sampler = (
-                DistributedSamplerWrapper(batch_sampler) if num_gpus > 1 else batch_sampler
+                DistributedSamplerWrapper(batch_sampler) if is_dist_avail_and_initialized() else batch_sampler
             )  # TODO: check batch_sampler with multi-gpu
         return batch_sampler
 
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
     ) -> "DataLoader":
         # init dataloader
         dataset = VitsDataset(
@@ -1080,14 +1073,14 @@ class Vits(BaseTTS):
         )
 
         # wait all the DDP process to be ready
-        if num_gpus > 1:
+        if is_dist_avail_and_initialized():
             dist.barrier()
 
         # sort input sequences from short to long
         dataset.preprocess_samples()
 
         # get samplers
-        sampler = self.get_sampler(config, dataset, num_gpus)
+        sampler = self.get_sampler(config, dataset)
         if sampler is None:
             loader = DataLoader(
                 dataset,
@@ -1098,27 +1091,28 @@ class Vits(BaseTTS):
                 num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
                 pin_memory=False,
             )
+        elif isinstance(getattr(sampler, "dataset", sampler), BatchSampler):
+            # Sampler (or wrapped sampler) yields batches of indices
+            loader = DataLoader(
+                dataset,
+                batch_sampler=sampler,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         else:
-            if num_gpus > 1:
-                loader = DataLoader(
-                    dataset,
-                    sampler=sampler,
-                    batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
-            else:
-                loader = DataLoader(
-                    dataset,
-                    batch_sampler=sampler,
-                    collate_fn=dataset.collate_fn,
-                    num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                    pin_memory=False,
-                )
+            # Regular sampler yields individual indices
+            loader = DataLoader(
+                dataset,
+                sampler=sampler,
+                batch_size=config.eval_batch_size if is_eval else config.batch_size,
+                collate_fn=dataset.collate_fn,
+                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+                pin_memory=False,
+            )
         return loader
 
-    def get_optimizer(self) -> list:
+    def get_optimizer(self) -> list[torch.optim.Optimizer]:
         """Initiate and return the GAN optimizers based on the config parameters.
 
         It returns 2 optimizers in a list. First one is for the discriminator
@@ -1136,7 +1130,7 @@ class Vits(BaseTTS):
         )
         return [optimizer0, optimizer1]
 
-    def get_lr(self) -> list:
+    def get_lr(self) -> list[float]:
         """Set the initial learning rates for each optimizer.
 
         Returns:
@@ -1144,7 +1138,7 @@ class Vits(BaseTTS):
         """
         return [self.config.lr_disc, self.config.lr_gen]
 
-    def get_scheduler(self, optimizer) -> list:
+    def get_scheduler(self, optimizer) -> list[torch.optim.lr_scheduler._LRScheduler | None]:
         """Set the schedulers for each optimizer.
 
         Args:
@@ -1157,17 +1151,19 @@ class Vits(BaseTTS):
         scheduler_G = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
         return [scheduler_D, scheduler_G]
 
-    def get_criterion(self):
+    def get_criterion(self) -> list[nn.Module]:
         """Get criterions for each optimizer. The index in the output list matches the optimizer idx used in
         `train_step()`"""
-        from TTS.tts.layers.losses import (  # pylint: disable=import-outside-toplevel
+        from TTS.tts.layers.losses import (
             VitsDiscriminatorLoss,
             VitsGeneratorLoss,
         )
 
         return [VitsDiscriminatorLoss(self.config), VitsGeneratorLoss(self.config)]
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, strict=True, cache=False):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(
+        self, config, checkpoint_path, *, eval: bool = False, strict: bool = True, cache: bool = False
+    ) -> None:
         """Load the model checkpoint and setup for training or inference"""
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         # compat band-aid for the pre-trained models to not use the encoder baked into the model
@@ -1194,7 +1190,7 @@ class Vits(BaseTTS):
             self.eval()
             assert not self.training
 
-    def load_fairseq_checkpoint(self, config, checkpoint_path: Path, eval=False, strict=True):  # pylint: disable=unused-argument, redefined-builtin
+    def load_fairseq_checkpoint(self, config, checkpoint_path: Path, eval=False, strict=True):
         """Load VITS checkpoints released by fairseq here: https://github.com/facebookresearch/fairseq/tree/main/examples/mms
         Performs some changes for compatibility.
 

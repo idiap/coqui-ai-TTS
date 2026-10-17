@@ -85,7 +85,7 @@ class RelativePositionTransformerDecoder(nn.Module):
         self.prenet = Conv1dBN(in_channels, hidden_channels, 1, 1)
         self.rel_pos_transformer = RelativePositionTransformer(in_channels, out_channels, hidden_channels, **params)
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         o = self.prenet(x) * x_mask
         o = self.rel_pos_transformer(o, x_mask)
         return o
@@ -114,7 +114,7 @@ class FFTransformerDecoder(nn.Module):
         self.transformer_block = FFTransformerBlock(in_channels, **params)
         self.postnet = nn.Conv1d(in_channels, out_channels, 1)
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         # TODO: handle multi-speaker
         x_mask = 1 if x_mask is None else x_mask
         o = self.transformer_block(x) * x_mask
@@ -154,7 +154,7 @@ class ResidualConv1dBNDecoder(nn.Module):
             nn.Conv1d(hidden_channels, out_channels, 1),
         )
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         o = self.res_conv_block(x, x_mask)
         o = self.post_conv(o) + x
         return self.postnet(o) * x_mask
@@ -173,20 +173,21 @@ class Decoder(nn.Module):
         - input: (B, C, T)
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         out_channels,
         in_hidden_channels,
         decoder_type="residual_conv_bn",
-        decoder_params={
-            "kernel_size": 4,
-            "dilations": 4 * [1, 2, 4, 8] + [1],
-            "num_conv_blocks": 2,
-            "num_res_blocks": 17,
-        },
+        decoder_params=None,
         c_in_channels=0,
     ):
+        if decoder_params is None:
+            decoder_params = {
+                "kernel_size": 4,
+                "dilations": 4 * [1, 2, 4, 8] + [1],
+                "num_conv_blocks": 2,
+                "num_res_blocks": 17,
+            }
         super().__init__()
 
         if decoder_type.lower() == "relative_position_transformer":
@@ -216,7 +217,7 @@ class Decoder(nn.Module):
         else:
             raise ValueError(f"[!] Unknown decoder type - {decoder_type}")
 
-    def forward(self, x, x_mask, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask, g=None):
         """
         Args:
             x: [B, C, T]

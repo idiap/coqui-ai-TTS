@@ -26,10 +26,9 @@ def resample_files(input_dir, output_sr, output_dir=None, file_ext="wav", n_jobs
     audio_files = glob.glob(os.path.join(input_dir, f"**/*.{file_ext}"), recursive=True)
     print(f"Found {len(audio_files)} files...")
     audio_files = list(zip(audio_files, len(audio_files) * [output_sr]))
-    with Pool(processes=n_jobs) as p:
-        with tqdm(total=len(audio_files)) as pbar:
-            for _, _ in enumerate(p.imap_unordered(resample_file, audio_files)):
-                pbar.update()
+    with Pool(processes=n_jobs) as p, tqdm(total=len(audio_files)) as pbar:
+        for _, _ in enumerate(p.imap_unordered(resample_file, audio_files)):
+            pbar.update()
 
     print("Done !")
 

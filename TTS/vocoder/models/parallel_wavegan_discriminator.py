@@ -17,7 +17,6 @@ class ParallelWaveganDiscriminator(nn.Module):
         It is a stack of convolutional blocks with dilation.
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_channels=1,
@@ -27,9 +26,11 @@ class ParallelWaveganDiscriminator(nn.Module):
         conv_channels=64,
         dilation_factor=1,
         nonlinear_activation="LeakyReLU",
-        nonlinear_activation_params={"negative_slope": 0.2},
+        nonlinear_activation_params=None,
         bias=True,
     ):
+        if nonlinear_activation_params is None:
+            nonlinear_activation_params = {"negative_slope": 0.2}
         super().__init__()
         assert (kernel_size - 1) % 2 == 0, " [!] does not support even number kernel size."
         assert dilation_factor > 0, " [!] dilation factor must be > 0."
@@ -88,7 +89,6 @@ class ParallelWaveganDiscriminator(nn.Module):
 
 
 class ResidualParallelWaveganDiscriminator(nn.Module):
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_channels=1,
@@ -102,8 +102,10 @@ class ResidualParallelWaveganDiscriminator(nn.Module):
         dropout=0.0,
         bias=True,
         nonlinear_activation="LeakyReLU",
-        nonlinear_activation_params={"negative_slope": 0.2},
+        nonlinear_activation_params=None,
     ):
+        if nonlinear_activation_params is None:
+            nonlinear_activation_params = {"negative_slope": 0.2}
         super().__init__()
         assert (kernel_size - 1) % 2 == 0, "Not support even number kernel size."
 

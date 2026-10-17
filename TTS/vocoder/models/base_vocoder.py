@@ -4,8 +4,6 @@ from TTS.model import BaseTrainerModel
 from TTS.utils.audio.processor import AudioProcessor
 from TTS.vocoder.configs.shared_configs import BaseVocoderConfig
 
-# pylint: skip-file
-
 
 class BaseVocoder(BaseTrainerModel):
     """Base `vocoder` class. Every new `vocoder` model must inherit this.
@@ -38,4 +36,4 @@ class BaseVocoder(BaseTrainerModel):
             if "model_params" in self.config:
                 self.args = self.config.model_params
         else:
-            raise ValueError("config must be an instance of BaseVocoderConfig")
+            raise TypeError("config must be an instance of BaseVocoderConfig")
