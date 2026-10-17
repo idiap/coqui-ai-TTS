@@ -10,21 +10,28 @@ from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 
 from TTS.config import load_config
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
+from TTS.tts.utils.languages import normalize_language
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
-phonemizer: Gruut
+tokenizer: TTSTokenizer
 
 
-def init_worker(language: str) -> None:
-    global phonemizer
-    phonemizer = Gruut(language=language, keep_puncs=True)
+def init_worker(config: BaseTTSConfig) -> None:
+    """Build the model's tokenizer once per worker."""
+    global tokenizer
+    tokenizer, _ = TTSTokenizer.init_from_config(config)
 
 
 def compute_phonemes(item: dict) -> set[str]:
+    """Clean and phonemize as in text_to_ids, without discarding unknown symbols."""
+    language = item["language"]
     text = item["text"]
-    ph = phonemizer.phonemize(text).replace("|", "")
+    if tokenizer.text_cleaner is not None:
+        text = tokenizer.text_cleaner(text, lang=normalize_language(language))
+    ph = tokenizer.phonemizer.phonemize(text, separator="", language=language)
     return set(ph)
 
 
@@ -47,6 +54,12 @@ def main(arg_list: list[str] | None = None) -> None:
     args = parse_args(arg_list)
     config = load_config(args.config_path)
 
+    if not config.use_phonemes:
+        msg = "Set use_phonemes=True in the config to find its phonemes."
+        raise ValueError(msg)
+    # Validate before spawning workers so configuration errors propagate directly.
+    _, config = TTSTokenizer.init_from_config(config)
+
     # load all datasets
     train_items, eval_items = load_tts_samples(
         config,
@@ -57,24 +70,10 @@ def main(arg_list: list[str] | None = None) -> None:
     items = train_items + eval_items
     print("Num items:", len(items))
 
-    language_list = [item["language"] for item in items]
-    is_lang_def = all(language_list)
-
-    if not config.phoneme_language or not is_lang_def:
-        msg = "Phoneme language must be defined in config."
-        raise ValueError(msg)
-
-    if language_list.count(language_list[0]) != len(language_list):
-        msg = (
-            "Currently, just one phoneme language per config file is supported !! "
-            "Please split the dataset config into different configs and run it individually for each language !!"
-        )
-        raise ValueError(msg)
-
     with ProcessPoolExecutor(
         max_workers=multiprocessing.cpu_count(),
         initializer=init_worker,
-        initargs=(language_list[0],),
+        initargs=(config,),
     ) as executor:
         phonemes = list(tqdm(executor.map(compute_phonemes, items, chunksize=15), total=len(items)))
     phones = []

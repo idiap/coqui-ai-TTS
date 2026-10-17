@@ -1,9 +1,14 @@
+from dataclasses import replace
+
+import pytest
 import torch
 
 from tests import run_main
 from TTS.bin.find_unique_phonemes import main
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.vits_config import VitsConfig
+from TTS.tts.datasets import load_tts_samples
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
 
 torch.manual_seed(1)
 
@@ -26,7 +31,28 @@ dataset_config_pt = BaseDatasetConfig(
 """
 
 
-def test_find_phonemes(tmp_path):
+def assert_phonemes_match_tokenizer(config, output):
+    phones_line = next(line for line in output.splitlines() if line.startswith(" > Unique phonemes: "))
+    phones = set(phones_line.removeprefix(" > Unique phonemes: "))
+
+    tokenizer, _ = TTSTokenizer.init_from_config(replace(config, add_blank=False, enable_eos_bos_chars=False))
+    train_items, eval_items = load_tts_samples(config, eval_split=True)
+    expected = set()
+    for item in train_items + eval_items:
+        expected.update(tokenizer.decode(tokenizer.text_to_ids(item["text"], item["language"])))
+    expected.update(tokenizer.not_found_characters)
+    assert phones == expected
+    assert f" > Number of unique phonemes: {len(expected)}" in output
+
+
+@pytest.mark.parametrize(
+    ("phonemizer", "languages"),
+    [(None, ["en"]), ("espeak", [""]), ("multi_phonemizer", ["en", "de"])],
+    ids=["default", "espeak", "multi_phonemizer"],
+)
+def test_find_phonemes(tmp_path, capsys, monkeypatch, phonemizer, languages):
+    # Avoid starting one worker per CPU core.
+    monkeypatch.setattr("TTS.bin.find_unique_phonemes.multiprocessing.cpu_count", lambda: 2)
     # prepare the config
     config_path = str(tmp_path / "test_model_config.json")
     config = VitsConfig(
@@ -36,16 +62,56 @@ def test_find_phonemes(tmp_path):
         num_eval_loader_workers=0,
         text_cleaner="english_cleaners",
         use_phonemes=True,
-        phoneme_language="en-us",
+        phonemizer=phonemizer,
+        phoneme_language=None if phonemizer == "multi_phonemizer" else "en-us",
         phoneme_cache_path="tests/data/ljspeech/phoneme_cache/",
         run_eval=True,
         test_delay_epochs=-1,
         epochs=1,
         print_step=1,
         print_eval=True,
-        datasets=[dataset_config_en],
+        datasets=[replace(dataset_config_en, language=language) for language in languages],
     )
     config.save_json(config_path)
 
     # run test
     run_main(main, ["--config_path", config_path])
+    assert_phonemes_match_tokenizer(config, capsys.readouterr().out)
+
+
+def test_find_phonemes_normalizes_language(tmp_path, capsys, monkeypatch):
+    # Avoid starting one worker per CPU core.
+    monkeypatch.setattr("TTS.bin.find_unique_phonemes.multiprocessing.cpu_count", lambda: 2)
+    texts = ["Mr. Jones; St. Louis: Capt. Kidd & co.", "Hello world!", "A quiet evening"]
+    (tmp_path / "metadata.csv").write_text(
+        "".join(f"LJ001-{i:04d}|{text}|{text}\n" for i, text in enumerate(texts, start=1)), encoding="utf-8"
+    )
+    config_path = str(tmp_path / "test_model_config.json")
+    config = VitsConfig(
+        use_phonemes=True,
+        phonemizer="espeak",
+        phoneme_language="en-us",
+        text_cleaner="english_cleaners",
+        datasets=[replace(dataset_config_en, path=str(tmp_path), language="en-us")],
+    )
+    config.save_json(config_path)
+
+    run_main(main, ["--config_path", config_path])
+    assert_phonemes_match_tokenizer(config, capsys.readouterr().out)
+
+
+def test_find_phonemes_invalid_language(tmp_path):
+    config_path = str(tmp_path / "test_model_config.json")
+    config = VitsConfig(use_phonemes=True, phonemizer="espeak", phoneme_language=None, datasets=[dataset_config_en])
+    config.save_json(config_path)
+
+    with pytest.raises(RuntimeError, match='language "None" is not supported by the espeak backend'):
+        main(["--config_path", config_path])
+
+
+def test_find_phonemes_requires_use_phonemes(tmp_path):
+    config_path = str(tmp_path / "test_model_config.json")
+    VitsConfig(use_phonemes=False, datasets=[dataset_config_en]).save_json(config_path)
+
+    with pytest.raises(ValueError, match="use_phonemes"):
+        main(["--config_path", config_path])

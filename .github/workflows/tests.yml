@@ -58,7 +58,7 @@ jobs:
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
-        if: contains(fromJSON('["inference_tests", "test_text"]'), matrix.subset)
+        if: contains(fromJSON('["inference_tests", "test_aux", "test_text"]'), matrix.subset)
         run: |
           sudo apt-get update
           sudo apt-get install espeak espeak-ng
