@@ -24,7 +24,7 @@ def manager():
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts(tmp_path):
+def test_xtts(tmp_path, check_output):
     """XTTS is too big to run on github actions. We need to test it locally"""
     args = [
         "--model_name",
@@ -42,10 +42,11 @@ def test_xtts(tmp_path):
     if torch.cuda.is_available():
         args.append("--use_cuda")
     run_main(main, args)
+    check_output(tmp_path / "output.wav")
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts_streaming(manager, device: torch.device):
+def test_xtts_streaming(manager, device: torch.device, check_output):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
     from TTS.tts.models.xtts import Xtts
@@ -76,10 +77,11 @@ def test_xtts_streaming(manager, device: torch.device):
             assert chunk.shape[-1] > 5000
         wav_chunks.append(chunk)
     assert len(wav_chunks) > 1
+    check_output(torch.cat(wav_chunks), config.audio.output_sample_rate)
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts_v2(tmp_path):
+def test_xtts_v2(tmp_path, check_output):
     """XTTS is too big to run on github actions. We need to test it locally"""
     args = [
         "--model_name",
@@ -98,10 +100,11 @@ def test_xtts_v2(tmp_path):
     if torch.cuda.is_available():
         args.append("--use_cuda")
     run_main(main, args)
+    check_output(tmp_path / "output.wav")
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_xtts_v2_streaming(manager, device: torch.device):
+def test_xtts_v2_streaming(manager, device: torch.device, check_output):
     """Testing the new inference_stream method"""
     from TTS.tts.configs.xtts_config import XttsConfig
     from TTS.tts.models.xtts import Xtts
@@ -130,6 +133,7 @@ def test_xtts_v2_streaming(manager, device: torch.device):
             assert chunk.shape[-1] > 5000
         wav_chunks.append(chunk)
     assert len(wav_chunks) > 1
+    check_output(torch.cat(wav_chunks), config.audio.output_sample_rate)
     normal_len = sum([len(chunk) for chunk in wav_chunks])
 
     chunks = model.inference_stream(
@@ -142,6 +146,7 @@ def test_xtts_v2_streaming(manager, device: torch.device):
     wav_chunks = []
     for i, chunk in enumerate(chunks):
         wav_chunks.append(chunk)
+    check_output(torch.cat(wav_chunks), config.audio.output_sample_rate, name="fast")
     fast_len = sum([len(chunk) for chunk in wav_chunks])
 
     chunks = model.inference_stream(
@@ -154,6 +159,7 @@ def test_xtts_v2_streaming(manager, device: torch.device):
     wav_chunks = []
     for i, chunk in enumerate(chunks):
         wav_chunks.append(chunk)
+    check_output(torch.cat(wav_chunks), config.audio.output_sample_rate, name="slow")
     slow_len = sum([len(chunk) for chunk in wav_chunks])
 
     assert slow_len > normal_len
@@ -161,7 +167,13 @@ def test_xtts_v2_streaming(manager, device: torch.device):
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_tortoise(tmp_path):
+def test_tortoise(tmp_path, check_output, monkeypatch):
+    from TTS.tts.models import tortoise
+
+    # Tortoise seeds itself with the current time by default
+    deterministic_state = tortoise.deterministic_state
+    monkeypatch.setattr(tortoise, "deterministic_state", lambda seed=None: deterministic_state(seed or 1))
+
     args = [
         "--model_name",
         "tts_models/en/multi-dataset/tortoise-v2",
@@ -174,10 +186,11 @@ def test_tortoise(tmp_path):
     if torch.cuda.is_available():
         args.append("--use_cuda")
     run_main(main, args)
+    check_output(tmp_path / "output.wav")
 
 
 @pytest.mark.skipif(GITHUB_ACTIONS, reason="Model too big for CI")
-def test_bark(tmp_path):
+def test_bark(tmp_path, check_output):
     """Bark is too big to run on github actions. We need to test it locally"""
     args = [
         "--model_name",
@@ -191,3 +204,4 @@ def test_bark(tmp_path):
     if torch.cuda.is_available():
         args.append("--use_cuda")
     run_main(main, args)
+    check_output(tmp_path / "output.wav")

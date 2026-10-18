@@ -10,8 +10,6 @@ from .common_layers import Linear, Prenet
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=no-value-for-parameter
-# pylint: disable=unexpected-keyword-arg
 class ConvBNBlock(nn.Module):
     r"""Convolutions with Batch Normalization and non-linear activation.
 
@@ -142,7 +140,6 @@ class Decoder(nn.Module):
     """
 
     # Pylint gets confused by PyTorch conventions here
-    # pylint: disable=attribute-defined-outside-init
     def __init__(
         self,
         in_channels,

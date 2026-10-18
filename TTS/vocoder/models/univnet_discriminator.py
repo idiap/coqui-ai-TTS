@@ -50,9 +50,13 @@ class SpecDiscriminator(nn.Module):
 
 
 class MultiResSpecDiscriminator(torch.nn.Module):
-    def __init__(  # pylint: disable=dangerous-default-value
-        self, fft_sizes=[1024, 2048, 512], hop_sizes=[120, 240, 50], win_lengths=[600, 1200, 240], window="hann_window"
-    ):
+    def __init__(self, fft_sizes=None, hop_sizes=None, win_lengths=None, window="hann_window"):
+        if win_lengths is None:
+            win_lengths = [600, 1200, 240]
+        if hop_sizes is None:
+            hop_sizes = [120, 240, 50]
+        if fft_sizes is None:
+            fft_sizes = [1024, 2048, 512]
         super().__init__()
         self.discriminators = nn.ModuleList(
             [

@@ -156,14 +156,14 @@ def load_tts_samples(
             for meta_data_all in (meta_data_train_all, meta_data_eval_all):
                 for idx, ins in enumerate(meta_data_all):
                     attn_file = meta_data[ins["audio_file"]].strip()
-                    meta_data_all[idx].update({"alignment_file": attn_file})
+                    ins.update({"alignment_file": attn_file})
         # set none for the next iter
         formatter = None
 
     # Parse speaker info
     if get_from_config_or_model_args(config, "use_speaker_embedding"):
         speakers = sorted(
-            set(s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s)
+            {s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s}
         )
         logger.debug("Found %d speakers in dataset", len(speakers))
         if speakers:

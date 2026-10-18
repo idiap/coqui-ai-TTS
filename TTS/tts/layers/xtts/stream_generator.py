@@ -31,7 +31,7 @@ def setup_seed(seed: int) -> None:
 
 class NewGenerationMixin(GenerationMixin):
     @torch.inference_mode()
-    def generate(  # noqa: PLR0911
+    def generate(
         self,
         inputs: torch.Tensor | None = None,
         generation_config: GenerationConfig | None = None,
@@ -157,19 +157,19 @@ class NewGenerationMixin(GenerationMixin):
         self._prepare_special_tokens(generation_config, kwargs_has_attention_mask, device=device)
 
         # decoder-only models must use left-padding for batched generation.
-        if not self.config.is_encoder_decoder:
-            # If `input_ids` was given, check if the last id in any sequence is `pad_token_id`
-            # Note: If using, `inputs_embeds` this check does not work, because we want to be more hands-off.
-            if (
-                generation_config._pad_token_tensor is not None
-                and batch_size > 1
-                and len(inputs_tensor.shape) == 2
-                and torch.sum(inputs_tensor[:, -1] == generation_config._pad_token_tensor) > 0
-            ):
-                logger.warning(
-                    "A decoder-only architecture is being used, but right-padding was detected! For correct "
-                    "generation results, please set `padding_side='left'` when initializing the tokenizer."
-                )
+        # If `input_ids` was given, check if the last id in any sequence is `pad_token_id`
+        # Note: If using, `inputs_embeds` this check does not work, because we want to be more hands-off.
+        if (
+            not self.config.is_encoder_decoder
+            and generation_config._pad_token_tensor is not None
+            and batch_size > 1
+            and len(inputs_tensor.shape) == 2
+            and torch.sum(inputs_tensor[:, -1] == generation_config._pad_token_tensor) > 0
+        ):
+            logger.warning(
+                "A decoder-only architecture is being used, but right-padding was detected! For correct "
+                "generation results, please set `padding_side='left'` when initializing the tokenizer."
+            )
 
         # 4. Define other model kwargs
         # decoder-only models with inputs_embeds forwarding must use caching (otherwise we can't detect whether we are
@@ -181,16 +181,13 @@ class NewGenerationMixin(GenerationMixin):
             model_kwargs["attention_mask"] = self._prepare_attention_mask_for_generation(
                 inputs_tensor, generation_config, model_kwargs
             )
-        elif kwargs_has_attention_mask:
-            # TODO (joao): generalize this check with other types of inputs
-            if model_input_name == "input_ids" and len(model_kwargs["attention_mask"].shape) > 2:
-                raise ValueError("`attention_mask` passed to `generate` must be 2D.")
-
-        if self.config.is_encoder_decoder and "encoder_outputs" not in model_kwargs:
-            # if model is encoder decoder encoder_outputs are created and added to `model_kwargs`
-            model_kwargs = self._prepare_encoder_decoder_kwargs_for_generation(
-                inputs_tensor, model_kwargs, model_input_name, generation_config
-            )
+        # TODO (joao): generalize this check with other types of inputs
+        elif (
+            kwargs_has_attention_mask
+            and model_input_name == "input_ids"
+            and len(model_kwargs["attention_mask"].shape) > 2
+        ):
+            raise ValueError("`attention_mask` passed to `generate` must be 2D.")
 
         # 5. Prepare `input_ids` which will be used for auto-regressive generation
         # if decoder-only then inputs_tensor has to be `input_ids`
@@ -386,12 +383,19 @@ class NewGenerationMixin(GenerationMixin):
         batch_size, cur_len = input_ids.shape[:2]
         this_peer_finished = False
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
-        model_kwargs = self._get_initial_cache_position(cur_len, input_ids.device, model_kwargs)
+        if hasattr(self, "_get_initial_cache_position"):  # removed in transformers 5.4
+            model_kwargs = self._get_initial_cache_position(cur_len, input_ids.device, model_kwargs)
 
         # auto-regressive generation
+        is_first_iteration = True
         while self._has_unfinished_sequences(this_peer_finished, synced_gpus, device=input_ids.device):
             # prepare model inputs
-            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            # transformers>=5.3 only slices the inputs to the tokens not yet in the cache if `next_sequence_length` is set
+            next_sequence_length = None if is_first_iteration or not model_kwargs["use_cache"] else 1
+            model_inputs = self.prepare_inputs_for_generation(
+                input_ids, next_sequence_length=next_sequence_length, **model_kwargs
+            )
+            is_first_iteration = False
 
             # forward pass to get next token
             outputs = self(**model_inputs, return_dict=True)

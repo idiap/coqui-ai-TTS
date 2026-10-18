@@ -1,4 +1,5 @@
 import functools
+import itertools
 import logging
 from math import sqrt
 
@@ -25,9 +26,7 @@ def eval_decorator(fn):
     return inner
 
 
-def dvae_wav_to_mel(
-    wav, mel_norms_file="../experiments/clips_mel_norms.pth", mel_norms=None, device=torch.device("cpu")
-):
+def dvae_wav_to_mel(wav, mel_norms_file="../experiments/clips_mel_norms.pth", mel_norms=None, device="cpu"):
     mel_stft = torchaudio.transforms.MelSpectrogram(
         n_fft=1024,
         hop_length=256,
@@ -148,7 +147,7 @@ class DiscretizationLoss(nn.Module):
             self.record_past = False
 
     def forward(self, x):
-        other_dims = set(range(len(x.shape))) - set([self.dim])
+        other_dims = set(range(len(x.shape))) - {self.dim}
         averaged = x.sum(dim=tuple(other_dims)) / x.sum()
         averaged = averaged - averaged.mean()
 
@@ -187,7 +186,7 @@ class ResBlock(nn.Module):
 class UpsampledConv(nn.Module):
     def __init__(self, conv, *args, **kwargs):
         super().__init__()
-        assert "stride" in kwargs.keys()
+        assert "stride" in kwargs
         self.stride = kwargs["stride"]
         del kwargs["stride"]
         self.conv = conv(*args, **kwargs)
@@ -219,8 +218,10 @@ class DiscreteVAE(nn.Module):
         normalization=None,  # ((0.5,) * 3, (0.5,) * 3),
         record_codes=False,
         discretization_loss_averaging_steps=100,
-        lr_quantizer_args={},
+        lr_quantizer_args=None,
     ):
+        if lr_quantizer_args is None:
+            lr_quantizer_args = {}
         super().__init__()
         has_resblocks = num_resnet_blocks > 0
 
@@ -261,7 +262,7 @@ class DiscreteVAE(nn.Module):
             dec_init_chan = codebook_dim if not has_resblocks else dec_chans[0]
             dec_chans = [dec_init_chan, *dec_chans]
 
-            enc_chans_io, dec_chans_io = (list(zip(t[:-1], t[1:])) for t in (enc_chans, dec_chans))
+            enc_chans_io, dec_chans_io = (list(itertools.pairwise(t)) for t in (enc_chans, dec_chans))
 
             pad = (kernel_size - 1) // 2
             for (enc_in, enc_out), (dec_in, dec_out) in zip(enc_chans_io, dec_chans_io):
@@ -326,7 +327,7 @@ class DiscreteVAE(nn.Module):
     def get_codebook_indices(self, images):
         img = self.norm(images)
         logits = self.encoder(img).permute((0, 2, 3, 1) if len(img.shape) == 4 else (0, 2, 1))
-        sampled, codes, _ = self.codebook(logits)
+        _sampled, codes, _ = self.codebook(logits)
         self.log_codes(codes)
         return codes
 
@@ -336,7 +337,7 @@ class DiscreteVAE(nn.Module):
             image_embeds = self.codebook.embed_code(img_seq)
         else:
             image_embeds = F.embedding(img_seq, self.codebook.codebook)
-        b, n, d = image_embeds.shape
+        _b, n, _d = image_embeds.shape
 
         kwargs = {}
         if self.positional_dims == 1:
@@ -354,7 +355,7 @@ class DiscreteVAE(nn.Module):
     def infer(self, img):
         img = self.norm(img)
         logits = self.encoder(img).permute((0, 2, 3, 1) if len(img.shape) == 4 else (0, 2, 1))
-        sampled, codes, commitment_loss = self.codebook(logits)
+        _sampled, codes, _commitment_loss = self.codebook(logits)
         return self.decode(codes)
 
     # Note: This module is not meant to be run in forward() except while training. It has special logic which performs

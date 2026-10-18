@@ -73,8 +73,6 @@ class GravesAttention(nn.Module):
         self.attention_weights = torch.zeros(inputs.shape[0], inputs.shape[1]).to(inputs.device)
         self.mu_prev = torch.zeros(inputs.shape[0], self.K).to(inputs.device)
 
-    # pylint: disable=R0201
-    # pylint: disable=unused-argument
     def preprocess_inputs(self, inputs):
         return None
 
@@ -159,7 +157,6 @@ class OriginalAttention(nn.Module):
     """
 
     # Pylint gets confused by PyTorch conventions here
-    # pylint: disable=attribute-defined-outside-init
     def __init__(
         self,
         query_dim,
@@ -355,7 +352,7 @@ class MonotonicDynamicConvolutionAttention(nn.Module):
     def __init__(
         self,
         query_dim,
-        embedding_dim,  # pylint: disable=unused-argument
+        embedding_dim,
         attention_dim,
         static_filter_dim,
         static_kernel_size,
@@ -388,7 +385,6 @@ class MonotonicDynamicConvolutionAttention(nn.Module):
         prior = scipy.stats.betabinom.pmf(range(prior_filter_len), prior_filter_len - 1, alpha, beta)
         self.register_buffer("prior", torch.FloatTensor(prior).flip(0))
 
-    # pylint: disable=unused-argument
     def forward(self, query, inputs, processed_inputs, mask):
         """
         query: [B, C_attn_rnn]
@@ -428,7 +424,7 @@ class MonotonicDynamicConvolutionAttention(nn.Module):
         context = torch.bmm(attention_weights.unsqueeze(1), inputs).squeeze(1)
         return context
 
-    def preprocess_inputs(self, inputs):  # pylint: disable=no-self-use
+    def preprocess_inputs(self, inputs):
         return None
 
     def init_states(self, inputs):

@@ -12,8 +12,6 @@ from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 def main():
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
-
-    # pylint: disable=bad-option-value
     parser = argparse.ArgumentParser(
         description="""Find all the unique characters or phonemes in a dataset.\n\n"""
         """

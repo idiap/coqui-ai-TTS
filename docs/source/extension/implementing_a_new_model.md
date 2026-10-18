@@ -138,7 +138,7 @@ class MyModel(BaseTTS):
         ...
         return outputs_dict, loss_dict
 
-    def train_log(self, batch: Dict, outputs: Dict, logger: "Logger", assets:Dict, steps:int) -> None:
+    def train_log(self, batch: Dict, outputs: Dict, logger: "Logger", steps:int) -> None:
         """Create visualizations and waveform examples for training.
 
         For example, here you can plot spectrograms and generate sample sample waveforms from these spectrograms to
@@ -170,7 +170,7 @@ class MyModel(BaseTTS):
         ...
         return outputs_dict, loss_dict
 
-    def eval_log(self, batch: Dict, outputs: Dict, logger: "Logger", assets:Dict, steps:int) -> None:
+    def eval_log(self, batch: Dict, outputs: Dict, logger: "Logger", steps:int) -> None:
         """The same as `train_log()`"""
         pass
 
@@ -196,13 +196,13 @@ class MyModel(BaseTTS):
         """
         pass
 
-    def get_scheduler(self, optimizer: torch.optim.Optimizer):
+    def get_scheduler(self, optimizer: list[torch.optim.Optimizer]):
         pass
 
-    def get_criterion(self):
+    def get_criterion(self) -> nn.Module | list[nn.Module]:
         pass
 
-    def format_batch(self):
+    def format_batch(self, batch):
         pass
 
 ```

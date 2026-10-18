@@ -120,13 +120,13 @@ class GPT(nn.Module):
         self.config = config
 
         self.transformer = nn.ModuleDict(
-            dict(
-                wte=nn.Embedding(config.input_vocab_size, config.n_embd),
-                wpe=nn.Embedding(config.block_size, config.n_embd),
-                drop=nn.Dropout(config.dropout),
-                h=nn.ModuleList([Block(config, idx) for idx in range(config.n_layer)]),
-                ln_f=nn.LayerNorm(config.n_embd, bias=config.bias),
-            )
+            {
+                "wte": nn.Embedding(config.input_vocab_size, config.n_embd),
+                "wpe": nn.Embedding(config.block_size, config.n_embd),
+                "drop": nn.Dropout(config.dropout),
+                "h": nn.ModuleList([Block(config, idx) for idx in range(config.n_layer)]),
+                "ln_f": nn.LayerNorm(config.n_embd, bias=config.bias),
+            }
         )
         self.lm_head = nn.Linear(config.n_embd, config.output_vocab_size, bias=False)
 

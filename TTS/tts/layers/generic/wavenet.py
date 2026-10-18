@@ -3,7 +3,6 @@ from torch import nn
 from torch.nn.utils import parametrize
 
 
-@torch.jit.script
 def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
     n_channels_int = n_channels[0]
     in_act = input_a + input_b
@@ -91,7 +90,7 @@ class WN(torch.nn.Module):
         if not weight_norm:
             self.remove_weight_norm()
 
-    def forward(self, x, x_mask=None, g=None, **kwargs):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None, **kwargs):
         output = torch.zeros_like(x)
         n_channels_tensor = torch.IntTensor([self.hidden_channels])
         x_mask = 1.0 if x_mask is None else x_mask

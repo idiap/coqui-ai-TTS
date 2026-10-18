@@ -14,8 +14,8 @@ def normalize(text):
 
 
 def normalize_with_dictionary(text, dic):
-    if any(key in text for key in dic.keys()):
-        pattern = re.compile("|".join(re.escape(key) for key in dic.keys()))
+    if any(key in text for key in dic):
+        pattern = re.compile("|".join(re.escape(key) for key in dic))
         return pattern.sub(lambda x: dic[x.group()], text)
     return text
 

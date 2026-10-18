@@ -33,7 +33,7 @@ class StandardScaler:
 
 
 # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
-def sequence_mask(sequence_length: torch.Tensor, max_len: int | None = None) -> torch.Tensor:
+def sequence_mask(sequence_length: torch.Tensor, max_len: int | None = None) -> torch.IntTensor:
     """Create a sequence mask for filtering padding in a sequence tensor.
 
     Args:
@@ -94,10 +94,9 @@ def rand_segments(
     """
     _x_lenghts = x_lengths.clone()
     B, _, T = x.size()
-    if pad_short:
-        if T < segment_size:
-            x = torch.nn.functional.pad(x, (0, segment_size - T))
-            T = segment_size
+    if pad_short and T < segment_size:
+        x = torch.nn.functional.pad(x, (0, segment_size - T))
+        T = segment_size
     if _x_lenghts is None:
         _x_lenghts = T
     len_diff = _x_lenghts - segment_size

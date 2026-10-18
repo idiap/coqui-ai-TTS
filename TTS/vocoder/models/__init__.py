@@ -3,6 +3,7 @@ import logging
 import re
 
 from coqpit import Coqpit
+from torch import nn
 
 from TTS.utils.generic_utils import to_camel
 from TTS.vocoder.configs import BaseGANVocoderConfig, BaseVocoderConfig
@@ -15,15 +16,15 @@ def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     """Load models directly from configuration."""
     if "discriminator_model" in config and "generator_model" in config:
         MyModel = importlib.import_module("TTS.vocoder.models.gan")
-        MyModel = getattr(MyModel, "GAN")
+        MyModel = MyModel.GAN
     else:
         MyModel = importlib.import_module("TTS.vocoder.models." + config.model.lower())
         if config.model.lower() == "wavernn":
-            MyModel = getattr(MyModel, "Wavernn")
+            MyModel = MyModel.Wavernn
         elif config.model.lower() == "gan":
-            MyModel = getattr(MyModel, "GAN")
+            MyModel = MyModel.GAN
         elif config.model.lower() == "wavegrad":
-            MyModel = getattr(MyModel, "Wavegrad")
+            MyModel = MyModel.Wavegrad
         else:
             try:
                 MyModel = getattr(MyModel, to_camel(config.model))
@@ -33,7 +34,7 @@ def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     return MyModel(config)
 
 
-def setup_generator(c: BaseGANVocoderConfig):
+def setup_generator(c: BaseGANVocoderConfig) -> nn.Module:
     """TODO: use config object as arguments"""
     logger.info("Generator model: %s", c.generator_model)
     MyModel = importlib.import_module("TTS.vocoder.models." + c.generator_model.lower())
@@ -97,7 +98,7 @@ def setup_generator(c: BaseGANVocoderConfig):
     return model
 
 
-def setup_discriminator(c: BaseGANVocoderConfig):
+def setup_discriminator(c: BaseGANVocoderConfig) -> nn.Module:
     """TODO: use config object as arguments"""
     logger.info("Discriminator model: %s", c.discriminator_model)
     if "parallel_wavegan" in c.discriminator_model:

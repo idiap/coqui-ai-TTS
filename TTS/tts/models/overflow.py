@@ -5,6 +5,7 @@ from typing import Any
 import torch
 from coqpit import Coqpit
 from torch import nn
+from trainer import Trainer
 from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.logging.tensorboard_logger import TensorboardLogger
 
@@ -169,7 +170,9 @@ class Overflow(BaseTTS):
         stats["avg_spec_batch_occupancy"] = (batch["mel_lengths"].float() / batch["mel_lengths"].float().max()).mean()
         return stats
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         text_input = batch["text_input"]
         text_lengths = batch["text_lengths"]
         mel_input = batch["mel_input"]
@@ -209,8 +212,8 @@ class Overflow(BaseTTS):
     def inference(
         self,
         text: torch.Tensor,
-        aux_input={"x_lengths": None, "sampling_temp": None, "max_sampling_time": None, "duration_threshold": None},
-    ):  # pylint: disable=dangerous-default-value
+        aux_input=None,
+    ):
         """Sampling from the model
 
         Args:
@@ -225,6 +228,13 @@ class Overflow(BaseTTS):
                 - input_parameters (list[torch.FloatTensor]): Input parameters to the neural HMM.
                 - output_parameters (list[torch.FloatTensor]): Output parameters to the neural HMM.
         """
+        if aux_input is None:
+            aux_input = {
+                "x_lengths": None,
+                "sampling_temp": None,
+                "max_sampling_time": None,
+                "duration_threshold": None,
+            }
         default_input_dict = {
             "x_lengths": torch.sum(text != 0, dim=1),
         }
@@ -246,8 +256,7 @@ class Overflow(BaseTTS):
         outputs["alignments"] = OverflowUtils.double_pad(outputs["alignments"])
         return outputs
 
-    @staticmethod
-    def get_criterion():
+    def get_criterion(self) -> nn.Module:
         return NLLLoss()
 
     def load_checkpoint(
@@ -263,12 +272,10 @@ class Overflow(BaseTTS):
         if eval:
             self.decoder.store_inverse()
 
-    def on_init_start(self, trainer):
+    def on_init_start(self, trainer: Trainer) -> None:
         """If the current dataset does not have normalisation statistics and initialisation transition_probability it computes them otherwise loads."""
         if not os.path.isfile(trainer.config.mel_statistics_parameter_path) or trainer.config.force_generate_statistics:
-            dataloader = trainer.get_train_dataloader(
-                training_assets=None, samples=trainer.train_samples, verbose=False
-            )
+            dataloader = trainer.get_train_dataloader(samples=trainer.train_samples, verbose=False)
             logger.info(
                 "Data parameters not found for: %s. Computing mel normalization parameters...",
                 trainer.config.mel_statistics_parameter_path,
@@ -309,7 +316,7 @@ class Overflow(BaseTTS):
         OverflowUtils.update_flat_start_transition(trainer.model, init_transition_prob)
         trainer.model.update_mean_std(statistics)
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
 
         alignments, transition_vectors = outputs["alignments"], outputs["transition_vectors"]
@@ -350,9 +357,8 @@ class Overflow(BaseTTS):
     def eval_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         """Compute and log evaluation metrics."""
@@ -362,4 +368,4 @@ class Overflow(BaseTTS):
             for tag, value in self.named_parameters():
                 tag = tag.replace(".", "/")
                 logger.writer.add_histogram(tag, value.data.cpu().numpy(), steps)
-        super().eval_log(batch, outputs, logger, assets, steps)
+        super().eval_log(batch, outputs, logger, steps)

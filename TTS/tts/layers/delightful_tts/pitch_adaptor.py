@@ -1,13 +1,13 @@
 from collections.abc import Callable
 
 import torch
-import torch.nn as nn  # pylint: disable=consider-using-from-import
+import torch.nn as nn
 
 from TTS.tts.layers.delightful_tts.variance_predictor import VariancePredictor
 from TTS.tts.utils.helpers import average_over_durations
 
 
-class PitchAdaptor(nn.Module):  # pylint: disable=abstract-method
+class PitchAdaptor(nn.Module):
     """Module to get pitch embeddings via pitch predictor
 
     Args:

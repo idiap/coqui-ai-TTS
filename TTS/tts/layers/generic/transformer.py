@@ -50,7 +50,7 @@ class FFTransformerBlock(nn.Module):
             ]
         )
 
-    def forward(self, x, mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, mask=None, g=None):
         """
         TODO: handle multi-speaker
         Shapes:
@@ -70,11 +70,11 @@ class FFTransformerBlock(nn.Module):
 
 
 class FFTDurationPredictor:
-    def __init__(self, in_channels, hidden_channels, num_heads, num_layers, dropout_p=0.1, cond_channels=None):  # pylint: disable=unused-argument
+    def __init__(self, in_channels, hidden_channels, num_heads, num_layers, dropout_p=0.1, cond_channels=None):
         self.fft = FFTransformerBlock(in_channels, num_heads, hidden_channels, num_layers, dropout_p)
         self.proj = nn.Linear(in_channels, 1)
 
-    def forward(self, x, mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, mask=None, g=None):
         """
         Shapes:
             - x: :math:`[B, C, T]`

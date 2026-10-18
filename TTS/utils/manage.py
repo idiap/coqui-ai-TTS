@@ -76,9 +76,8 @@ class ModelManager:
         else:
             self.output_prefix = Path(output_prefix) / "tts"
         self.models_dict = {}
-        f = resources.open_text("TTS", ".models.json") if models_file is None else open(models_file, encoding="utf-8")
-        with f:
-            self.models_dict = json.load(f)
+        path = resources.files("TTS").joinpath(".models.json") if models_file is None else Path(models_file)
+        self.models_dict = json.loads(path.read_text(encoding="utf-8"))
 
     def _list_models(self, model_type: str, model_count: int = 0) -> list[str]:
         logger.info("")
@@ -299,20 +298,17 @@ class ModelManager:
     @staticmethod
     def tos_agreed(model_item: ModelItem, model_full_path: Path) -> bool:
         """Check if the user has agreed to the terms of service"""
-        if "tos_required" in model_item and model_item["tos_required"]:
+        if model_item.get("tos_required"):
             tos_path = os.path.join(model_full_path, "tos_agreed.txt")
-            if os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1":
-                return True
-            return False
+            return os.path.exists(tos_path) or os.environ.get("COQUI_TOS_AGREED") == "1"
         return True
 
     def create_dir_and_download_model(self, model_name: str, model_item: ModelItem, output_path: Path) -> Path:
         output_path.mkdir(exist_ok=True, parents=True)
         # handle TOS
-        if not self.tos_agreed(model_item, output_path):
-            if not self.ask_tos(output_path):
-                output_path.rmdir()
-                raise RuntimeError(" [!] You must agree to the terms of service to use this model.")
+        if not self.tos_agreed(model_item, output_path) and not self.ask_tos(output_path):
+            output_path.rmdir()
+            raise RuntimeError(" [!] You must agree to the terms of service to use this model.")
         logger.info("Downloading model to %s", output_path)
         try:
             if "fairseq" in model_name:
@@ -325,7 +321,7 @@ class ModelManager:
         except requests.RequestException as e:
             logger.exception("Failed to download the model file to %s", output_path)
             rmtree(output_path)
-            raise e
+            raise
         self.print_model_license(model_item=model_item)
         return output_path
 
@@ -483,10 +479,7 @@ class ModelManager:
                     model_args_name = model_args_name[0]
                 model_args_name = Path(model_args_name).name
 
-            if _update_path(field_name, output_path / name):
-                has_changes = True
-                continue
-            elif _update_path(field_name, output_path / model_args_name):
+            if _update_path(field_name, output_path / name) or _update_path(field_name, output_path / model_args_name):
                 has_changes = True
                 continue
             for default in defaults:
@@ -506,7 +499,7 @@ class ModelManager:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
             ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
-            temp_zip_name = output_folder / file_url.split("/")[-1]
+            temp_zip_name = output_folder / file_url.rsplit("/", maxsplit=1)[-1]
             with open(temp_zip_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if pbar:
@@ -517,7 +510,7 @@ class ModelManager:
             temp_zip_name.unlink()  # delete zip after extract
         except zipfile.BadZipFile:
             logger.exception("Bad zip file - %s", file_url)
-            raise zipfile.BadZipFile  # pylint: disable=raise-missing-from
+            raise zipfile.BadZipFile
         # move the files to the outer path
         for file_path in z.namelist():
             src_path = output_folder / file_path
@@ -540,7 +533,7 @@ class ModelManager:
             total_size_in_bytes = int(r.headers.get("content-length", 0))
             block_size = 1024  # 1 Kibibyte
             ctx = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True) if progress_bar else nullcontext()
-            temp_tar_name = output_folder / file_url.split("/")[-1]
+            temp_tar_name = output_folder / file_url.rsplit("/", maxsplit=1)[-1]
             with open(temp_tar_name, "wb") as file, ctx as pbar:
                 for data in r.iter_content(block_size):
                     if pbar:
@@ -552,7 +545,7 @@ class ModelManager:
             temp_tar_name.unlink()  # delete tar after extract
         except tarfile.ReadError:
             logger.exception("Bad tar file - %s", file_url)
-            raise tarfile.ReadError  # pylint: disable=raise-missing-from
+            raise tarfile.ReadError
         # move the files to the outer path
         for file_path in (output_folder / tar_names[0]).iterdir():
             src_path = file_path

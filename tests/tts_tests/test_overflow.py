@@ -72,7 +72,7 @@ def test_overflow_forward(get_overflow_model, create_inputs):
 
 def test_overflow_inference(get_overflow_model, create_inputs, config):
     model = get_overflow_model()
-    input_dummy, input_lengths, mel_spec, mel_lengths = create_inputs()
+    input_dummy, _input_lengths, _mel_spec, _mel_lengths = create_inputs()
     output_dict = model.inference(input_dummy)
     assert output_dict["model_outputs"].shape[2] == config.out_channels
 
@@ -101,7 +101,7 @@ def get_encoder(config, device):
 def test_encoder_forward_with_state_per_phone_multiplication(get_encoder, create_inputs, state_per_phone):
     input_dummy, input_lengths, _, _ = create_inputs()
     model = get_encoder(state_per_phone)
-    x, x_len = model(input_dummy, input_lengths)
+    x, _x_len = model(input_dummy, input_lengths)
     assert x.shape[1] == input_dummy.shape[1] * state_per_phone
 
 
@@ -109,7 +109,7 @@ def test_encoder_forward_with_state_per_phone_multiplication(get_encoder, create
 def test_encoder_inference_with_state_per_phone_multiplication(get_encoder, create_inputs, state_per_phone):
     input_dummy, input_lengths, _, _ = create_inputs()
     model = get_encoder(state_per_phone)
-    x, x_len = model.inference(input_dummy, input_lengths)
+    x, _x_len = model.inference(input_dummy, input_lengths)
     assert x.shape[1] == input_dummy.shape[1] * state_per_phone
 
 
@@ -160,7 +160,7 @@ def test_decoder_forward_backward(get_decoder, create_inputs, num_flow_blocks_de
     decoder = get_decoder(num_flow_blocks_dec, hidden_channels_dec)
     _, _, mel_spec, mel_lengths = create_inputs()
     z, z_len, _ = decoder(mel_spec.transpose(1, 2), mel_lengths)
-    mel_spec_, mel_lengths_, _ = decoder(z, z_len, reverse=True)
+    mel_spec_, _, _ = decoder(z, z_len, reverse=True)
     mask = sequence_mask(z_len).unsqueeze(1)
     mel_spec = mel_spec[:, : z.shape[2], :].transpose(1, 2) * mask
     z = z * mask
@@ -212,7 +212,7 @@ def get_embedded_input(create_inputs, config, device):
 def test_neural_hmm_forward(get_neural_hmm, get_embedded_input):
     input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
     neural_hmm = get_neural_hmm()
-    log_prob, log_alpha_scaled, transition_matrix, means = neural_hmm(
+    log_prob, log_alpha_scaled, transition_matrix, _means = neural_hmm(
         input_dummy, input_lengths, mel_spec.transpose(1, 2), mel_lengths
     )
     assert log_prob.shape == (input_dummy.shape[0],)
@@ -222,13 +222,11 @@ def test_neural_hmm_forward(get_neural_hmm, get_embedded_input):
 def test_neural_hmm_mask_lengths(get_neural_hmm, get_embedded_input, device):
     input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
     neural_hmm = get_neural_hmm()
-    log_prob, log_alpha_scaled, transition_matrix, means = neural_hmm(
+    _log_prob, log_alpha_scaled, _transition_matrix, _means = neural_hmm(
         input_dummy, input_lengths, mel_spec.transpose(1, 2), mel_lengths
     )
     log_c = torch.randn(mel_spec.shape[0], mel_spec.shape[1], device=device)
-    log_c, log_alpha_scaled = neural_hmm._mask_lengths(  # pylint: disable=protected-access
-        mel_lengths, log_c, log_alpha_scaled
-    )
+    log_c, log_alpha_scaled = neural_hmm._mask_lengths(mel_lengths, log_c, log_alpha_scaled)
     assertions = []
     for i in range(mel_spec.shape[0]):
         assertions.append(log_c[i, mel_lengths[i] :].sum() == 0.0)
@@ -241,12 +239,10 @@ def test_neural_hmm_mask_lengths(get_neural_hmm, get_embedded_input, device):
 
 def test_neural_hmm_process_ar_timestep(get_neural_hmm, get_embedded_input, config):
     model = get_neural_hmm()
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    input_dummy, _input_lengths, mel_spec, _mel_lengths = get_embedded_input()
 
-    h_post_prenet, c_post_prenet = model._init_lstm_states(  # pylint: disable=protected-access
-        input_dummy.shape[0], config.memory_rnn_dim, mel_spec
-    )
-    h_post_prenet, c_post_prenet = model._process_ar_timestep(  # pylint: disable=protected-access
+    h_post_prenet, c_post_prenet = model._init_lstm_states(input_dummy.shape[0], config.memory_rnn_dim, mel_spec)
+    h_post_prenet, c_post_prenet = model._process_ar_timestep(
         1,
         mel_spec,
         h_post_prenet,
@@ -259,25 +255,23 @@ def test_neural_hmm_process_ar_timestep(get_neural_hmm, get_embedded_input, conf
 
 def test_neural_hmm_add_go_token(get_neural_hmm, get_embedded_input):
     model = get_neural_hmm()
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    _input_dummy, _input_lengths, mel_spec, _mel_lengths = get_embedded_input()
 
-    out = model._add_go_token(mel_spec)  # pylint: disable=protected-access
+    out = model._add_go_token(mel_spec)
     assert out.shape == mel_spec.shape
     assert (out[:, 1:] == mel_spec[:, :-1]).all(), "Go token not appended properly"
 
 
 def test_neural_hmm_forward_algorithm_variables(get_neural_hmm, get_embedded_input, config):
     model = get_neural_hmm()
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    input_dummy, _input_lengths, mel_spec, _mel_lengths = get_embedded_input()
 
     (
         log_c,
         log_alpha_scaled,
         transition_matrix,
         _,
-    ) = model._initialize_forward_algorithm_variables(  # pylint: disable=protected-access
-        mel_spec, input_dummy.shape[1] * config.state_per_phone
-    )
+    ) = model._initialize_forward_algorithm_variables(mel_spec, input_dummy.shape[1] * config.state_per_phone)
 
     assert log_c.shape == (mel_spec.shape[0], mel_spec.shape[1])
     assert log_alpha_scaled.shape == (
@@ -297,13 +291,11 @@ def test_neural_hmm_get_absorption_state_scaling_factor(get_neural_hmm, get_embe
     input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
     input_lengths = input_lengths * config.state_per_phone
     (
-        log_c,
+        _log_c,
         log_alpha_scaled,
         transition_matrix,
         _,
-    ) = model._initialize_forward_algorithm_variables(  # pylint: disable=protected-access
-        mel_spec, input_dummy.shape[1] * config.state_per_phone
-    )
+    ) = model._initialize_forward_algorithm_variables(mel_spec, input_dummy.shape[1] * config.state_per_phone)
     log_alpha_scaled = torch.rand_like(log_alpha_scaled).clamp(1e-3)
     transition_matrix = torch.randn_like(transition_matrix).sigmoid().log()
     sum_final_log_c = model.get_absorption_state_scaling_factor(
@@ -329,7 +321,7 @@ def test_neural_hmm_get_absorption_state_scaling_factor(get_neural_hmm, get_embe
 
 def test_neural_hmm_inference(get_neural_hmm, get_embedded_input, config):
     model = get_neural_hmm()
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    input_dummy, input_lengths, _mel_spec, _mel_lengths = get_embedded_input()
     for temperature in [0.334, 0.667, 1.0]:
         outputs = model.inference(
             input_dummy, input_lengths, temperature, config.max_sampling_time, config.duration_threshold
@@ -341,7 +333,7 @@ def test_neural_hmm_inference(get_neural_hmm, get_embedded_input, config):
 
 def test_emission_model(get_embedded_input, config, device):
     model = EmissionModel().to(device)
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    input_dummy, input_lengths, _mel_spec, _mel_lengths = get_embedded_input()
     x_t = torch.randn(input_dummy.shape[0], config.out_channels).to(device)
     means = torch.randn(input_dummy.shape[0], input_dummy.shape[1], config.out_channels).to(device)
     std = torch.rand_like(means).to(device).clamp_(1e-3)  # std should be positive
@@ -358,7 +350,7 @@ def test_emission_model(get_embedded_input, config, device):
 
 def test_transition_model(get_embedded_input, device):
     model = TransitionModel().to(device)
-    input_dummy, input_lengths, mel_spec, mel_lengths = get_embedded_input()
+    input_dummy, input_lengths, _mel_spec, _mel_lengths = get_embedded_input()
     prev_t_log_scaled_alph = torch.randn(input_dummy.shape[0], input_lengths.max()).to(input_dummy.device)
     transition_vector = torch.randn(input_lengths.max()).to(input_dummy.device)
     out = model(prev_t_log_scaled_alph, transition_vector, input_lengths)
@@ -378,7 +370,7 @@ def test_outputnet_forward_with_flat_start(create_inputs, config, device):
         config.std_floor,
     ).to(device)
 
-    input_dummy, input_lengths, mel_spec, mel_lengths = create_inputs()
+    input_dummy, _input_lengths, _mel_spec, _mel_lengths = create_inputs()
     input_dummy = torch.nn.Embedding(config.num_chars, config.encoder_in_out_features).to(device)(input_dummy)
     one_timestep_frame = torch.randn(input_dummy.shape[0], config.memory_rnn_dim).to(device)
     mean, std, transition_vector = model(one_timestep_frame, input_dummy)

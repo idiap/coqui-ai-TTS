@@ -28,20 +28,22 @@ def stable_softmax(t, dim=-1, alpha=32**2):
 
 
 def route_args(router, args, depth):
-    routed_args = [(dict(), dict()) for _ in range(depth)]
-    matched_keys = [key for key in args.keys() if key in router]
+    routed_args = [({}, {}) for _ in range(depth)]
+    matched_keys = [key for key in args if key in router]
 
     for key in matched_keys:
         val = args[key]
-        for depth, ((f_args, g_args), routes) in enumerate(zip(routed_args, router[key])):
+        for d, ((f_args, g_args), routes) in enumerate(zip(routed_args, router[key])):
             new_f_args, new_g_args = (({key: val} if route else {}) for route in routes)
-            routed_args[depth] = ({**f_args, **new_f_args}, {**g_args, **new_g_args})
+            routed_args[d] = ({**f_args, **new_f_args}, {**g_args, **new_g_args})
     return routed_args
 
 
 # classes
 class SequentialSequence(nn.Module):
-    def __init__(self, layers, args_route={}, layer_dropout=0.0):
+    def __init__(self, layers, args_route=None, layer_dropout=0.0):
+        if args_route is None:
+            args_route = {}
         super().__init__()
         assert all(len(route) == len(layers) for route in args_route.values()), (
             "each argument route map must have the same depth as the number of sequential layers"
@@ -193,9 +195,7 @@ class Transformer(nn.Module):
     ):
         super().__init__()
         layers = nn.ModuleList([])
-        sparse_layer = cast_tuple(sparse_attn, depth)
-
-        for ind, sparse_attn in zip(range(depth), sparse_layer):
+        for ind in range(depth):
             attn = Attention(
                 dim,
                 causal=causal,

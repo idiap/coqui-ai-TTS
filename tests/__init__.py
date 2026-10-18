@@ -3,21 +3,8 @@ from collections.abc import Callable
 from typing import Optional
 
 import pytest
-from trainer.generic_utils import get_cuda
 
 from TTS.config import BaseDatasetConfig
-
-
-def get_device_id():
-    use_cuda, _ = get_cuda()
-    if use_cuda:
-        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != "":
-            GPU_ID = os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0]
-        else:
-            GPU_ID = "0"
-    else:
-        GPU_ID = ""
-    return GPU_ID
 
 
 def get_tests_path():

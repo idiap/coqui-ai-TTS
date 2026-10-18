@@ -124,7 +124,7 @@ from TTS.tts.datasets import load_tts_samples, register_formatter
 
 
 # custom formatter implementation
-def formatter(root_path, manifest_file, **kwargs):  # pylint: disable=unused-argument
+def formatter(root_path, manifest_file, **kwargs):
     """Assumes each line as ```<filename>|<transcription>```
     """
     txt_file = os.path.join(root_path, manifest_file)

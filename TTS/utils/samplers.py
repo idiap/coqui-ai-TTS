@@ -56,7 +56,7 @@ class PerfectBatchSampler(Sampler):
         label_indices = {}
         for idx, item in enumerate(dataset_items):
             label = item[label_key]
-            if label not in label_indices.keys():
+            if label not in label_indices:
                 label_indices[label] = [idx]
             else:
                 label_indices[label].append(idx)
@@ -100,15 +100,14 @@ class PerfectBatchSampler(Sampler):
                 if valid_samplers_idx is not None:
                     valid_samplers_idx = random.sample(range(len(self._samplers)), self._num_classes_in_batch)
 
-        if not self._drop_last:
-            if len(batch) > 0:
-                groups = len(batch) // self._num_classes_in_batch
-                if groups % self._dp_devices == 0:
+        if not self._drop_last and len(batch) > 0:
+            groups = len(batch) // self._num_classes_in_batch
+            if groups % self._dp_devices == 0:
+                yield batch
+            else:
+                batch = batch[: (groups // self._dp_devices) * self._dp_devices * self._num_classes_in_batch]
+                if len(batch) > 0:
                     yield batch
-                else:
-                    batch = batch[: (groups // self._dp_devices) * self._dp_devices * self._num_classes_in_batch]
-                    if len(batch) > 0:
-                        yield batch
 
     def __len__(self):
         class_batch_size = self._batch_size // self._num_classes_in_batch

@@ -36,7 +36,7 @@ def wav_to_mel_cloning(
     wav,
     mel_norms_file="../experiments/clips_mel_norms.pth",
     mel_norms=None,
-    device=torch.device("cpu"),
+    device="cpu",
     n_fft=4096,
     hop_length=1024,
     win_length=4096,
@@ -626,12 +626,12 @@ class Xtts(BaseTTS):
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
 
-    def eval_step(self):
+    def eval_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError(
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
 
-    def eval(self):  # pylint: disable=redefined-builtin
+    def eval(self):
         """Sets the model to evaluation mode. Overrides the default eval() method to also set the GPT model to eval mode."""
         self.gpt.init_gpt_for_inference()
         super().eval()
@@ -743,7 +743,7 @@ class Xtts(BaseTTS):
             self.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=use_deepspeed)
             self.gpt.eval()
 
-    def train_step(self):
+    def train_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError(
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )

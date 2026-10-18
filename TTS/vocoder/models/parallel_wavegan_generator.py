@@ -26,7 +26,6 @@ class ParallelWaveganGenerator(torch.nn.Module):
     an output waveform from an input noise.
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_channels=1,
@@ -41,9 +40,11 @@ class ParallelWaveganGenerator(torch.nn.Module):
         dropout=0.0,
         bias=True,
         use_weight_norm=True,
-        upsample_factors=[4, 4, 4, 4],
+        upsample_factors=None,
         inference_padding=2,
     ):
+        if upsample_factors is None:
+            upsample_factors = [4, 4, 4, 4]
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -155,7 +156,7 @@ class ParallelWaveganGenerator(torch.nn.Module):
     def receptive_field_size(self):
         return _get_receptive_field_size(self.layers, self.stacks, self.kernel_size)
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):
         state = load_fsspec(checkpoint_path, map_location=torch.device("cpu"), cache=cache)
         self.load_state_dict(state["model"])
         if eval:

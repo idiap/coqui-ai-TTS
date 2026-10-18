@@ -45,10 +45,10 @@ class DelightfulTtsArgs(ModelArgs):
     kernel_size_depthwise_conformer_decoder: int = 11
     bottleneck_size_p_reference_encoder: int = 4
     bottleneck_size_u_reference_encoder: int = 512
-    ref_enc_filters_reference_encoder = [32, 32, 64, 64, 128, 128]
+    ref_enc_filters_reference_encoder: list[int] = field(default_factory=lambda: [32, 32, 64, 64, 128, 128])
     ref_enc_size_reference_encoder: int = 3
-    ref_enc_strides_reference_encoder = [1, 2, 1, 2, 1]
-    ref_enc_pad_reference_encoder = [1, 1]
+    ref_enc_strides_reference_encoder: list[int] = field(default_factory=lambda: [1, 2, 1, 2, 1])
+    ref_enc_pad_reference_encoder: list[int] = field(default_factory=lambda: [1, 1])
     ref_enc_gru_size_reference_encoder: int = 32
     ref_attention_dropout_reference_encoder: float = 0.2
     token_num_reference_encoder: int = 32
