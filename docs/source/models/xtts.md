@@ -123,15 +123,17 @@ You can optionally disable sentence splitting for better coherence but more VRAM
 
 ```python
 from TTS.api import TTS
+
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 
 # generate speech by cloning a voice using default settings
-tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-                file_path="output.wav",
-                speaker_wav=["/path/to/target/speaker.wav"],
-                language="en",
-                split_sentences=True
-                )
+tts.tts_to_file(
+    text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+    file_path="output.wav",
+    speaker_wav=["/path/to/target/speaker.wav"],
+    language="en",
+    split_sentences=True,
+)
 ```
 
 ##### Multiple references
@@ -153,10 +155,12 @@ tts = TTS("xtts_v2.0.2").to("cuda")
 tts = TTS("xtts").to("cuda")
 
 # generate speech by cloning a voice using default settings
-tts.tts_to_file(text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-                file_path="output.wav",
-                speaker_wav=["/path/to/target/speaker.wav", "/path/to/target/speaker_2.wav", "/path/to/target/speaker_3.wav"],
-                language="en")
+tts.tts_to_file(
+    text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+    file_path="output.wav",
+    speaker_wav=["/path/to/target/speaker.wav", "/path/to/target/speaker_2.wav", "/path/to/target/speaker_3.wav"],
+    language="en",
+)
 ```
 
 #### Coqui speakers
@@ -165,15 +169,16 @@ You can do inference using one of the available speakers using the following cod
 
 ```python
 from TTS.api import TTS
+
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 
 # generate speech by cloning a voice using default settings
 tts.tts_to_file(
-  text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-  file_path="output.wav",
-  speaker="Ana Florence",
-  language="en",
-  split_sentences=True
+    text="It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+    file_path="output.wav",
+    speaker="Ana Florence",
+    language="en",
+    split_sentences=True,
 )
 ```
 
@@ -234,7 +239,7 @@ out = model.inference(
     "en",
     gpt_cond_latent,
     speaker_embedding,
-    temperature=0.7, # Add custom parameters here
+    temperature=0.7,  # Add custom parameters here
 )
 torchaudio.save("xtts.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
 ```
@@ -275,7 +280,7 @@ chunks = model.inference_stream(
     "It took me quite a long time to develop a voice and now that I have it I am not going to be silent.",
     "en",
     gpt_cond_latent,
-    speaker_embedding
+    speaker_embedding,
 )
 
 wav_chuncks = []
@@ -385,7 +390,7 @@ out = model.inference(
     "en",
     gpt_cond_latent,
     speaker_embedding,
-    temperature=0.7, # Add custom parameters here
+    temperature=0.7,  # Add custom parameters here
 )
 torchaudio.save(OUTPUT_WAV_PATH, torch.tensor(out["wav"]).unsqueeze(0), 24000)
 ```

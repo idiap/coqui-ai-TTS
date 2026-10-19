@@ -60,7 +60,7 @@ class CloningMixin:
             model=model,
             speaker_id=speaker_id,
             source_files=source_files,
-            created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes"),
+            created_at=datetime.datetime.now(datetime.UTC).isoformat(timespec="minutes"),
             coqui_version=importlib.metadata.version("coqui-tts"),
         )
 

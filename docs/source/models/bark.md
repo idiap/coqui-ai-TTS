@@ -44,16 +44,20 @@ tts = TTS("tts_models/multilingual/multi-dataset/bark").to("cuda")
 
 
 # Clone voice and cache it with the custom ID `ljspeech`.
-tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
-                file_path="output.wav",
-                speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
-                speaker="ljspeech")
+tts.tts_to_file(
+    text="Hello, my name is Manmay , how are you?",
+    file_path="output.wav",
+    speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
+    speaker="ljspeech",
+)
 
 
 # When you run it again it uses the stored values to generate the voice.
-tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
-                file_path="output.wav",
-                speaker="ljspeech")
+tts.tts_to_file(
+    text="Hello, my name is Manmay , how are you?",
+    file_path="output.wav",
+    speaker="ljspeech",
+)
 
 
 # random speaker

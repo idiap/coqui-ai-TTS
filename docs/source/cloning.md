@@ -57,17 +57,17 @@ api = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 # 1. Clone the voice from `speaker_wav` and cache it under a custom speaker ID
 api.tts_to_file(
-  text="Hello world",
-  speaker_wav=["my/cloning/audio.wav", "my/cloning/audio2.wav"],
-  speaker="MySpeaker1",
-  language="en",
+    text="Hello world",
+    speaker_wav=["my/cloning/audio.wav", "my/cloning/audio2.wav"],
+    speaker="MySpeaker1",
+    language="en",
 )
 
 # 2. The voice can now be reused without providing reference audio
 api.tts_to_file(
-  text="Hello world",
-  speaker="MySpeaker1",
-  language="en",
+    text="Hello world",
+    speaker="MySpeaker1",
+    language="en",
 )
 ```
 
@@ -106,21 +106,22 @@ We can then print the metadata:
 
 ```python
 import torch
+
 voice = torch.load("wavlm-voices/LJ.pth", map_location="cpu")
 print(voice["metadata"])
 ```
 
 ```python
 {
-  'model': {'name': 'wavlm', 'layer': 6},
-  'speaker_id': 'LJ',
-  'source_files': [
-    'tests/data/ljspeech/wavs/LJ001-0001.wav',
-    'tests/data/ljspeech/wavs/LJ001-0002.wav',
-    ...,
-  ],
-  'created_at': '2025-06-25T12:17+00:00',
-  'coqui_version': '0.27.0',
+    "model": {"name": "wavlm", "layer": 6},
+    "speaker_id": "LJ",
+    "source_files": [
+        "tests/data/ljspeech/wavs/LJ001-0001.wav",
+        "tests/data/ljspeech/wavs/LJ001-0002.wav",
+        ...,
+    ],
+    "created_at": "2025-06-25T12:17+00:00",
+    "coqui_version": "0.27.0",
 }
 ```
 

@@ -1,13 +1,12 @@
 import os
 import warnings
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Self
 
 import torch
 from coqpit import Coqpit
 from trainer import TrainerModel
 from trainer.io import load_fsspec
-from typing_extensions import Self
 
 from TTS.config.shared_configs import BaseTrainingConfig
 
