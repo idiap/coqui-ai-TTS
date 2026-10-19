@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from TTS.tts.layers.generic.res_conv_bn import ResidualConv1dBNBlock
@@ -30,7 +31,7 @@ class RelativePositionTransformerEncoder(nn.Module):
         )
         self.rel_pos_transformer = RelativePositionTransformer(hidden_channels, out_channels, hidden_channels, **params)
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         if x_mask is None:
             x_mask = 1
         o = self.prenet(x) * x_mask
@@ -64,7 +65,7 @@ class ResidualConv1dBNEncoder(nn.Module):
             ]
         )
 
-    def forward(self, x, x_mask=None, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask=None, g=None):
         if x_mask is None:
             x_mask = 1
         o = self.prenet(x) * x_mask
@@ -74,7 +75,6 @@ class ResidualConv1dBNEncoder(nn.Module):
 
 
 class Encoder(nn.Module):
-    # pylint: disable=dangerous-default-value
     """Factory class for Speedy Speech encoder enables different encoder types internally.
 
     Args:
@@ -123,9 +123,16 @@ class Encoder(nn.Module):
         in_hidden_channels,
         out_channels,
         encoder_type="residual_conv_bn",
-        encoder_params={"kernel_size": 4, "dilations": 4 * [1, 2, 4] + [1], "num_conv_blocks": 2, "num_res_blocks": 13},
+        encoder_params=None,
         c_in_channels=0,
     ):
+        if encoder_params is None:
+            encoder_params = {
+                "kernel_size": 4,
+                "dilations": 4 * [1, 2, 4] + [1],
+                "num_conv_blocks": 2,
+                "num_res_blocks": 13,
+            }
         super().__init__()
         self.out_channels = out_channels
         self.in_channels = in_hidden_channels
@@ -136,7 +143,6 @@ class Encoder(nn.Module):
         # init encoder
         if encoder_type.lower() == "relative_position_transformer":
             # text encoder
-            # pylint: disable=unexpected-keyword-arg
             self.encoder = RelativePositionTransformerEncoder(
                 in_hidden_channels, out_channels, in_hidden_channels, encoder_params
             )
@@ -146,12 +152,11 @@ class Encoder(nn.Module):
             assert in_hidden_channels == out_channels, (
                 "[!] must be `in_channels` == `out_channels` when encoder type is 'fftransformer'"
             )
-            # pylint: disable=unexpected-keyword-arg
             self.encoder = FFTransformerBlock(in_hidden_channels, **encoder_params)
         else:
             raise NotImplementedError(" [!] unknown encoder type.")
 
-    def forward(self, x, x_mask, g=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_mask, g=None) -> torch.FloatTensor:
         """
         Shapes:
             x: [B, C, T]

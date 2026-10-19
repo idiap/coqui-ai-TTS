@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
+from TTS.config.shared_configs import ModelArgs
 
 
 @dataclass
@@ -92,18 +93,6 @@ class BaseVCConfig(BaseTrainingConfig):
             If between 0.0 and 1.0 represents the proportion of the dataset to include in the evaluation set.
             If > 1, represents the absolute number of evaluation samples. Defaults to 0.01 (1%).
 
-        use_speaker_weighted_sampler (bool):
-            Enable / Disable the batch balancer by speaker. Defaults to ```False```.
-
-        speaker_weighted_sampler_alpha (float):
-            Number that control the influence of the speaker sampler weights. Defaults to ```1.0```.
-
-        use_language_weighted_sampler (bool):
-            Enable / Disable the batch balancer by language. Defaults to ```False```.
-
-        language_weighted_sampler_alpha (float):
-            Number that control the influence of the language sampler weights. Defaults to ```1.0```.
-
         use_length_weighted_sampler (bool):
             Enable / Disable the batch balancer by audio length. If enabled the dataset will be divided
             into 10 buckets considering the min and max audio of the dataset. The sampler weights will be
@@ -114,6 +103,7 @@ class BaseVCConfig(BaseTrainingConfig):
     """
 
     audio: BaseAudioConfig = field(default_factory=BaseAudioConfig)
+    model_args: ModelArgs = field(default_factory=ModelArgs)
     # training params
     batch_group_size: int = 0
     loss_masking: bool = None
@@ -144,9 +134,5 @@ class BaseVCConfig(BaseTrainingConfig):
     eval_split_max_size: int | None = None
     eval_split_size: float = 0.01
     # weighted samplers
-    use_speaker_weighted_sampler: bool = False
-    speaker_weighted_sampler_alpha: float = 1.0
-    use_language_weighted_sampler: bool = False
-    language_weighted_sampler_alpha: float = 1.0
     use_length_weighted_sampler: bool = False
     length_weighted_sampler_alpha: float = 1.0

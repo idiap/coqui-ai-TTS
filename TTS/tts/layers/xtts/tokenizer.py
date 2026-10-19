@@ -1,8 +1,10 @@
+import contextlib
 import logging
 import os
 import re
 import textwrap
 from functools import cached_property
+from typing import Any
 
 import torch
 from ko_speech_tools import hangul_romanize
@@ -68,9 +70,8 @@ def split_sentence(text, lang, text_split_length=250):
             else:
                 text_splits.append(str(sentence))
 
-        if len(text_splits) > 1:
-            if text_splits[0] == "":
-                del text_splits[0]
+        if len(text_splits) > 1 and text_splits[0] == "":
+            del text_splits[0]
     else:
         text_splits = [text.lstrip()]
 
@@ -554,12 +555,11 @@ def expand_numbers_multilingual(text, lang="en"):
             text = re.sub(_comma_number_re, _remove_commas, text)
         else:
             text = re.sub(_dot_number_re, _remove_dots, text)
-        try:
+        # currency expansion is not supported for all languages
+        with contextlib.suppress(Exception):
             text = re.sub(_currency_re["GBP"], lambda m: _expand_currency(m, lang, "GBP"), text)
             text = re.sub(_currency_re["USD"], lambda m: _expand_currency(m, lang, "USD"), text)
             text = re.sub(_currency_re["EUR"], lambda m: _expand_currency(m, lang, "EUR"), text)
-        except:
-            pass
         if lang != "tr":
             text = re.sub(_decimal_number_re, lambda m: _expand_decimal_point(m, lang), text)
         text = re.sub(_ordinal_re[lang], lambda m: _expand_ordinal(m, lang), text)
@@ -597,14 +597,11 @@ def japanese_cleaners(text, katsu):
     return text
 
 
-DEFAULT_VOCAB_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data/tokenizer.json")
-
-
 class VoiceBpeTokenizer:
-    def __init__(self, vocab_file=None):
+    def __init__(self, vocab_file: str | os.PathLike[Any] | None = None):
         self.tokenizer = None
         if vocab_file is not None:
-            self.tokenizer = Tokenizer.from_file(vocab_file)
+            self.tokenizer = Tokenizer.from_file(str(vocab_file))
         self.char_limits = {
             "en": 250,
             "de": 253,

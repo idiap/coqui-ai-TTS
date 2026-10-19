@@ -20,4 +20,17 @@ def test_extract_tts_spectrograms(tmp_path, model):
     config = load_config(config_path)
     model = setup_model(config)
     torch.save({"model": model.state_dict()}, checkpoint_path)
-    run_main(main, ["--config_path", config_path, "--checkpoint_path", checkpoint_path, "--output_path", output_path])
+    run_main(
+        main,
+        [
+            "--config_path",
+            config_path,
+            "--checkpoint_path",
+            checkpoint_path,
+            "--output_path",
+            output_path,
+            "--save_audio",
+            "--quantize_bits",
+            "4",
+        ],
+    )

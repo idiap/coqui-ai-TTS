@@ -1,18 +1,23 @@
 import logging
 import os
 import random
-from typing import Any
+import warnings
+from typing import Any, Literal, cast
 
 import torch
 import torch.distributed as dist
 from coqpit import Coqpit
 from torch import nn
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer import Trainer, TrainerConfig
 from trainer.logging.base_dash_logger import BaseDashboardLogger
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
 from TTS.config import get_from_config_or_model_args
+from TTS.config.shared_configs import BaseAudioConfig, ModelArgs
 from TTS.model import BaseTrainerModel
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import TTSDataset
@@ -20,13 +25,12 @@ from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import LanguageManager, get_language_balancer_weights
 from TTS.tts.utils.speakers import SpeakerManager, get_speaker_balancer_weights
 from TTS.tts.utils.synthesis import inv_spectrogram
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+from TTS.tts.utils.text.tokenizer import TTSTokenizer
+from TTS.utils.audio.processor import AudioProcessor
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 from TTS.utils.voices import CloningMixin
 
 logger = logging.getLogger(__name__)
-
-# pylint: skip-file
 
 
 class BaseTTS(CloningMixin, BaseTrainerModel):
@@ -36,24 +40,55 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     """
 
     MODEL_TYPE = "tts"
+    config: BaseTTSConfig
 
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor",
-        tokenizer: "TTSTokenizer",
-        speaker_manager: SpeakerManager | None = None,
-        language_manager: LanguageManager | None = None,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
+        language_manager: None = None,
     ):
         super().__init__()
+        if any(arg is not None for arg in (ap, tokenizer, speaker_manager, language_manager)):
+            warnings.warn(
+                "The `ap`, `tokenizer`, `speaker_manager` and `language_manager` "
+                "arguments are deprecated and will be removed soon. You can "
+                "safely leave them out.",
+                UserWarning,
+            )
+        # Some models use their own tokenizer
+        config = cast(BaseTTSConfig, config)
+        if not hasattr(self, "tokenizer"):
+            self.tokenizer, config = TTSTokenizer.init_from_config(config)
         self.config = config
-        self.ap = ap
-        self.tokenizer = tokenizer
-        self.speaker_manager = speaker_manager
-        self.language_manager = language_manager
-        self._set_model_args(config)
+        # Some models use incompatible audio configs
+        if isinstance(self.config.audio, BaseAudioConfig):
+            self.ap = AudioProcessor(self.config.audio)
+        self.speaker_manager = SpeakerManager.init_from_config(self.config)
+        self.language_manager = LanguageManager.init_from_config(self.config)
+        self._register_speaker_encoder()
+        self.register_load_state_dict_post_hook(self._filter_encoder_keys)
+        self._set_model_args()
 
-    def _set_model_args(self, config: Coqpit):
+    def _register_speaker_encoder(self) -> None:
+        """Register the speaker encoder as a submodule so it moves with the model."""
+        if self.speaker_manager is not None and self.speaker_manager.encoder is not None:
+            self.speaker_encoder = self.speaker_manager.encoder
+
+    @staticmethod
+    def _filter_encoder_keys(module, incompatible_keys) -> None:
+        """Remove speaker encoder keys from missing-key check."""
+        for i in range(len(incompatible_keys.missing_keys) - 1, -1, -1):
+            if incompatible_keys.missing_keys[i].startswith("speaker_encoder."):
+                del incompatible_keys.missing_keys[i]
+
+    def state_dict(self, *args, **kwargs) -> dict:
+        sd = super().state_dict(*args, **kwargs)
+        return {k: v for k, v in sd.items() if not k.startswith("speaker_encoder.")}
+
+    def _set_model_args(self) -> None:
         """Setup model args based on the config type (`ModelConfig` or `ModelArgs`).
 
         `ModelArgs` has all the fields required to initialize the model architecture.
@@ -65,26 +100,32 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
 
         If the config is for the model with a name like "*Args", then we assign them directly.
         """
-        # don't use isinstance not to import recursively
-        if "Config" in config.__class__.__name__:
-            config_num_chars = (
-                self.config.model_args.num_chars if self.config.model_args is not None else self.config.num_chars
-            )
-            num_chars = config_num_chars if self.tokenizer is None else self.tokenizer.characters.num_chars
-            if "characters" in config:
-                self.config.num_chars = num_chars
-                if self.config.model_args is not None:
-                    config.model_args.num_chars = num_chars
-                    self.args = self.config.model_args
+        if isinstance(self.config, BaseTTSConfig):
+            config_num_chars = get_from_config_or_model_args(self.config, "num_chars")
+            if self.tokenizer is None or not hasattr(self.tokenizer, "characters"):
+                num_chars = config_num_chars
             else:
-                self.config = config
-                self.args = config.model_args
-        elif "Args" in config.__class__.__name__:
-            self.args = config
+                num_chars = self.tokenizer.characters.num_chars
+            if "characters" in self.config:
+                self.config.num_chars = num_chars
+                self.config.model_args.num_chars = num_chars
+            self.args = self.config.model_args
+        elif isinstance(self.config, ModelArgs):
+            self.args = self.config
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise TypeError("config must be either a *Config or *Args")
 
-    def init_multispeaker(self, config: Coqpit, data: list = None):
+    @property
+    def num_speakers(self) -> int:
+        """Return the number of speakers of the model.
+
+        Defaults to 1 if a speaker manager or config.num_speakers are not defined.
+        """
+        if self.speaker_manager is not None:
+            return self.speaker_manager.num_speakers
+        return self.config.get("num_speakers", 1)
+
+    def init_multispeaker(self) -> None:
         """Set up for multi-speaker TTS.
 
         Initialize a speaker embedding layer if needed and define expected embedding
@@ -98,30 +139,33 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
            `config.d_vector_dim` or 512.
 
         You can override this function for new models.
-
-        Args:
-            config (Coqpit): Model configuration.
         """
-        # set number of speakers
-        if self.speaker_manager is not None:
-            self.num_speakers = self.speaker_manager.num_speakers
-        elif hasattr(config, "num_speakers"):
-            self.num_speakers = config.num_speakers
+        self.embedded_speaker_dim = 0
+        use_speaker_embedding = get_from_config_or_model_args(self.config, "use_speaker_embedding")
+        use_d_vector_file = get_from_config_or_model_args(self.config, "use_d_vector_file")
+        if self.speaker_manager is None and (use_d_vector_file or use_speaker_embedding):
+            msg = "No SpeakerManager provided. You must provide it before initializing a multi-speaker model."
+            raise ValueError(msg)
 
-        # set ultimate speaker embedding size
-        if config.use_speaker_embedding or config.use_d_vector_file:
-            self.embedded_speaker_dim = (
-                config.d_vector_dim if "d_vector_dim" in config and config.d_vector_dim is not None else 512
-            )
-        # init speaker embedding layer
-        if config.use_speaker_embedding and not config.use_d_vector_file:
-            logger.info("Init speaker_embedding layer.")
-            self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
-            self.speaker_embedding.weight.data.normal_(0, 0.3)
+        if use_d_vector_file:
+            logger.info("Initialization of d-vectors.")
+            self._init_d_vector()
+
+        if use_speaker_embedding and not use_d_vector_file:
+            logger.info("Initialization of speaker-embedding layers.")
+            self._init_speaker_embedding()
+
+    def _init_speaker_embedding(self) -> None:
+        """Initialize speaker embedding layer."""
+        self.embedded_speaker_dim = self.config.speaker_embedding_dim
+        self.speaker_embedding = nn.Embedding(self.num_speakers, self.embedded_speaker_dim)
+        self.speaker_embedding.weight.data.normal_(0, 0.3)
+
+    def _init_d_vector(self) -> None:
+        """Initialize d-vectors."""
+        self.embedded_speaker_dim = self.config.d_vector_dim if self.config.get("d_vector_dim") else 512
 
     def get_aux_input_from_test_sentences(self, sentence_info: str | list[str]) -> dict[str, Any]:
-        config = self.config.model_args if self.config.model_args is not None else self.config
-
         # extract speaker and language info
         text, speaker, style_wav, language = None, None, None, None
 
@@ -147,7 +191,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             "language": language,
         }
 
-    def format_batch(self, batch: dict) -> dict:
+    def format_batch(self, batch: dict[str, Any]) -> dict[str, Any]:
         """Generic batch formatting for `TTSDataset`.
 
         You must override this if you use a custom dataset.
@@ -226,7 +270,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             "audio_unique_names": batch["audio_unique_names"],
         }
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset) -> torch.utils.data.Sampler | None:
         weights = None
         data_items = dataset.samples
 
@@ -258,106 +302,97 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
 
         # sampler for DDP
         if sampler is None:
-            sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+            sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() else None
         else:  # If a sampler is already defined use this sampler and DDP sampler together
-            sampler = DistributedSamplerWrapper(sampler) if num_gpus > 1 else sampler
+            sampler = DistributedSamplerWrapper(sampler) if is_dist_avail_and_initialized() else sampler
 
         return sampler
 
     def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ) -> "DataLoader":
-        if is_eval and not config.run_eval:
-            loader = None
+        config: TrainerConfig,
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
+        # setup multi-speaker attributes
+        if self.speaker_manager is not None:
+            speaker_id_mapping = (
+                self.speaker_manager.name_to_id
+                if get_from_config_or_model_args(config, "use_speaker_embedding")
+                else None
+            )
+            d_vector_mapping = (
+                self.speaker_manager.embeddings if get_from_config_or_model_args(config, "use_d_vector_file") else None
+            )
+            config.use_d_vector_file = get_from_config_or_model_args(config, "use_d_vector_file", False)
         else:
-            # setup multi-speaker attributes
-            if self.speaker_manager is not None:
-                if config.model_args is not None:
-                    speaker_id_mapping = (
-                        self.speaker_manager.name_to_id if config.model_args.use_speaker_embedding else None
-                    )
-                    d_vector_mapping = self.speaker_manager.embeddings if config.model_args.use_d_vector_file else None
-                    config.use_d_vector_file = config.model_args.use_d_vector_file
-                else:
-                    speaker_id_mapping = self.speaker_manager.name_to_id if config.use_speaker_embedding else None
-                    d_vector_mapping = self.speaker_manager.embeddings if config.use_d_vector_file else None
-            else:
-                speaker_id_mapping = None
-                d_vector_mapping = None
+            speaker_id_mapping = None
+            d_vector_mapping = None
 
-            # setup multi-lingual attributes
-            if self.language_manager is not None:
-                language_id_mapping = self.language_manager.name_to_id if self.args.use_language_embedding else None
-            else:
-                language_id_mapping = None
+        # setup multi-lingual attributes
+        language_id_mapping = None
+        if self.language_manager.num_languages > 0:
+            use_language_embedding = self.args.get("use_language_embedding", False)
+            language_id_mapping = self.language_manager.name_to_id if use_language_embedding else None
 
-            # init dataloader
-            dataset = TTSDataset(
-                outputs_per_step=config.r if "r" in config else 1,
-                compute_linear_spec=config.model.lower() == "tacotron" or config.compute_linear_spec,
-                compute_f0=config.get("compute_f0", False),
-                f0_cache_path=config.get("f0_cache_path", None),
-                compute_energy=config.get("compute_energy", False),
-                energy_cache_path=config.get("energy_cache_path", None),
-                samples=samples,
-                ap=self.ap,
-                return_wav=config.return_wav if "return_wav" in config else False,
-                batch_group_size=0 if is_eval else config.batch_group_size * config.batch_size,
-                min_text_len=config.min_text_len,
-                max_text_len=config.max_text_len,
-                min_audio_len=config.min_audio_len,
-                max_audio_len=config.max_audio_len,
-                phoneme_cache_path=config.phoneme_cache_path,
-                precompute_num_workers=config.precompute_num_workers,
-                use_noise_augment=False if is_eval else config.use_noise_augment,
-                speaker_id_mapping=speaker_id_mapping,
-                d_vector_mapping=d_vector_mapping if config.use_d_vector_file else None,
-                tokenizer=self.tokenizer,
-                start_by_longest=config.start_by_longest,
-                language_id_mapping=language_id_mapping,
-            )
+        # init dataloader
+        dataset = TTSDataset(
+            outputs_per_step=config.r if "r" in config else 1,
+            compute_linear_spec=config.model.lower() == "tacotron" or config.compute_linear_spec,
+            compute_f0=config.get("compute_f0", False),
+            f0_cache_path=config.get("f0_cache_path", None),
+            compute_energy=config.get("compute_energy", False),
+            energy_cache_path=config.get("energy_cache_path", None),
+            samples=samples,
+            ap=self.ap,
+            return_wav=config.return_wav if "return_wav" in config else False,
+            batch_group_size=0 if is_eval else config.batch_group_size * config.batch_size,
+            min_text_len=config.min_text_len,
+            max_text_len=config.max_text_len,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            phoneme_cache_path=config.phoneme_cache_path,
+            precompute_num_workers=config.precompute_num_workers,
+            use_noise_augment=False if is_eval else config.use_noise_augment,
+            speaker_id_mapping=speaker_id_mapping,
+            d_vector_mapping=d_vector_mapping if config.use_d_vector_file else None,
+            tokenizer=self.tokenizer,
+            start_by_longest=config.start_by_longest,
+            language_id_mapping=language_id_mapping,
+        )
 
-            # wait all the DDP process to be ready
-            if num_gpus > 1:
-                dist.barrier()
+        # wait all the DDP process to be ready
+        if is_dist_avail_and_initialized():
+            dist.barrier()
 
-            # sort input sequences from short to long
-            dataset.preprocess_samples()
+        # sort input sequences from short to long
+        dataset.preprocess_samples()
 
-            # get samplers
-            sampler = self.get_sampler(config, dataset, num_gpus)
+        # get samplers
+        sampler = self.get_sampler(config, dataset)
 
-            loader = DataLoader(
-                dataset,
-                batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                shuffle=config.shuffle if sampler is None else False,  # if there is no other sampler
-                collate_fn=dataset.collate_fn,
-                drop_last=config.drop_last,  # setting this False might cause issues in AMP training.
-                sampler=sampler,
-                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                pin_memory=False,
-            )
-        return loader
+        return DataLoader(
+            dataset,
+            batch_size=config.eval_batch_size if is_eval else config.batch_size,
+            shuffle=config.shuffle if sampler is None else False,  # if there is no other sampler
+            collate_fn=dataset.collate_fn,
+            drop_last=config.drop_last,  # setting this False might cause issues in AMP training.
+            sampler=sampler,
+            num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+            pin_memory=False,
+        )
 
-    def _create_logs(
-        self, batch: dict[str, Any], outputs: dict[str, Any] | list[dict[str, Any]]
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise NotImplementedError
 
     @torch.inference_mode()
     def train_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         """Create visualizations and waveform examples.
@@ -369,7 +404,6 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             batch: Model inputs used at the previous training step.
             outputs: Model outputs generated at the previous training step.
             logger: Logger instance.
-            assets: Training assets.
         """
         figures, audios = self._create_logs(batch, outputs)
         logger.train_figures(steps, figures)
@@ -378,7 +412,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     @torch.inference_mode()
     def eval_step(
         self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         """Perform a single evaluation step.
 
         Run the model forward ... and compute losses. In most cases, you can
@@ -400,9 +434,8 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def eval_log(
         self,
         batch: dict[str, Any],
-        outputs: dict[str, Any] | list[dict[str, Any]],
+        outputs: dict[str, Any],
         logger: BaseDashboardLogger,
-        assets: dict[str, Any],
         steps: int,
     ) -> None:
         figures, audios = self._create_logs(batch, outputs)
@@ -410,17 +443,16 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         logger.eval_audios(steps, audios, self.ap.sample_rate)
 
     @torch.inference_mode()
-    def test_run(self, assets: dict) -> dict[str, Any]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         """Generic test run for `tts` models used by `Trainer`.
 
         You can override this for a different behaviour.
 
-        Args:
-            assets (dict): A dict of training assets. For `tts` models, it must include `{'audio_processor': ap}`.
-
         Returns:
             Dictionary with test figures and audios to be projected to Tensorboard.
         """
+        from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+
         logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
@@ -446,41 +478,28 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
     def test_log(
         self,
         outputs: dict[str, Any],
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
+        logger: BaseDashboardLogger,
+        steps: int,
     ) -> None:
         logger.test_audios(steps, outputs["audios"], self.ap.sample_rate)
         if "figures" in outputs:
             logger.test_figures(steps, outputs["figures"])
 
-    def on_init_start(self, trainer):
-        """Save the speaker.pth and language_ids.json at the beginning of the training. Also update both paths."""
+    def on_init_start(self, trainer: Trainer) -> None:
+        """Save the speaker.pth at the beginning of the training and update the config."""
         if self.speaker_manager is not None:
             output_path = os.path.join(trainer.output_path, "speakers.pth")
             self.speaker_manager.save_ids_to_file(output_path)
             trainer.config.speakers_file = output_path
-            # some models don't have `model_args` set
-            if getattr(trainer.config, "model_args", None) is not None:
-                trainer.config.model_args.speakers_file = output_path
+            trainer.config.model_args.speakers_file = output_path
             trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
             logger.info("`speakers.pth` is saved to: %s", output_path)
             logger.info("`speakers_file` is updated in the config.json.")
 
-        if self.language_manager is not None:
-            output_path = os.path.join(trainer.output_path, "language_ids.json")
-            self.language_manager.save_ids_to_file(output_path)
-            trainer.config.language_ids_file = output_path
-            if getattr(trainer.config, "model_args", None) is not None:
-                trainer.config.model_args.language_ids_file = output_path
-            trainer.config.save_json(os.path.join(trainer.output_path, "config.json"))
-            logger.info("`language_ids.json` is saved to: %s", output_path)
-            logger.info("`language_ids_file` is updated in the config.json.")
-
     def _get_language_id(self, language: str | None) -> int | None:
-        if self.language_manager is not None:
-            if len(self.language_manager.name_to_id) == 1:
-                return list(self.language_manager.name_to_id.values())[0]
+        if self.language_manager.num_languages == 1:
+            return next(iter(self.language_manager.name_to_id.values()))
+        if self.language_manager.num_languages > 1:
             if language is not None:
                 try:
                     return self.language_manager.name_to_id[language]
@@ -516,8 +535,8 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             return None, None
 
         if len(self.speaker_manager.name_to_id) == 1:
-            speaker_id = list(self.speaker_manager.name_to_id.values())[0]
-            return torch.tensor(speaker_id, device=self.device), None
+            speaker_id = next(iter(self.speaker_manager.name_to_id.values()))
+            return torch.tensor([speaker_id], device=self.device), None
 
         speaker_exists = True
         if get_from_config_or_model_args(self.config, "use_d_vector_file") and speaker is not None:
@@ -530,7 +549,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         if get_from_config_or_model_args(self.config, "use_speaker_embedding") and speaker is not None:
             if speaker in self.speaker_manager.name_to_id:
                 speaker_id = self.speaker_manager.name_to_id[speaker]
-                return torch.tensor(speaker_id, device=self.device), None
+                return torch.tensor([speaker_id], device=self.device), None
             speaker_exists = False
 
         if self.speaker_manager.encoder is not None and (speaker is not None or speaker_wav is not None):
@@ -546,6 +565,47 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
             "You need to pass either a speaker name or a reference audio file."
         )
         raise ValueError(msg)
+
+    def _get_speaker_conditioning(
+        self,
+        aux_input: dict[str, Any],
+        spk_emb_module_name: str = "speaker_embedding",
+        *,
+        normalize_d_vector: bool = True,
+        normalize_embedding: bool = True,
+        output_shape: Literal["BCT", "BTC"] = "BCT",
+    ) -> torch.Tensor | None:
+        """Return speaker conditioning vector for multi-speaker models.
+
+        Output shape: [b, h, 1]
+        """
+        sid = aux_input.get("speaker_ids")
+        g = aux_input.get("d_vectors")
+
+        if sid is not None and g is not None:
+            msg = "Cannot use both speaker_ids and d_vectors simultaneously. "
+            raise ValueError(msg)
+
+        if g is not None and normalize_d_vector:
+            g = F.normalize(g)
+        if get_from_config_or_model_args(self.config, "use_speaker_embedding") and sid is not None:
+            spk_emb_module = getattr(self, spk_emb_module_name, None)
+            if spk_emb_module is None:
+                msg = "Speaker embedding requested but no embedding module provided"
+                raise RuntimeError(msg)
+            g = spk_emb_module(sid)
+            assert g.ndim == 2
+            if normalize_embedding:
+                g = F.normalize(g)
+        if g is not None:
+            if output_shape == "BCT":
+                g = g.unsqueeze(-1)
+            elif output_shape == "BTC":
+                g = g.unsqueeze(1)
+            else:
+                msg = f"Invalid output shape `{output_shape}`. Use `BCT` or `BTC`."
+                raise ValueError(msg)
+        return g
 
     def _clone_voice(
         self, speaker_wav: str | os.PathLike[Any] | list[str | os.PathLike[Any]], **kwargs
@@ -591,12 +651,14 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         if (speaker_id := kwargs.pop("speaker_id", None)) is not None:
             speaker = speaker_id
             warn_synthesize_speaker_id_deprecated()
-        text_inputs = self.tokenizer.text_to_ids(text, language=language)
         language_id = self._get_language_id(language)
+        if language is None and self.language_manager.num_languages == 1:
+            language = self.language_manager.language_names[0]
+        text_inputs = self.tokenizer.text_to_ids(text, language=language)
         _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav, voice_dir)
         text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
         if language_id is not None:
-            language_id = torch.tensor(language_id, device=self.device)
+            language_id = torch.tensor([language_id], device=self.device)
 
         if extra_aux_input is None:
             extra_aux_input = {}
@@ -631,18 +693,16 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
 
 
 class BaseTTSE2E(BaseTTS):
-    def _set_model_args(self, config: Coqpit):
-        self.config = config
-        if "Config" in config.__class__.__name__:
+    def _set_model_args(self) -> None:
+        if isinstance(self.config, BaseTTSConfig):
             num_chars = (
                 self.config.model_args.num_chars if self.tokenizer is None else self.tokenizer.characters.num_chars
             )
             self.config.model_args.num_chars = num_chars
             self.config.num_chars = num_chars
-            self.args = config.model_args
+            self.args = self.config.model_args
             self.args.num_chars = num_chars
-        elif "Args" in config.__class__.__name__:
-            self.args = config
-            self.args.num_chars = self.args.num_chars
+        elif isinstance(self.config, ModelArgs):
+            self.args = self.config
         else:
-            raise ValueError("config must be either a *Config or *Args")
+            raise TypeError("config must be either a *Config or *Args")

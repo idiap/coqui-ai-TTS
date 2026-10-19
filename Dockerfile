@@ -24,13 +24,17 @@ RUN if echo "$BASE" | grep -q "cuda"; then \
     else \
       UV_TORCH_BACKEND=cpu; \
     fi && \
-    uv pip install -r pyproject.toml --extra all --torch-backend=${UV_TORCH_BACKEND}
+    uv pip install torch torchaudio torchcodec --torch-backend=${UV_TORCH_BACKEND} && \
+    uv pip install -r pyproject.toml --extra all
 
 # Copy the rest of the application
 COPY . /app
 
 # Install the project
 RUN uv pip install -e .
+
+# Verify installation works
+RUN uv run --active python -c "from TTS.api import TTS"
 
 ENTRYPOINT ["tts"]
 CMD ["--help"]

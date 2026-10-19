@@ -23,7 +23,7 @@ from TTS.tts.configs.bark_config import BarkConfig
 from TTS.tts.models.bark import Bark
 
 config = BarkConfig()
-model = Bark.init_from_config(config)
+model = Bark(config)
 model.load_checkpoint(config, checkpoint_dir="path/to/model/dir/", eval=True)
 
 # Random speaker

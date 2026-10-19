@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # TODO: use Trainer
 
 import logging
@@ -18,7 +16,7 @@ from trainer.logging import BaseDashboardLogger, ConsoleLogger, logger_factory
 from trainer.torch import NoamLR
 from trainer.trainer_utils import get_optimizer
 
-from TTS.config import load_config, register_config
+from TTS.config import load_config
 from TTS.encoder.configs.base_encoder_config import BaseEncoderConfig
 from TTS.encoder.dataset import EncoderDataset
 from TTS.encoder.utils.generic_utils import setup_encoder_model
@@ -72,17 +70,12 @@ def process_args(
         if not args.best_path:
             args.best_path = best_model
     # init config if not already defined
-    if config is None:
-        if args.config_path:
-            # init from a file
-            config = load_config(args.config_path)
-        else:
-            # init from console args
-            from TTS.config.shared_configs import BaseTrainingConfig  # pylint: disable=import-outside-toplevel
-
-            config_base = BaseTrainingConfig()
-            config_base.parse_known_args(coqpit_overrides)
-            config = register_config(config_base.model)()
+    if config is None and args.config_path:
+        # init from a file
+        config = load_config(args.config_path)
+    else:
+        msg = "You need to specify either --config_path or --continue_path"
+        raise RuntimeError(msg)
     # override values from command-line args
     config.parse_known_args(coqpit_overrides, relaxed_parser=True)
     experiment_path = args.continue_path
@@ -317,13 +310,13 @@ def train(
                     c.output_log_path,
                     current_step=global_step,
                     epoch=epoch,
-                    optimizer=optimizer,
+                    optimizer=[optimizer],
                     criterion=criterion.state_dict(),
                 )
 
             end_time = time.time()
 
-        print("")
+        print()
         print(
             f">>> Epoch:{epoch}  AvgLoss: {tot_loss / len(data_loader):.5f} GradNorm:{grad_norm:.5f}  "
             f"EpochTime:{epoch_time:.2f} AvGLoaderTime:{avg_loader_time:.2f} ",
@@ -348,7 +341,7 @@ def train(
                 c.output_log_path,
                 current_step=global_step,
                 epoch=epoch,
-                optimizer=optimizer,
+                optimizer=[optimizer],
                 criterion=criterion.state_dict(),
             )
             model.train()
@@ -362,19 +355,16 @@ def main(arg_list: list[str] | None = None):
     train_config = TrainArgs()
     parser = train_config.init_argparse(arg_prefix="")
     args, overrides = parser.parse_known_args(arg_list)
-    c, OUT_PATH, AUDIO_PATH, c_logger, dashboard_logger = process_args((args, overrides))
-    # pylint: disable=global-variable-undefined
+    c, OUT_PATH, _AUDIO_PATH, _c_logger, dashboard_logger = process_args((args, overrides))
     global meta_data_train
     global meta_data_eval
     global train_classes
 
-    ap = AudioProcessor(**c.audio)
+    ap = AudioProcessor(c.audio)
     model = setup_encoder_model(c)
 
     optimizer = get_optimizer(c.optimizer, c.optimizer_params, c.lr, model)
-
-    # pylint: disable=redefined-outer-name
-    meta_data_train, meta_data_eval = load_tts_samples(c.datasets, eval_split=True)
+    meta_data_train, meta_data_eval = load_tts_samples(c, eval_split=True)
 
     train_data_loader, train_classes, map_classid_to_classname = setup_loader(c, ap, is_val=False)
     if c.run_eval:
@@ -425,8 +415,8 @@ if __name__ == "__main__":
     #     try:
     #         sys.exit(0)
     #     except SystemExit:
-    #         os._exit(0)  # pylint: disable=protected-access
-    # except Exception:  # pylint: disable=broad-except
+    #         os._exit(0)
+    # except Exception:
     #     remove_experiment_folder(OUT_PATH)
     #     traceback.print_exc()
     #     sys.exit(1)

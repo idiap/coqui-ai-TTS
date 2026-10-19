@@ -16,7 +16,7 @@ from TTS.tts.configs.tortoise_config import TortoiseConfig
 from TTS.tts.models.tortoise import Tortoise
 
 config = TortoiseConfig()
-model = Tortoise.init_from_config(config)
+model = Tortoise(config)
 model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
 model.to("cuda")
 
@@ -85,7 +85,7 @@ tts --model_name  tts_models/en/multi-dataset/tortoise-v2 \
 
 ## TortoiseArgs
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.tortoise.TortoiseArgs
+.. autoclass:: TTS.tts.configs.tortoise_config.TortoiseArgs
     :members:
 ```
 

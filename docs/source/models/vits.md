@@ -32,7 +32,7 @@ TTS models in low-resources languages. 🐸 YourTTS uses VITS as the backbone ar
 
 ## VitsArgs
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.vits.VitsArgs
+.. autoclass:: TTS.tts.configs.vits_config.VitsArgs
     :members:
 ```
 

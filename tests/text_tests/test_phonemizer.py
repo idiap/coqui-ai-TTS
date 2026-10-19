@@ -3,10 +3,12 @@ import unittest
 import pytest
 from packaging.version import Version
 
-from TTS.tts.utils.text.phonemizers import ESpeak, Gruut, JA_JP_Phonemizer, ZH_CN_Phonemizer
 from TTS.tts.utils.text.phonemizers.bangla_phonemizer import BN_Phonemizer
-from TTS.tts.utils.text.phonemizers.espeak_wrapper import _is_tool
+from TTS.tts.utils.text.phonemizers.espeak_wrapper import ESpeak, _is_tool
+from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
+from TTS.tts.utils.text.phonemizers.ja_jp_phonemizer import JA_JP_Phonemizer
 from TTS.tts.utils.text.phonemizers.multi_phonemizer import MultiPhonemizer
+from TTS.tts.utils.text.phonemizers.zh_cn_phonemizer import ZH_CN_Phonemizer
 
 EXAMPLE_TEXTs = [
     "Recent research at Harvard has shown meditating",
@@ -295,11 +297,8 @@ class TestMultiPhonemizer(unittest.TestCase):
             MultiPhonemizer({"tr": "espeak", "fr": "xx"})
 
     def test_sub_phonemizers(self):
-        for lang in self.phonemizer.lang_to_phonemizer_name.keys():
+        for lang in self.phonemizer.lang_to_phonemizer:
             self.assertEqual(lang, self.phonemizer.lang_to_phonemizer[lang].language)
-            self.assertEqual(
-                self.phonemizer.lang_to_phonemizer_name[lang], self.phonemizer.lang_to_phonemizer[lang].name()
-            )
 
     def test_name(self):
         self.assertEqual(self.phonemizer.name(), "multi-phonemizer")

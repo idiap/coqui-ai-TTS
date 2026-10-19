@@ -43,7 +43,7 @@ def test_gan_dataset(
     batch_size, seq_len, conv_pad, return_pairs, return_segments, use_noise_augment, use_cache, num_workers
 ):
     """Test dataloader with different parameters."""
-    ap = AudioProcessor(**C.audio)
+    ap = AudioProcessor(C.audio)
     hop_len = C.audio["hop_length"]
     _, train_items = load_wav_data(test_data_path, 10)
     dataset = GANDataset(

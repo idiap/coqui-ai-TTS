@@ -93,16 +93,17 @@ class Prenet(nn.Module):
         bias (bool, optional): enable/disable bias in prenet linear layers. Defaults to True.
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         in_features,
         prenet_type="original",
         prenet_dropout=True,
         dropout_at_inference=False,
-        out_features=[256, 256],
+        out_features=None,
         bias=True,
     ):
+        if out_features is None:
+            out_features = [256, 256]
         super().__init__()
         self.prenet_type = prenet_type
         self.prenet_dropout = prenet_dropout

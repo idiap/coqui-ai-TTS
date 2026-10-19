@@ -40,7 +40,7 @@ XTTS-v2 supports 17 languages:
 - Turkish (tr)
 
 ## License
-This model is licensed under [Coqui Public Model License](https://coqui.ai/cpml).
+This model is licensed under [Coqui Public Model License](https://tts-hub.github.io/cpml).
 
 ## Contact
 Come and join in our 🐸Community. We're active on [Discord](https://discord.gg/fBC58unbKE) and [GitHub](https://github.com/idiap/coqui-ai-TTS/discussions).
@@ -56,11 +56,12 @@ You can check all supported languages with the following command:
     --list_language_idx
 ```
 
-You can check all Coqui available speakers with the following command:
+You can check all available Coqui speakers with the following command:
 
 ```console
- tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
-    --list_speaker_idx
+>>> tts --model_name tts_models/multilingual/multi-dataset/xtts_v2 \
+        --list_speaker_idx
+['Claribel Dervla', 'Daisy Studious', 'Gracie Wise', 'Tammie Ema', 'Alison Dietlinde', 'Ana Florence', 'Annmarie Nele', 'Asya Anara', 'Brenda Stern', 'Gitta Nikolina', 'Henriette Usha', 'Sofia Hellen', 'Tammy Grit', 'Tanja Adelina', 'Vjollca Johnnie', 'Andrew Chipper', 'Badr Odhiambo', 'Dionisio Schuyler', 'Royston Min', 'Viktor Eka', 'Abrahan Mack', 'Adde Michal', 'Baldur Sanjin', 'Craig Gutsy', 'Damien Black', 'Gilberto Mathias', 'Ilkin Urbano', 'Kazuhiko Atallah', 'Ludvig Milivoj', 'Suad Qasim', 'Torcull Diarmuid', 'Viktor Menelaos', 'Zacharie Aimilios', 'Nova Hogarth', 'Maja Ruoho', 'Uta Obando', 'Lidiya Szekeres', 'Chandra MacFarland', 'Szofi Granger', 'Camilla Holmström', 'Lilya Stainthorpe', 'Zofija Kendrick', 'Narelle Moon', 'Barbora MacLean', 'Alexandra Hisakawa', 'Alma María', 'Rosemary Okafor', 'Ige Behringer', 'Filip Traverse', 'Damjan Chapman', 'Wulf Carlevaro', 'Aaron Dreschner', 'Kumar Dahl', 'Eugenio Mataracı', 'Ferran Simen', 'Xavier Hayasaka', 'Luis Moray', 'Marcos Rudaski']
 ```
 
 #### Coqui speakers
@@ -220,7 +221,7 @@ from TTS.tts.models.xtts import Xtts
 print("Loading model...")
 config = XttsConfig()
 config.load_json("/path/to/xtts/config.json")
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_dir="/path/to/xtts/", use_deepspeed=True)
 model.cuda()
 
@@ -261,7 +262,7 @@ from TTS.tts.models.xtts import Xtts
 print("Loading model...")
 config = XttsConfig()
 config.load_json("/path/to/xtts/config.json")
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_dir="/path/to/xtts/", use_deepspeed=True)
 model.cuda()
 
@@ -298,6 +299,13 @@ To make `XTTS_v2` GPT encoder training easier for beginner users we did a gradio
 - Inference support using the fine-tuned model
 
 The user can run this gradio demo locally or remotely using a Colab Notebook.
+
+```{warning}
+The demo creates a public Gradio share link (`https://*.gradio.live`). Anyone
+with this link has full access to the demo, including uploading files and
+reading/writing files on the machine running it. Do not share the link or
+publish notebook outputs/logs that contain it.
+```
 
 #### Run demo on Colab
 To make the `XTTS_v2` fine-tuning more accessible for users that do not have good GPUs available we did a Google Colab Notebook.
@@ -364,7 +372,7 @@ OUTPUT_WAV_PATH = "xtts-ft.wav"
 print("Loading model...")
 config = XttsConfig()
 config.load_json(CONFIG_PATH)
-model = Xtts.init_from_config(config)
+model = Xtts(config)
 model.load_checkpoint(config, checkpoint_path=XTTS_CHECKPOINT, vocab_path=TOKENIZER_PATH, use_deepspeed=False)
 model.cuda()
 
@@ -402,7 +410,7 @@ torchaudio.save(OUTPUT_WAV_PATH, torch.tensor(out["wav"]).unsqueeze(0), 24000)
 
 ## XttsArgs
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.xtts.XttsArgs
+.. autoclass:: TTS.tts.configs.xtts_config.XttsArgs
     :members:
 ```
 

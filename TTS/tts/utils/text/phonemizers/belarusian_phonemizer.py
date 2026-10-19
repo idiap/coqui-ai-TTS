@@ -1,3 +1,5 @@
+from typing import Any
+
 from TTS.tts.utils.text.belarusian.phonemizer import belarusian_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -17,28 +19,29 @@ class BEL_Phonemizer(BasePhonemizer):
 
     language = "be"
 
-    def __init__(self, punctuations=_DEF_BE_PUNCS, keep_puncs=True, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, punctuations: str = _DEF_BE_PUNCS, *, keep_puncs: bool = True, **kwargs: Any) -> None:
         super().__init__(self.language, punctuations=punctuations, keep_puncs=keep_puncs)
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "be_phonemizer"
 
     @staticmethod
-    def phonemize_be(text: str, separator: str = "|") -> str:  # pylint: disable=unused-argument
+    def phonemize_be(text: str) -> str:
         return belarusian_text_to_phonemes(text)
 
-    def _phonemize(self, text, separator):
-        return self.phonemize_be(text, separator)
+    def _phonemize(self, text: str, separator: str) -> str:
+        return self.phonemize_be(text)
 
     @staticmethod
-    def supported_languages() -> dict:
+    def supported_languages() -> dict[str, str]:
         return {"be": "Belarusian"}
 
     def version(self) -> str:
         return "0.0.1"
 
-    def is_available(self) -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         return True
 
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
+from TTS.tts.configs.forward_tts_config import ForwardTTSArgs
 from TTS.tts.configs.shared_configs import BaseTTSConfig
-from TTS.tts.models.forward_tts import ForwardTTSArgs
 
 
 @dataclass
@@ -127,7 +127,6 @@ class SpeedySpeechConfig(BaseTTSConfig):
     )
 
     # multi-speaker settings
-    num_speakers: int = 0
     speakers_file: str | None = None
     use_speaker_embedding: bool = False
     use_d_vector_file: bool = False
@@ -174,10 +173,6 @@ class SpeedySpeechConfig(BaseTTSConfig):
     )
 
     def __post_init__(self):
-        # Pass multi-speaker parameters to the model args as `model.init_multispeaker()` looks for it there.
-        if self.num_speakers > 0:
-            self.model_args.num_speakers = self.num_speakers
-
         # speaker embedding settings
         if self.use_speaker_embedding:
             self.model_args.use_speaker_embedding = True

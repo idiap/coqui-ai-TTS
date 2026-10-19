@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     c_dataset = load_config(args.config_dataset_path)
 
-    meta_data_train, meta_data_eval = load_tts_samples(c_dataset.datasets, eval_split=args.eval)
+    meta_data_train, meta_data_eval = load_tts_samples(c_dataset, eval_split=args.eval)
     items = meta_data_train + meta_data_eval
 
     enc_manager = SpeakerManager(

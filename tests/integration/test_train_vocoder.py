@@ -13,9 +13,9 @@ from TTS.vocoder.configs import (
     MultibandMelganConfig,
     ParallelWaveganConfig,
     WavegradConfig,
+    WavernnArgs,
     WavernnConfig,
 )
-from TTS.vocoder.models.wavernn import WavernnArgs
 
 GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 

@@ -5,17 +5,15 @@ from trainer import Trainer, TrainerArgs
 
 from TTS.bin.compute_embeddings import compute_embeddings
 from TTS.bin.resample import resample_files
-from TTS.config.shared_configs import BaseDatasetConfig
-from TTS.tts.configs.vits_config import VitsConfig
+from TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig
+from TTS.tts.configs.vits_config import VitsArgs, VitsConfig
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.models.vits import CharactersConfig, Vits, VitsArgs, VitsAudioConfig
+from TTS.tts.models.vits import CharactersConfig, Vits
 from TTS.utils.downloaders import download_vctk
 
 
 def main():
     torch.set_num_threads(24)
-
-    # pylint: disable=W0105
     """
         This recipe replicates the first experiment proposed in the YourTTS paper (https://arxiv.org/abs/2112.02418).
         YourTTS model is based on the VITS model however it uses external speaker embeddings extracted from a pre-trained speaker encoder and has small architecture changes.
@@ -116,7 +114,7 @@ def main():
         D_VECTOR_FILES.append(embeddings_file)
 
     # Audio config used in training.
-    audio_config = VitsAudioConfig(
+    audio_config = BaseAudioConfig(
         sample_rate=SAMPLE_RATE,
         hop_length=256,
         win_length=1024,
@@ -235,14 +233,14 @@ def main():
 
     # Load all the datasets samples and split traning and evaluation sets
     train_samples, eval_samples = load_tts_samples(
-        config.datasets,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
     )
 
     # Init the model
-    model = Vits.init_from_config(config)
+    model = Vits(config)
 
     # Init the trainer and 🚀
     trainer = Trainer(

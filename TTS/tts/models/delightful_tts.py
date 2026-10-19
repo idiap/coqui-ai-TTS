@@ -1,7 +1,6 @@
 import logging
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from itertools import chain
 from pathlib import Path
 from typing import Any
@@ -13,9 +12,12 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from trainer import Trainer
 from trainer.torch import DistributedSampler, DistributedSamplerWrapper
 from trainer.trainer_utils import get_optimizer, get_scheduler
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
+from TTS.tts.configs.delightful_tts_config import DelightfulTtsArgs, DelightfulTTSConfig
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import F0Dataset, TTSDataset, _parse_sample, get_attribute_balancer_weights
 from TTS.tts.layers.delightful_tts.acoustic_model import AcousticModel
@@ -30,13 +32,9 @@ from TTS.tts.layers.vits.discriminator import VitsDiscriminator
 from TTS.tts.models.base_tts import BaseTTSE2E
 from TTS.tts.models.vits import load_audio
 from TTS.tts.utils.helpers import average_over_durations, compute_attn_prior, rand_segments, segment, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
 from TTS.utils.audio.numpy_transforms import build_mel_basis, compute_f0
 from TTS.utils.audio.numpy_transforms import db_to_amp as db_to_amp_numpy
 from TTS.utils.audio.numpy_transforms import mel_to_wav as mel_to_wav_numpy
-from TTS.utils.audio.processor import AudioProcessor
 from TTS.utils.audio.torch_transforms import wav_to_mel, wav_to_spec
 from TTS.utils.generic_utils import warn_synthesize_config_deprecated, warn_synthesize_speaker_id_deprecated
 from TTS.vocoder.layers.losses import MultiScaleSTFTLoss
@@ -67,7 +65,7 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         self,
         ap,
         samples: list[list] | list[dict],
-        cache_path: str = None,
+        cache_path: str | None = None,
         precompute_num_workers=0,
         normalize_f0=True,
     ):
@@ -79,7 +77,7 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
             normalize_f0=normalize_f0,
         )
 
-    def _compute_and_save_pitch(self, wav_file, pitch_file=None):
+    def _compute_and_save_pitch(self, wav_file, pitch_file=None) -> np.ndarray:
         wav, _ = load_audio(wav_file)
         f0 = compute_f0(
             x=wav.numpy()[0],
@@ -95,17 +93,6 @@ class ForwardTTSE2eF0Dataset(F0Dataset):
         if pitch_file:
             np.save(pitch_file, f0)
         return f0
-
-    def compute_or_load(self, wav_file, audio_name):
-        """
-        compute pitch and return a numpy array of pitch values
-        """
-        pitch_file = self.create_pitch_file_path(audio_name, self.cache_path)
-        if not os.path.exists(pitch_file):
-            pitch = self._compute_and_save_pitch(wav_file=wav_file, pitch_file=pitch_file)
-        else:
-            pitch = np.load(pitch_file)
-        return pitch.astype(np.float32)
 
 
 class ForwardTTSE2eDataset(TTSDataset):
@@ -143,10 +130,9 @@ class ForwardTTSE2eDataset(TTSDataset):
         wav_filename = os.path.basename(item["audio_file"])
 
         try:
-            token_ids = self.get_token_ids(idx, item["text"])
+            token_ids = self.get_token_ids(idx, item["text"], item["language"])
         except:
             logger.exception("%s %s", idx, item)
-            # pylint: disable=raise-missing-from
             raise OSError
         f0 = None
         if self.compute_f0:
@@ -179,7 +165,6 @@ class ForwardTTSE2eDataset(TTSDataset):
     def load_or_compute_attn_prior(self, token_ids, wav, rel_wav_path):
         """Load or compute and save the attention prior."""
         attn_prior_file = os.path.join(self.attn_prior_cache_path, f"{rel_wav_path}.npy")
-        # pylint: disable=no-else-return
         if os.path.exists(attn_prior_file):
             return np.load(attn_prior_file)
         else:
@@ -269,103 +254,6 @@ class ForwardTTSE2eDataset(TTSDataset):
 
 
 ##############################
-# CONFIG DEFINITIONS
-##############################
-
-
-@dataclass
-class VocoderConfig(Coqpit):
-    resblock_type_decoder: str = "1"
-    resblock_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [3, 7, 11])
-    resblock_dilation_sizes_decoder: list[list[int]] = field(default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]])
-    upsample_rates_decoder: list[int] = field(default_factory=lambda: [8, 8, 2, 2])
-    upsample_initial_channel_decoder: int = 512
-    upsample_kernel_sizes_decoder: list[int] = field(default_factory=lambda: [16, 16, 4, 4])
-    use_spectral_norm_discriminator: bool = False
-    upsampling_rates_discriminator: list[int] = field(default_factory=lambda: [4, 4, 4, 4])
-    periods_discriminator: list[int] = field(default_factory=lambda: [2, 3, 5, 7, 11])
-    pretrained_model_path: str | None = None
-
-
-@dataclass
-class DelightfulTtsAudioConfig(Coqpit):
-    sample_rate: int = 22050
-    hop_length: int = 256
-    win_length: int = 1024
-    fft_size: int = 1024
-    mel_fmin: float = 0.0
-    mel_fmax: float = 8000
-    num_mels: int = 100
-    pitch_fmax: float = 640.0
-    pitch_fmin: float = 1.0
-    resample: bool = False
-    preemphasis: float = 0.0
-    ref_level_db: int = 20
-    do_sound_norm: bool = False
-    log_func: str = "np.log10"
-    do_trim_silence: bool = True
-    trim_db: int = 45
-    do_rms_norm: bool = False
-    db_level: float = None
-    power: float = 1.5
-    griffin_lim_iters: int = 60
-    spec_gain: int = 20
-    do_amp_to_db_linear: bool = True
-    do_amp_to_db_mel: bool = True
-    min_level_db: int = -100
-    max_norm: float = 4.0
-
-
-@dataclass
-class DelightfulTtsArgs(Coqpit):
-    num_chars: int = 100
-    spec_segment_size: int = 32
-    n_hidden_conformer_encoder: int = 512
-    n_layers_conformer_encoder: int = 6
-    n_heads_conformer_encoder: int = 8
-    dropout_conformer_encoder: float = 0.1
-    kernel_size_conv_mod_conformer_encoder: int = 7
-    kernel_size_depthwise_conformer_encoder: int = 7
-    lrelu_slope: float = 0.3
-    n_hidden_conformer_decoder: int = 512
-    n_layers_conformer_decoder: int = 6
-    n_heads_conformer_decoder: int = 8
-    dropout_conformer_decoder: float = 0.1
-    kernel_size_conv_mod_conformer_decoder: int = 11
-    kernel_size_depthwise_conformer_decoder: int = 11
-    bottleneck_size_p_reference_encoder: int = 4
-    bottleneck_size_u_reference_encoder: int = 512
-    ref_enc_filters_reference_encoder = [32, 32, 64, 64, 128, 128]
-    ref_enc_size_reference_encoder: int = 3
-    ref_enc_strides_reference_encoder = [1, 2, 1, 2, 1]
-    ref_enc_pad_reference_encoder = [1, 1]
-    ref_enc_gru_size_reference_encoder: int = 32
-    ref_attention_dropout_reference_encoder: float = 0.2
-    token_num_reference_encoder: int = 32
-    predictor_kernel_size_reference_encoder: int = 5
-    n_hidden_variance_adaptor: int = 512
-    kernel_size_variance_adaptor: int = 5
-    dropout_variance_adaptor: float = 0.5
-    n_bins_variance_adaptor: int = 256
-    emb_kernel_size_variance_adaptor: int = 3
-    use_speaker_embedding: bool = False
-    num_speakers: int = 0
-    speakers_file: str = None
-    d_vector_file: str = None
-    speaker_embedding_channels: int = 384
-    use_d_vector_file: bool = False
-    d_vector_dim: int = 0
-    freeze_vocoder: bool = False
-    freeze_text_encoder: bool = False
-    freeze_duration_predictor: bool = False
-    freeze_pitch_predictor: bool = False
-    freeze_energy_predictor: bool = False
-    freeze_basis_vectors_predictor: bool = False
-    freeze_decoder: bool = False
-    length_scale: float = 1.0
-
-
-##############################
 # MODEL DEFINITION
 ##############################
 class DelightfulTTS(BaseTTSE2E):
@@ -398,21 +286,25 @@ class DelightfulTTS(BaseTTSE2E):
         >>> model = ForwardTTSE2e(config)
     """
 
-    # pylint: disable=dangerous-default-value
+    config: DelightfulTTSConfig
+    args: DelightfulTtsArgs
+
     def __init__(
         self,
         config: Coqpit,
-        ap,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
-        super().__init__(config=config, ap=ap, tokenizer=tokenizer, speaker_manager=speaker_manager)
-        self.init_multispeaker(config)
+        super().__init__(config, ap, tokenizer, speaker_manager)
+        self.init_multispeaker()
         self.binary_loss_weight = None
 
         self.args.out_channels = self.config.audio.num_mels
         self.args.num_mels = self.config.audio.num_mels
-        self.acoustic_model = AcousticModel(args=self.args, tokenizer=tokenizer, speaker_manager=speaker_manager)
+        self.acoustic_model = AcousticModel(
+            args=self.args, tokenizer=self.tokenizer, speaker_manager=self.speaker_manager
+        )
 
         self.waveform_decoder = HifiganGenerator(
             self.config.audio.num_mels,
@@ -472,49 +364,24 @@ class DelightfulTTS(BaseTTSE2E):
             num_mels=self.ap.num_mels,
             mel_fmax=self.ap.mel_fmax,
             mel_fmin=self.ap.mel_fmin,
-        )  # pylint: disable=function-redefined
+        )
 
-    def init_for_training(self) -> None:
-        self.train_disc = (  # pylint: disable=attribute-defined-outside-init
-            self.config.steps_to_start_discriminator <= 0
-        )  # pylint: disable=attribute-defined-outside-init
-        self.update_energy_scaler = True  # pylint: disable=attribute-defined-outside-init
+    def on_init_start(self, trainer: Trainer) -> None:
+        self.train_disc = self.config.steps_to_start_discriminator <= 0
+        self.update_energy_scaler = True
 
-    def init_multispeaker(self, config: Coqpit):
-        """Init for multi-speaker training.
-
-        Args:
-            config (Coqpit): Model configuration.
-        """
-        self.embedded_speaker_dim = 0
-        self.num_speakers = self.args.num_speakers
-        self.audio_transform = None
-
-        if self.speaker_manager:
-            self.num_speakers = self.speaker_manager.num_speakers
-            self.args.num_speakers = self.speaker_manager.num_speakers
-
-        if self.args.use_speaker_embedding:
-            self._init_speaker_embedding()
-
-        if self.args.use_d_vector_file:
-            self._init_d_vector()
-
-    def _init_speaker_embedding(self):
-        # pylint: disable=attribute-defined-outside-init
+    def _init_speaker_embedding(self) -> None:
         if self.num_speakers > 0:
-            logger.info("Initialization of speaker-embedding layers.")
             self.embedded_speaker_dim = self.args.speaker_embedding_channels
             self.args.embedded_speaker_dim = self.args.speaker_embedding_channels
 
-    def _init_d_vector(self):
-        # pylint: disable=attribute-defined-outside-init
+    def _init_d_vector(self) -> None:
         if hasattr(self, "emb_g"):
             raise ValueError("[!] Speaker embedding layer already initialized before d_vector settings.")
         self.embedded_speaker_dim = self.args.d_vector_dim
         self.args.embedded_speaker_dim = self.args.d_vector_dim
 
-    def _freeze_layers(self):
+    def _freeze_layers(self) -> None:
         if self.args.freeze_vocoder:
             for param in self.vocoder.paramseters():
                 param.requires_grad = False
@@ -617,9 +484,9 @@ class DelightfulTTS(BaseTTSE2E):
         return model_outputs
 
     @torch.inference_mode()
-    def inference(
-        self, x, aux_input={"d_vectors": None, "speaker_ids": None, "pitch_transform": None, "energy_transform": None}
-    ):
+    def inference(self, x, aux_input=None):
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None, "pitch_transform": None, "energy_transform": None}
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
             d_vectors=aux_input.get("d_vectors", None),
@@ -639,7 +506,9 @@ class DelightfulTTS(BaseTTSE2E):
         return model_outputs
 
     @torch.inference_mode()
-    def inference_spec_decoder(self, x, aux_input={"d_vectors": None, "speaker_ids": None}):
+    def inference_spec_decoder(self, x, aux_input=None):
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
         encoder_outputs = self.acoustic_model.inference(
             tokens=x,
             d_vectors=aux_input["d_vectors"],
@@ -648,7 +517,9 @@ class DelightfulTTS(BaseTTSE2E):
         model_outputs = {**encoder_outputs}
         return model_outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module, optimizer_idx: int):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         if optimizer_idx == 0:
             tokens = batch["text_input"]
             token_lenghts = batch["text_lengths"]
@@ -676,7 +547,7 @@ class DelightfulTTS(BaseTTSE2E):
             )
 
             # cache tensors for the generator pass
-            self.model_outputs_cache = outputs  # pylint: disable=attribute-defined-outside-init
+            self.model_outputs_cache = outputs
 
             if self.train_disc:
                 # compute scores and features
@@ -686,7 +557,7 @@ class DelightfulTTS(BaseTTSE2E):
 
                 # compute loss
                 with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
-                    loss_dict = criterion[optimizer_idx](
+                    loss_dict = criterion(
                         scores_disc_fake=scores_d_fake,
                         scores_disc_real=scores_d_real,
                     )
@@ -725,7 +596,7 @@ class DelightfulTTS(BaseTTSE2E):
 
             # compute losses
             with torch.autocast("cuda", enabled=True):  # use float32 for the criterion
-                loss_dict = criterion[optimizer_idx](
+                loss_dict = criterion(
                     mel_output=self.model_outputs_cache["acoustic_model_outputs"].transpose(1, 2),
                     mel_target=batch["mel_input"],
                     mel_lens=batch["mel_lengths"],
@@ -766,12 +637,14 @@ class DelightfulTTS(BaseTTSE2E):
             return self.model_outputs_cache, loss_dict
         raise ValueError(" [!] Unexpected `optimizer_idx`.")
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_spectrogram
+
         figures, audios = {}, {}
 
         # encoder outputs
-        model_outputs = outputs[1]["acoustic_model_outputs"]
-        alignments = outputs[1]["alignments"]
+        model_outputs = outputs["acoustic_model_outputs_1"]
+        alignments = outputs["alignments_1"]
         mel_input = batch["mel_input"]
 
         pred_spec = model_outputs[0].data.cpu().numpy()
@@ -785,8 +658,8 @@ class DelightfulTTS(BaseTTSE2E):
         }
 
         # plot pitch figures
-        pitch_avg = abs(outputs[1]["pitch_target"][0, 0].data.cpu().numpy())
-        pitch_avg_hat = abs(outputs[1]["pitch_pred"][0, 0].data.cpu().numpy())
+        pitch_avg = abs(outputs["pitch_target_1"][0, 0].data.cpu().numpy())
+        pitch_avg_hat = abs(outputs["pitch_pred_1"][0, 0].data.cpu().numpy())
         chars = self.tokenizer.decode(batch["text_input"][0].data.cpu().numpy())
         pitch_figures = {
             "pitch_ground_truth": plot_avg_pitch(pitch_avg, chars, output_fig=False),
@@ -795,8 +668,8 @@ class DelightfulTTS(BaseTTSE2E):
         figures.update(pitch_figures)
 
         # plot energy figures
-        energy_avg = abs(outputs[1]["energy_target"][0, 0].data.cpu().numpy())
-        energy_avg_hat = abs(outputs[1]["energy_pred"][0, 0].data.cpu().numpy())
+        energy_avg = abs(outputs["energy_target_1"][0, 0].data.cpu().numpy())
+        energy_avg_hat = abs(outputs["energy_pred_1"][0, 0].data.cpu().numpy())
         chars = self.tokenizer.decode(batch["text_input"][0].data.cpu().numpy())
         energy_figures = {
             "energy_ground_truth": plot_avg_pitch(energy_avg, chars, output_fig=False),
@@ -805,18 +678,18 @@ class DelightfulTTS(BaseTTSE2E):
         figures.update(energy_figures)
 
         # plot the attention mask computed from the predicted durations
-        alignments_hat = outputs[1]["alignments_dp"][0].data.cpu().numpy()
+        alignments_hat = outputs["alignments_dp_1"][0].data.cpu().numpy()
         figures["alignment_hat"] = plot_alignment(alignments_hat.T, output_fig=False)
 
         # Sample audio
         encoder_audio = mel_to_wav_numpy(
-            mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=None), mel_basis=self.mel_basis, **self.config.audio
+            mel=db_to_amp_numpy(x=pred_spec.T, gain=1, base=np.e), mel_basis=self.mel_basis, **self.config.audio
         )
         audios["encoder_audio"] = encoder_audio
 
         # vocoder outputs
-        y_hat = outputs[1]["model_outputs"]
-        y = outputs[1]["waveform_seg"]
+        y_hat = outputs["model_outputs_1"]
+        y = outputs["waveform_seg_1"]
 
         vocoder_figures = plot_results(y_hat=y_hat, y=y, ap=self.ap)
         figures.update(vocoder_figures)
@@ -825,7 +698,9 @@ class DelightfulTTS(BaseTTSE2E):
         audios["vocoder_audio"] = sample_voice
         return figures, audios
 
-    def plot_outputs(self, text, wav, alignment, outputs):
+    def plot_outputs(self, text: str, wav, alignment, outputs: dict[str, Any]):
+        from TTS.tts.utils.visual import plot_alignment, plot_avg_pitch, plot_pitch, plot_spectrogram
+
         figures = {}
         pitch_avg_pred = outputs["pitch"].cpu()
         energy_avg_pred = outputs["energy"].cpu()
@@ -844,6 +719,7 @@ class DelightfulTTS(BaseTTSE2E):
             x=wav[0],
             sample_rate=self.ap.sample_rate,
             hop_length=self.ap.hop_length,
+            win_length=self.ap.win_length,
             pitch_fmax=self.ap.pitch_fmax,
         )
         input_text = self.tokenizer.ids_to_text(self.tokenizer.text_to_ids(text, language="en"))
@@ -892,7 +768,8 @@ class DelightfulTTS(BaseTTSE2E):
             warn_synthesize_speaker_id_deprecated()
 
         # convert text to sequence of token IDs
-        text_inputs = self.tokenizer.text_to_ids(text, language=None)
+        language = kwargs.pop("language", None)
+        text_inputs = self.tokenizer.text_to_ids(text, language=language)
         text_inputs = torch.as_tensor(text_inputs, dtype=torch.long, device=self.device).unsqueeze(0)
 
         _speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, speaker_wav, voice_dir)
@@ -925,7 +802,7 @@ class DelightfulTTS(BaseTTSE2E):
 
         # collect outputs
         S = outputs["model_outputs"].cpu().numpy()[0].T
-        S = db_to_amp_numpy(x=S, gain=1, base=None)
+        S = db_to_amp_numpy(x=S, gain=1, base=np.e)
         wav = mel_to_wav_numpy(mel=S, mel_basis=self.mel_basis, **self.config.audio)
         alignments = outputs["alignments"]
         return_dict = {
@@ -937,12 +814,14 @@ class DelightfulTTS(BaseTTSE2E):
         return return_dict
 
     @torch.inference_mode()
-    def test_run(self, assets) -> dict[str, Any]:
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
         """DelightfulTTS-specific test run method.
 
         Returns:
             Dictionary with test figures and audios to be projected to Tensorboard.
         """
+        from TTS.tts.utils.visual import plot_alignment
+
         logger.info("Synthesizing test sentences.")
         test_audios = {}
         test_figures = {}
@@ -1045,7 +924,7 @@ class DelightfulTTS(BaseTTSE2E):
         batch["energy"] = self.energy_scaler(batch["energy"])
         return batch
 
-    def get_sampler(self, config: Coqpit, dataset: TTSDataset, num_gpus=1):
+    def get_sampler(self, config: Coqpit, dataset: TTSDataset) -> torch.utils.data.Sampler | None:
         weights = None
         data_items = dataset.samples
         if getattr(config, "use_weighted_sampler", False):
@@ -1065,66 +944,62 @@ class DelightfulTTS(BaseTTSE2E):
             sampler = None
         # sampler for DDP
         if sampler is None:
-            sampler = DistributedSampler(dataset) if num_gpus > 1 else None
+            sampler = DistributedSampler(dataset) if is_dist_avail_and_initialized() > 1 else None
         else:  # If a sampler is already defined use this sampler and DDP sampler together
-            sampler = DistributedSamplerWrapper(sampler) if num_gpus > 1 else sampler
+            sampler = DistributedSamplerWrapper(sampler) if is_dist_avail_and_initialized() else sampler
         return sampler
 
     def get_data_loader(
         self,
         config: Coqpit,
-        assets: dict,
-        is_eval: bool,
-        samples: list[dict] | list[list],
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
-    ) -> "DataLoader":
-        if is_eval and not config.run_eval:
-            loader = None
-        else:
-            # init dataloader
-            dataset = ForwardTTSE2eDataset(
-                samples=samples,
-                ap=self.ap,
-                batch_group_size=0 if is_eval else config.batch_group_size * config.batch_size,
-                min_text_len=config.min_text_len,
-                max_text_len=config.max_text_len,
-                min_audio_len=config.min_audio_len,
-                max_audio_len=config.max_audio_len,
-                phoneme_cache_path=config.phoneme_cache_path,
-                precompute_num_workers=config.precompute_num_workers,
-                compute_f0=config.compute_f0,
-                f0_cache_path=config.f0_cache_path,
-                attn_prior_cache_path=config.attn_prior_cache_path if config.use_attn_priors else None,
-                tokenizer=self.tokenizer,
-                start_by_longest=config.start_by_longest,
-            )
+        *,
+        is_eval: bool = False,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
+    ) -> torch.utils.data.DataLoader:
+        # init dataloader
+        dataset = ForwardTTSE2eDataset(
+            samples=samples,
+            ap=self.ap,
+            batch_group_size=0 if is_eval else config.batch_group_size * config.batch_size,
+            min_text_len=config.min_text_len,
+            max_text_len=config.max_text_len,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            phoneme_cache_path=config.phoneme_cache_path,
+            precompute_num_workers=config.precompute_num_workers,
+            compute_f0=config.compute_f0,
+            f0_cache_path=config.f0_cache_path,
+            attn_prior_cache_path=config.attn_prior_cache_path if config.use_attn_priors else None,
+            tokenizer=self.tokenizer,
+            start_by_longest=config.start_by_longest,
+        )
 
-            # wait all the DDP process to be ready
-            if num_gpus > 1:
-                dist.barrier()
+        # wait all the DDP process to be ready
+        if is_dist_avail_and_initialized():
+            dist.barrier()
 
-            # sort input sequences ascendingly by length
-            dataset.preprocess_samples()
+        # sort input sequences ascendingly by length
+        dataset.preprocess_samples()
 
-            # get samplers
-            sampler = self.get_sampler(config, dataset, num_gpus)
+        # get samplers
+        sampler = self.get_sampler(config, dataset)
 
-            loader = DataLoader(
-                dataset,
-                batch_size=config.eval_batch_size if is_eval else config.batch_size,
-                shuffle=False,  # shuffle is done in the dataset.
-                drop_last=False,  # setting this False might cause issues in AMP training.
-                sampler=sampler,
-                collate_fn=dataset.collate_fn,
-                num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
-                pin_memory=True,
-            )
+        loader = DataLoader(
+            dataset,
+            batch_size=config.eval_batch_size if is_eval else config.batch_size,
+            shuffle=False,  # shuffle is done in the dataset.
+            drop_last=False,  # setting this False might cause issues in AMP training.
+            sampler=sampler,
+            collate_fn=dataset.collate_fn,
+            num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
+            pin_memory=True,
+        )
 
-            # get pitch mean and std
-            self.pitch_mean = dataset.f0_dataset.mean
-            self.pitch_std = dataset.f0_dataset.std
+        # get pitch mean and std
+        self.pitch_mean = dataset.f0_dataset.mean
+        self.pitch_std = dataset.f0_dataset.std
+
         return loader
 
     def get_criterion(self):
@@ -1166,27 +1041,12 @@ class DelightfulTTS(BaseTTSE2E):
         scheduler_G = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
         return [scheduler_D, scheduler_G]
 
-    def on_epoch_end(self, trainer):  # pylint: disable=unused-argument
+    def on_epoch_end(self, trainer: Trainer) -> None:
         # stop updating mean and var
         # TODO: do the same for F0
         self.energy_scaler.eval()
 
-    @staticmethod
-    def init_from_config(config: "DelightfulTTSConfig", samples: list[list] | list[dict] = None):  # pylint: disable=unused-argument
-        """Initiate model from config
-
-        Args:
-            config (ForwardTTSE2eConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config.model_args, samples)
-        ap = AudioProcessor.init_from_config(config=config)
-        return DelightfulTTS(config=new_config, tokenizer=tokenizer, speaker_manager=speaker_manager, ap=ap)
-
-    def get_state_dict(self):
+    def get_state_dict(self) -> dict[str, Any]:
         """Custom state dict of the model with all the necessary components for inference."""
         save_state = {"config": self.config.to_dict(), "args": self.args.to_dict(), "model": self.state_dict}
 
@@ -1198,23 +1058,21 @@ class DelightfulTTS(BaseTTSE2E):
             ...
         return save_state
 
-    def save(self, config, checkpoint_path):
+    def save(self, checkpoint_path: str | os.PathLike[Any]) -> None:
         """Save model to a file."""
-        save_state = self.get_state_dict(config, checkpoint_path)  # pylint: disable=too-many-function-args
+        save_state = self.get_state_dict()
         save_state["pitch_mean"] = self.pitch_mean
         save_state["pitch_std"] = self.pitch_std
         torch.save(save_state, checkpoint_path)
 
-    def on_train_step_start(self, trainer) -> None:
+    def on_train_step_start(self, trainer: Trainer) -> None:
         """Enable the discriminator training based on `steps_to_start_discriminator`
 
         Args:
             trainer (Trainer): Trainer object.
         """
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
-        self.train_disc = (  # pylint: disable=attribute-defined-outside-init
-            trainer.total_steps_done >= self.config.steps_to_start_discriminator
-        )
+        self.train_disc = trainer.total_steps_done >= self.config.steps_to_start_discriminator
 
 
 class DelightfulTTSLoss(nn.Module):

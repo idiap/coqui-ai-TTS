@@ -1,5 +1,3 @@
-#!flask/bin/python
-
 """TTS demo server."""
 
 import argparse
@@ -78,8 +76,6 @@ def create_argparser() -> argparse.ArgumentParser:
 # parse the args
 args = create_argparser().parse_args()
 
-manager = ModelManager(models_file=TTS.get_models_file_path())
-
 # update in-use models to the specified released models.
 model_path = None
 config_path = None
@@ -89,7 +85,7 @@ vocoder_config_path = None
 
 # CASE1: list pre-trained TTS models
 if args.list_models:
-    manager.list_models()
+    ModelManager().list_models()
     sys.exit(0)
 
 device = args.device
@@ -106,8 +102,16 @@ api = TTS(
     vocoder_path=args.vocoder_path,
     vocoder_config_path=args.vocoder_config_path,
     speakers_file_path=args.speakers_file_path,
-    # language_ids_file_path=args.language_ids_file_path,
 ).to(device)
+
+if getattr(api.synthesizer, "tts_model", None) is None:
+    logger.error(
+        "The tts-server requires a TTS model but '%s' did not initialize one. "
+        "Voice conversion and vocoder models are not supported by the server. "
+        "Please use a TTS model, e.g.: tts-server --model_name tts_models/en/ljspeech/tacotron2-DDC",
+        model_name or args.model_path,
+    )
+    sys.exit(1)
 
 # TODO: set this from SpeakerManager
 use_gst = api.synthesizer.tts_config.get("use_gst", False)
@@ -203,8 +207,8 @@ def tts():
                 text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav
             )
         except Exception as e:
-            logger.error("TTS synthesis failed: %s", str(e))
-            return {"error": f"TTS synthesis failed: {str(e)}"}, 500
+            logger.exception("TTS synthesis failed")
+            return {"error": f"TTS synthesis failed: {e!s}"}, 500
 
         out = io.BytesIO()
         api.synthesizer.save_wav(wavs, out)

@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from dataclasses import dataclass
+from pathlib import Path
 from time import time
 from typing import Any
 
@@ -12,6 +12,7 @@ from coqpit import Coqpit
 from tqdm import tqdm
 
 from TTS.tts.configs.shared_configs import BaseTTSConfig
+from TTS.tts.configs.tortoise_config import TortoiseArgs, TortoiseConfig
 from TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
 from TTS.tts.layers.tortoise.audio_utils import (
     denormalize_tacotron_mel,
@@ -25,7 +26,7 @@ from TTS.tts.layers.tortoise.diffusion import SpacedDiffusion, get_named_beta_sc
 from TTS.tts.layers.tortoise.diffusion_decoder import DiffusionTts
 from TTS.tts.layers.tortoise.random_latent_generator import RandomLatentConverter
 from TTS.tts.layers.tortoise.tokenizer import VoiceBpeTokenizer
-from TTS.tts.layers.tortoise.vocoder import VocConf, VocType
+from TTS.tts.layers.tortoise.vocoder import UnivNetGenerator
 from TTS.tts.layers.tortoise.wav2vec_alignment import Wav2VecAlignment
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.utils.generic_utils import (
@@ -166,6 +167,9 @@ def classify_audio_clip(clip, model_dir):
     :param clip: torch tensor containing audio waveform data (get it from load_audio)
     :return: True if the clip was classified as coming from Tortoise and false if it was classified as real.
     """
+    from huggingface_hub import hf_hub_download
+
+    classifier_path = hf_hub_download("jbetker/tortoise-tts-v2", ".models/classifier.pth")
     classifier = AudioMiniEncoderWithClassifierHead(
         2,
         spec_dim=1,
@@ -181,11 +185,7 @@ def classify_audio_clip(clip, model_dir):
         distribute_zero_label=False,
     )
     classifier.load_state_dict(
-        torch.load(
-            os.path.join(model_dir, "classifier.pth"),
-            map_location=torch.device("cpu"),
-            weights_only=is_pytorch_at_least_2_4(),
-        )
+        torch.load(classifier_path, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4())
     )
     clip = clip.cpu().unsqueeze(0)
     results = F.softmax(classifier(clip), dim=-1)
@@ -210,121 +210,6 @@ def pick_best_batch_size_for_gpu():
     return batch_size
 
 
-@dataclass
-class TortoiseAudioConfig(Coqpit):
-    sample_rate: int = 22050
-    diffusion_sample_rate: int = 24000
-    output_sample_rate: int = 24000
-
-
-@dataclass
-class TortoiseArgs(Coqpit):
-    """A dataclass to represent Tortoise model arguments that define the model structure.
-
-    Args:
-        autoregressive_batch_size (int): The size of the auto-regressive batch.
-        enable_redaction (bool, optional): Whether to enable redaction. Defaults to True.
-        high_vram (bool, optional): Deprecated, has no effect.
-        kv_cache (bool, optional): Whether to use the kv_cache. Defaults to True.
-        ar_checkpoint (str, optional): The checkpoint for the autoregressive model. Defaults to None.
-        clvp_checkpoint (str, optional): The checkpoint for the ConditionalLatentVariablePerseq model. Defaults to None.
-        diff_checkpoint (str, optional): The checkpoint for the DiffTTS model. Defaults to None.
-        num_chars (int, optional): The maximum number of characters to generate. Defaults to 255.
-        vocoder (VocType, optional): The vocoder to use for synthesis. Defaults to VocConf.Univnet.
-
-        For UnifiedVoice model:
-        ar_max_mel_tokens (int, optional): The maximum mel tokens for the autoregressive model. Defaults to 604.
-        ar_max_text_tokens (int, optional): The maximum text tokens for the autoregressive model. Defaults to 402.
-        ar_max_conditioning_inputs (int, optional): The maximum conditioning inputs for the autoregressive model. Defaults to 2.
-        ar_layers (int, optional): The number of layers for the autoregressive model. Defaults to 30.
-        ar_model_dim (int, optional): The model dimension for the autoregressive model. Defaults to 1024.
-        ar_heads (int, optional): The number of heads for the autoregressive model. Defaults to 16.
-        ar_number_text_tokens (int, optional): The number of text tokens for the autoregressive model. Defaults to 255.
-        ar_start_text_token (int, optional): The start text token for the autoregressive model. Defaults to 255.
-        ar_checkpointing (bool, optional): Whether to use checkpointing for the autoregressive model. Defaults to False.
-        ar_train_solo_embeddings (bool, optional): Whether to train embeddings for the autoregressive model. Defaults to False.
-
-        For DiffTTS model:
-        diff_model_channels (int, optional): The number of channels for the DiffTTS model. Defaults to 1024.
-        diff_num_layers (int, optional): The number of layers for the DiffTTS model. Defaults to 10.
-        diff_in_channels (int, optional): The input channels for the DiffTTS model. Defaults to 100.
-        diff_out_channels (int, optional): The output channels for the DiffTTS model. Defaults to 200.
-        diff_in_latent_channels (int, optional): The input latent channels for the DiffTTS model. Defaults to 1024.
-        diff_in_tokens (int, optional): The input tokens for the DiffTTS model. Defaults to 8193.
-        diff_dropout (int, optional): The dropout percentage for the DiffTTS model. Defaults to 0.
-        diff_use_fp16 (bool, optional): Whether to use fp16 for the DiffTTS model. Defaults to False.
-        diff_num_heads (int, optional): The number of heads for the DiffTTS model. Defaults to 16.
-        diff_layer_drop (int, optional): The layer dropout percentage for the DiffTTS model. Defaults to 0.
-        diff_unconditioned_percentage (int, optional): The percentage of unconditioned inputs for the DiffTTS model. Defaults to 0.
-
-        For ConditionalLatentVariablePerseq model:
-        clvp_dim_text (int): The dimension of the text input for the CLVP module. Defaults to 768.
-        clvp_dim_speech (int): The dimension of the speech input for the CLVP module. Defaults to 768.
-        clvp_dim_latent (int): The dimension of the latent representation for the CLVP module. Defaults to 768.
-        clvp_num_text_tokens (int): The number of text tokens used by the CLVP module. Defaults to 256.
-        clvp_text_enc_depth (int): The depth of the text encoder in the CLVP module. Defaults to 20.
-        clvp_text_seq_len (int): The maximum sequence length of the text input for the CLVP module. Defaults to 350.
-        clvp_text_heads (int): The number of attention heads used by the text encoder in the CLVP module. Defaults to 12.
-        clvp_num_speech_tokens (int): The number of speech tokens used by the CLVP module. Defaults to 8192.
-        clvp_speech_enc_depth (int): The depth of the speech encoder in the CLVP module. Defaults to 20.
-        clvp_speech_heads (int): The number of attention heads used by the speech encoder in the CLVP module. Defaults to 12.
-        clvp_speech_seq_len (int): The maximum sequence length of the speech input for the CLVP module. Defaults to 430.
-        clvp_use_xformers (bool): A flag indicating whether the model uses transformers in the CLVP module. Defaults to True.
-        duration_const (int): A constant value used in the model. Defaults to 102400.
-    """
-
-    autoregressive_batch_size: int = 1
-    enable_redaction: bool = False
-    high_vram: bool = False
-    kv_cache: bool = True
-    ar_checkpoint: str = None
-    clvp_checkpoint: str = None
-    diff_checkpoint: str = None
-    num_chars: int = 255
-    vocoder: VocType = VocConf.Univnet
-
-    # UnifiedVoice params
-    ar_max_mel_tokens: int = 604
-    ar_max_text_tokens: int = 402
-    ar_max_conditioning_inputs: int = 2
-    ar_layers: int = 30
-    ar_model_dim: int = 1024
-    ar_heads: int = 16
-    ar_number_text_tokens: int = 255
-    ar_start_text_token: int = 255
-    ar_checkpointing: bool = False
-    ar_train_solo_embeddings: bool = False
-
-    # DiffTTS params
-    diff_model_channels: int = 1024
-    diff_num_layers: int = 10
-    diff_in_channels: int = 100
-    diff_out_channels: int = 200
-    diff_in_latent_channels: int = 1024
-    diff_in_tokens: int = 8193
-    diff_dropout: int = 0
-    diff_use_fp16: bool = False
-    diff_num_heads: int = 16
-    diff_layer_drop: int = 0
-    diff_unconditioned_percentage: int = 0
-
-    # clvp params
-    clvp_dim_text: int = 768
-    clvp_dim_speech: int = 768
-    clvp_dim_latent: int = 768
-    clvp_num_text_tokens: int = 256
-    clvp_text_enc_depth: int = 20
-    clvp_text_seq_len: int = 350
-    clvp_text_heads: int = 12
-    clvp_num_speech_tokens: int = 8192
-    clvp_speech_enc_depth: int = 20
-    clvp_speech_heads: int = 12
-    clvp_speech_seq_len: int = 430
-    clvp_use_xformers: bool = True
-    # constants
-    duration_const: int = 102400
-
-
 class Tortoise(BaseTTS):
     """Tortoise model class.
 
@@ -338,13 +223,13 @@ class Tortoise(BaseTTS):
         >>> model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
     """
 
+    config: TortoiseConfig
+    args: TortoiseArgs
+
     def __init__(self, config: Coqpit):
-        super().__init__(config, ap=None, tokenizer=None)
+        self.tokenizer = VoiceBpeTokenizer()
+        super().__init__(config)
         self.mel_norm_path = None
-        self.config = config
-        self.ar_checkpoint = self.args.ar_checkpoint
-        self.diff_checkpoint = self.args.diff_checkpoint  # TODO: check if this is even needed
-        self.models_dir = config.model_dir
         self.autoregressive_batch_size = (
             pick_best_batch_size_for_gpu()
             if self.args.autoregressive_batch_size is None
@@ -353,8 +238,6 @@ class Tortoise(BaseTTS):
         self.enable_redaction = self.args.enable_redaction
         if self.enable_redaction:
             self.aligner = Wav2VecAlignment()
-
-        self.tokenizer = VoiceBpeTokenizer()
 
         self.autoregressive = UnifiedVoice(
             max_mel_tokens=self.args.ar_max_mel_tokens,
@@ -398,7 +281,7 @@ class Tortoise(BaseTTS):
             use_xformers=self.args.clvp_use_xformers,
         )
 
-        self.vocoder = self.args.vocoder.value.constructor()
+        self.vocoder = UnivNetGenerator()
 
         # Random latent generators (RLGs) are loaded lazily.
         self.rlg_auto = None
@@ -481,7 +364,7 @@ class Tortoise(BaseTTS):
             self.rlg_auto = RandomLatentConverter(1024).eval()
             self.rlg_auto.load_state_dict(
                 torch.load(
-                    os.path.join(self.models_dir, "rlg_auto.pth"),
+                    next(self.models_dir.rglob("rlg_auto.pth")),
                     map_location=torch.device("cpu"),
                     weights_only=is_pytorch_at_least_2_4(),
                 )
@@ -489,7 +372,7 @@ class Tortoise(BaseTTS):
             self.rlg_diffusion = RandomLatentConverter(2048).eval()
             self.rlg_diffusion.load_state_dict(
                 torch.load(
-                    os.path.join(self.models_dir, "rlg_diffuser.pth"),
+                    next(self.models_dir.rglob("rlg_diffuser.pth")),
                     map_location=torch.device("cpu"),
                     weights_only=is_pytorch_at_least_2_4(),
                 )
@@ -827,25 +710,18 @@ class Tortoise(BaseTTS):
     def forward(self):
         raise NotImplementedError("Tortoise Training is not implemented")
 
-    def eval_step(self):
+    def eval_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError("Tortoise Training is not implemented")
-
-    @staticmethod
-    def init_from_config(config: "TortoiseConfig", **kwargs):  # pylint: disable=unused-argument
-        return Tortoise(config)
 
     def load_checkpoint(
         self,
         config,
         checkpoint_dir,
-        ar_checkpoint_path=None,
-        diff_checkpoint_path=None,
-        clvp_checkpoint_path=None,
-        vocoder_checkpoint_path=None,
-        eval=False,
-        strict=True,
+        *,
+        eval: bool = False,
+        strict: bool = True,
         **kwargs,
-    ):  # pylint: disable=unused-argument, redefined-builtin
+    ):
         """Load a model checkpoints from a directory. This model is with multiple checkpoint files and it
         expects to have all the files to be under the given `checkpoint_dir` with the rigth names.
         If eval is True, set the model to eval mode.
@@ -853,22 +729,18 @@ class Tortoise(BaseTTS):
         Args:
             config (TortoiseConfig): The model config.
             checkpoint_dir (str): The directory where the checkpoints are stored.
-            ar_checkpoint_path (str, optional): The path to the autoregressive checkpoint. Defaults to None.
-            diff_checkpoint_path (str, optional): The path to the diffusion checkpoint. Defaults to None.
-            clvp_checkpoint_path (str, optional): The path to the CLVP checkpoint. Defaults to None.
-            vocoder_checkpoint_path (str, optional): The path to the vocoder checkpoint. Defaults to None.
             eval (bool, optional): Whether to set the model to eval mode. Defaults to False.
             strict (bool, optional): Whether to load the model strictly. Defaults to True.
         """
-        if self.models_dir is None:
-            self.models_dir = checkpoint_dir
-        ar_path = ar_checkpoint_path or os.path.join(checkpoint_dir, "autoregressive.pth")
-        diff_path = diff_checkpoint_path or os.path.join(checkpoint_dir, "diffusion_decoder.pth")
-        clvp_path = clvp_checkpoint_path or os.path.join(checkpoint_dir, "clvp2.pth")
-        vocoder_checkpoint_path = vocoder_checkpoint_path or os.path.join(checkpoint_dir, "vocoder.pth")
-        self.mel_norm_path = os.path.join(checkpoint_dir, "mel_norms.pth")
+        checkpoint_dir = Path(checkpoint_dir)
+        self.models_dir = checkpoint_dir
+        ar_path = next(checkpoint_dir.rglob("autoregressive.pth"))
+        diff_path = next(checkpoint_dir.rglob("diffusion_decoder.pth"))
+        clvp_path = next(checkpoint_dir.rglob("clvp2.pth"))
+        vocoder_checkpoint_path = next(checkpoint_dir.rglob("vocoder.pth"))
+        self.mel_norm_path = next(checkpoint_dir.rglob("mel_norms.pth"))
 
-        if os.path.exists(ar_path):
+        if ar_path.is_file():
             # remove keys from the checkpoint that are not in the model
             checkpoint = torch.load(ar_path, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4())
 
@@ -876,21 +748,19 @@ class Tortoise(BaseTTS):
             # due to removed `bias` and `masked_bias` changes in Transformers
             self.autoregressive.load_state_dict(checkpoint, strict=False)
 
-        if os.path.exists(diff_path):
+        if diff_path.is_file():
             self.diffusion.load_state_dict(torch.load(diff_path, weights_only=is_pytorch_at_least_2_4()), strict=strict)
 
-        if os.path.exists(clvp_path):
+        if clvp_path.is_file():
             self.clvp.load_state_dict(torch.load(clvp_path, weights_only=is_pytorch_at_least_2_4()), strict=strict)
 
-        if os.path.exists(vocoder_checkpoint_path):
+        if vocoder_checkpoint_path.is_file():
             self.vocoder.load_state_dict(
-                config.model_args.vocoder.value.optionally_index(
-                    torch.load(
-                        vocoder_checkpoint_path,
-                        map_location=torch.device("cpu"),
-                        weights_only=is_pytorch_at_least_2_4(),
-                    )
-                )
+                torch.load(
+                    vocoder_checkpoint_path,
+                    map_location=torch.device("cpu"),
+                    weights_only=is_pytorch_at_least_2_4(),
+                )["model_g"]
             )
 
         if eval:
@@ -900,5 +770,5 @@ class Tortoise(BaseTTS):
             self.clvp.eval()
             self.vocoder.eval()
 
-    def train_step(self):
+    def train_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError("Tortoise Training is not implemented")

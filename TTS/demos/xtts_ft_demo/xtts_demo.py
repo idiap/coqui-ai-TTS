@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import shutil
 import sys
 import tempfile
 import traceback
@@ -31,7 +32,7 @@ def load_model(xtts_checkpoint, xtts_config, xtts_vocab):
         return "You need to run the previous steps or manually set the `XTTS checkpoint path`, `XTTS config path`, and `XTTS vocab path` fields !!"
     config = XttsConfig()
     config.load_json(xtts_config)
-    XTTS_MODEL = Xtts.init_from_config(config)
+    XTTS_MODEL = Xtts(config)
     print("Loading XTTS model! ")
     XTTS_MODEL.load_checkpoint(config, checkpoint_path=xtts_checkpoint, vocab_path=xtts_vocab, use_deepspeed=False)
     if torch.cuda.is_available():
@@ -76,7 +77,7 @@ class Logger:
     def __init__(self, filename="log.out"):
         self.log_file = filename
         self.terminal = sys.stdout
-        self.log = open(self.log_file, "w")
+        self.log = open(self.log_file, "w")  # noqa: SIM115
 
     def write(self, message):
         self.terminal.write(message)
@@ -208,7 +209,7 @@ if __name__ == "__main__":
 
             prompt_compute_btn = gr.Button(value="Step 1 - Create dataset")
 
-            def preprocess_dataset(audio_path, language, out_path, progress=gr.Progress(track_tqdm=True)):
+            def preprocess_dataset(audio_path, language, out_path, progress=gr.Progress(track_tqdm=True)):  # noqa: B008
                 clear_gpu_cache()
                 out_path = os.path.join(out_path, "dataset")
                 os.makedirs(out_path, exist_ok=True)
@@ -306,7 +307,7 @@ if __name__ == "__main__":
                 try:
                     # convert seconds to waveform frames
                     max_audio_length = int(max_audio_length * 22050)
-                    config_path, original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
+                    config_path, _original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
                         language,
                         num_epochs,
                         batch_size,
@@ -328,8 +329,8 @@ if __name__ == "__main__":
                     )
 
                 # copy original files to avoid parameters changes issues
-                os.system(f"cp {config_path} {exp_path}")
-                os.system(f"cp {vocab_file} {exp_path}")
+                shutil.copy2(config_path, exp_path)
+                shutil.copy2(vocab_file, exp_path)
 
                 ft_xtts_checkpoint = os.path.join(exp_path, "best_model.pth")
                 print("Model training done!")

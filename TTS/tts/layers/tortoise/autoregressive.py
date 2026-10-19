@@ -5,11 +5,9 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from trainer.generic_utils import is_pytorch_at_least_2_4
 from transformers import GenerationMixin, GPT2Config, GPT2PreTrainedModel, LogitsProcessorList
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
-
-# TODO: use torch.isin from Pytorch 2.4
-from transformers.pytorch_utils import isin_mps_friendly as isin
 
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, TypicalLogitsWarper
 
@@ -20,6 +18,33 @@ def null_position_embeddings(range, dim):
 
 def _p(t):
     return t and (len(t), len(t[0]), t[0][0].shape)  # kv_cache debug
+
+
+# TODO: use torch.isin from Pytorch 2.4
+def isin(elements: torch.Tensor, test_elements: torch.Tensor | int) -> torch.Tensor:
+    """
+    Same as `torch.isin` without flags, but MPS-friendly. We can remove this function when we stop supporting
+    torch <= 2.3. See https://github.com/pytorch/pytorch/issues/77764#issuecomment-2067838075
+
+    Copied from transformers.pytorch_utils
+
+    Args:
+        elements (`torch.Tensor`): Input elements
+        test_elements (`torch.Tensor` or `int`): The elements to check against.
+
+    Returns:
+        `torch.Tensor`: A boolean tensor of the same shape as `elements` that is True for `elements` in `test_elements`
+        and False otherwise
+    """
+
+    if elements.device.type == "mps" and not is_pytorch_at_least_2_4():
+        test_elements = torch.tensor(test_elements)
+        if test_elements.ndim == 0:
+            test_elements = test_elements.unsqueeze(0)
+        return elements.tile(test_elements.shape[0], 1).eq(test_elements.unsqueeze(1)).sum(dim=0).bool().squeeze()
+    else:
+        # Note: don't use named arguments in `torch.isin`, see https://github.com/pytorch/pytorch/issues/126045
+        return torch.isin(elements, test_elements)
 
 
 class ResBlock(nn.Module):
@@ -89,8 +114,9 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
             emb = torch.cat([mel_emb, text_emb], dim=1)
         else:
             emb = self.embeddings(input_ids)
+            # Not using attention_mask here because transformers>=5.18 drops it from generate() if it is all ones
             emb = emb + self.text_pos_embedding.get_fixed_embedding(
-                attention_mask.shape[1] - (mel_len + 1), attention_mask.device
+                past_key_values.get_seq_length() - mel_len, input_ids.device
             )
 
         transformer_outputs = self.transformer(
@@ -540,7 +566,7 @@ class UnifiedVoice(nn.Module):
         **hf_generate_kwargs,
     ):
         text_inputs = F.pad(text_inputs, (0, 1), value=self.stop_text_token)
-        text_inputs, text_targets = self.build_aligned_inputs_and_targets(
+        text_inputs, _text_targets = self.build_aligned_inputs_and_targets(
             text_inputs, self.start_text_token, self.stop_text_token
         )
         text_emb = self.text_embedding(text_inputs) + self.text_pos_embedding(text_inputs)

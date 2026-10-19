@@ -49,14 +49,12 @@ class KNNVC(CloningMixin, BaseVC):
         >>> model = KNNVC(config)
     """
 
+    config: KNNVCConfig
+
     def __init__(self, config: Coqpit):
         super().__init__(config)
         self.ssl_dim = self.args.ssl_dim
         self.wavlm = get_wavlm()
-
-    @staticmethod
-    def init_from_config(config: KNNVCConfig) -> "KNNVC":
-        return KNNVC(config)
 
     @torch.inference_mode()
     def get_features(self, audio: PathOrTensor, vad_trigger_level=0) -> torch.Tensor:
@@ -73,7 +71,7 @@ class KNNVC(CloningMixin, BaseVC):
         else:
             x, sr = torchaudio.load(audio, normalize=True)
 
-        if not sr == self.config.audio.sample_rate:
+        if sr != self.config.audio.sample_rate:
             logger.info("Resampling %d to %d in %s", sr, self.config.audio.sample_rate, audio)
             x = torchaudio.functional.resample(x, orig_freq=sr, new_freq=self.config.audio.sample_rate)
             sr = self.config.audio.sample_rate

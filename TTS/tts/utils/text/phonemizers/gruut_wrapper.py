@@ -1,4 +1,4 @@
-import importlib
+import importlib.util
 
 import gruut
 from gruut_ipa import IPA
@@ -40,20 +40,21 @@ class Gruut(BasePhonemizer):
     def __init__(
         self,
         language: str,
-        punctuations=Punctuation.default_puncs(),
-        keep_puncs=True,
-        use_espeak_phonemes=False,
-        keep_stress=False,
-    ):
+        punctuations: str = Punctuation.default_puncs(),
+        *,
+        keep_puncs: bool = True,
+        use_espeak_phonemes: bool = False,
+        keep_stress: bool = False,
+    ) -> None:
         super().__init__(language, punctuations=punctuations, keep_puncs=keep_puncs)
         self.use_espeak_phonemes = use_espeak_phonemes
         self.keep_stress = keep_stress
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "gruut"
 
-    def phonemize_gruut(self, text: str, separator: str = "|", tie=False) -> str:  # pylint: disable=unused-argument
+    def phonemize_gruut(self, text: str, separator: str = "|") -> str:
         """Convert input text to phonemes.
 
         Gruut phonemizes the given `str` by seperating each phoneme character with `separator`, even for characters
@@ -67,10 +68,6 @@ class Gruut(BasePhonemizer):
         Args:
             text (str):
                 Text to be converted to phonemes.
-
-            tie (bool, optional) : When True use a '͡' character between
-                consecutive characters of a single phoneme. Else separate phoneme
-                with '_'. This option requires espeak>=1.49. Default to False.
         """
         ph_list = []
         for sentence in gruut.sentences(text, lang=self.language, espeak=self.use_espeak_phonemes):
@@ -102,18 +99,17 @@ class Gruut(BasePhonemizer):
                         ph_list.append(word_phonemes)
 
         ph_words = [separator.join(word_phonemes) for word_phonemes in ph_list]
-        ph = f"{separator} ".join(ph_words)
-        return ph
+        return f"{separator} ".join(ph_words)
 
-    def _phonemize(self, text, separator):
-        return self.phonemize_gruut(text, separator, tie=False)
+    def _phonemize(self, text: str, separator: str) -> str:
+        return self.phonemize_gruut(text, separator)
 
-    def is_supported_language(self, language):
+    def is_supported_language(self, language: str) -> bool:
         """Returns True if `language` is supported by the backend"""
         return gruut.is_language_supported(language)
 
     @staticmethod
-    def supported_languages() -> list:
+    def supported_languages() -> list[str]:
         """Get a dictionary of supported languages.
 
         Returns:
@@ -121,7 +117,7 @@ class Gruut(BasePhonemizer):
         """
         return list(gruut.get_supported_languages())
 
-    def version(self):
+    def version(self) -> str:
         """Get the version of the used backend.
 
         Returns:
@@ -130,7 +126,7 @@ class Gruut(BasePhonemizer):
         return gruut.__version__
 
     @classmethod
-    def is_available(cls):
+    def is_available(cls) -> bool:
         """Return true if ESpeak is available else false"""
         return importlib.util.find_spec("gruut") is not None
 

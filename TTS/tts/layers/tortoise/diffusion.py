@@ -472,7 +472,6 @@ class GaussianDiffusion:
             model_epsilon, model_var = th.split(model_output, model_output.shape[1] // 2, dim=1)
             return model_epsilon, model_var
 
-        #
         """
         print(self.betas)
         print(th.tensor(self.betas))
@@ -1106,7 +1105,7 @@ class SpacedDiffusion(GaussianDiffusion):
         self.use_timesteps = set(use_timesteps)
         self.timestep_map = []
         self.original_num_steps = len(kwargs["betas"])
-        base_diffusion = GaussianDiffusion(**kwargs)  # pylint: disable=missing-kwoa
+        base_diffusion = GaussianDiffusion(**kwargs)
         last_alpha_cumprod = 1.0
         new_betas = []
         for i, alpha_cumprod in enumerate(base_diffusion.alphas_cumprod):
@@ -1117,13 +1116,13 @@ class SpacedDiffusion(GaussianDiffusion):
         kwargs["betas"] = np.array(new_betas)
         super().__init__(**kwargs)
 
-    def p_mean_variance(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def p_mean_variance(self, model, *args, **kwargs):
         return super().p_mean_variance(self._wrap_model(model), *args, **kwargs)
 
-    def training_losses(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def training_losses(self, model, *args, **kwargs):
         return super().training_losses(self._wrap_model(model), *args, **kwargs)
 
-    def autoregressive_training_losses(self, model, *args, **kwargs):  # pylint: disable=signature-differs
+    def autoregressive_training_losses(self, model, *args, **kwargs):
         return super().autoregressive_training_losses(self._wrap_model(model, True), *args, **kwargs)
 
     def condition_mean(self, cond_fn, *args, **kwargs):
@@ -1133,7 +1132,7 @@ class SpacedDiffusion(GaussianDiffusion):
         return super().condition_score(self._wrap_model(cond_fn), *args, **kwargs)
 
     def _wrap_model(self, model, autoregressive=False):
-        if isinstance(model, _WrappedModel) or isinstance(model, _WrappedAutoregressiveModel):
+        if isinstance(model, (_WrappedModel, _WrappedAutoregressiveModel)):
             return model
         mod = _WrappedAutoregressiveModel if autoregressive else _WrappedModel
         return mod(model, self.timestep_map, self.rescale_timesteps, self.original_num_steps)

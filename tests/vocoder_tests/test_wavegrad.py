@@ -2,16 +2,11 @@ import numpy as np
 import torch
 from torch import optim
 
-from TTS.vocoder.configs import WavegradConfig
-from TTS.vocoder.models.wavegrad import Wavegrad, WavegradArgs
-
-# pylint: disable=unused-variable
-
-torch.manual_seed(1)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+from TTS.vocoder.configs import WavegradArgs, WavegradConfig
+from TTS.vocoder.models.wavegrad import Wavegrad
 
 
-def test_train_step():
+def test_train_step(device: torch.device):
     """Test if all layers are updated in a basic training cycle"""
     torch.set_grad_enabled(True)
     input_dummy = torch.rand(8, 1, 20 * 300).to(device)

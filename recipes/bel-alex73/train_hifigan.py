@@ -1,8 +1,7 @@
 from trainer import Trainer, TrainerArgs
 
 from TTS.tts.configs.shared_configs import BaseAudioConfig
-from TTS.utils.audio import AudioProcessor
-from TTS.vocoder.configs.hifigan_config import HifiganConfig
+from TTS.vocoder.configs import HifiganConfig
 from TTS.vocoder.datasets.preprocess import load_wav_data
 from TTS.vocoder.models.gan import GAN
 
@@ -42,15 +41,12 @@ def main():
         audio=audio_config,
     )
 
-    # init audio processor
-    ap = AudioProcessor.init_from_config(config)
-
     # load training samples
     print("config.eval_split_size = ", config.eval_split_size)
     eval_samples, train_samples = load_wav_data(config.data_path, config.eval_split_size)
 
     # init model
-    model = GAN(config, ap)
+    model = GAN(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

@@ -4,9 +4,9 @@ from typing import Any, Union
 
 import numpy as np
 import torch
-from coqpit import Coqpit
 
-from TTS.config import get_from_config_or_model_args_with_default
+from TTS.config import get_from_config_or_model_args
+from TTS.config.shared_configs import BaseTrainingConfig
 from TTS.tts.utils.managers import EmbeddingManager
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class SpeakerManager(EmbeddingManager):
 
     Examples:
         >>> # load audio processor and speaker encoder
-        >>> ap = AudioProcessor(**config.audio)
+        >>> ap = AudioProcessor(config.audio)
         >>> manager = SpeakerManager(encoder_model_path=encoder_model_path, encoder_config_path=encoder_config_path)
         >>> # load a sample audio and compute embedding
         >>> waveform = ap.load_wav(sample_wav_path)
@@ -81,32 +81,43 @@ class SpeakerManager(EmbeddingManager):
         return list(self.name_to_id.keys())
 
     @staticmethod
-    def init_from_config(
-        config: "Coqpit", samples: list[dict[str, Any]] | None = None
-    ) -> Union["SpeakerManager", None]:
-        """Initialize a speaker manager from config
+    def init_from_config(config: BaseTrainingConfig) -> Union["SpeakerManager", None]:
+        """Initialize a speaker manager from config.
+
+        If using speaker embeddings:
+          - Read config.speakers
+          - Otherwise read speaker IDs from speaker(s)_file if set
+        Else if using d-vectors:
+          - Read embeddings from d_vector_file
+
+        Initialize speaker encoder if speaker_encoder_model_path is set.
 
         Args:
-            config (Coqpit): Config object.
-            samples (Union[List[List], List[Dict]], optional): List of data samples to parse out the speaker names.
-                Defaults to None.
-
-        Returns:
-            SpeakerEncoder: Speaker encoder object.
+            config: Config object.
         """
         speaker_manager = None
-        if get_from_config_or_model_args_with_default(config, "use_speaker_embedding", False):
-            if samples:
-                speaker_manager = SpeakerManager(data_items=samples)
-            if speaker_file := get_from_config_or_model_args_with_default(config, "speaker_file", None):
+        if get_from_config_or_model_args(config, "use_speaker_embedding"):
+            if config.speakers:
+                speaker_manager = SpeakerManager()
+                speaker_manager.name_to_id = {name: i for i, name in enumerate(config.speakers)}
+            # TODO: check if speaker_file is used by any model
+            elif speaker_file := get_from_config_or_model_args(config, "speaker_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speaker_file)
-            if speakers_file := get_from_config_or_model_args_with_default(config, "speakers_file", None):
+            elif speakers_file := get_from_config_or_model_args(config, "speakers_file"):
                 speaker_manager = SpeakerManager(speaker_id_file_path=speakers_file)
-
-        if get_from_config_or_model_args_with_default(config, "use_d_vector_file", False):
+        elif get_from_config_or_model_args(config, "use_d_vector_file"):
             speaker_manager = SpeakerManager()
-            if d_vector_file := get_from_config_or_model_args_with_default(config, "d_vector_file", None):
+            if d_vector_file := get_from_config_or_model_args(config, "d_vector_file"):
                 speaker_manager = SpeakerManager(d_vectors_file_path=d_vector_file)
+
+        if encoder_path := config.model_args.get("speaker_encoder_model_path"):
+            if speaker_manager is None:
+                speaker_manager = SpeakerManager()
+            speaker_manager.init_encoder(encoder_path, config.model_args.speaker_encoder_config_path)
+            logger.debug("Encoder initialized in speaker manager.")
+
+        if speaker_manager is not None:
+            logger.debug("Speaker manager initialized with: %s", speaker_manager.speaker_names)
         return speaker_manager
 
 

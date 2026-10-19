@@ -159,6 +159,7 @@ The following extras allow the installation of optional dependencies:
 | `all` | All optional dependencies |
 | `notebooks` | Dependencies only used in notebooks |
 | `server` | Dependencies to run the TTS server |
+| `onnx` | ONNX export and inference (currently only for VITS) |
 | `bn` | Bangla G2P |
 | `ja` | Japanese G2P |
 | `ko` | Korean G2P |

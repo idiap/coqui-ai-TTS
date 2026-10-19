@@ -7,8 +7,6 @@ from TTS.tts.configs.neuralhmm_tts_config import NeuralhmmTTSConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.neuralhmm_tts import NeuralhmmTTS
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 
 output_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -56,33 +54,22 @@ def main():
         datasets=[dataset_config],
     )
 
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # If characters are not defined in the config, default characters are passed to the config
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
     # Or define your custom formatter and pass it to the `load_tts_samples`.
     # Check `TTS.tts.datasets.load_tts_samples` for more details.
     train_samples, eval_samples = load_tts_samples(
-        dataset_config,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
     )
 
     # INITIALIZE THE MODEL
-    # Models take a config object and a speaker manager as input
+    # Models take a config object as input
     # Config defines the details of the model like the number of layers, the size of the embedding, etc.
-    # Speaker manager is used by multi-speaker models.
-    model = NeuralhmmTTS(config, ap, tokenizer)
+    model = NeuralhmmTTS(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

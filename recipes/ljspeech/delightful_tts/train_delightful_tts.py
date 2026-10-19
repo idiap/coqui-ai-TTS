@@ -3,11 +3,14 @@ import os
 from trainer import Trainer, TrainerArgs
 
 from TTS.config.shared_configs import BaseDatasetConfig
-from TTS.tts.configs.delightful_tts_config import DelightfulTtsAudioConfig, DelightfulTTSConfig
+from TTS.tts.configs.delightful_tts_config import (
+    DelightfulTtsArgs,
+    DelightfulTtsAudioConfig,
+    DelightfulTTSConfig,
+    VocoderConfig,
+)
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.models.delightful_tts import DelightfulTTS, DelightfulTtsArgs, VocoderConfig
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio.processor import AudioProcessor
+from TTS.tts.models.delightful_tts import DelightfulTTS
 
 data_path = ""
 output_path = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +26,7 @@ def main():
 
     vocoder_config = VocoderConfig()
 
-    delightful_tts_config = DelightfulTTSConfig(
+    config = DelightfulTTSConfig(
         run_name="delightful_tts_ljspeech",
         run_description="Train like in delightful tts paper.",
         model_args=model_args,
@@ -60,18 +63,14 @@ def main():
         max_text_len=130,
     )
 
-    tokenizer, config = TTSTokenizer.init_from_config(delightful_tts_config)
-
-    ap = AudioProcessor.init_from_config(config)
-
     train_samples, eval_samples = load_tts_samples(
-        dataset_config,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
     )
 
-    model = DelightfulTTS(ap=ap, config=config, tokenizer=tokenizer, speaker_manager=None)
+    model = DelightfulTTS(config)
 
     trainer = Trainer(
         TrainerArgs(),

@@ -1,6 +1,6 @@
 import sys
 import time
-from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import torch
@@ -9,10 +9,13 @@ from coqpit import Coqpit
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from trainer import Trainer
+from trainer.config import TrainerConfig
+from trainer.logging import BaseDashboardLogger
+from trainer.utils.distributed import is_dist_avail_and_initialized
 
-from TTS.tts.utils.visual import plot_spectrogram
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import mulaw_decode
+from TTS.vocoder.configs import WavernnConfig
 from TTS.vocoder.datasets.wavernn_dataset import WaveRNNDataset
 from TTS.vocoder.layers.losses import WaveRNNLoss
 from TTS.vocoder.layers.upsample import Stretch2d
@@ -24,7 +27,6 @@ def stream(string, variables):
     sys.stdout.write(f"\r{string}" % variables)
 
 
-# pylint: disable=abstract-method
 # relates https://github.com/pytorch/pytorch/issues/42305
 class ResBlock(nn.Module):
     def __init__(self, dims):
@@ -131,59 +133,16 @@ class Upsample(nn.Module):
         return m.transpose(1, 2), aux
 
 
-@dataclass
-class WavernnArgs(Coqpit):
-    """🐸 WaveRNN model arguments.
-
-    rnn_dims (int):
-        Number of hidden channels in RNN layers. Defaults to 512.
-    fc_dims (int):
-        Number of hidden channels in fully-conntected layers. Defaults to 512.
-    compute_dims (int):
-        Number of hidden channels in the feature ResNet. Defaults to 128.
-    res_out_dim (int):
-        Number of hidden channels in the feature ResNet output. Defaults to 128.
-    num_res_blocks (int):
-        Number of residual blocks in the ResNet. Defaults to 10.
-    use_aux_net (bool):
-        enable/disable the feature ResNet. Defaults to True.
-    use_upsample_net (bool):
-        enable/ disable the upsampling networl. If False, basic upsampling is used. Defaults to True.
-    upsample_factors (list):
-        Upsampling factors. The multiply of the values must match the `hop_length`. Defaults to ```[4, 8, 8]```.
-    mode (str):
-        Output mode of the WaveRNN vocoder. `mold` for Mixture of Logistic Distribution, `gauss` for a single
-        Gaussian Distribution and `bits` for quantized bits as the model's output.
-    mulaw (bool):
-        enable / disable the use of Mulaw quantization for training. Only applicable if `mode == 'bits'`. Defaults
-        to `True`.
-    pad (int):
-            Padding applied to the input feature frames against the convolution layers of the feature network.
-            Defaults to 2.
-    """
-
-    rnn_dims: int = 512
-    fc_dims: int = 512
-    compute_dims: int = 128
-    res_out_dims: int = 128
-    num_res_blocks: int = 10
-    use_aux_net: bool = True
-    use_upsample_net: bool = True
-    upsample_factors: list[int] = field(default_factory=lambda: [4, 8, 8])
-    mode: str = "mold"  # mold [string], gauss [string], bits [int]
-    mulaw: bool = True  # apply mulaw if mode is bits
-    pad: int = 2
-    feat_dims: int = 80
-
-
 class Wavernn(BaseVocoder):
+    config: WavernnConfig
+
     def __init__(self, config: Coqpit):
         """🐸 WaveRNN model.
         Original paper - https://arxiv.org/abs/1802.08435
         Official implementation - https://github.com/fatchord/WaveRNN
 
         Args:
-            config (Coqpit): [description]
+            config: WavernnConfig
 
         Raises:
             RuntimeError: [description]
@@ -220,7 +179,6 @@ class Wavernn(BaseVocoder):
         else:
             raise RuntimeError("Unknown model mode value - ", self.args.mode)
 
-        self.ap = AudioProcessor(**config.audio.to_dict())
         self.aux_dims = self.args.res_out_dims // 4
 
         if self.args.use_upsample_net:
@@ -526,7 +484,9 @@ class Wavernn(BaseVocoder):
 
         return unfolded
 
-    def train_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         mels = batch["input"]
         waveform = batch["waveform"]
         waveform_coarse = batch["waveform_coarse"]
@@ -541,25 +501,23 @@ class Wavernn(BaseVocoder):
         loss_dict = criterion(y_hat, waveform_coarse)
         return {"model_output": y_hat}, loss_dict
 
-    def eval_step(self, batch: dict, criterion: dict) -> tuple[dict, dict]:
-        return self.train_step(batch, criterion)
+    def eval_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        return self.train_step(batch, criterion, optimizer_idx)
 
     @torch.no_grad()
-    def test(
-        self,
-        assets: dict,
-        test_loader: "DataLoader",
-        output: dict,  # pylint: disable=unused-argument
-    ) -> tuple[dict, dict]:
-        ap = self.ap
+    def test_run(self, trainer: Trainer) -> dict[str, Any]:
+        from TTS.tts.utils.visual import plot_spectrogram
+
         figures = {}
         audios = {}
-        samples = test_loader.dataset.load_test_samples(1)
+        samples = trainer.get_eval_dataloader(trainer.eval_samples).dataset.load_test_samples(1)
         for idx, sample in enumerate(samples):
             x = torch.FloatTensor(sample[0])
             x = x.to(next(self.parameters()).device)
             y_hat = self.inference(x, self.config.batched, self.config.target_samples, self.config.overlap_samples)
-            x_hat = ap.melspectrogram(y_hat)
+            x_hat = self.ap.melspectrogram(y_hat)
             figures.update(
                 {
                     f"test_{idx}/ground_truth": plot_spectrogram(x.T),
@@ -568,52 +526,46 @@ class Wavernn(BaseVocoder):
             )
             audios.update({f"test_{idx}/audio": y_hat})
             # audios.update({f"real_{idx}/audio": y_hat})
-        return figures, audios
+        return {"audios": audios, "figures": figures}
 
     def test_log(
         self,
-        outputs: dict,
-        logger: "Logger",
-        assets: dict,
-        steps: int,  # pylint: disable=unused-argument
-    ) -> tuple[dict, np.ndarray]:
-        figures, audios = outputs
-        logger.eval_figures(steps, figures)
-        logger.eval_audios(steps, audios, self.ap.sample_rate)
+        outputs: dict[str, Any],
+        logger: BaseDashboardLogger,
+        steps: int,
+    ) -> None:
+        logger.eval_figures(steps, outputs["figures"])
+        logger.eval_audios(steps, outputs["audios"], self.ap.sample_rate)
 
-    @staticmethod
-    def format_batch(batch: dict) -> dict:
+    def format_batch(self, batch: list) -> dict[str, Any]:
         waveform = batch[0]
         mels = batch[1]
         waveform_coarse = batch[2]
         return {"input": mels, "waveform": waveform, "waveform_coarse": waveform_coarse}
 
-    def get_data_loader(  # pylint: disable=no-self-use
+    def get_data_loader(
         self,
-        config: Coqpit,
-        assets: dict,
-        is_eval: True,
-        samples: list,
-        verbose: bool,
-        num_gpus: int,
-        rank: int | None = None,
+        config: TrainerConfig,
+        *,
+        is_eval: bool = True,
+        samples: list[Any] | None = None,
+        verbose: bool = True,
     ):
-        ap = self.ap
         dataset = WaveRNNDataset(
-            ap=ap,
+            ap=self.ap,
             items=samples,
             seq_len=config.seq_len,
-            hop_len=ap.hop_length,
+            hop_len=self.ap.hop_length,
             pad=config.model_args.pad,
             mode=config.model_args.mode,
             mulaw=config.model_args.mulaw,
             is_training=not is_eval,
         )
-        sampler = DistributedSampler(dataset, shuffle=True) if num_gpus > 1 else None
+        sampler = DistributedSampler(dataset, shuffle=True) if is_dist_avail_and_initialized() else None
         loader = DataLoader(
             dataset,
             batch_size=1 if is_eval else config.batch_size,
-            shuffle=num_gpus == 0,
+            shuffle=not is_dist_avail_and_initialized(),
             collate_fn=dataset.collate,
             sampler=sampler,
             num_workers=config.num_eval_loader_workers if is_eval else config.num_loader_workers,
@@ -621,10 +573,6 @@ class Wavernn(BaseVocoder):
         )
         return loader
 
-    def get_criterion(self):
+    def get_criterion(self) -> nn.Module:
         # define train functions
         return WaveRNNLoss(self.args.mode)
-
-    @staticmethod
-    def init_from_config(config: "WavernnConfig"):
-        return Wavernn(config)

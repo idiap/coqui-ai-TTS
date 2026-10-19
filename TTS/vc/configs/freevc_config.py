@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from coqpit import Coqpit
 
+from TTS.config.shared_configs import ModelArgs
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
 
@@ -50,7 +51,7 @@ class FreeVCAudioConfig(Coqpit):
 
 
 @dataclass
-class FreeVCArgs(Coqpit):
+class FreeVCArgs(ModelArgs):
     """FreeVC model arguments
 
     Args:
@@ -218,12 +219,6 @@ class FreeVCConfig(BaseVCConfig):
         test_sentences (List[List]):
             List of sentences with speaker and language information to be used for testing.
 
-        language_ids_file (str):
-            Path to the language ids file.
-
-        use_language_embedding (bool):
-            If true, language embedding is used. Defaults to `False`.
-
     Note:
         Check :class:`TTS.tts.configs.shared_configs.BaseVCConfig` for the inherited parameters.
 
@@ -256,17 +251,6 @@ class FreeVCConfig(BaseVCConfig):
     # overrides
     r: int = 1  # DO NOT CHANGE
     add_blank: bool = True
-
-    # multi-speaker settings
-    # use speaker embedding layer
-    num_speakers: int = 0
-    speakers_file: str = None
-    speaker_embedding_channels: int = 256
-
-    # use d-vectors
-    use_d_vector_file: bool = False
-    d_vector_file: list[str] = None
-    d_vector_dim: int = None
 
     def __post_init__(self):
         for key, val in self.model_args.items():

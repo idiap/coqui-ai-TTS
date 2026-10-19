@@ -29,6 +29,14 @@ pip install coqui-tts
 
 ### Where does Coqui store downloaded models?
 
+```{versionchanged} 0.28.0
+Some models are now downloaded via the
+[`huggingface_hub`](https://huggingface.co/docs/huggingface_hub/index) library
+to automatically handle interrupted downloads and model updates. See
+[its documentation](https://huggingface.co/docs/huggingface_hub/main/en/guides/manage-cache)
+for the default cache location.
+```
+
 The path to downloaded models is printed when running `tts --list_models`.
 Default locations are:
 

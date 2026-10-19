@@ -44,7 +44,7 @@ if __name__ == "__main__":
     config = load_config(args.config_path)
 
     # setup audio processor
-    ap = AudioProcessor(**config.audio)
+    ap = AudioProcessor(config.audio)
 
     # load dataset
     _, train_data = load_wav_data(args.data_path, 0)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     print(f" > base values: {base_values}")
     exponents = 10 ** np.linspace(-6, -1, num=args.num_iter)
     best_error = float("inf")
-    best_schedule = None  # pylint: disable=C0103
+    best_schedule = None
     total_search_iter = len(base_values) ** args.num_iter
     for base in tqdm(cartesian_product(base_values, repeat=args.num_iter), total=total_search_iter):
         beta = exponents * base

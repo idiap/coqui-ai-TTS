@@ -35,12 +35,13 @@ passed in `speaker`, the resulting voice will be cached in `voice_dir`. If that
 voice already exists, it is overwritten. Subsequent calls can then use that
 `speaker` without having to provide reference audio again.
 
-`voice_dir` defaults to a subfolder `voices/` in the folder of the model
-checkpoint. For models used by name, e.g.
-`tts_models/multilingual/multi-dataset/xtts_v2`, this would be
-`~/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/voices/`
-(on Linux, see the [FAQ](faq.md#where-does-coqui-store-downloaded-models) for
-default model locations on other platforms).
+- **Models loaded by name:** `voice_dir` defaults to
+  `$XDG_DATA_HOME/tts/<MODEL_NAME>/voices`, e.g. for XTTS on Linux this would be
+  `~/.local/share/tts/tts_models--multilingual--multi-dataset--xtts_v2/voices/`
+  (see the [FAQ](faq.md#where-does-coqui-store-downloaded-models) for
+  default model locations on other platforms).
+- **Models loaded by path:** `voice_dir` defaults to a subfolder `voices/` in the
+  folder of the model checkpoint.
 
 ### Python API
 

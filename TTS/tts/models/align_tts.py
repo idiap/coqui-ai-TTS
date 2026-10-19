@@ -1,10 +1,12 @@
-from dataclasses import dataclass, field
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
+from trainer import Trainer
 
+from TTS.tts.configs.align_tts_config import AlignTTSConfig
 from TTS.tts.layers.align_tts.mdn import MDNBlock
 from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.duration_predictor import DurationPredictor
@@ -12,58 +14,6 @@ from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import expand_encoder_outputs, generate_attention, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
-
-
-@dataclass
-class AlignTTSArgs(Coqpit):
-    """
-    Args:
-        num_chars (int):
-            number of unique input to characters
-        out_channels (int):
-            number of output tensor channels. It is equal to the expected spectrogram size.
-        hidden_channels (int):
-            number of channels in all the model layers.
-        hidden_channels_ffn (int):
-            number of channels in transformer's conv layers.
-        hidden_channels_dp (int):
-            number of channels in duration predictor network.
-        num_heads (int):
-            number of attention heads in transformer networks.
-        num_transformer_layers (int):
-            number of layers in encoder and decoder transformer blocks.
-        dropout_p (int):
-            dropout rate in transformer layers.
-        length_scale (int, optional):
-            coefficient to set the speech speed. <1 slower, >1 faster. Defaults to 1.
-        num_speakers (int, optional):
-            number of speakers for multi-speaker training. Defaults to 0.
-        external_c (bool, optional):
-            enable external speaker embeddings. Defaults to False.
-        c_in_channels (int, optional):
-            number of channels in speaker embedding vectors. Defaults to 0.
-    """
-
-    num_chars: int = None
-    out_channels: int = 80
-    hidden_channels: int = 256
-    hidden_channels_dp: int = 256
-    encoder_type: str = "fftransformer"
-    encoder_params: dict = field(
-        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 2, "num_layers": 6, "dropout_p": 0.1}
-    )
-    decoder_type: str = "fftransformer"
-    decoder_params: dict = field(
-        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 2, "num_layers": 6, "dropout_p": 0.1}
-    )
-    length_scale: float = 1.0
-    num_speakers: int = 0
-    use_speaker_embedding: bool = False
-    use_d_vector_file: bool = False
-    d_vector_dim: int = 0
 
 
 class AlignTTS(BaseTTS):
@@ -99,17 +49,16 @@ class AlignTTS(BaseTTS):
 
     """
 
-    # pylint: disable=dangerous-default-value
+    config: AlignTTSConfig
 
     def __init__(
         self,
-        config: "AlignTTSConfig",
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        config: Coqpit,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
-        self.speaker_manager = speaker_manager
         self.phase = -1
         self.length_scale = (
             float(config.model_args.length_scale)
@@ -120,7 +69,7 @@ class AlignTTS(BaseTTS):
         self.emb = nn.Embedding(self.config.model_args.num_chars, self.config.model_args.hidden_channels)
 
         self.embedded_speaker_dim = 0
-        self.init_multispeaker(config)
+        self.init_multispeaker()
 
         self.pos_encoder = PositionalEncoding(config.model_args.hidden_channels)
         self.encoder = Encoder(
@@ -147,7 +96,6 @@ class AlignTTS(BaseTTS):
 
     @staticmethod
     def compute_log_probs(mu, log_sigma, y):
-        # pylint: disable=protected-access, c-extension-no-member
         y = y.transpose(1, 2).unsqueeze(1)  # [B, 1, T1, D]
         mu = mu.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
         log_sigma = log_sigma.transpose(1, 2).unsqueeze(2)  # [B, T2, 1, D]
@@ -231,7 +179,7 @@ class AlignTTS(BaseTTS):
         dr_mas, logp = self.compute_align_path(mu, log_sigma, y, x_mask, y_mask)
         return dr_mas, mu, log_sigma, logp
 
-    def forward(self, x, x_lengths, y, y_lengths, aux_input={"d_vectors": None}, phase=None):  # pylint: disable=unused-argument
+    def forward(self, x, x_lengths, y, y_lengths, aux_input=None, phase=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
@@ -240,8 +188,10 @@ class AlignTTS(BaseTTS):
             - dr: :math:`[B, T_max]`
             - g: :math:`[B, C]`
         """
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
         y = y.transpose(1, 2)
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        g = aux_input.get("d_vectors", None)
         o_de, o_dr_log, dr_mas_log, attn, mu, log_sigma, logp = None, None, None, None, None, None, None
         if phase == 0:
             # train encoder and MDN
@@ -285,14 +235,16 @@ class AlignTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x, aux_input={"d_vectors": None}):  # pylint: disable=unused-argument
+    def inference(self, x, aux_input=None):
         """
         Shapes:
             - x: :math:`[B, T_max]`
             - x_lengths: :math:`[B]`
             - g: :math:`[B, C]`
         """
-        g = aux_input["d_vectors"] if "d_vectors" in aux_input else None
+        if aux_input is None:
+            aux_input = {"d_vectors": None}
+        g = aux_input.get("d_vectors", None)
         x_lengths = torch.tensor(x.shape[1:2]).to(x.device)
         # pad input to prevent dropping the last word
         # x = torch.nn.functional.pad(x, pad=(0, 5), mode='constant', value=0)
@@ -306,7 +258,9 @@ class AlignTTS(BaseTTS):
         outputs = {"model_outputs": o_de.transpose(1, 2), "alignments": attn}
         return outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         text_input = batch["text_input"]
         text_lengths = batch["text_lengths"]
         mel_input = batch["mel_input"]
@@ -329,7 +283,9 @@ class AlignTTS(BaseTTS):
 
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        from TTS.tts.utils.visual import plot_alignment, plot_spectrogram
+
         model_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
         mel_input = batch["mel_input"]
@@ -348,8 +304,8 @@ class AlignTTS(BaseTTS):
         train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
 
-    def get_criterion(self):
-        from TTS.tts.layers.losses import AlignTTSLoss  # pylint: disable=import-outside-toplevel
+    def get_criterion(self) -> nn.Module:
+        from TTS.tts.layers.losses import AlignTTSLoss
 
         return AlignTTSLoss(self.config)
 
@@ -370,22 +326,6 @@ class AlignTTS(BaseTTS):
             phase = None
         return phase
 
-    def on_epoch_start(self, trainer):
+    def on_epoch_start(self, trainer: Trainer) -> None:
         """Set AlignTTS training phase on epoch start."""
         self.phase = self._set_phase(trainer.config, trainer.total_steps_done)
-
-    @staticmethod
-    def init_from_config(config: "AlignTTSConfig", samples: list[list] | list[dict] = None):
-        """Initiate model from config
-
-        Args:
-            config (AlignTTSConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return AlignTTS(new_config, ap, tokenizer, speaker_manager)

@@ -7,13 +7,13 @@ import torch
 from coqpit import Coqpit
 from torch import nn
 from trainer.io import load_fsspec
+from trainer.trainer_utils import get_optimizer, get_scheduler
 
+from TTS.tts.configs.tacotron_config import TacotronConfig
 from TTS.tts.layers.losses import TacotronLoss
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.generic_utils import format_aux_input
+from TTS.utils.capacitron_optimizer import CapacitronOptimizer
 from TTS.utils.training import gradual_training_scheduler
 
 logger = logging.getLogger(__name__)
@@ -22,12 +22,14 @@ logger = logging.getLogger(__name__)
 class BaseTacotron(BaseTTS):
     """Base class shared by Tacotron and Tacotron2"""
 
+    config: TacotronConfig
+
     def __init__(
         self,
-        config: "TacotronConfig",
-        ap: "AudioProcessor",
-        tokenizer: "TTSTokenizer",
-        speaker_manager: SpeakerManager = None,
+        config: Coqpit,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
@@ -60,11 +62,14 @@ class BaseTacotron(BaseTTS):
         self.coarse_decoder = None
 
     @staticmethod
-    def _format_aux_input(aux_input: dict) -> dict:
+    def _format_aux_input(aux_input: dict[str, Any] | None) -> dict[str, Any]:
         """Set missing fields to their default values"""
-        if aux_input:
-            return format_aux_input({"d_vectors": None, "speaker_ids": None}, aux_input)
-        return None
+        if aux_input is None:
+            aux_input = {}
+        for key in ("d_vectors", "speaker_ids"):
+            if key not in aux_input:
+                aux_input[key] = None
+        return aux_input
 
     #############################
     # INIT FUNCTIONS
@@ -112,15 +117,16 @@ class BaseTacotron(BaseTTS):
             style_mel = _compute_style_mel(style_wav)
             style_mel = style_mel.transpose(1, 2)  # [1, time, depth]
 
-        if not isinstance(style_mel, dict):
-            if style_text is not None:
-                style_text = torch.tensor(
-                    self.tokenizer.text_to_ids(style_text, language=language), dtype=torch.long, device=self.device
-                ).unsqueeze(0)
+        if not isinstance(style_mel, dict) and style_text is not None:
+            if language is None and self.language_manager.num_languages == 1:
+                language = self.language_manager.language_names[0]
+            style_text = torch.tensor(
+                self.tokenizer.text_to_ids(style_text, language=language), dtype=torch.long, device=self.device
+            ).unsqueeze(0)
         extra_aux_input = {"style_mel": style_mel, "style_text": style_text}
         return super().synthesize(*args, language=language, extra_aux_input=extra_aux_input, **kwargs)
 
-    def load_checkpoint(self, config, checkpoint_path, eval=False, cache=False):  # pylint: disable=unused-argument, redefined-builtin
+    def load_checkpoint(self, config, checkpoint_path, *, eval: bool = False, cache: bool = False) -> None:
         """Load model checkpoint and set up internals.
 
         Args:
@@ -147,19 +153,18 @@ class BaseTacotron(BaseTTS):
             logger.info("Model's reduction rate `r` is set to: %d", self.decoder.r)
             assert not self.training
 
+    def get_optimizer(self) -> torch.optim.Optimizer:
+        if self.use_capacitron_vae:
+            return CapacitronOptimizer(self.config, self.named_parameters())
+        return get_optimizer(self.config.optimizer, self.config.optimizer_params, self.config.lr, self)
+
+    def get_scheduler(self, optimizer: list[torch.optim.Optimizer]) -> torch.optim.lr_scheduler._LRScheduler | None:
+        opt = optimizer[0].primary_optimizer if self.use_capacitron_vae else optimizer[0]
+        return get_scheduler(self.config.lr_scheduler, self.config.lr_scheduler_params, opt)
+
     def get_criterion(self) -> nn.Module:
         """Get the model criterion used in training."""
         return TacotronLoss(self.config)
-
-    @staticmethod
-    def init_from_config(config: Coqpit):
-        """Initialize model from config."""
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config)
-        return BaseTacotron(config, ap, tokenizer, speaker_manager)
 
     #############################
     # COMMON COMPUTE FUNCTIONS
@@ -227,7 +232,7 @@ class BaseTacotron(BaseTTS):
             gst_outputs = torch.zeros(1, 1, self.gst.gst_embedding_dim).type_as(inputs)
         else:
             # compute style tokens
-            gst_outputs = self.gst_layer(style_input, speaker_embedding)  # pylint: disable=not-callable
+            gst_outputs = self.gst_layer(style_input, speaker_embedding)
         inputs = self._concat_speaker_embedding(inputs, gst_outputs)
         return inputs
 
@@ -241,7 +246,7 @@ class BaseTacotron(BaseTTS):
         ) = self.capacitron_vae_layer(
             reference_mel_info,
             text_info,
-            speaker_embedding,  # pylint: disable=not-callable
+            speaker_embedding,
         )
 
         VAE_outputs = VAE_outputs.to(inputs.device)
@@ -284,3 +289,19 @@ class BaseTacotron(BaseTTS):
             if trainer.config.bidirectional_decoder:
                 trainer.model.decoder_backward.set_r(r)
             logger.info("Number of output frames: %d", self.decoder.r)
+
+    def before_backward_pass(self, loss_dict: dict[str, Any], optimizer: list[torch.optim.Optimizer]) -> None:
+        # Extracting custom training specific operations for capacitron
+        # from the trainer
+        if self.use_capacitron_vae:
+            loss_dict["capacitron_vae_beta_loss"].backward()
+            optimizer[0].first_step()
+
+    def before_gradient_clipping(self) -> None:
+        if self.use_capacitron_vae:
+            # Capacitron model specific gradient clipping
+            model_params_to_clip = []
+            for name, param in self.named_parameters():
+                if param.requires_grad and name != "capacitron_vae_layer.beta":
+                    model_params_to_clip.append(param)
+            torch.nn.utils.clip_grad_norm_(model_params_to_clip, self.capacitron_vae.capacitron_grad_clip)

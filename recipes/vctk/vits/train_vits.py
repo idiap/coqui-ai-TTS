@@ -2,13 +2,11 @@ import os
 
 from trainer import Trainer, TrainerArgs
 
+from TTS.config.shared_configs import BaseAudioConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig
-from TTS.tts.configs.vits_config import VitsConfig
+from TTS.tts.configs.vits_config import VitsArgs, VitsConfig
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.models.vits import Vits, VitsArgs, VitsAudioConfig
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
+from TTS.tts.models.vits import Vits
 
 output_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,7 +16,7 @@ def main():
         formatter="vctk", meta_file_train="", language="en-us", path=os.path.join(output_path, "../VCTK/")
     )
 
-    audio_config = VitsAudioConfig(
+    audio_config = BaseAudioConfig(
         sample_rate=22050, win_length=1024, hop_length=256, num_mels=80, mel_fmin=0, mel_fmax=None
     )
 
@@ -52,36 +50,20 @@ def main():
         cudnn_benchmark=False,
     )
 
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # config is updated with the default characters if not defined in the config.
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
     # You can define your custom sample loader returning the list of samples.
     # Or define your custom formatter and pass it to the `load_tts_samples`.
     # Check `TTS.tts.datasets.load_tts_samples` for more details.
     train_samples, eval_samples = load_tts_samples(
-        dataset_config,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
     )
 
-    # init speaker manager for multi-speaker training
-    # it maps speaker-id to speaker-name in the model and data-loader
-    speaker_manager = SpeakerManager()
-    speaker_manager.set_ids_from_data(train_samples + eval_samples, parse_key="speaker_name")
-    config.model_args.num_speakers = speaker_manager.num_speakers
-
     # init model
-    model = Vits(config, ap, tokenizer, speaker_manager)
+    model = Vits(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

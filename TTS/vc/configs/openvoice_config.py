@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from coqpit import Coqpit
 
+from TTS.config.shared_configs import ModelArgs
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
 
@@ -34,7 +35,7 @@ class OpenVoiceAudioConfig(Coqpit):
 
 
 @dataclass
-class OpenVoiceArgs(Coqpit):
+class OpenVoiceArgs(ModelArgs):
     """OpenVoice model arguments.
 
     zero_g (bool):
@@ -182,17 +183,6 @@ class OpenVoiceConfig(BaseVCConfig):
     # overrides
     r: int = 1  # DO NOT CHANGE
     add_blank: bool = True
-
-    # multi-speaker settings
-    # use speaker embedding layer
-    num_speakers: int = 0
-    speakers_file: str | None = None
-    speaker_embedding_channels: int = 256
-
-    # use d-vectors
-    use_d_vector_file: bool = False
-    d_vector_file: list[str] | None = None
-    d_vector_dim: int | None = None
 
     def __post_init__(self) -> None:
         for key, val in self.model_args.items():

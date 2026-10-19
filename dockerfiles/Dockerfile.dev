@@ -22,10 +22,13 @@ WORKDIR /app
 
 # Install dependencies first for better caching
 COPY pyproject.toml /app
-RUN uv pip install -r pyproject.toml --extra all --group dev --torch-backend=cu128
+RUN uv pip install -r pyproject.toml --extra all --extra cuda --extra codec --group dev
 
 # Copy the rest of the application
 COPY . /app
 
 # Install the project
 RUN uv pip install -e .
+
+# Verify installation works
+RUN uv run --active python -c "from TTS.api import TTS"

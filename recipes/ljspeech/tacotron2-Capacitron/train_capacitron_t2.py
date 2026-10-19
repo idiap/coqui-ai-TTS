@@ -7,8 +7,6 @@ from TTS.tts.configs.shared_configs import BaseDatasetConfig, CapacitronVAEConfi
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.tacotron2 import Tacotron2
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 
 output_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,13 +93,9 @@ def main():
         postnet_ssim_alpha=0.0,
     )
 
-    ap = AudioProcessor(**config.audio.to_dict())
+    train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 
-    tokenizer, config = TTSTokenizer.init_from_config(config)
-
-    train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
-
-    model = Tacotron2(config, ap, tokenizer, speaker_manager=None)
+    model = Tacotron2(config)
 
     trainer = Trainer(
         TrainerArgs(),
@@ -110,7 +104,6 @@ def main():
         model=model,
         train_samples=train_samples,
         eval_samples=eval_samples,
-        training_assets={"audio_processor": ap},
     )
 
     trainer.fit()

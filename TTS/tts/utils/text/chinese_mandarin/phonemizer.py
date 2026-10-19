@@ -1,8 +1,5 @@
-try:
-    import pypinyin
-    import spacy_pkuseg as pkuseg
-except ImportError as e:
-    raise ImportError("Chinese requires: spacy_pkuseg, pypinyin") from e
+import pypinyin
+import spacy_pkuseg as pkuseg
 
 from .pinyinToPhonemes import PINYIN_DICT
 

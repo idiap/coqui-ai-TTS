@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.utils.text.phonemizers import Gruut
+from TTS.tts.utils.text.phonemizers.gruut_wrapper import Gruut
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
 phonemizer: Gruut
@@ -49,7 +49,7 @@ def main(arg_list: list[str] | None = None) -> None:
 
     # load all datasets
     train_items, eval_items = load_tts_samples(
-        config.datasets,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,

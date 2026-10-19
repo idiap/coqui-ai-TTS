@@ -1,11 +1,8 @@
 import re
 
-try:
-    import bangla
-    from bnnumerizer import numerize
-    from bnunicodenormalizer import Normalizer
-except ImportError as e:
-    raise ImportError("Bangla requires: bangla, bnnumerizer, bnunicodenormalizer") from e
+import bangla
+from bnnumerizer import numerize
+from bnunicodenormalizer import Normalizer
 
 # initialize
 bnorm = Normalizer()
@@ -61,7 +58,7 @@ def tag_text(text: str):
 
 
 def normalize(sen):
-    global bnorm  # pylint: disable=global-statement
+    global bnorm
     _words = [bnorm(word)["normalized"] for word in sen.split()]
     return " ".join([word for word in _words if word is not None])
 

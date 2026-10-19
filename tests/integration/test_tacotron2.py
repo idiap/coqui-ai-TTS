@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch import nn, optim
 
-from tests import assert_parameters_change, assert_parameters_equal, get_tests_input_path
+from tests import assert_parameters_change, assert_parameters_equal, get_test_speakers, get_tests_input_path
 from tests.integration.test_tacotron import create_stop_targets
 from TTS.tts.configs.shared_configs import CapacitronVAEConfig, GSTConfig
 from TTS.tts.configs.tacotron2_config import Tacotron2Config
@@ -13,20 +13,16 @@ from TTS.tts.layers.losses import MSELossMasked
 from TTS.tts.models.tacotron2 import Tacotron2
 from TTS.utils.audio import AudioProcessor
 
-torch.manual_seed(1)
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 WAV_FILE = os.path.join(get_tests_input_path(), "example_1.wav")
 
 
 @pytest.fixture
 def base_config():
     """Base Tacotron2 config for testing."""
-    return Tacotron2Config(num_chars=32, num_speakers=5, out_channels=80, decoder_output_dim=80)
+    return Tacotron2Config(num_chars=32, speakers=get_test_speakers(5), out_channels=80, decoder_output_dim=80)
 
 
-def create_tacotron2_inputs(config, batch_size=8, max_seq_len=128, max_mel_len=30):
+def create_tacotron2_inputs(config, device: torch.device, batch_size=8, max_seq_len=128, max_mel_len=30):
     """Create input tensors for Tacotron2 training."""
     input_dummy = torch.randint(0, 24, (batch_size, max_seq_len)).long().to(device)
     input_lengths = torch.randint(100, max_seq_len, (batch_size,)).long().to(device)
@@ -38,7 +34,7 @@ def create_tacotron2_inputs(config, batch_size=8, max_seq_len=128, max_mel_len=3
     return input_dummy, input_lengths, mel_spec, mel_postnet_spec, mel_lengths
 
 
-def train_and_verify_updates(config, aux_input=None, num_iterations=5, ignore_params=None):
+def train_and_verify_updates(config, device: torch.device, aux_input=None, num_iterations=5, ignore_params=None):
     """Train Tacotron2 model and verify parameters are updated."""
     criterion = MSELossMasked(seq_len_norm=False).to(device)
     criterion_st = nn.BCEWithLogitsLoss().to(device)
@@ -48,8 +44,8 @@ def train_and_verify_updates(config, aux_input=None, num_iterations=5, ignore_pa
     assert_parameters_equal(model, model_ref)
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     for _ in range(num_iterations):
-        input_dummy, input_lengths, mel_spec, mel_postnet_spec, mel_lengths = create_tacotron2_inputs(config)
-        stop_targets = create_stop_targets(mel_lengths, 8, 30, config.r)
+        input_dummy, input_lengths, mel_spec, mel_postnet_spec, mel_lengths = create_tacotron2_inputs(config, device)
+        stop_targets = create_stop_targets(mel_lengths, 8, 30, config.r, device)
         outputs = model.forward(input_dummy, input_lengths, mel_spec, mel_lengths, aux_input=aux_input)
         assert torch.sigmoid(outputs["stop_tokens"]).data.max() <= 1.0
         assert torch.sigmoid(outputs["stop_tokens"]).data.min() >= 0.0
@@ -62,52 +58,52 @@ def train_and_verify_updates(config, aux_input=None, num_iterations=5, ignore_pa
     assert_parameters_change(model, model_ref, ignore=ignore_params)
 
 
-def test_train_step(base_config):
+def test_train_step(base_config, device: torch.device):
     """Test vanilla Tacotron2 model."""
     config = base_config.copy()
     config.use_speaker_embedding = False
-    config.num_speakers = 1
-    train_and_verify_updates(config)
+    train_and_verify_updates(config, device)
 
 
-def test_multispeaker_train_step(base_config):
+def test_multispeaker_train_step(base_config, device: torch.device):
     """Test multi-speaker Tacotron2 with speaker embedding layer."""
     config = base_config.copy()
     config.use_speaker_embedding = True
-    config.num_speakers = 5
+    config.speakers = get_test_speakers(5)
     config.d_vector_dim = 55
 
     speaker_ids = torch.randint(0, 5, (8,)).long().to(device)
-    train_and_verify_updates(config, aux_input={"speaker_ids": speaker_ids})
+    train_and_verify_updates(config, device, aux_input={"speaker_ids": speaker_ids})
 
 
-def test_gst_train_step_random(base_config):
+def test_gst_train_step_random(base_config, device: torch.device):
     """Test multi-speaker Tacotron2 with Global Style Token and Speaker Embedding using random mel."""
     config = base_config.copy()
     config.use_speaker_embedding = True
-    config.num_speakers = 10
+    config.speakers = get_test_speakers(10)
     config.use_gst = True
     config.gst = GSTConfig()
 
     speaker_ids = torch.randint(0, 5, (8,)).long().to(device)
     train_and_verify_updates(
         config,
+        device,
         aux_input={"speaker_ids": speaker_ids},
         num_iterations=10,
         ignore_params=["gst_layer.encoder.recurrence.weight_hh_l0"],
     )
 
 
-def test_gst_train_step_file(base_config):
+def test_gst_train_step_file(base_config, device: torch.device):
     """Test multi-speaker Tacotron2 with Global Style Token using mel from file."""
     config = base_config.copy()
     config.use_speaker_embedding = True
-    config.num_speakers = 10
+    config.speakers = get_test_speakers(10)
     config.use_gst = True
     config.gst = GSTConfig()
 
     # Load mel from file
-    ap = AudioProcessor(**base_config.audio)
+    ap = AudioProcessor(base_config.audio)
     mel_spec = (
         torch.FloatTensor(ap.melspectrogram(ap.load_wav(WAV_FILE)))[:, :30].unsqueeze(0).transpose(1, 2).to(device)
     )
@@ -127,7 +123,7 @@ def test_gst_train_step_file(base_config):
         mel_postnet_spec = torch.rand(8, 30, config.audio["num_mels"]).to(device)
         mel_lengths = torch.randint(20, 30, (8,)).long().to(device)
         mel_lengths[0] = 30
-        stop_targets = create_stop_targets(mel_lengths, 8, 30, config.r)
+        stop_targets = create_stop_targets(mel_lengths, 8, 30, config.r, device)
         speaker_ids = torch.randint(0, 5, (8,)).long().to(device)
 
         outputs = model.forward(
@@ -144,11 +140,11 @@ def test_gst_train_step_file(base_config):
     assert_parameters_change(model, model_ref, ignore=["gst_layer.encoder.recurrence.weight_hh_l0"])
 
 
-def test_capacitron_train_step():
+def test_capacitron_train_step(device: torch.device):
     """Test Tacotron2 with Capacitron VAE."""
     config = Tacotron2Config(
         num_chars=32,
-        num_speakers=10,
+        speakers=get_test_speakers(10),
         use_speaker_embedding=True,
         out_channels=80,
         decoder_output_dim=80,
@@ -200,7 +196,7 @@ def test_capacitron_train_step():
     assert_parameters_change(model, model_ref)
 
 
-def test_scgst_multispeaker_train_step(base_config):
+def test_scgst_multispeaker_train_step(base_config, device: torch.device):
     """Test multi-speaker Tacotron2 with Global Style Tokens and d-vector inputs."""
     config = base_config.copy()
     config.use_d_vector_file = True
@@ -211,6 +207,7 @@ def test_scgst_multispeaker_train_step(base_config):
     speaker_embeddings = torch.rand(8, 55).to(device)
     train_and_verify_updates(
         config,
+        device,
         aux_input={"d_vectors": speaker_embeddings},
         ignore_params=["gst_layer.encoder.recurrence.weight_hh_l0"],
     )

@@ -1,10 +1,27 @@
 """from https://github.com/keithito/tacotron"""
 
 import re
+from typing import TYPE_CHECKING, cast
 
-import inflect
+if TYPE_CHECKING:
+    import inflect
 
-_inflect = inflect.engine()
+_inflect = None
+
+
+def _get_inflect() -> "inflect.engine":
+    global _inflect
+    if _inflect is None:
+        import inflect
+
+        _inflect = inflect.engine()
+    return _inflect
+
+
+def _expand_num(n: int) -> str:
+    return cast(str, _get_inflect().number_to_words(n))  # ty: ignore[invalid-argument-type]
+
+
 _comma_number_re = re.compile(r"([0-9][0-9\,]+[0-9])")
 _decimal_number_re = re.compile(r"([0-9]+\.[0-9]+)")
 _currency_re = re.compile(r"(£|\$|¥)([0-9\,\.]*[0-9]+)")
@@ -12,11 +29,11 @@ _ordinal_re = re.compile(r"[0-9]+(st|nd|rd|th)")
 _number_re = re.compile(r"-?[0-9]+")
 
 
-def _remove_commas(m):
+def _remove_commas(m: re.Match) -> str:
     return m.group(1).replace(",", "")
 
 
-def _expand_decimal_point(m):
+def _expand_decimal_point(m: re.Match) -> str:
     return m.group(1).replace(".", " point ")
 
 
@@ -38,7 +55,7 @@ def __expand_currency(value: str, inflection: dict[float, str]) -> str:
     return " ".join(text)
 
 
-def _expand_currency(m: "re.Match") -> str:
+def _expand_currency(m: re.Match) -> str:
     currencies = {
         "$": {
             0.01: "cent",
@@ -70,28 +87,31 @@ def _expand_currency(m: "re.Match") -> str:
     return __expand_currency(value, currency)
 
 
-def _expand_ordinal(m):
-    return _inflect.number_to_words(m.group(0))
+def _expand_ordinal(m: re.Match) -> str:
+    return cast(str, _get_inflect().number_to_words(m.group(0)))
 
 
-def _expand_number(m):
+def _expand_number(m: re.Match) -> str:
+    import inflect
+
+    _inf = _get_inflect()
     num = int(m.group(0))
     if 1000 < num < 3000:
         if num == 2000:
             return "two thousand"
         if 2000 < num < 2010:
-            return "two thousand " + _inflect.number_to_words(num % 100)
+            return "two thousand " + cast(str, _inf.number_to_words(num % 100))  # ty: ignore[invalid-argument-type]
         if num % 100 == 0:
-            return _inflect.number_to_words(num // 100) + " hundred"
-        return _inflect.number_to_words(num, andword="", zero="oh", group=2).replace(", ", " ")
+            return cast(str, _inf.number_to_words(num // 100)) + " hundred"  # ty: ignore[invalid-argument-type]
+        return cast(str, _inf.number_to_words(num, andword="", zero="oh", group=2)).replace(", ", " ")  # ty: ignore[invalid-argument-type]
     try:
-        text = _inflect.number_to_words(num, andword="")
+        text = _inf.number_to_words(num, andword="")  # ty: ignore[invalid-argument-type]
     except inflect.NumOutOfRangeError:
-        text = _inflect.number_to_words(num, group=1).replace(", ", " ")
-    return text
+        text = cast(str, _inf.number_to_words(num, group=1)).replace(", ", " ")  # ty: ignore[invalid-argument-type]
+    return cast(str, text)
 
 
-def normalize_numbers(text):
+def normalize_numbers(text: str) -> str:
     text = re.sub(_comma_number_re, _remove_commas, text)
     text = re.sub(_currency_re, _expand_currency, text)
     text = re.sub(_decimal_number_re, _expand_decimal_point, text)

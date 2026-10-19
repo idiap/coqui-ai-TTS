@@ -11,7 +11,6 @@ file_path = get_tests_input_path()
 
 
 class LSTMSpeakerEncoderTests(unittest.TestCase):
-    # pylint: disable=R0201
     def test_in_out(self):
         dummy_input = T.rand(4, 80, 20)  # B x D x T
         dummy_hidden = [T.rand(2, 4, 128), T.rand(2, 4, 128)]
@@ -42,7 +41,6 @@ class LSTMSpeakerEncoderTests(unittest.TestCase):
 
 
 class ResNetSpeakerEncoderTests(unittest.TestCase):
-    # pylint: disable=R0201
     def test_in_out(self):
         dummy_input = T.rand(4, 80, 20)  # B x D x T
         dummy_hidden = [T.rand(2, 4, 128), T.rand(2, 4, 128)]
@@ -69,7 +67,6 @@ class ResNetSpeakerEncoderTests(unittest.TestCase):
 
 
 class GE2ELossTests(unittest.TestCase):
-    # pylint: disable=R0201
     def test_in_out(self):
         # check random input
         dummy_input = T.rand(4, 5, 64)  # num_speaker x num_utterance x dim
@@ -97,7 +94,6 @@ class GE2ELossTests(unittest.TestCase):
 
 
 class AngleProtoLossTests(unittest.TestCase):
-    # pylint: disable=R0201
     def test_in_out(self):
         # check random input
         dummy_input = T.rand(4, 5, 64)  # num_speaker x num_utterance x dim
@@ -127,7 +123,6 @@ class AngleProtoLossTests(unittest.TestCase):
 
 
 class SoftmaxAngleProtoLossTests(unittest.TestCase):
-    # pylint: disable=R0201
     def test_in_out(self):
         embedding_dim = 64
         num_speakers = 5

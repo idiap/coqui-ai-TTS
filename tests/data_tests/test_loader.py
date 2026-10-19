@@ -1,3 +1,5 @@
+"""Test loading of TTSDataset with load_tts_samples()."""
+
 import os
 import shutil
 from pathlib import Path
@@ -8,13 +10,12 @@ import torch
 from torch.utils.data import DataLoader
 
 from tests import get_tests_data_path
+from TTS.tts.configs.glow_tts_config import GlowTTSConfig
 from TTS.tts.configs.shared_configs import BaseDatasetConfig, BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples, register_formatter
 from TTS.tts.datasets.dataset import TTSDataset
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
-
-# pylint: disable=unused-variable
 
 # create a dummy config for testing data loaders.
 c = BaseTTSConfig(text_cleaner="english_cleaners", num_loader_workers=0, batch_size=2, use_noise_augment=False)
@@ -22,30 +23,38 @@ c.r = 5
 c.data_path = os.path.join(get_tests_data_path(), "ljspeech/")
 
 dataset_config_wav = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_wav.csv",
     meta_file_val=None,
     path=c.data_path,
     language="en",
 )
 dataset_config_mp3 = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_mp3.csv",
     meta_file_val=None,
     path=c.data_path,
     language="en",
 )
 dataset_config_flac = BaseDatasetConfig(
-    formatter="coqui",  # ljspeech_test to multi-speaker
+    formatter="coqui",
     meta_file_train="metadata_flac.csv",
     meta_file_val=None,
     path=c.data_path,
     language="en",
 )
 
+dataset_config_multi = BaseDatasetConfig(
+    formatter="ljspeech_test",
+    meta_file_train="metadata.csv",
+    meta_file_val=None,
+    path="tests/data/ljspeech",
+    language="en",
+)
+
 dataset_configs = [dataset_config_wav, dataset_config_mp3, dataset_config_flac]
 
-ap = AudioProcessor(**c.audio)
+ap = AudioProcessor(c.audio)
 max_loader_iter = 4
 
 DATA_EXIST = True
@@ -55,9 +64,12 @@ if not os.path.exists(c.data_path):
 print(f" > Dynamic data loader test: {DATA_EXIST}")
 
 
-def _create_dataloader(batch_size, r, bgs, dataset_config, start_by_longest=False, preprocess_samples=False):
+def _create_dataloader(
+    batch_size, r, bgs, dataset_config: BaseDatasetConfig, start_by_longest=False, preprocess_samples=False
+):
     # load dataset
-    meta_data_train, meta_data_eval = load_tts_samples(dataset_config, eval_split=True, eval_split_size=0.2)
+    config = BaseTTSConfig(datasets=[dataset_config])
+    meta_data_train, meta_data_eval = load_tts_samples(config, eval_split=True, eval_split_size=0.2)
     items = meta_data_train + meta_data_eval
     tokenizer, _ = TTSTokenizer.init_from_config(c)
     dataset = TTSDataset(
@@ -284,7 +296,16 @@ def test_custom_formatted_dataset_with_loader():
         meta_file_train="metadata.csv",
         path=c.data_path,
     )
-    dataset_configs = [dataset1, dataset2]
-    train_samples, eval_samples = load_tts_samples(dataset_configs, eval_split=True, eval_split_size=0.2)
+    config = BaseTTSConfig(datasets=[dataset1, dataset2])
+    train_samples, eval_samples = load_tts_samples(config, eval_split=True, eval_split_size=0.2)
     assert len(train_samples) == 14
     assert len(eval_samples) == 2
+
+
+def test_creates_config_speakers():
+    """Test that load_tts_samples auto-populates config.speakers."""
+    config = GlowTTSConfig(datasets=[dataset_config_multi], use_speaker_embedding=True)
+    assert config.speakers == []
+
+    _train_samples, _eval_samples = load_tts_samples(config, eval_split=False)
+    assert config.speakers == ["ljspeech-1", "ljspeech-2", "ljspeech-3", "ljspeech-4"]

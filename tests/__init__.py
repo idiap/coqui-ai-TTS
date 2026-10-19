@@ -3,21 +3,8 @@ from collections.abc import Callable
 from typing import Optional
 
 import pytest
-from trainer.generic_utils import get_cuda
 
 from TTS.config import BaseDatasetConfig
-
-
-def get_device_id():
-    use_cuda, _ = get_cuda()
-    if use_cuda:
-        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != "":
-            GPU_ID = os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0]
-        else:
-            GPU_ID = "0"
-    else:
-        GPU_ID = ""
-    return GPU_ID
 
 
 def get_tests_path():
@@ -42,6 +29,11 @@ def get_tests_output_path():
     return path
 
 
+def get_test_speakers(n: int) -> list[str]:
+    """Return a list of `n` speaker names."""
+    return [f"speaker_{i}" for i in range(n)]
+
+
 def run_main(main_func: Callable, args: list[str] | None = None, expected_code: int = 0):
     with pytest.raises(SystemExit) as exc_info:
         main_func(args)
@@ -50,17 +42,6 @@ def run_main(main_func: Callable, args: list[str] | None = None, expected_code: 
 
 def get_test_data_config():
     return BaseDatasetConfig(formatter="ljspeech", path="tests/data/ljspeech/", meta_file_train="metadata.csv")
-
-
-def assertHasAttr(test_obj, obj, intendedAttr):
-    # from https://stackoverflow.com/questions/48078636/pythons-unittest-lacks-an-asserthasattr-method-what-should-i-use-instead
-    testBool = hasattr(obj, intendedAttr)
-    test_obj.assertTrue(testBool, msg=f"obj lacking an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
-
-
-def assertHasNotAttr(test_obj, obj, intendedAttr):
-    testBool = hasattr(obj, intendedAttr)
-    test_obj.assertFalse(testBool, msg=f"obj should not have an attribute. obj: {obj}, intendedAttr: {intendedAttr}")
 
 
 def assert_parameters_change(model, model_ref, ignore=None):

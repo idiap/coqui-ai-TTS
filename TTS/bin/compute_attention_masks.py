@@ -1,8 +1,10 @@
 import argparse
 import logging
+import os
 import sys
 from argparse import RawTextHelpFormatter
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -12,8 +14,9 @@ from TTS.config import load_config
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models import setup_model
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -73,26 +76,46 @@ Example run:
 def main(arg_list: list[str] | None = None) -> None:
     setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
     args = parse_args(arg_list)
+    compute_attention_masks(
+        args.model_path,
+        args.config_path,
+        args.data_path,
+        output_path=args.output_path,
+        formatter=args.formatter,
+        metafile=args.dataset_metafile,
+        use_cuda=args.use_cuda,
+        batch_size=args.batch_size,
+    )
+    sys.exit(0)
 
-    output_path = Path(args.output_path if args.output_path else args.data_path).resolve()
+
+def compute_attention_masks(
+    model_path: str | os.PathLike[Any],
+    config_path: str | os.PathLike[Any],
+    data_path: str | os.PathLike[Any],
+    *,
+    output_path: str | os.PathLike[Any] | None = None,
+    formatter: str = "ljspeech",
+    metafile: str = "metadata.csv",
+    use_cuda: bool = True,
+    batch_size: int = 16,
+) -> None:
+    output_path = Path(output_path if output_path else data_path).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 
-    config = load_config(args.config_path)
-    config.eval_batch_size = args.batch_size
-    tokenizer, config = TTSTokenizer.init_from_config(config)
+    config = load_config(config_path)
+    config.eval_batch_size = batch_size
 
     # load the model
     model = setup_model(config)
-    model.load_checkpoint(config, args.model_path, eval=True)
-    if args.use_cuda:
+    model.load_checkpoint(config, model_path, eval=True)
+    if use_cuda:
         model.cuda()
 
     # create data loader
-    dataset_config = BaseDatasetConfig(
-        formatter=args.formatter, meta_file_train=args.dataset_metafile, path=args.data_path
-    )
-    samples, _ = load_tts_samples(dataset_config, eval_split=False)
-    loader = model.get_data_loader(config, assets=None, is_eval=True, samples=samples, verbose=True, num_gpus=0)
+    config.datasets = [BaseDatasetConfig(formatter=formatter, meta_file_train=metafile, path=data_path)]
+    samples, _ = load_tts_samples(config, eval_split=False)
+    loader = model.get_data_loader(config, samples=samples, is_eval=True, verbose=True)
 
     # compute attentions
     file_paths = []
@@ -106,7 +129,7 @@ def main(arg_list: list[str] | None = None) -> None:
             item_idxs = data["item_idxs"]
 
             # dispatch data to GPU
-            if args.use_cuda:
+            if use_cuda:
                 text_input = text_input.cuda()
                 text_lengths = text_lengths.cuda()
                 mel_input = mel_input.cuda()
@@ -134,20 +157,16 @@ def main(arg_list: list[str] | None = None) -> None:
                 alignment = alignment[: mel_lengths[idx], : text_lengths[idx]].cpu().numpy()
                 # save output
                 wav_file_path = Path(item_idx).resolve()
-                rel_path = wav_file_path.relative_to(Path(args.data_path).resolve())
+                rel_path = wav_file_path.relative_to(Path(data_path).resolve())
                 file_path = (output_path / rel_path).with_name(wav_file_path.stem + "_attn.npy")
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 file_paths.append([wav_file_path, file_path])
                 np.save(file_path, alignment)
 
-        # output metafile
-        metafile = output_path / "metadata_attn_mask.txt"
-
-        with open(metafile, "w", encoding="utf-8") as f:
-            for p in file_paths:
-                f.write(f"{p[0]}|{p[1]}\n")
-        print(f" >> Metafile created: {metafile}")
-    sys.exit(0)
+        output_file = output_path / "metadata_attn_mask.txt"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.writelines(f"{p[0]}|{p[1]}\n" for p in file_paths)
+        logger.info("Metafile created: %s", output_file)
 
 
 if __name__ == "__main__":

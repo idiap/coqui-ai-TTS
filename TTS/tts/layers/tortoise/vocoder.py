@@ -1,7 +1,3 @@
-from collections.abc import Callable
-from dataclasses import dataclass
-from enum import Enum
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -24,7 +20,7 @@ class KernelPredictor(torch.nn.Module):
         kpnet_conv_size=3,
         kpnet_dropout=0.0,
         kpnet_nonlinear_activation="LeakyReLU",
-        kpnet_nonlinear_activation_params={"negative_slope": 0.1},
+        kpnet_nonlinear_activation_params=None,
     ):
         """
         Args:
@@ -33,6 +29,8 @@ class KernelPredictor(torch.nn.Module):
             conv_out_channels (int): number of channel for the output sequence,
             conv_layers (int): number of layers
         """
+        if kpnet_nonlinear_activation_params is None:
+            kpnet_nonlinear_activation_params = {"negative_slope": 0.1}
         super().__init__()
 
         self.conv_in_channels = conv_in_channels
@@ -143,7 +141,7 @@ class LVCBlock(torch.nn.Module):
         in_channels,
         cond_channels,
         stride,
-        dilations=[1, 3, 9, 27],
+        dilations=None,
         lReLU_slope=0.2,
         conv_kernel_size=3,
         cond_hop_length=256,
@@ -151,6 +149,8 @@ class LVCBlock(torch.nn.Module):
         kpnet_conv_size=3,
         kpnet_dropout=0.0,
     ):
+        if dilations is None:
+            dilations = [1, 3, 9, 27]
         super().__init__()
 
         self.cond_hop_length = cond_hop_length
@@ -285,14 +285,18 @@ class UnivNetGenerator(nn.Module):
         self,
         noise_dim=64,
         channel_size=32,
-        dilations=[1, 3, 9, 27],
-        strides=[8, 8, 4],
+        dilations=None,
+        strides=None,
         lReLU_slope=0.2,
         kpnet_conv_size=3,
         # Below are MEL configurations options that this generator requires.
         hop_length=256,
         n_mel_channels=100,
     ):
+        if strides is None:
+            strides = [8, 8, 4]
+        if dilations is None:
+            dilations = [1, 3, 9, 27]
         super().__init__()
         self.mel_channel = n_mel_channels
         self.noise_dim = noise_dim
@@ -372,22 +376,6 @@ class UnivNetGenerator(nn.Module):
         audio = audio[:, :, : -(self.hop_length * 10)]
         audio = audio.clamp(min=-1, max=1)
         return audio
-
-
-@dataclass
-class VocType:
-    constructor: Callable[[], nn.Module]
-    model_path: str
-    subkey: str | None = None
-
-    def optionally_index(self, model_dict):
-        if self.subkey is not None:
-            return model_dict[self.subkey]
-        return model_dict
-
-
-class VocConf(Enum):
-    Univnet = VocType(UnivNetGenerator, "vocoder.pth", "model_g")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from trainer.io import get_last_checkpoint
 from tests import run_main
 from TTS.bin.synthesize import main as synthesize
 from TTS.bin.train_tts import main as train_tts
+from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.vc.configs.shared_configs import BaseVCConfig
 
@@ -61,13 +62,23 @@ def run_tts_train(tmp_path: Path, config: BaseTTSConfig):
     torch.save({"mean": -5.5138, "std": 2.0636, "init_transition_prob": 0.3212}, parameter_path)
     config.mel_statistics_parameter_path = parameter_path
 
+    is_multi_speaker = config.use_speaker_embedding or config.use_d_vector_file
+    formatter = "ljspeech_test" if is_multi_speaker else "ljspeech"
+
+    config.datasets.append(
+        BaseDatasetConfig(
+            formatter=formatter,
+            meta_file_train="metadata.csv",
+            path="tests/data/ljspeech",
+            meta_file_attn_mask="tests/data/ljspeech/metadata_attn_mask.txt",
+        )
+    )
+
     config.audio.do_trim_silence = True
     config.audio.trim_db = 60
     config.save_json(config_path)
 
     # train the model for one epoch
-    is_multi_speaker = config.use_speaker_embedding or config.use_d_vector_file
-    formatter = "ljspeech_test" if is_multi_speaker else "ljspeech"
     command_train = [
         "--config_path",
         str(config_path),
@@ -75,18 +86,10 @@ def run_tts_train(tmp_path: Path, config: BaseTTSConfig):
         str(output_path),
         "--coqpit.phoneme_cache_path",
         str(output_path / "phoneme_cache"),
-        "--coqpit.datasets.0.formatter",
-        formatter,
-        "--coqpit.datasets.0.meta_file_train",
-        "metadata.csv",
         "--coqpit.datasets.0.meta_file_val",
         "metadata.csv",
-        "--coqpit.datasets.0.path",
-        "tests/data/ljspeech",
         "--coqpit.test_delay_epochs",
         "0",
-        "--coqpit.datasets.0.meta_file_attn_mask",
-        "tests/data/ljspeech/metadata_attn_mask.txt",
     ]
     run_main(train_tts, command_train)
 

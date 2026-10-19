@@ -47,7 +47,12 @@ class BaseVocabulary:
     """
 
     def __init__(
-        self, vocab: list[str] | None, pad: str = None, blank: str = None, bos: str = None, eos: str = None
+        self,
+        vocab: list[str] | None,
+        pad: str | None = None,
+        blank: str | None = None,
+        bos: str | None = None,
+        eos: str | None = None,
     ) -> None:
         self.vocab = vocab
         self.pad = pad
@@ -57,26 +62,34 @@ class BaseVocabulary:
 
     @property
     def pad_id(self) -> int:
-        """Return the index of the padding character. If the padding character is not specified, return the length
-        of the vocabulary."""
+        """Return the index of the padding character.
+
+        If the padding character is not specified, return the length of the vocabulary.
+        """
         return self.char_to_id(self.pad) if self.pad else len(self.vocab)
 
     @property
     def blank_id(self) -> int:
-        """Return the index of the blank character. If the blank character is not specified, return the length of
-        the vocabulary."""
+        """Return the index of the blank character.
+
+        If the blank character is not specified, return the length of the vocabulary.
+        """
         return self.char_to_id(self.blank) if self.blank else len(self.vocab)
 
     @property
     def bos_id(self) -> int:
-        """Return the index of the bos character. If the bos character is not specified, return the length of the
-        vocabulary."""
+        """Return the index of the bos character.
+
+        If the bos character is not specified, return the length of the vocabulary.
+        """
         return self.char_to_id(self.bos) if self.bos else len(self.vocab)
 
     @property
     def eos_id(self) -> int:
-        """Return the index of the eos character. If the eos character is not specified, return the length of the
-        vocabulary."""
+        """Return the index of the eos character.
+
+        If the eos character is not specified, return the length of the vocabulary.
+        """
         return self.char_to_id(self.eos) if self.eos else len(self.vocab)
 
     @property
@@ -94,9 +107,9 @@ class BaseVocabulary:
             self._id_to_char = dict(enumerate(self._vocab))
 
     @staticmethod
-    def init_from_config(config: BaseTTSConfig, **kwargs) -> tuple["BaseVocabulary", BaseTTSConfig]:
+    def init_from_config(config: BaseTTSConfig) -> tuple["BaseVocabulary", BaseTTSConfig]:
         """Initialize from the given config."""
-        if config.characters is not None and "vocab_dict" in config.characters and config.characters.vocab_dict:
+        if config.characters is not None and config.characters.get("vocab_dict"):
             return (
                 BaseVocabulary(
                     config.characters.vocab_dict,
@@ -107,7 +120,8 @@ class BaseVocabulary:
                 ),
                 config,
             )
-        return BaseVocabulary(**kwargs), config
+        msg = "Missing `characters` or `characters.vocab_dict` in config."
+        raise ValueError(msg)
 
     def to_config(self) -> "CharactersConfig":
         return CharactersConfig(
@@ -126,19 +140,19 @@ class BaseVocabulary:
         return len(self._vocab)
 
     def char_to_id(self, char: str) -> int:
-        """Map a character to an token ID."""
+        """Map a character to a token ID."""
         try:
             return self._char_to_id[char]
         except KeyError as e:
-            msg = f" [!] {repr(char)} is not in the vocabulary."
+            msg = f" [!] {char!r} is not in the vocabulary."
             raise KeyError(msg) from e
 
     def id_to_char(self, idx: int) -> str:
-        """Map an token ID to a character."""
+        """Map a token ID to a character."""
         return self._id_to_char[idx]
 
 
-class BaseCharacters:
+class BaseCharacters(BaseVocabulary):
     """🐸BaseCharacters class.
 
         Every new character class should inherit from this.
@@ -175,147 +189,50 @@ class BaseCharacters:
 
     def __init__(
         self,
-        characters: str = None,
-        punctuations: str = None,
-        pad: str = None,
-        eos: str = None,
-        bos: str = None,
-        blank: str = None,
+        characters: str = "",
+        punctuations: str = "",
+        pad: str | None = None,
+        eos: str | None = None,
+        bos: str | None = None,
+        blank: str | None = None,
         *,
         is_unique: bool = False,
         is_sorted: bool = True,
     ) -> None:
-        self._characters = characters
-        self._punctuations = punctuations
-        self._pad = pad
-        self._eos = eos
-        self._bos = bos
-        self._blank = blank
+        super().__init__(vocab=None, pad=pad, blank=blank, bos=bos, eos=eos)
+        self.characters = characters
+        self.punctuations = punctuations
         self.is_unique = is_unique
         self.is_sorted = is_sorted
         self._create_vocab()
 
-    @property
-    def pad_id(self) -> int:
-        return self.char_to_id(self.pad) if self.pad else len(self.vocab)
-
-    @property
-    def blank_id(self) -> int:
-        return self.char_to_id(self.blank) if self.blank else len(self.vocab)
-
-    @property
-    def eos_id(self) -> int:
-        return self.char_to_id(self.eos) if self.eos else len(self.vocab)
-
-    @property
-    def bos_id(self) -> int:
-        return self.char_to_id(self.bos) if self.bos else len(self.vocab)
-
-    @property
-    def characters(self) -> str:
-        return self._characters
-
-    @characters.setter
-    def characters(self, characters: str) -> None:
-        self._characters = characters
-        self._create_vocab()
-
-    @property
-    def punctuations(self) -> str:
-        return self._punctuations
-
-    @punctuations.setter
-    def punctuations(self, punctuations: str) -> None:
-        self._punctuations = punctuations
-        self._create_vocab()
-
-    @property
-    def pad(self) -> str:
-        return self._pad
-
-    @pad.setter
-    def pad(self, pad: str) -> None:
-        self._pad = pad
-        self._create_vocab()
-
-    @property
-    def eos(self) -> str | None:
-        return self._eos
-
-    @eos.setter
-    def eos(self, eos: str | None) -> None:
-        self._eos = eos
-        self._create_vocab()
-
-    @property
-    def bos(self) -> str | None:
-        return self._bos
-
-    @bos.setter
-    def bos(self, bos: str | None) -> None:
-        self._bos = bos
-        self._create_vocab()
-
-    @property
-    def blank(self) -> str | None:
-        return self._blank
-
-    @blank.setter
-    def blank(self, blank: str | None) -> None:
-        self._blank = blank
-        self._create_vocab()
-
-    @property
-    def vocab(self) -> list[str]:
-        return self._vocab
-
-    @vocab.setter
-    def vocab(self, vocab: list[str]) -> None:
-        self._vocab = vocab
-        self._char_to_id = {char: idx for idx, char in enumerate(self.vocab)}
-        self._id_to_char = dict(enumerate(self.vocab))
-
-    @property
-    def num_chars(self) -> int:
-        return len(self._vocab)
-
     def _create_vocab(self) -> None:
-        _vocab = self._characters
+        _vocab = self.characters
         if self.is_unique:
             _vocab = list(set(_vocab))
         if self.is_sorted:
             _vocab = sorted(_vocab)
         _vocab = list(_vocab)
-        _vocab = [self._blank, *_vocab] if self._blank is not None and len(self._blank) > 0 else _vocab
-        _vocab = [self._bos, *_vocab] if self._bos is not None and len(self._bos) > 0 else _vocab
-        _vocab = [self._eos, *_vocab] if self._eos is not None and len(self._eos) > 0 else _vocab
-        _vocab = [self._pad, *_vocab] if self._pad is not None and len(self._pad) > 0 else _vocab
-        self.vocab = _vocab + list(self._punctuations)
+        _vocab = [self.blank, *_vocab] if self.blank is not None and len(self.blank) > 0 else _vocab
+        _vocab = [self.bos, *_vocab] if self.bos is not None and len(self.bos) > 0 else _vocab
+        _vocab = [self.eos, *_vocab] if self.eos is not None and len(self.eos) > 0 else _vocab
+        _vocab = [self.pad, *_vocab] if self.pad is not None and len(self.pad) > 0 else _vocab
+        self.vocab = _vocab + list(self.punctuations)
         if self.is_unique:
             duplicates = {x for x in self.vocab if self.vocab.count(x) > 1}
             assert len(self.vocab) == len(self._char_to_id) == len(self._id_to_char), (
                 f" [!] There are duplicate characters in the character set. {duplicates}"
             )
 
-    def char_to_id(self, char: str) -> int:
-        try:
-            return self._char_to_id[char]
-        except KeyError as e:
-            msg = f" [!] {repr(char)} is not in the vocabulary."
-            raise KeyError(msg) from e
-
-    def id_to_char(self, idx: int) -> str:
-        return self._id_to_char[idx]
-
     def print_log(self, level: int = 0) -> None:
         """Print the vocabulary in a nice format."""
         indent = "\t" * level
-        logger.info("%s| Characters: %s", indent, self._characters)
-        logger.info("%s| Punctuations: %s", indent, self._punctuations)
-        logger.info("%s| Pad: %s", indent, self._pad)
-        logger.info("%s| EOS: %s", indent, self._eos)
-        logger.info("%s| BOS: %s", indent, self._bos)
-        logger.info("%s| Blank: %s", indent, self._blank)
+        logger.info("%s| Characters: %s", indent, self.characters)
+        logger.info("%s| Punctuations: %s", indent, self.punctuations)
+        logger.info("%s| Pad: %s", indent, self.pad)
+        logger.info("%s| EOS: %s", indent, self.eos)
+        logger.info("%s| BOS: %s", indent, self.bos)
+        logger.info("%s| Blank: %s", indent, self.blank)
         logger.info("%s| Vocab: %s", indent, self.vocab)
         logger.info("%s| Num chars: %d", indent, self.num_chars)
 
@@ -335,12 +252,12 @@ class BaseCharacters:
 
     def to_config(self) -> "CharactersConfig":
         return CharactersConfig(
-            characters=self._characters,
-            punctuations=self._punctuations,
-            pad=self._pad,
-            eos=self._eos,
-            bos=self._bos,
-            blank=self._blank,
+            characters=self.characters,
+            punctuations=self.punctuations,
+            pad=self.pad,
+            eos=self.eos,
+            bos=self.bos,
+            blank=self.blank,
             is_unique=self.is_unique,
             is_sorted=self.is_sorted,
         )

@@ -36,7 +36,6 @@ class TestFreeVC(unittest.TestCase):
         config = FreeVCConfig()
         model = FreeVC(config).to(device)
         model.load_pretrained_speaker_encoder()
-        model.init_multispeaker(config)
         wavlm_feats = model.extract_wavlm_features(torch.rand(1, 16000))
         assert wavlm_feats.shape == (1, 1024, 49), wavlm_feats.shape
 

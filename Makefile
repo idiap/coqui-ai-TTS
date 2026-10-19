@@ -36,6 +36,12 @@ data_tests: ## run data tests.
 test_text: ## run text tests.
 	coverage run -m pytest -x -v --durations=0 tests/text_tests
 
+test_fast: ## run fast tests (for local testing)
+	uv run --all-extras --no-extra cuda --no-extra codec-cuda \
+		coverage run -m pytest -v --durations=0 \
+		tests/aux_tests tests/data_tests \
+		tests/text_tests tests/inference_tests
+
 test_notebook: ## run Jupyter notebook tests
 	NB_OUTPUT_DIR=/tmp/coqui uv run --with nbval \
 		--extra cpu --extra codec --extra languages --extra notebooks \

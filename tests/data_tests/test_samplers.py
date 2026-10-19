@@ -5,6 +5,7 @@ import unittest
 import torch
 
 from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.data import get_length_balancer_weights
 from TTS.tts.utils.languages import get_language_balancer_weights
@@ -31,9 +32,8 @@ dataset_config_pt = BaseDatasetConfig(
 )
 
 # Adding the EN samples twice to create a language unbalanced dataset
-train_samples, eval_samples = load_tts_samples(
-    [dataset_config_en, dataset_config_en, dataset_config_pt], eval_split=True
-)
+config = BaseTTSConfig(datasets=[dataset_config_en, dataset_config_en, dataset_config_pt])
+train_samples, eval_samples = load_tts_samples(config, eval_split=True)
 
 # gerenate a speaker unbalanced dataset
 for i, sample in enumerate(train_samples):
@@ -48,7 +48,7 @@ def is_balanced(lang_1, lang_2):
 
 
 class TestSamplers(unittest.TestCase):
-    def test_language_random_sampler(self):  # pylint: disable=no-self-use
+    def test_language_random_sampler(self):
         random_sampler = torch.utils.data.RandomSampler(train_samples)
         ids = functools.reduce(lambda a, b: a + b, [list(random_sampler) for i in range(100)])
         en, pt = 0, 0
@@ -60,7 +60,7 @@ class TestSamplers(unittest.TestCase):
 
         assert not is_balanced(en, pt), "Random sampler is supposed to be unbalanced"
 
-    def test_language_weighted_random_sampler(self):  # pylint: disable=no-self-use
+    def test_language_weighted_random_sampler(self):
         weighted_sampler = torch.utils.data.sampler.WeightedRandomSampler(
             get_language_balancer_weights(train_samples), len(train_samples)
         )
@@ -74,7 +74,7 @@ class TestSamplers(unittest.TestCase):
 
         assert is_balanced(en, pt), "Language Weighted sampler is supposed to be balanced"
 
-    def test_speaker_weighted_random_sampler(self):  # pylint: disable=no-self-use
+    def test_speaker_weighted_random_sampler(self):
         weighted_sampler = torch.utils.data.sampler.WeightedRandomSampler(
             get_speaker_balancer_weights(train_samples), len(train_samples)
         )
@@ -88,7 +88,7 @@ class TestSamplers(unittest.TestCase):
 
         assert is_balanced(spk1, spk2), "Speaker Weighted sampler is supposed to be balanced"
 
-    def test_perfect_sampler(self):  # pylint: disable=no-self-use
+    def test_perfect_sampler(self):
         classes = set()
         for item in train_samples:
             classes.add(item["speaker_name"])
@@ -113,7 +113,7 @@ class TestSamplers(unittest.TestCase):
                     spk2 += 1
             assert spk1 == spk2, "PerfectBatchSampler is supposed to be perfectly balanced"
 
-    def test_perfect_sampler_shuffle(self):  # pylint: disable=no-self-use
+    def test_perfect_sampler_shuffle(self):
         classes = set()
         for item in train_samples:
             classes.add(item["speaker_name"])
@@ -138,7 +138,7 @@ class TestSamplers(unittest.TestCase):
                     spk2 += 1
             assert spk1 == spk2, "PerfectBatchSampler is supposed to be perfectly balanced"
 
-    def test_length_weighted_random_sampler(self):  # pylint: disable=no-self-use
+    def test_length_weighted_random_sampler(self):
         for _ in range(1000):
             # gerenate a lenght unbalanced dataset with random max/min audio lenght
             min_audio = random.randrange(1, 22050)

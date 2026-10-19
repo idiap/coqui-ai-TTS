@@ -1,3 +1,5 @@
+from typing import Any
+
 from TTS.tts.utils.text.chinese_mandarin.phonemizer import chinese_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -23,29 +25,29 @@ class ZH_CN_Phonemizer(BasePhonemizer):
 
     language = "zh-cn"
 
-    def __init__(self, punctuations=_DEF_ZH_PUNCS, keep_puncs=False, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, punctuations: str = _DEF_ZH_PUNCS, *, keep_puncs: bool = False, **kwargs: Any) -> None:
         super().__init__(self.language, punctuations=punctuations, keep_puncs=keep_puncs)
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "zh_cn_phonemizer"
 
     @staticmethod
     def phonemize_zh_cn(text: str, separator: str = "|") -> str:
-        ph = chinese_text_to_phonemes(text, separator)
-        return ph
+        return chinese_text_to_phonemes(text, separator)
 
-    def _phonemize(self, text, separator):
+    def _phonemize(self, text: str, separator: str) -> str:
         return self.phonemize_zh_cn(text, separator)
 
     @staticmethod
-    def supported_languages() -> dict:
+    def supported_languages() -> dict[str, str]:
         return {"zh-cn": "Chinese (China)"}
 
     def version(self) -> str:
         return "0.0.1"
 
-    def is_available(self) -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         return True
 
 

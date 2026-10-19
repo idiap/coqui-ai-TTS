@@ -1,7 +1,6 @@
 import logging
 import os
 import warnings
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +10,7 @@ import torchaudio
 from coqpit import Coqpit
 from transformers import AutoProcessor, BertTokenizer, EncodecModel
 
+from TTS.tts.configs.bark_config import BarkConfig
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.layers.bark.hubert.hubert_manager import HubertManager
 from TTS.tts.layers.bark.hubert.kmeans_hubert import CustomHubert
@@ -34,21 +34,13 @@ from TTS.utils.generic_utils import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class BarkAudioConfig(Coqpit):
-    sample_rate: int = 24000
-    output_sample_rate: int = 24000
-
-
 class Bark(BaseTTS):
-    def __init__(
-        self,
-        config: Coqpit,
-        tokenizer: BertTokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased"),
-    ) -> None:
-        super().__init__(config=config, ap=None, tokenizer=None, speaker_manager=None, language_manager=None)
-        self.config.num_chars = len(tokenizer)
-        self.tokenizer = tokenizer
+    config: BarkConfig
+
+    def __init__(self, config: Coqpit) -> None:
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+        super().__init__(config)
+        self.config.num_chars = len(self.tokenizer)
         self.semantic_model = GPT(config.semantic_config)
         self.coarse_model = GPT(config.coarse_config)
         self.fine_model = FineGPT(config.fine_config)
@@ -56,7 +48,7 @@ class Bark(BaseTTS):
         self.processor = AutoProcessor.from_pretrained("facebook/encodec_24khz")
         self.encodec_bandwidth = 6.0
 
-    def load_bark_models(self):
+    def load_bark_models(self) -> None:
         self.semantic_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["text"], device=self.device, config=self.config, model_type="text"
         )
@@ -69,9 +61,6 @@ class Bark(BaseTTS):
         self.fine_model, self.config = load_model(
             ckpt_path=self.config.LOCAL_MODEL_PATHS["fine"], device=self.device, config=self.config, model_type="fine"
         )
-
-    def train_step(self):
-        pass
 
     def text_to_semantic(
         self,
@@ -233,7 +222,10 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
-        return {path.stem: path for path in Path(voice_dir).iterdir() if path.suffix in (".npz", ".pth")}
+        voice_dir = Path(voice_dir)
+        if not voice_dir.is_dir():
+            return {}
+        return {path.stem: path for path in voice_dir.iterdir() if path.suffix in (".npz", ".pth")}
 
     def load_voice_file(
         self,
@@ -250,16 +242,17 @@ class Bark(BaseTTS):
         """
         # For Bark we overwrite the base method to also allow loading the npz
         # files included with the original model.
+        speaker_id_slug = slugify(speaker_id)
         voices = self.get_voices(voice_dir)
-        if speaker_id not in voices:
-            msg = f"Voice file `{slugify(speaker_id)}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
+        if speaker_id_slug not in voices:
+            msg = f"Voice file `{speaker_id_slug}.pth` or .npz for speaker `{speaker_id}` not found in: {voice_dir}"
             raise FileNotFoundError(msg)
-        if voices[speaker_id].suffix == ".npz":
-            np_voice = np.load(voices[speaker_id])
-            voice = {key: torch.tensor(np_voice[key]) for key in np_voice.keys()}
+        if voices[speaker_id_slug].suffix == ".npz":
+            np_voice = np.load(voices[speaker_id_slug])
+            voice = {key: torch.tensor(np_voice[key]) for key in np_voice}
         else:
-            voice = torch.load(voices[speaker_id], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
-        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id])
+            voice = torch.load(voices[speaker_id_slug], map_location="cpu", weights_only=is_pytorch_at_least_2_4())
+        logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])
         return voice
 
     def synthesize(
@@ -308,12 +301,6 @@ class Bark(BaseTTS):
     def forward(self): ...
 
     def inference(self): ...
-
-    @staticmethod
-    def init_from_config(config: "BarkConfig", **kwargs):  # pylint: disable=unused-argument
-        return Bark(config)
-
-    # pylint: disable=unused-argument, redefined-builtin
     def load_checkpoint(
         self,
         config,

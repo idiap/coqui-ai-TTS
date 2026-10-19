@@ -1,6 +1,7 @@
+import contextlib
 import logging
 import os
-from dataclasses import dataclass
+import pickle
 from pathlib import Path
 from typing import Any
 
@@ -11,12 +12,14 @@ import torchaudio
 from coqpit import Coqpit
 from trainer.io import load_fsspec
 
+from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.configs.shared_configs import BaseTTSConfig
+from TTS.tts.configs.xtts_config import XttsArgs, XttsAudioConfig, XttsConfig
 from TTS.tts.layers.xtts.gpt import GPT
 from TTS.tts.layers.xtts.hifigan_decoder import HifiDecoder
 from TTS.tts.layers.xtts.stream_generator import init_stream_support
 from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
-from TTS.tts.layers.xtts.xtts_manager import LanguageManager, SpeakerManager
+from TTS.tts.layers.xtts.xtts_manager import SpeakerManager
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.utils.generic_utils import (
     is_pytorch_at_least_2_4,
@@ -33,7 +36,7 @@ def wav_to_mel_cloning(
     wav,
     mel_norms_file="../experiments/clips_mel_norms.pth",
     mel_norms=None,
-    device=torch.device("cpu"),
+    device="cpu",
     n_fft=4096,
     hop_length=1024,
     win_length=4096,
@@ -99,87 +102,30 @@ def load_audio(audiopath, sampling_rate):
     return audio
 
 
-@dataclass
-class XttsAudioConfig(Coqpit):
+@contextlib.contextmanager
+def _legacy_safe_globals():
+    """Temporarily allow legacy pickles that reference old module locations.
+
+    TTS.tts.models.xtts.XttsArgs/XttsAudioConfig moved to
+    TTS.tts.configs.xtts_config to avoid circular imports, but are included in
+    the original XTTS checkpoints under that path.
     """
-    Configuration class for audio-related parameters in the XTTS model.
+    ac = XttsAudioConfig
+    args = XttsArgs
+    restore_module = ac.__module__
 
-    Args:
-        sample_rate (int): The sample rate in which the GPT operates.
-        output_sample_rate (int): The sample rate of the output audio waveform.
-        dvae_sample_rate (int): The sample rate of the DVAE
-    """
+    try:
+        # Rebind class identity to legacy location
+        ac.__module__ = __name__
+        args.__module__ = __name__
 
-    sample_rate: int = 22050
-    output_sample_rate: int = 24000
-    dvae_sample_rate: int = 22050
-
-
-@dataclass
-class XttsArgs(Coqpit):
-    """A dataclass to represent XTTS model arguments that define the model structure.
-
-    Args:
-        gpt_batch_size (int): The size of the auto-regressive batch.
-        enable_redaction (bool, optional): Whether to enable redaction. Defaults to True.
-        kv_cache (bool, optional): Whether to use the kv_cache. Defaults to True.
-        gpt_checkpoint (str, optional): The checkpoint for the autoregressive model. Defaults to None.
-        clvp_checkpoint (str, optional): The checkpoint for the ConditionalLatentVariablePerseq model. Defaults to None.
-        decoder_checkpoint (str, optional): The checkpoint for the DiffTTS model. Defaults to None.
-        num_chars (int, optional): The maximum number of characters to generate. Defaults to 255.
-
-        For GPT model:
-        gpt_max_audio_tokens (int, optional): The maximum mel tokens for the autoregressive model. Defaults to 604.
-        gpt_max_text_tokens (int, optional): The maximum text tokens for the autoregressive model. Defaults to 402.
-        gpt_max_prompt_tokens (int, optional): The maximum prompt tokens or the autoregressive model. Defaults to 70.
-        gpt_layers (int, optional): The number of layers for the autoregressive model. Defaults to 30.
-        gpt_n_model_channels (int, optional): The model dimension for the autoregressive model. Defaults to 1024.
-        gpt_n_heads (int, optional): The number of heads for the autoregressive model. Defaults to 16.
-        gpt_number_text_tokens (int, optional): The number of text tokens for the autoregressive model. Defaults to 255.
-        gpt_start_text_token (int, optional): The start text token for the autoregressive model. Defaults to 255.
-        gpt_checkpointing (bool, optional): Whether to use checkpointing for the autoregressive model. Defaults to False.
-        gpt_train_solo_embeddings (bool, optional): Whether to train embeddings for the autoregressive model. Defaults to False.
-        gpt_code_stride_len (int, optional): The hop_size of dvae and consequently of the gpt output. Defaults to 1024.
-        gpt_use_masking_gt_prompt_approach (bool, optional):  If True, it will use ground truth as prompt and it will mask the loss to avoid repetition. Defaults to True.
-        gpt_use_perceiver_resampler (bool, optional):  If True, it will use perceiver resampler from flamingo paper - https://arxiv.org/abs/2204.14198. Defaults to False.
-    """
-
-    gpt_batch_size: int = 1
-    enable_redaction: bool = False
-    kv_cache: bool = True
-    gpt_checkpoint: str = None
-    clvp_checkpoint: str = None
-    decoder_checkpoint: str = None
-    num_chars: int = 255
-
-    # XTTS GPT Encoder params
-    tokenizer_file: str = ""
-    gpt_max_audio_tokens: int = 605
-    gpt_max_text_tokens: int = 402
-    gpt_max_prompt_tokens: int = 70
-    gpt_layers: int = 30
-    gpt_n_model_channels: int = 1024
-    gpt_n_heads: int = 16
-    gpt_number_text_tokens: int = None
-    gpt_start_text_token: int = None
-    gpt_stop_text_token: int = None
-    gpt_num_audio_tokens: int = 8194
-    gpt_start_audio_token: int = 8192
-    gpt_stop_audio_token: int = 8193
-    gpt_code_stride_len: int = 1024
-    gpt_use_masking_gt_prompt_approach: bool = True
-    gpt_use_perceiver_resampler: bool = False
-
-    # HifiGAN Decoder params
-    input_sample_rate: int = 22050
-    output_sample_rate: int = 24000
-    output_hop_length: int = 256
-    decoder_input_dim: int = 1024
-    d_vector_dim: int = 512
-    cond_d_vector_in_each_upsampling_layer: bool = True
-
-    # constants
-    duration_const: int = 102400
+        # Allow necessary classes for this scope
+        with torch.serialization.safe_globals([ac, args, BaseDatasetConfig, XttsConfig]):
+            yield
+    finally:
+        # Restore canonical identity
+        ac.__module__ = restore_module
+        args.__module__ = restore_module
 
 
 class Xtts(BaseTTS):
@@ -191,20 +137,21 @@ class Xtts(BaseTTS):
         >>> from TTS.tts.configs.xtts_config import XttsConfig
         >>> from TTS.tts.models.xtts import Xtts
         >>> config = XttsConfig()
-        >>> model = Xtts.init_from_config(config)
+        >>> model = Xtts(config)
         >>> model.load_checkpoint(config, checkpoint_dir="paths/to/models_dir/", eval=True)
     """
 
+    config: XttsConfig
+    tokenizer: VoiceBpeTokenizer
+
     def __init__(self, config: Coqpit):
-        super().__init__(config, ap=None, tokenizer=None)
+        self.tokenizer = VoiceBpeTokenizer()
+        super().__init__(config)
         self.mel_stats_path = None
-        self.config = config
         self.gpt_checkpoint = self.args.gpt_checkpoint
         self.decoder_checkpoint = self.args.decoder_checkpoint  # TODO: check if this is even needed
-        self.models_dir = config.model_dir
         self.gpt_batch_size = self.args.gpt_batch_size
 
-        self.tokenizer = VoiceBpeTokenizer()
         self.gpt = None
         self.init_models()
         self.register_buffer("mel_stats", torch.ones(80))
@@ -563,11 +510,12 @@ class Xtts(BaseTTS):
             "speaker_embedding": speaker_embedding,
         }
 
-    def handle_chunks(self, wav_gen, wav_gen_prev, wav_overlap, overlap_len):
-        """Handle chunk formatting in streaming mode"""
-        wav_chunk = wav_gen[:-overlap_len]
+    def handle_chunks(self, wav_gen, wav_gen_prev, wav_overlap, overlap_len, is_final=False):
+        """Handle chunk formatting, retaining the overlap only until the final chunk."""
+        chunk_end = None if is_final else -overlap_len
+        wav_chunk = wav_gen[:chunk_end]
         if wav_gen_prev is not None:
-            wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) : -overlap_len]
+            wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) : chunk_end]
         if wav_overlap is not None:
             # cross fade the overlap section
             if overlap_len > len(wav_chunk):
@@ -575,7 +523,7 @@ class Xtts(BaseTTS):
                 if wav_gen_prev is not None:
                     wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) :]
                 else:
-                    # not expecting will hit here as problem happens on last chunk
+                    # unreachable in practice: wav_overlap is only set together with wav_gen_prev
                     wav_chunk = wav_gen[-overlap_len:]
                 return wav_chunk, wav_gen, None
             else:
@@ -584,7 +532,7 @@ class Xtts(BaseTTS):
                 wav_chunk[:overlap_len] = wav_overlap * torch.linspace(1.0, 0.0, overlap_len).to(wav_overlap.device)
                 wav_chunk[:overlap_len] += crossfade_wav
 
-        wav_overlap = wav_gen[-overlap_len:]
+        wav_overlap = None if is_final else wav_gen[-overlap_len:]
         wav_gen_prev = wav_gen
         return wav_chunk, wav_gen_prev, wav_overlap
 
@@ -668,7 +616,7 @@ class Xtts(BaseTTS):
                         ).transpose(1, 2)
                     wav_gen = self.hifigan_decoder(gpt_latents, g=speaker_embedding.to(self.device))
                     wav_chunk, wav_gen_prev, wav_overlap = self.handle_chunks(
-                        wav_gen.squeeze(), wav_gen_prev, wav_overlap, overlap_wav_len
+                        wav_gen.squeeze(), wav_gen_prev, wav_overlap, overlap_wav_len, is_final=is_end
                     )
                     last_tokens = []
                     yield wav_chunk
@@ -678,22 +626,33 @@ class Xtts(BaseTTS):
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
 
-    def eval_step(self):
+    def eval_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError(
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )
 
-    @staticmethod
-    def init_from_config(config: "XttsConfig", **kwargs):  # pylint: disable=unused-argument
-        return Xtts(config)
-
-    def eval(self):  # pylint: disable=redefined-builtin
+    def eval(self):
         """Sets the model to evaluation mode. Overrides the default eval() method to also set the GPT model to eval mode."""
         self.gpt.init_gpt_for_inference()
         super().eval()
 
-    def get_compatible_checkpoint_state_dict(self, model_path):
-        checkpoint = load_fsspec(model_path, map_location=torch.device("cpu"))["model"]
+    def _load_checkpoint(self, model_path: Path) -> dict:
+        try:
+            checkpoint = load_fsspec(model_path, map_location=torch.device("cpu"))
+        except pickle.UnpicklingError:
+            # original checkpoint containing XttsConfig instead of dict
+            with _legacy_safe_globals():
+                checkpoint = torch.load(
+                    model_path, map_location=torch.device("cpu"), weights_only=is_pytorch_at_least_2_4()
+                )
+            if isinstance(checkpoint["config"], XttsConfig):
+                checkpoint["config"].speakers = []
+                checkpoint["config"] = checkpoint["config"].to_dict()
+                torch.save(checkpoint, model_path)
+        return checkpoint["model"]
+
+    def get_compatible_checkpoint_state_dict(self, model_path: Path) -> dict:
+        checkpoint = self._load_checkpoint(model_path)
         # remove xtts gpt trainer extra keys
         ignore_keys = ["torch_mel_spectrogram_style_encoder", "torch_mel_spectrogram_dvae", "dvae"]
         for key in list(checkpoint.keys()):
@@ -713,13 +672,13 @@ class Xtts(BaseTTS):
     def load_checkpoint(
         self,
         config: "XttsConfig",
-        checkpoint_dir: str | None = None,
-        checkpoint_path: str | None = None,
-        vocab_path: str | None = None,
+        checkpoint_dir: str | os.PathLike[Any] | None = None,
+        checkpoint_path: str | os.PathLike[Any] | None = None,
+        vocab_path: str | os.PathLike[Any] | None = None,
         eval: bool = True,
         strict: bool = True,
         use_deepspeed: bool = False,
-        speaker_file_path: str | None = None,
+        speaker_file_path: str | os.PathLike[Any] | None = None,
     ):
         """
         Loads a checkpoint from disk and initializes the model's state and tokenizer.
@@ -735,25 +694,30 @@ class Xtts(BaseTTS):
         Returns:
             None
         """
-        if checkpoint_dir is not None and Path(checkpoint_dir).is_file():
+        if checkpoint_dir is None and checkpoint_path is None:
+            msg = "You need to specify at least one of `checkpoint_dir`, `checkpoint_path`"
+            raise ValueError(msg)
+        if checkpoint_dir is None:
+            checkpoint_dir = Path(checkpoint_path).parent
+        checkpoint_dir = Path(checkpoint_dir)
+        if checkpoint_dir.is_file():
             msg = f"You passed a file to `checkpoint_dir=`. Use `checkpoint_path={checkpoint_dir}` instead."
             raise ValueError(msg)
-        model_path = checkpoint_path or os.path.join(checkpoint_dir, "model.pth")
+        model_path = Path(checkpoint_path) if checkpoint_path is not None else checkpoint_dir / "model.pth"
         if vocab_path is None:
-            if checkpoint_dir is not None and (Path(checkpoint_dir) / "vocab.json").is_file():
-                vocab_path = str(Path(checkpoint_dir) / "vocab.json")
+            if (checkpoint_dir / "vocab.json").is_file():
+                vocab_path = checkpoint_dir / "vocab.json"
             else:
-                vocab_path = config.model_args.tokenizer_file
+                vocab_path = Path(config.model_args.tokenizer_file)
 
-        if speaker_file_path is None and checkpoint_dir is not None:
-            speaker_file_path = os.path.join(checkpoint_dir, "speakers_xtts.pth")
+        if speaker_file_path is None:
+            speaker_file_path = checkpoint_dir / "speakers_xtts.pth"
 
-        self.language_manager = LanguageManager(config)
         self.speaker_manager = None
         if speaker_file_path is not None and os.path.exists(speaker_file_path):
             self.speaker_manager = SpeakerManager(speaker_file_path)
 
-        if os.path.exists(vocab_path):
+        if Path(vocab_path).is_file():
             self.tokenizer = VoiceBpeTokenizer(vocab_file=vocab_path)
         else:
             msg = (
@@ -779,7 +743,7 @@ class Xtts(BaseTTS):
             self.gpt.init_gpt_for_inference(kv_cache=self.args.kv_cache, use_deepspeed=use_deepspeed)
             self.gpt.eval()
 
-    def train_step(self):
+    def train_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError(
             "XTTS has a dedicated trainer, please check the XTTS docs: https://coqui-tts.readthedocs.io/en/latest/models/xtts.html#training"
         )

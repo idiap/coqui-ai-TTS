@@ -156,7 +156,7 @@ class Data:
         return json.dumps(data)
 
 
-def auto_train(data_path, save_path="model.pth", load_model: str = None, save_epochs=1):
+def auto_train(data_path, save_path="model.pth", load_model: str | None = None, save_epochs=1):
     data_x, data_y = [], []
 
     if load_model and os.path.isfile(load_model):
@@ -184,12 +184,10 @@ def auto_train(data_path, save_path="model.pth", load_model: str = None, save_ep
 
     while 1:
         for _ in range(save_epochs):
-            j = 0
-            for x, y in zip(data_x, data_y):
+            for j, (x, y) in enumerate(zip(data_x, data_y)):
                 model_training.train_step(
                     torch.tensor(x).to("cuda"), torch.tensor(y).to("cuda"), j % 50 == 0
                 )  # Print loss every 50 steps
-                j += 1
         save_p = save_path
         save_p_2 = f"{base_save_path}_epoch_{epoch}.pth"
         model_training.save(save_p)

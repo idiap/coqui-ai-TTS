@@ -4,7 +4,7 @@ import os
 import random
 
 import numpy as np
-from scipy import signal
+import scipy
 
 from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.models.lstm import LSTMSpeakerEncoder
@@ -18,14 +18,14 @@ class AugmentWAV:
         self.ap = ap
         self.use_additive_noise = False
 
-        if "additive" in augmentation_config.keys():
+        if "additive" in augmentation_config:
             self.additive_noise_config = augmentation_config["additive"]
             additive_path = self.additive_noise_config["sounds_path"]
             if additive_path:
                 self.use_additive_noise = True
                 # get noise types
                 self.additive_noise_types = []
-                for key in self.additive_noise_config.keys():
+                for key in self.additive_noise_config:
                     if isinstance(self.additive_noise_config[key], dict):
                         self.additive_noise_types.append(key)
 
@@ -50,7 +50,7 @@ class AugmentWAV:
 
         self.use_rir = False
 
-        if "rir" in augmentation_config.keys():
+        if "rir" in augmentation_config:
             self.rir_config = augmentation_config["rir"]
             if self.rir_config["rir_path"]:
                 self.rir_files = glob.glob(os.path.join(self.rir_config["rir_path"], "**/*.wav"), recursive=True)
@@ -111,7 +111,7 @@ class AugmentWAV:
         rir_file = random.choice(self.rir_files)
         rir = self.ap.load_wav(rir_file, sr=self.ap.sample_rate)
         rir = rir / np.sqrt(np.sum(rir**2))
-        return signal.convolve(audio, rir, mode=self.rir_config["conv_mode"])[:audio_len]
+        return scipy.signal.convolve(audio, rir, mode=self.rir_config["conv_mode"])[:audio_len]
 
     def apply_one(self, audio):
         noise_type = random.choice(self.global_noise_list)

@@ -19,7 +19,7 @@ Currently we provide the following pre-configured architectures:
 
     It uses Residual Convolution layers instead of Transformers that leads to a more compute friendly model.
 
-- **FastSpeech2 (TODO):**
+- **FastSpeech2:**
 
     Similar to FastPitch but it also uses a spectral energy values as an addition.
 
@@ -34,7 +34,7 @@ Currently we provide the following pre-configured architectures:
 
 ## ForwardTTSArgs
 ```{eval-rst}
-.. autoclass:: TTS.tts.models.forward_tts.ForwardTTSArgs
+.. autoclass:: TTS.tts.configs.forward_tts_config.ForwardTTSArgs
     :members:
 ```
 

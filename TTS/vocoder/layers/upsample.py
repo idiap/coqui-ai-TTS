@@ -18,16 +18,17 @@ class Stretch2d(torch.nn.Module):
 
 
 class UpsampleNetwork(torch.nn.Module):
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         upsample_factors,
         nonlinear_activation=None,
-        nonlinear_activation_params={},
+        nonlinear_activation_params=None,
         interpolate_mode="nearest",
         freq_axis_kernel_size=1,
         use_causal_conv=False,
     ):
+        if nonlinear_activation_params is None:
+            nonlinear_activation_params = {}
         super().__init__()
         self.use_causal_conv = use_causal_conv
         self.up_layers = torch.nn.ModuleList()
@@ -64,18 +65,19 @@ class UpsampleNetwork(torch.nn.Module):
 
 
 class ConvUpsample(torch.nn.Module):
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         upsample_factors,
         nonlinear_activation=None,
-        nonlinear_activation_params={},
+        nonlinear_activation_params=None,
         interpolate_mode="nearest",
         freq_axis_kernel_size=1,
         aux_channels=80,
         aux_context_window=0,
         use_causal_conv=False,
     ):
+        if nonlinear_activation_params is None:
+            nonlinear_activation_params = {}
         super().__init__()
         self.aux_context_window = aux_context_window
         self.use_causal_conv = use_causal_conv and aux_context_window > 0

@@ -25,7 +25,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coqui-tts"
-version = "0.27.5"
+version = "0.28.0"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
 requires-python = ">=3.10, <3.15"
@@ -69,19 +69,20 @@ dependencies = [
     "pyyaml>=6.0",
     "fsspec[http]>=2023.6.0",
     "packaging>=23.1",
-    "typing_extensions>=4.10",
+    "typing_extensions>=4.13",
     # Inference
     "pysbd>=0.3.4",
     # Training
     "matplotlib>=3.8.4",
     # Coqui stack
-    "coqui-tts-trainer>=0.3.0,<0.4.0",
-    "coqpit-config>=0.2.0,<0.3.0",
+    "coqui-tts-trainer>=0.4.0,<0.5.0",
+    "coqpit-config>=0.2.5,<0.3.0",
     "monotonic-alignment-search>=0.1.0",
     "ko-speech-tools>=0.1.0",
     # Tortoise
     "einops>=0.6.0",
     "transformers>=4.57",
+    "huggingface-hub>=0.36.0",
     # XTTS
     "num2words>=0.5.14",
 ]
@@ -111,6 +112,11 @@ notebooks = [
 ]
 # For running the TTS server
 server = ["flask>=3.0.0"]
+# For ONNX export and inference
+onnx = [
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+]
 # Language-specific dependencies, mainly for G2P
 # Bangla
 bn = [
@@ -140,7 +146,7 @@ languages = [
 ]
 # Installs all extras (except torch, dev and docs)
 all = [
-    "coqui-tts[notebooks,server,languages]",
+    "coqui-tts[notebooks,server,languages,onnx]",
 ]
 
 [tool.uv]
@@ -188,7 +194,7 @@ dev = [
     "coverage[toml]>=7",
     "pre-commit>=4",
     "pytest>=9",
-    "ruff==0.14.11",
+    "ruff==0.17.0",
 ]
 # Dependencies for building the documentation
 docs = [
@@ -254,12 +260,15 @@ lint.extend-select = [
 ]
 
 lint.ignore = [
+    "COM812", # not recommended with formatter
     "E722", # bare except (TODO: fix these)
     "E731", # don't use lambdas
     "E741", # ambiguous variable name
     "F821", # TODO: enable
     "F841", # TODO: enable
+    "N999", # invalid module name (TTS)
     "PLC0415", # TODO: enable
+    "PLR0402", # allow `import torch.nn as nn`
     "PLW0602", # TODO: enable
     "PLW2901", # TODO: enable
     "PLW0127", # TODO: enable

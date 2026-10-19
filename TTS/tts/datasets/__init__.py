@@ -8,7 +8,8 @@ from typing import Any
 
 import numpy as np
 
-from TTS.config.shared_configs import BaseDatasetConfig
+from TTS.config import get_from_config_or_model_args
+from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets.dataset import *
 from TTS.tts.datasets.formatters import _FORMATTER_REGISTRY, Formatter, register_formatter
 
@@ -72,21 +73,25 @@ def add_extra_keys(metadata: list[dict[str, Any]], language: str, dataset_name: 
 
 
 def load_tts_samples(
-    datasets: list[BaseDatasetConfig] | BaseDatasetConfig,
+    config: BaseTTSConfig,
+    *,
     eval_split: bool = True,
     formatter: Formatter | None = None,
     eval_split_max_size: int | None = None,
     eval_split_size: float = 0.01,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse the datasets from the datasets config.
+    """Parse the datasets from config and automatically populate speaker info.
 
     Load the samples as a list and load the attention alignments if provided. If
     `formatter` is not None, apply the formatter to the samples else pick the
     formatter from the available ones based on the dataset name.
 
+    If the dataset contains speaker information, it will be extracted and stored
+    in config.speakers. If no speaker information is present, the config
+    remains unchanged.
+
     Args:
-        datasets (list[dict], dict): A list of datasets or a single dataset dictionary. If multiple datasets are
-            in the list, they are all merged.
+        config: BaseTTSConfig instance.
 
         eval_split (bool, optional): If true, create a evaluation split. If an eval split provided explicitly, generate
             an eval split automatically. Defaults to True.
@@ -106,10 +111,16 @@ def load_tts_samples(
     Returns:
         tuple[list[dict], list[dict]]: training and evaluation splits of the dataset.
     """
+    if not config.has("datasets"):
+        msg = (
+            "From coqui-tts 0.28.0 you need to pass a config instance to"
+            "`load_tts_samples()` that contains a `datasets` field, instead of directly"
+            "passing a BaseDatasetConfig list as before."
+        )
+        raise TypeError(msg)
     meta_data_train_all = []
     meta_data_eval_all = []
-    if not isinstance(datasets, list):
-        datasets = [datasets]
+    datasets = config.datasets
     for dataset in datasets:
         formatter_name = dataset["formatter"]
         dataset_name = dataset["dataset_name"]
@@ -145,9 +156,18 @@ def load_tts_samples(
             for meta_data_all in (meta_data_train_all, meta_data_eval_all):
                 for idx, ins in enumerate(meta_data_all):
                     attn_file = meta_data[ins["audio_file"]].strip()
-                    meta_data_all[idx].update({"alignment_file": attn_file})
+                    ins.update({"alignment_file": attn_file})
         # set none for the next iter
         formatter = None
+
+    # Parse speaker info
+    if get_from_config_or_model_args(config, "use_speaker_embedding"):
+        speakers = sorted(
+            {s["speaker_name"].strip() for s in meta_data_train_all + meta_data_eval_all if "speaker_name" in s}
+        )
+        logger.debug("Found %d speakers in dataset", len(speakers))
+        if speakers:
+            config.speakers = speakers
     return meta_data_train_all, meta_data_eval_all
 
 

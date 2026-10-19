@@ -1,8 +1,6 @@
 import re
 
-import inflect
-
-_inflect = inflect.engine()
+from TTS.tts.utils.text.english.number_norm import _expand_num
 
 _time_re = re.compile(
     r"""\b
@@ -11,15 +9,11 @@ _time_re = re.compile(
                           ([0-5][0-9])                            # minutes
                           \s*(a\\.m\\.|am|pm|p\\.m\\.|a\\.m|p\\.m)? # am/pm
                           \b""",
-    re.IGNORECASE | re.X,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
-def _expand_num(n: int) -> str:
-    return _inflect.number_to_words(n)
-
-
-def _expand_time_english(match: "re.Match") -> str:
+def _expand_time_english(match: re.Match) -> str:
     hour = int(match.group(1))
     past_noon = hour >= 12
     time = []

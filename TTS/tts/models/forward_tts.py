@@ -1,11 +1,13 @@
 import logging
-from dataclasses import dataclass, field
+from typing import Any
 
 import torch
 from coqpit import Coqpit
 from monotonic_alignment_search import maximum_path
 from torch import nn
+from trainer import Trainer
 
+from TTS.tts.configs.forward_tts_config import ForwardTTSArgs
 from TTS.tts.layers.feed_forward.decoder import Decoder
 from TTS.tts.layers.feed_forward.encoder import Encoder
 from TTS.tts.layers.generic.aligner import AlignmentNetwork
@@ -13,161 +15,8 @@ from TTS.tts.layers.generic.pos_encoding import PositionalEncoding
 from TTS.tts.layers.glow_tts.duration_predictor import DurationPredictor
 from TTS.tts.models.base_tts import BaseTTS
 from TTS.tts.utils.helpers import average_over_durations, expand_encoder_outputs, generate_attention, sequence_mask
-from TTS.tts.utils.speakers import SpeakerManager
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ForwardTTSArgs(Coqpit):
-    """ForwardTTS Model arguments.
-
-    Args:
-
-        num_chars (int):
-            Number of characters in the vocabulary. Defaults to 100.
-
-        out_channels (int):
-            Number of output channels. Defaults to 80.
-
-        hidden_channels (int):
-            Number of base hidden channels of the model. Defaults to 512.
-
-        use_aligner (bool):
-            Whether to use aligner network to learn the text to speech alignment or use pre-computed durations.
-            If set False, durations should be computed by `TTS/bin/compute_attention_masks.py` and path to the
-            pre-computed durations must be provided to `config.datasets[0].meta_file_attn_mask`. Defaults to True.
-
-        use_pitch (bool):
-            Use pitch predictor to learn the pitch. Defaults to True.
-
-        use_energy (bool):
-            Use energy predictor to learn the energy. Defaults to True.
-
-        duration_predictor_hidden_channels (int):
-            Number of hidden channels in the duration predictor. Defaults to 256.
-
-        duration_predictor_dropout_p (float):
-            Dropout rate for the duration predictor. Defaults to 0.1.
-
-        duration_predictor_kernel_size (int):
-            Kernel size of conv layers in the duration predictor. Defaults to 3.
-
-        pitch_predictor_hidden_channels (int):
-            Number of hidden channels in the pitch predictor. Defaults to 256.
-
-        pitch_predictor_dropout_p (float):
-            Dropout rate for the pitch predictor. Defaults to 0.1.
-
-        pitch_predictor_kernel_size (int):
-            Kernel size of conv layers in the pitch predictor. Defaults to 3.
-
-        pitch_embedding_kernel_size (int):
-            Kernel size of the projection layer in the pitch predictor. Defaults to 3.
-
-        energy_predictor_hidden_channels (int):
-            Number of hidden channels in the energy predictor. Defaults to 256.
-
-        energy_predictor_dropout_p (float):
-            Dropout rate for the energy predictor. Defaults to 0.1.
-
-        energy_predictor_kernel_size (int):
-            Kernel size of conv layers in the energy predictor. Defaults to 3.
-
-        energy_embedding_kernel_size (int):
-            Kernel size of the projection layer in the energy predictor. Defaults to 3.
-
-        positional_encoding (bool):
-            Whether to use positional encoding. Defaults to True.
-
-        positional_encoding_use_scale (bool):
-            Whether to use a learnable scale coeff in the positional encoding. Defaults to True.
-
-        length_scale (int):
-            Length scale that multiplies the predicted durations. Larger values result slower speech. Defaults to 1.0.
-
-        encoder_type (str):
-            Type of the encoder module. One of the encoders available in :class:`TTS.tts.layers.feed_forward.encoder`.
-            Defaults to `fftransformer` as in the paper.
-
-        encoder_params (dict):
-            Parameters of the encoder module. Defaults to ```{"hidden_channels_ffn": 1024, "num_heads": 1, "num_layers": 6, "dropout_p": 0.1}```
-
-        decoder_type (str):
-            Type of the decoder module. One of the decoders available in :class:`TTS.tts.layers.feed_forward.decoder`.
-            Defaults to `fftransformer` as in the paper.
-
-        decoder_params (str):
-            Parameters of the decoder module. Defaults to ```{"hidden_channels_ffn": 1024, "num_heads": 1, "num_layers": 6, "dropout_p": 0.1}```
-
-        detach_duration_predictor (bool):
-            Detach the input to the duration predictor from the earlier computation graph so that the duraiton loss
-            does not pass to the earlier layers. Defaults to True.
-
-        max_duration (int):
-            Maximum duration accepted by the model. Defaults to 75.
-
-        num_speakers (int):
-            Number of speakers for the speaker embedding layer. Defaults to 0.
-
-        speakers_file (str):
-            Path to the speaker mapping file for the Speaker Manager. Defaults to None.
-
-        speaker_embedding_channels (int):
-            Number of speaker embedding channels. Defaults to 256.
-
-        use_d_vector_file (bool):
-            Enable/Disable the use of d-vectors for multi-speaker training. Defaults to False.
-
-        d_vector_dim (int):
-            Number of d-vector channels. Defaults to 0.
-
-    """
-
-    num_chars: int = None
-    out_channels: int = 80
-    hidden_channels: int = 384
-    use_aligner: bool = True
-    # pitch params
-    use_pitch: bool = True
-    pitch_predictor_hidden_channels: int = 256
-    pitch_predictor_kernel_size: int = 3
-    pitch_predictor_dropout_p: float = 0.1
-    pitch_embedding_kernel_size: int = 3
-
-    # energy params
-    use_energy: bool = False
-    energy_predictor_hidden_channels: int = 256
-    energy_predictor_kernel_size: int = 3
-    energy_predictor_dropout_p: float = 0.1
-    energy_embedding_kernel_size: int = 3
-
-    # duration params
-    duration_predictor_hidden_channels: int = 256
-    duration_predictor_kernel_size: int = 3
-    duration_predictor_dropout_p: float = 0.1
-
-    positional_encoding: bool = True
-    poisitonal_encoding_use_scale: bool = True
-    length_scale: int = 1
-    encoder_type: str = "fftransformer"
-    encoder_params: dict = field(
-        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 1, "num_layers": 6, "dropout_p": 0.1}
-    )
-    decoder_type: str = "fftransformer"
-    decoder_params: dict = field(
-        default_factory=lambda: {"hidden_channels_ffn": 1024, "num_heads": 1, "num_layers": 6, "dropout_p": 0.1}
-    )
-    detach_duration_predictor: bool = False
-    max_duration: int = 75
-    num_speakers: int = 1
-    use_speaker_embedding: bool = False
-    speakers_file: str = None
-    use_d_vector_file: bool = False
-    d_vector_dim: int = None
-    d_vector_file: str = None
 
 
 class ForwardTTS(BaseTTS):
@@ -188,27 +37,27 @@ class ForwardTTS(BaseTTS):
         - FastSpeech2 (requires average speech energy predictor)
 
     Args:
-        config (Coqpit): Model coqpit class.
-        speaker_manager (SpeakerManager): Speaker manager for multi-speaker training. Only used for multi-speaker models.
-            Defaults to None.
+        config: Model coqpit class.
 
     Examples:
-        >>> from TTS.tts.models.fast_pitch import ForwardTTS, ForwardTTSArgs
-        >>> config = ForwardTTSArgs()
+        >>> from TTS.tts.configs.fast_pitch_config import FastPitchConfig
+        >>> from TTS.tts.models.fast_pitch import ForwardTTS
+        >>> config = FastPitchConfig()
         >>> model = ForwardTTS(config)
     """
 
-    # pylint: disable=dangerous-default-value
+    args: ForwardTTSArgs
+
     def __init__(
         self,
         config: Coqpit,
-        ap: "AudioProcessor" = None,
-        tokenizer: "TTSTokenizer" = None,
-        speaker_manager: SpeakerManager = None,
+        ap: None = None,
+        tokenizer: None = None,
+        speaker_manager: None = None,
     ):
         super().__init__(config, ap, tokenizer, speaker_manager)
 
-        self.init_multispeaker(config)
+        self.init_multispeaker()
 
         self.max_duration = self.args.max_duration
         self.use_aligner = self.args.use_aligner
@@ -280,34 +129,17 @@ class ForwardTTS(BaseTTS):
                 in_query_channels=self.args.out_channels, in_key_channels=self.args.hidden_channels
             )
 
-    def init_multispeaker(self, config: Coqpit):
-        """Init for multi-speaker training.
+    def _init_speaker_embedding(self) -> None:
+        self.emb_g = nn.Embedding(self.num_speakers, self.args.hidden_channels)
+        nn.init.uniform_(self.emb_g.weight, -0.1, 0.1)
 
-        Args:
-            config (Coqpit): Model configuration.
-        """
-        self.embedded_speaker_dim = 0
-        # init speaker manager
-        if self.speaker_manager is None and (config.use_d_vector_file or config.use_speaker_embedding):
-            raise ValueError(
-                " > SpeakerManager is not provided. You must provide the SpeakerManager before initializing a multi-speaker model."
-            )
-        # set number of speakers
-        if self.speaker_manager is not None:
-            self.num_speakers = self.speaker_manager.num_speakers
-        # init d-vector embedding
-        if config.use_d_vector_file:
-            self.embedded_speaker_dim = config.d_vector_dim
-            if self.args.d_vector_dim != self.args.hidden_channels:
-                # self.proj_g = nn.Conv1d(self.args.d_vector_dim, self.args.hidden_channels, 1)
-                self.proj_g = nn.Linear(in_features=self.args.d_vector_dim, out_features=self.args.hidden_channels)
-        # init speaker embedding layer
-        if config.use_speaker_embedding and not config.use_d_vector_file:
-            logger.info("Init speaker_embedding layer.")
-            self.emb_g = nn.Embedding(self.num_speakers, self.args.hidden_channels)
-            nn.init.uniform_(self.emb_g.weight, -0.1, 0.1)
+    def _init_d_vector(self) -> None:
+        self.embedded_speaker_dim = self.config.d_vector_dim
+        if self.args.d_vector_dim != self.args.hidden_channels:
+            # self.proj_g = nn.Conv1d(self.args.d_vector_dim, self.args.hidden_channels, 1)
+            self.proj_g = nn.Linear(in_features=self.args.d_vector_dim, out_features=self.args.hidden_channels)
 
-    def format_durations(self, o_dr_log, x_mask):
+    def format_durations(self, o_dr_log: torch.Tensor, x_mask: torch.Tensor) -> torch.Tensor:
         """Format predicted durations.
         1. Convert to linear scale from log scale
         2. Apply the length scale for speed adjustment
@@ -329,8 +161,8 @@ class ForwardTTS(BaseTTS):
         return o_dr
 
     def _forward_encoder(
-        self, x: torch.LongTensor, x_mask: torch.FloatTensor, g: torch.FloatTensor | None = None
-    ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+        self, x: torch.LongTensor, x_mask: torch.Tensor, g: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None, torch.Tensor]:
         """Encoding forward pass.
 
         1. Embed speaker IDs if multi-speaker mode.
@@ -344,20 +176,14 @@ class ForwardTTS(BaseTTS):
             g (torch.FloatTensor, optional): Conditioning vectors. In general speaker embeddings. Defaults to None.
 
         Returns:
-            Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
-                encoder output, encoder output for the duration predictor, input sequence mask, speaker embeddings,
-                character embeddings
+            Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
+                encoder output, input sequence mask, speaker embeddings, character embeddings
 
         Shapes:
             - x: :math:`(B, T_{en})`
             - x_mask: :math:`(B, 1, T_{en})`
             - g: :math:`(B, C)`
         """
-        if hasattr(self, "emb_g"):
-            g = g.type(torch.LongTensor).to(x.device)
-            g = self.emb_g(g)  # [B, C, 1]
-        if g is not None:
-            g = g.unsqueeze(-1)
         # [B, T, C]
         x_emb = self.emb(x)
         # encoder pass
@@ -373,12 +199,12 @@ class ForwardTTS(BaseTTS):
 
     def _forward_decoder(
         self,
-        o_en: torch.FloatTensor,
-        dr: torch.IntTensor,
-        x_mask: torch.FloatTensor,
-        y_lengths: torch.IntTensor,
-        g: torch.FloatTensor,
-    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+        o_en: torch.Tensor,
+        dr: torch.Tensor,
+        x_mask: torch.Tensor,
+        y_lengths: torch.LongTensor,
+        g: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decoding forward pass.
 
         1. Compute the decoder output mask
@@ -408,11 +234,11 @@ class ForwardTTS(BaseTTS):
 
     def _forward_pitch_predictor(
         self,
-        o_en: torch.FloatTensor,
-        x_mask: torch.IntTensor,
-        pitch: torch.FloatTensor = None,
-        dr: torch.IntTensor = None,
-    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+        o_en: torch.Tensor,
+        x_mask: torch.Tensor,
+        pitch: torch.Tensor | None = None,
+        dr: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
         """Pitch predictor forward pass.
 
         1. Predict pitch from encoder outputs.
@@ -440,15 +266,15 @@ class ForwardTTS(BaseTTS):
             o_pitch_emb = self.pitch_emb(avg_pitch)
             return o_pitch_emb, o_pitch, avg_pitch
         o_pitch_emb = self.pitch_emb(o_pitch)
-        return o_pitch_emb, o_pitch
+        return o_pitch_emb, o_pitch, None
 
     def _forward_energy_predictor(
         self,
-        o_en: torch.FloatTensor,
-        x_mask: torch.IntTensor,
-        energy: torch.FloatTensor = None,
-        dr: torch.IntTensor = None,
-    ) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+        o_en: torch.Tensor,
+        x_mask: torch.Tensor,
+        energy: torch.Tensor | None = None,
+        dr: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
         """Energy predictor forward pass.
 
         1. Predict energy from encoder outputs.
@@ -476,11 +302,11 @@ class ForwardTTS(BaseTTS):
             o_energy_emb = self.energy_emb(avg_energy)
             return o_energy_emb, o_energy, avg_energy
         o_energy_emb = self.energy_emb(o_energy)
-        return o_energy_emb, o_energy
+        return o_energy_emb, o_energy, None
 
     def _forward_aligner(
-        self, x: torch.FloatTensor, y: torch.FloatTensor, x_mask: torch.IntTensor, y_mask: torch.IntTensor
-    ) -> tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+        self, x: torch.Tensor, y: torch.Tensor, x_mask: torch.Tensor, y_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Aligner forward pass.
 
         1. Compute a mask to apply to the attention map.
@@ -519,29 +345,16 @@ class ForwardTTS(BaseTTS):
         alignment_soft = alignment_soft.squeeze(1).transpose(1, 2)
         return o_alignment_dur, alignment_soft, alignment_logprob, alignment_mas
 
-    def _set_speaker_input(self, aux_input: dict):
-        d_vectors = aux_input.get("d_vectors", None)
-        speaker_ids = aux_input.get("speaker_ids", None)
-
-        if d_vectors is not None and speaker_ids is not None:
-            raise ValueError("[!] Cannot use d-vectors and speaker-ids together.")
-
-        if speaker_ids is not None and not hasattr(self, "emb_g"):
-            raise ValueError("[!] Cannot use speaker-ids without enabling speaker embedding.")
-
-        g = speaker_ids if speaker_ids is not None else d_vectors
-        return g
-
     def forward(
         self,
         x: torch.LongTensor,
         x_lengths: torch.LongTensor,
         y_lengths: torch.LongTensor,
-        y: torch.FloatTensor = None,
-        dr: torch.IntTensor = None,
-        pitch: torch.FloatTensor = None,
-        energy: torch.FloatTensor = None,
-        aux_input: dict = {"d_vectors": None, "speaker_ids": None},  # pylint: disable=unused-argument
+        y: torch.Tensor | None = None,
+        dr: torch.Tensor | None = None,
+        pitch: torch.Tensor | None = None,
+        energy: torch.Tensor | None = None,
+        aux_input: dict | None = None,
     ) -> dict:
         """Model's forward pass.
 
@@ -564,7 +377,9 @@ class ForwardTTS(BaseTTS):
             - g: :math:`[B, C]`
             - pitch: :math:`[B, 1, T]`
         """
-        g = self._set_speaker_input(aux_input)
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
+        g = self._get_speaker_conditioning(aux_input, "emb_g", normalize_d_vector=False, normalize_embedding=False)
         # compute sequence masks
         y_mask = torch.unsqueeze(sequence_mask(y_lengths, None), 1).float()
         x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.shape[1]), 1).float()
@@ -584,6 +399,7 @@ class ForwardTTS(BaseTTS):
         alignment_logprob = None
         alignment_mas = None
         if self.use_aligner:
+            assert y is not None
             o_alignment_dur, alignment_soft, alignment_logprob, alignment_mas = self._forward_aligner(
                 x_emb, y, x_mask, y_mask
             )
@@ -603,6 +419,7 @@ class ForwardTTS(BaseTTS):
             o_energy_emb, o_energy, avg_energy = self._forward_energy_predictor(o_en, x_mask, energy, dr)
             o_en = o_en + o_energy_emb
         # decoder pass
+        assert dr is not None
         o_de, attn = self._forward_decoder(
             o_en, dr, x_mask, y_lengths, g=None
         )  # TODO: maybe pass speaker embedding (g) too
@@ -626,7 +443,7 @@ class ForwardTTS(BaseTTS):
         return outputs
 
     @torch.inference_mode()
-    def inference(self, x, aux_input={"d_vectors": None, "speaker_ids": None}):  # pylint: disable=unused-argument
+    def inference(self, x: torch.Tensor, aux_input: dict[str, Any] | None = None):
         """Model's inference pass.
 
         Args:
@@ -638,7 +455,9 @@ class ForwardTTS(BaseTTS):
             - x_lengths: [B]
             - g: [B, C]
         """
-        g = self._set_speaker_input(aux_input)
+        if aux_input is None:
+            aux_input = {"d_vectors": None, "speaker_ids": None}
+        g = self._get_speaker_conditioning(aux_input, "emb_g", normalize_d_vector=False, normalize_embedding=False)
         x_lengths = torch.tensor(x.shape[1:2]).to(x.device)
         x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.shape[1]), 1).to(x.dtype).float()
         # encoder pass
@@ -651,12 +470,12 @@ class ForwardTTS(BaseTTS):
         # pitch predictor pass
         o_pitch = None
         if self.args.use_pitch:
-            o_pitch_emb, o_pitch = self._forward_pitch_predictor(o_en, x_mask)
+            o_pitch_emb, o_pitch, _ = self._forward_pitch_predictor(o_en, x_mask)
             o_en = o_en + o_pitch_emb
         # energy predictor pass
         o_energy = None
         if self.args.use_energy:
-            o_energy_emb, o_energy = self._forward_energy_predictor(o_en, x_mask)
+            o_energy_emb, o_energy, _ = self._forward_energy_predictor(o_en, x_mask)
             o_en = o_en + o_energy_emb
         # decoder pass
         o_de, attn = self._forward_decoder(o_en, o_dr, x_mask, y_lengths, g=None)
@@ -669,7 +488,9 @@ class ForwardTTS(BaseTTS):
         }
         return outputs
 
-    def train_step(self, batch: dict, criterion: nn.Module):
+    def train_step(
+        self, batch: dict[str, Any], criterion: nn.Module, optimizer_idx: int | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         text_input = batch["text_input"]
         text_lengths = batch["text_lengths"]
         mel_input = batch["mel_input"]
@@ -721,8 +542,10 @@ class ForwardTTS(BaseTTS):
 
         return outputs, loss_dict
 
-    def _create_logs(self, batch, outputs):
+    def _create_logs(self, batch: dict[str, Any], outputs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Create common logger outputs."""
+        from TTS.tts.utils.visual import plot_alignment, plot_avg_energy, plot_avg_pitch, plot_spectrogram
+
         model_outputs = outputs["model_outputs"]
         alignments = outputs["alignments"]
         mel_input = batch["mel_input"]
@@ -768,27 +591,11 @@ class ForwardTTS(BaseTTS):
         train_audio = self.ap.inv_melspectrogram(pred_spec.T)
         return figures, {"audio": train_audio}
 
-    def get_criterion(self):
-        from TTS.tts.layers.losses import ForwardTTSLoss  # pylint: disable=import-outside-toplevel
+    def get_criterion(self) -> nn.Module:
+        from TTS.tts.layers.losses import ForwardTTSLoss
 
         return ForwardTTSLoss(self.config)
 
-    def on_train_step_start(self, trainer):
+    def on_train_step_start(self, trainer: Trainer) -> None:
         """Schedule binary loss weight."""
         self.binary_loss_weight = min(trainer.epochs_done / self.config.binary_loss_warmup_epochs, 1.0) * 1.0
-
-    @staticmethod
-    def init_from_config(config: "ForwardTTSConfig", samples: list[list] | list[dict] = None):
-        """Initiate model from config
-
-        Args:
-            config (ForwardTTSConfig): Model config.
-            samples (Union[List[List], List[Dict]]): Training samples to parse speaker ids for training.
-                Defaults to None.
-        """
-        from TTS.utils.audio import AudioProcessor
-
-        ap = AudioProcessor.init_from_config(config)
-        tokenizer, new_config = TTSTokenizer.init_from_config(config)
-        speaker_manager = SpeakerManager.init_from_config(config, samples)
-        return ForwardTTS(new_config, ap, tokenizer, speaker_manager)

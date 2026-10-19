@@ -1,4 +1,5 @@
 import os
+import warnings
 from abc import abstractmethod
 from typing import Any
 
@@ -6,6 +7,9 @@ import torch
 from coqpit import Coqpit
 from trainer import TrainerModel
 from trainer.io import load_fsspec
+from typing_extensions import Self
+
+from TTS.config.shared_configs import BaseTrainingConfig
 
 
 class BaseTrainerModel(TrainerModel):
@@ -14,17 +18,24 @@ class BaseTrainerModel(TrainerModel):
     Every new Coqui model must inherit it.
     """
 
-    @staticmethod
-    @abstractmethod
-    def init_from_config(config: Coqpit) -> "BaseTrainerModel":
+    config: BaseTrainingConfig
+
+    @classmethod
+    def init_from_config(cls, config: Coqpit) -> Self:
         """Init the model and all its attributes from the given config.
 
         Override this depending on your model.
         """
-        ...
+        warnings.warn(
+            f"{cls.__name__}.init_from_config(config) is deprecated and will be removed soon, "
+            f"just initialize with {cls.__name__}(config)",
+            UserWarning,
+            stacklevel=2,
+        )
+        return cls(config)
 
     @abstractmethod
-    def inference(self, input: torch.Tensor, aux_input: dict[str, Any] = {}) -> dict[str, Any]:
+    def inference(self, input: torch.Tensor, aux_input: dict[str, Any] | None = None) -> dict[str, Any]:
         """Forward pass for inference.
 
         Must return a dictionary with the main model output and all the auxiliary outputs. The key ```model_outputs```
@@ -40,6 +51,8 @@ class BaseTrainerModel(TrainerModel):
             Dict: [description]
 
         """
+        if aux_input is None:
+            aux_input = {}
         outputs_dict = {"model_outputs": None}
         ...
         return outputs_dict

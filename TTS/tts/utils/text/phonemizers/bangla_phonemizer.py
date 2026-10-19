@@ -1,3 +1,5 @@
+from typing import Any
+
 from TTS.tts.utils.text.bangla.phonemizer import bangla_text_to_phonemes
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 
@@ -23,20 +25,19 @@ class BN_Phonemizer(BasePhonemizer):
 
     language = "bn"
 
-    def __init__(self, punctuations=_DEF_ZH_PUNCS, keep_puncs=False, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, punctuations: str = _DEF_ZH_PUNCS, *, keep_puncs: bool = False, **kwargs: Any) -> None:
         super().__init__(self.language, punctuations=punctuations, keep_puncs=keep_puncs)
 
     @staticmethod
-    def name():
+    def name() -> str:
         return "bn_phonemizer"
 
     @staticmethod
-    def phonemize_bn(text: str, separator: str = "|") -> str:  # pylint: disable=unused-argument
-        ph = bangla_text_to_phonemes(text)
-        return ph
+    def phonemize_bn(text: str) -> str:
+        return bangla_text_to_phonemes(text)
 
-    def _phonemize(self, text, separator):
-        return self.phonemize_bn(text, separator)
+    def _phonemize(self, text: str, separator: str) -> str:
+        return self.phonemize_bn(text)
 
     @staticmethod
     def supported_languages() -> dict:

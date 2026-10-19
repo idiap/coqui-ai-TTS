@@ -2,23 +2,25 @@ import os
 
 from trainer import Trainer, TrainerArgs
 
+from TTS.bin.compute_attention_masks import compute_attention_masks
 from TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig
 from TTS.tts.configs.fast_pitch_config import FastPitchConfig
+from TTS.tts.configs.forward_tts_config import ForwardTTSArgs
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models.forward_tts import ForwardTTS
-from TTS.tts.utils.text.tokenizer import TTSTokenizer
-from TTS.utils.audio import AudioProcessor
 from TTS.utils.manage import ModelManager
 
 output_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def main():
+    use_aligner = True  # learned alignments
+
     # init configs
     dataset_config = BaseDatasetConfig(
         formatter="ljspeech",
         meta_file_train="metadata.csv",
-        # meta_file_attn_mask=os.path.join(output_path, "../LJSpeech-1.1/metadata_attn_mask.txt"),
+        meta_file_attn_mask=os.path.join(output_path, "../LJSpeech-1.1/metadata_attn_mask.txt") if use_aligner else "",
         path=os.path.join(output_path, "../LJSpeech-1.1/"),
     )
 
@@ -37,6 +39,7 @@ def main():
 
     config = FastPitchConfig(
         run_name="fast_pitch_ljspeech",
+        model_args=ForwardTTSArgs(use_aligner=use_aligner),
         audio=audio_config,
         batch_size=32,
         eval_batch_size=16,
@@ -62,23 +65,10 @@ def main():
     )
 
     # compute alignments
-    if not config.model_args.use_aligner:
+    if not use_aligner:
         manager = ModelManager()
         model_path, config_path, _ = manager.download_model("tts_models/en/ljspeech/tacotron2-DCA")
-        # TODO: make compute_attention python callable
-        os.system(
-            f"python TTS/bin/compute_attention_masks.py --model_path {model_path} --config_path {config_path} --dataset ljspeech --dataset_metafile metadata.csv --data_path ./recipes/ljspeech/LJSpeech-1.1/  --use_cuda"
-        )
-
-    # INITIALIZE THE AUDIO PROCESSOR
-    # Audio processor is used for feature extraction and audio I/O.
-    # It mainly serves to the dataloader and the training loggers.
-    ap = AudioProcessor.init_from_config(config)
-
-    # INITIALIZE THE TOKENIZER
-    # Tokenizer is used to convert text to sequences of token IDs.
-    # If characters are not defined in the config, default characters are passed to the config
-    tokenizer, config = TTSTokenizer.init_from_config(config)
+        compute_attention_masks(model_path, config_path, "recipes/ljspeech/LJSpeech-1.1")
 
     # LOAD DATA SAMPLES
     # Each sample is a list of ```[text, audio_file_path, speaker_name]```
@@ -86,14 +76,14 @@ def main():
     # Or define your custom formatter and pass it to the `load_tts_samples`.
     # Check `TTS.tts.datasets.load_tts_samples` for more details.
     train_samples, eval_samples = load_tts_samples(
-        dataset_config,
+        config,
         eval_split=True,
         eval_split_max_size=config.eval_split_max_size,
         eval_split_size=config.eval_split_size,
     )
 
     # init the model
-    model = ForwardTTS(config, ap, tokenizer, speaker_manager=None)
+    model = ForwardTTS(config)
 
     # init the trainer and 🚀
     trainer = Trainer(

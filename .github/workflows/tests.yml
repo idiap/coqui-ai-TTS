@@ -64,6 +64,7 @@ jobs:
           sudo apt-get install espeak espeak-ng
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends git make gcc
           make system-deps
       - name: Install custom Trainer and/or Coqpit if requested
@@ -77,7 +78,7 @@ jobs:
       - name: Unit tests
         run: >
           uv run --resolution=${{ matrix.uv-resolution }} --extra cpu
-          --extra codec --extra server --extra languages make ${{ matrix.subset }}
+          --extra codec --extra server --extra languages --extra onnx make ${{ matrix.subset }}
       - name: Upload coverage data
         uses: actions/upload-artifact@v6
         with:
@@ -107,6 +108,7 @@ jobs:
           sudo apt-get install espeak espeak-ng
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends git make gcc
           make system-deps
       - name: Install custom Trainer and/or Coqpit if requested
@@ -119,8 +121,8 @@ jobs:
           fi
       - name: Integration tests for shard ${{ matrix.shard }}
         run: |
-          uv run --extra cpu --extra codec \
-            pytest tests/integration --collect-only --quiet | \
+          uv run --resolution=${{ matrix.uv-resolution }} --extra cpu \
+            --extra codec --extra languages pytest tests/integration --collect-only --quiet | \
             grep "::" > integration_tests.txt
           total_shards=6
           shard_tests=$(awk "NR % $total_shards == ${{ matrix.shard }}" integration_tests.txt)
@@ -150,6 +152,7 @@ jobs:
           sudo apt-get install espeak espeak-ng
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends git make gcc
           make system-deps
       - name: Install custom Trainer and/or Coqpit if requested
@@ -187,6 +190,7 @@ jobs:
           sudo apt-get install espeak espeak-ng
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends git make gcc
           make system-deps
       - name: Install custom Trainer and/or Coqpit if requested

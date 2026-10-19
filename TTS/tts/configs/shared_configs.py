@@ -7,8 +7,8 @@ from TTS.config import (
     BaseAudioConfig,
     BaseDatasetConfig,
     BaseTrainingConfig,
-    get_from_config_or_model_args_with_default,
 )
+from TTS.config.shared_configs import ModelArgs
 
 
 @dataclass
@@ -137,19 +137,19 @@ class CharactersConfig(Coqpit):
             Sort the characters in alphabetical order. Defaults to True.
     """
 
-    characters_class: str = None
+    characters_class: str | None = None
 
     # using BaseVocabulary
     vocab_dict: list[str] | None = None
 
     # using on BaseCharacters
-    pad: str = "<PAD>"
-    eos: str = None
-    bos: str = None
-    blank: str = None
-    characters: str = None
-    punctuations: str = None
-    phonemes: str = None
+    pad: str | None = "<PAD>"
+    eos: str | None = None
+    bos: str | None = None
+    blank: str | None = None
+    characters: str | None = None
+    punctuations: str | None = None
+    phonemes: str | None = None
     is_unique: bool = True  # for backwards compatibility of models trained with char sets with duplicates
     is_sorted: bool = True
 
@@ -303,19 +303,21 @@ class BaseTTSConfig(BaseTrainingConfig):
     """
 
     audio: BaseAudioConfig = field(default_factory=BaseAudioConfig)
-    model_args: Coqpit | None = None
+    model_args: ModelArgs = field(default_factory=ModelArgs)
     _supports_cloning: bool = False
+    languages: list[str] = field(default_factory=list)
+    speakers: list[str] = field(default_factory=list)
     # phoneme settings
     use_phonemes: bool = False
-    phonemizer: str = None
-    phoneme_language: str = None
+    phonemizer: str | None = None
+    phoneme_language: str | None = None
     compute_input_seq_cache: bool = False
-    text_cleaner: str = None
+    text_cleaner: str | None = None
     enable_eos_bos_chars: bool = False
     test_sentences_file: str = ""
     phoneme_cache_path: str = None
     # vocabulary parameters
-    characters: CharactersConfig = None
+    characters: CharactersConfig | None = None
     add_blank: bool = False
     # training params
     batch_group_size: int = 0
@@ -334,7 +336,7 @@ class BaseTTSConfig(BaseTrainingConfig):
     shuffle: bool = False
     drop_last: bool = False
     # dataset
-    datasets: list[BaseDatasetConfig] = field(default_factory=lambda: [BaseDatasetConfig()])
+    datasets: list[BaseDatasetConfig] = field(default_factory=list)
     # optimizer
     optimizer: str = "radam"
     optimizer_params: dict = None
@@ -357,6 +359,6 @@ class BaseTTSConfig(BaseTrainingConfig):
     @property
     def supports_cloning(self) -> bool:
         return self._supports_cloning or (
-            Path(get_from_config_or_model_args_with_default(self, "speaker_encoder_model_path", "")).is_file()
-            and Path(get_from_config_or_model_args_with_default(self, "speaker_encoder_config_path", "")).is_file()
+            Path(self.model_args.get("speaker_encoder_model_path", "")).is_file()
+            and Path(self.model_args.get("speaker_encoder_config_path", "")).is_file()
         )
