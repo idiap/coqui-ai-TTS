@@ -66,8 +66,10 @@ class XTTSDataset(torch.utils.data.Dataset):
         self.use_masking_gt_prompt_approach = model_args.gpt_use_masking_gt_prompt_approach
         assert self.max_wav_len is not None and self.max_text_len is not None
 
-        self.samples = samples
+        self.samples = samples if samples is not None else []
         if not is_eval:
+            if not self.samples:
+                raise ValueError("Training dataset cannot be empty.")
             random.seed(config.training_seed)
             # random.shuffle(self.samples)
             random.shuffle(self.samples)
@@ -80,6 +82,9 @@ class XTTSDataset(torch.utils.data.Dataset):
 
     def check_eval_samples(self):
         logger.info("Filtering invalid eval samples!!")
+        if not self.samples:
+            logger.warning("No evaluation samples provided to XTTSDataset.")
+            return
         new_samples = []
         for sample in self.samples:
             try:
