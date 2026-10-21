@@ -361,12 +361,6 @@ class GPTTrainer(BaseTTS):
         samples: list[Any] | None = None,
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
-        if is_eval and (samples is None or len(samples) == 0):
-            raise ValueError(
-                "No evaluation samples provided to `get_data_loader(is_eval=True)`. "
-                "If you want to train without an evaluation set, please set `config.run_eval = False`."
-            )
-
         # init dataloader
         dataset = XTTSDataset(self.config, samples, self.xtts.tokenizer, config.audio.sample_rate, is_eval)
 
