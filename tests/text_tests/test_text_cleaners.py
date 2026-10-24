@@ -25,6 +25,7 @@ def test_currency() -> None:
     assert phoneme_cleaners("It's $10.50") == "It's ten dollars fifty cents"
     assert phoneme_cleaners("£1.1") == "one pound sterling one penny"
     assert phoneme_cleaners("¥1") == "one yen"
+    assert phoneme_cleaners("It's €10.50") == "It's ten euros fifty cents"
 
 
 def test_expand_numbers() -> None:
