@@ -66,8 +66,10 @@ class XTTSDataset(torch.utils.data.Dataset):
         self.use_masking_gt_prompt_approach = model_args.gpt_use_masking_gt_prompt_approach
         assert self.max_wav_len is not None and self.max_text_len is not None
 
-        self.samples = samples
+        self.samples = samples if samples is not None else []
         if not is_eval:
+            if not self.samples:
+                raise ValueError("Training dataset cannot be empty.")
             random.seed(config.training_seed)
             # random.shuffle(self.samples)
             random.shuffle(self.samples)
@@ -80,23 +82,47 @@ class XTTSDataset(torch.utils.data.Dataset):
 
     def check_eval_samples(self):
         logger.info("Filtering invalid eval samples!!")
+        if not self.samples:
+            logger.warning("No evaluation samples provided to XTTSDataset.")
+            return
         new_samples = []
         for sample in self.samples:
+            audio_path = sample.get("audio_file") if isinstance(sample, dict) else getattr(sample, "audio_file", None)
             try:
                 tseq, _, wav, _, _, _ = self.load_item(sample)
             except Exception:
-                logger.exception("Failed to load eval sample %s", sample["audio_file"])
+                logger.exception("Failed to load eval sample %s", audio_path)
                 continue
             # Basically, this audio file is nonexistent or too long to be supported by the dataset.
-            if (
-                wav is None
-                or (self.max_wav_len is not None and wav.shape[-1] > self.max_wav_len)
-                or (self.max_text_len is not None and tseq.shape[0] > self.max_text_len)
-            ):
+            if wav is None:
+                logger.warning("Filtered out eval sample %s: audio waveform is None.", audio_path)
+                continue
+            if self.max_wav_len is not None and wav.shape[-1] > self.max_wav_len:
+                logger.warning(
+                    "Filtered out eval sample %s: audio length (%d) exceeds max_wav_len (%d).",
+                    audio_path,
+                    wav.shape[-1],
+                    self.max_wav_len,
+                )
+                continue
+            if self.max_text_len is not None and tseq.shape[0] > self.max_text_len:
+                logger.warning(
+                    "Filtered out eval sample %s: token length (%d) exceeds max_text_len (%d).",
+                    audio_path,
+                    tseq.shape[0],
+                    self.max_text_len,
+                )
                 continue
             new_samples.append(sample)
         self.samples = new_samples
         logger.info("Total eval samples after filtering: %d", len(self.samples))
+        if len(self.samples) == 0:
+            logger.warning(
+                "All evaluation samples were filtered out! "
+                "Check that audio lengths do not exceed max_wav_len (%s) and text lengths do not exceed max_text_len (%s).",
+                self.max_wav_len,
+                self.max_text_len,
+            )
 
     def get_text(self, text, lang):
         tokens = self.tokenizer.encode(text, lang)
