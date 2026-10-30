@@ -191,7 +191,7 @@ explicit = true
 [dependency-groups]
 dev = [
     "coverage[toml]>=7",
-    "pre-commit>=4",
+    "prek>=0.5",
     "pytest>=9",
     "ruff==0.17.0",
 ]
@@ -222,10 +222,10 @@ tts-server = "TTS.server.server:main"
 exclude = [
     "/.github",
     "/.gitignore",
-    "/.pre-commit-config.yaml",
     "/.readthedocs.yml",
     "/Makefile",
     "/dockerfiles",
+    "/prek.toml",
     "/scripts",
     "/tests",
 ]

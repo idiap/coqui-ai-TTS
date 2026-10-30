@@ -70,7 +70,7 @@ install:	## install 🐸 TTS
 
 install_dev:	## install 🐸 TTS for development.
 	uv sync --all-extras
-	uv run pre-commit install
+	uv run prek install
 
 docs:	## build the docs
 	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs clean
