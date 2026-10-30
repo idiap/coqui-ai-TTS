@@ -120,7 +120,7 @@ You can also help us implement more models.
 > [!NOTE]
 > From `coqui-tts` 0.27.4, PyTorch is not included by default and you need to install it yourself.
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.11, < 3.15** and PyTorch
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.11** and PyTorch
 2.2+, but should also work on Mac and Windows.
 
 It is strongly recommended to use [uv](https://docs.astral.sh/uv/) to install

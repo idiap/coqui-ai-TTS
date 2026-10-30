@@ -28,7 +28,7 @@ name = "coqui-tts"
 version = "0.28.0"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.11, <3.15"
+requires-python = ">=3.11"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
