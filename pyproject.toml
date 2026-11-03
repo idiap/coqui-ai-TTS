@@ -164,6 +164,8 @@ conflicts = [
 ]
 
 [tool.uv.sources]
+coqpit-config = { git = "https://github.com/idiap/coqui-ai-coqpit", branch = "python315" }
+coqui-tts-trainer = { git = "https://github.com/idiap/coqui-ai-Trainer", branch = "py315" }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cuda", extra = "cuda" },
