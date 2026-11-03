@@ -40,7 +40,7 @@ def test_xtts(tmp_path, check_output):
         os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav"),
     ]
     if torch.cuda.is_available():
-        args.append("--use_cuda")
+        args.extend(["--device", "cuda"])
     run_main(main, args)
     check_output(tmp_path / "output.wav")
 
@@ -98,7 +98,7 @@ def test_xtts_v2(tmp_path, check_output):
         os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0002.wav"),
     ]
     if torch.cuda.is_available():
-        args.append("--use_cuda")
+        args.extend(["--device", "cuda"])
     run_main(main, args)
     check_output(tmp_path / "output.wav")
 
@@ -184,7 +184,7 @@ def test_tortoise(tmp_path, check_output, monkeypatch):
         "--no-progress_bar",
     ]
     if torch.cuda.is_available():
-        args.append("--use_cuda")
+        args.extend(["--device", "cuda"])
     run_main(main, args)
     check_output(tmp_path / "output.wav")
 
@@ -202,6 +202,6 @@ def test_bark(tmp_path, check_output):
         "--no-progress_bar",
     ]
     if torch.cuda.is_available():
-        args.append("--use_cuda")
+        args.extend(["--device", "cuda"])
     run_main(main, args)
     check_output(tmp_path / "output.wav")

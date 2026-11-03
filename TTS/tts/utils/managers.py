@@ -11,7 +11,7 @@ from TTS.config import load_config
 from TTS.encoder.models.base_encoder import BaseEncoder
 from TTS.encoder.utils.generic_utils import setup_encoder_model
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.generic_utils import is_pytorch_at_least_2_4
+from TTS.utils.generic_utils import is_pytorch_at_least_2_4, resolve_device
 
 
 def load_file(path: str | os.PathLike[Any]) -> Any:
@@ -127,15 +127,17 @@ class EmbeddingManager(BaseIDManager):
         encoder_model_path: str | os.PathLike[Any] = "",
         encoder_config_path: str | os.PathLike[Any] = "",
         use_cuda: bool = False,
+        *,
+        device: str | torch.device = "cpu",
     ):
         super().__init__(id_file_path=id_file_path)
+        device = resolve_device(device, use_cuda=use_cuda)
 
         self.embeddings = {}
         self.embeddings_by_names = {}
         self.clip_ids = []
         self.encoder: BaseEncoder | None = None
         self.encoder_ap: AudioProcessor | None = None
-        self.use_cuda = use_cuda
 
         if embedding_file_path:
             if isinstance(embedding_file_path, list):
@@ -144,7 +146,7 @@ class EmbeddingManager(BaseIDManager):
                 self.load_embeddings_from_file(embedding_file_path)
 
         if encoder_model_path and encoder_config_path:
-            self.init_encoder(encoder_model_path, encoder_config_path, use_cuda)
+            self.init_encoder(encoder_model_path, encoder_config_path, device=device)
 
     @property
     def num_embeddings(self) -> int:
@@ -308,22 +310,37 @@ class EmbeddingManager(BaseIDManager):
         return sorted(self.embeddings.keys())
 
     def init_encoder(
-        self, model_path: str | os.PathLike[Any], config_path: str | os.PathLike[Any], use_cuda: bool = False
+        self,
+        model_path: str | os.PathLike[Any],
+        config_path: str | os.PathLike[Any],
+        use_cuda: bool = False,
+        *,
+        device: str | torch.device = "cpu",
     ) -> None:
         """Initialize a speaker encoder model.
 
         Args:
             model_path (str): Model file path.
             config_path (str): Model config file path.
-            use_cuda (bool, optional): Use CUDA. Defaults to False.
+            use_cuda (bool, optional): DEPRECATED, use `device="cuda"` instead.
+            device: Device to load the encoder on. It can also be moved later
+                with ``manager.encoder.to(device)``.
         """
-        self.use_cuda = use_cuda
+        device = resolve_device(device, use_cuda=use_cuda)
         self.encoder_config = load_config(config_path)
         self.encoder = setup_encoder_model(self.encoder_config)
         self.encoder_criterion = self.encoder.load_checkpoint(
-            self.encoder_config, str(model_path), eval=True, use_cuda=use_cuda, cache=True
+            self.encoder_config, str(model_path), eval=True, cache=True
         )
+        self.encoder.to(device)
+        if self.encoder_criterion is not None:
+            self.encoder_criterion.to(device)
         self.encoder_ap = AudioProcessor(self.encoder_config.audio)
+
+    @property
+    def encoder_device(self) -> torch.device:
+        """Device of the encoder, which may have been moved after initialization."""
+        return next(self.encoder.parameters()).device
 
     @torch.inference_mode()
     def compute_embedding_from_clip(
@@ -349,9 +366,7 @@ class EmbeddingManager(BaseIDManager):
             else:
                 m_input = torch.from_numpy(waveform)
 
-            if self.use_cuda:
-                m_input = m_input.cuda()
-            m_input = m_input.unsqueeze(0)
+            m_input = m_input.to(self.encoder_device).unsqueeze(0)
             embedding = self.encoder.compute_embedding(m_input)
             return embedding
 
@@ -375,9 +390,8 @@ class EmbeddingManager(BaseIDManager):
             feats = torch.from_numpy(feats)
         if feats.ndim == 2:
             feats = feats.unsqueeze(0)
-        if self.use_cuda:
-            feats = feats.cuda()
         if self.encoder is None:
             msg = "You must first initialize the encoder with init_encoder()"
             raise RuntimeError(msg)
+        feats = feats.to(self.encoder_device)
         return self.encoder.compute_embedding(feats)

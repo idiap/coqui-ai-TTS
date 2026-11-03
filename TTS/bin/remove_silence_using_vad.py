@@ -9,7 +9,7 @@ import sys
 import torch
 from tqdm import tqdm
 
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 from TTS.utils.vad import get_vad_model_and_utils, remove_silence
 
 torch.set_num_threads(1)
@@ -29,7 +29,7 @@ def adjust_path_and_remove_silence(audio_path):
         audio_path,
         output_path,
         trim_just_beginning_and_end=args.trim_just_beginning_and_end,
-        use_cuda=args.use_cuda,
+        device=device,
     )
     return output_path, is_speech
 
@@ -103,8 +103,14 @@ if __name__ == "__main__":
         "-c",
         "--use_cuda",
         action=argparse.BooleanOptionalAction,
-        default=False,
-        help="If True use cuda",
+        default=None,
+        help="DEPRECATED, use `--device`.",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
     )
     parser.add_argument(
         "--use_onnx",
@@ -124,5 +130,11 @@ if __name__ == "__main__":
         args.output_dir = args.input_dir
 
     # load the model and utils
-    model_and_utils = get_vad_model_and_utils(use_cuda=args.use_cuda, use_onnx=args.use_onnx)
+    # The ONNX model always runs on CPU
+    device = (
+        torch.device("cpu")
+        if args.use_onnx
+        else select_device(args.device, use_cuda=args.use_cuda, arg_name="--use_cuda", replacement="`--device`")
+    )
+    model_and_utils = get_vad_model_and_utils(use_onnx=args.use_onnx, device=device)
     preprocess_audios()

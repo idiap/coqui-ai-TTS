@@ -82,7 +82,7 @@ def test_voice_conversion(tmp_path, check_output):
         "--no-progress_bar",
     ]
     if torch.cuda.is_available():
-        args.append("--use_cuda")
+        args.extend(["--device", "cuda"])
     run_main(main, args)
     assert (tmp_path / "output.wav").is_file()
     check_output(tmp_path / "output.wav")

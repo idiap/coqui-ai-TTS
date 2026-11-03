@@ -9,12 +9,13 @@ from typing import Any
 import numpy as np
 import torch
 from tqdm import tqdm
+from trainer.generic_utils import to_device
 
 from TTS.config import load_config
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.models import setup_model
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ Example run:
         --data_path /root/LJSpeech-1.1/
         --batch_size 32
         --formatter ljspeech
-        --use_cuda
+        --device cuda
 """,
         formatter_class=RawTextHelpFormatter,
     )
@@ -65,7 +66,15 @@ Example run:
         help="Dataset metafile inclusing file paths with transcripts.",
     )
     parser.add_argument("--data_path", type=str, help="Defines the data path.", required=True)
-    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="enable/disable cuda.")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
+    )
+    parser.add_argument(
+        "--use_cuda", action=argparse.BooleanOptionalAction, default=None, help="DEPRECATED, use `--device`."
+    )
 
     parser.add_argument(
         "--batch_size", default=16, type=int, help="Batch size for the model. Use batch_size=1 if you have no CUDA."
@@ -83,7 +92,7 @@ def main(arg_list: list[str] | None = None) -> None:
         output_path=args.output_path,
         formatter=args.formatter,
         metafile=args.dataset_metafile,
-        use_cuda=args.use_cuda,
+        device=select_device(args.device, use_cuda=args.use_cuda, arg_name="--use_cuda", replacement="`--device`"),
         batch_size=args.batch_size,
     )
     sys.exit(0)
@@ -97,9 +106,17 @@ def compute_attention_masks(
     output_path: str | os.PathLike[Any] | None = None,
     formatter: str = "ljspeech",
     metafile: str = "metadata.csv",
-    use_cuda: bool = True,
+    device: str | torch.device | None = None,
+    use_cuda: bool | None = None,
     batch_size: int = 16,
 ) -> None:
+    """Compute attention masks with a Tacotron model.
+
+    Args:
+        device: Device to run the model on. Defaults to the best available device.
+        use_cuda: DEPRECATED, use ``device`` instead.
+    """
+    device = select_device(device, use_cuda=use_cuda)
     output_path = Path(output_path if output_path else data_path).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -109,8 +126,7 @@ def compute_attention_masks(
     # load the model
     model = setup_model(config)
     model.load_checkpoint(config, model_path, eval=True)
-    if use_cuda:
-        model.cuda()
+    model.to(device)
 
     # create data loader
     config.datasets = [BaseDatasetConfig(formatter=formatter, meta_file_train=metafile, path=data_path)]
@@ -128,12 +144,10 @@ def compute_attention_masks(
             mel_lengths = data["mel_lengths"]
             item_idxs = data["item_idxs"]
 
-            # dispatch data to GPU
-            if use_cuda:
-                text_input = text_input.cuda()
-                text_lengths = text_lengths.cuda()
-                mel_input = mel_input.cuda()
-                mel_lengths = mel_lengths.cuda()
+            text_input = to_device(text_input, device)
+            text_lengths = to_device(text_lengths, device)
+            mel_input = to_device(mel_input, device)
+            mel_lengths = to_device(mel_lengths, device)
 
             model_outputs = model.forward(text_input, text_lengths, mel_input)
 

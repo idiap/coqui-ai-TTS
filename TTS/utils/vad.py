@@ -3,6 +3,8 @@ import logging
 import torch
 import torchaudio
 
+from TTS.utils.generic_utils import resolve_device
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,20 +40,29 @@ def map_timestamps_to_new_sr(vad_sr, new_sr, timestamps, just_begging_end=False)
     return new_timestamps
 
 
-def get_vad_model_and_utils(use_cuda=False, use_onnx=False):
+def get_vad_model_and_utils(use_cuda=False, use_onnx=False, *, device: str | torch.device = "cpu"):
+    device = resolve_device(device, use_cuda=use_cuda)
     model, utils = torch.hub.load(
         repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=True, onnx=use_onnx, force_onnx_cpu=True
     )
-    if use_cuda:
-        model = model.cuda()
+    if not use_onnx:
+        model = model.to(device)
 
     get_speech_timestamps, save_audio, _, _, collect_chunks = utils
     return model, get_speech_timestamps, save_audio, collect_chunks
 
 
 def remove_silence(
-    model_and_utils, audio_path, out_path, vad_sample_rate=8000, trim_just_beginning_and_end=True, use_cuda=False
+    model_and_utils,
+    audio_path,
+    out_path,
+    vad_sample_rate=8000,
+    trim_just_beginning_and_end=True,
+    use_cuda=False,
+    *,
+    device: str | torch.device = "cpu",
 ):
+    device = resolve_device(device, use_cuda=use_cuda)
     # get the VAD model and utils functions
     model, get_speech_timestamps, _, collect_chunks = model_and_utils
 
@@ -68,8 +79,7 @@ def remove_silence(
     else:
         wav_vad = wav
 
-    if use_cuda:
-        wav_vad = wav_vad.cuda()
+    wav_vad = wav_vad.to(device)
 
     # get speech timestamps from full audio file
     speech_timestamps = get_speech_timestamps(wav_vad, model, sampling_rate=vad_sample_rate, window_size_samples=768)

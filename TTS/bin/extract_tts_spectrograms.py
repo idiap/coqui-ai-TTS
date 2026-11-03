@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from trainer.generic_utils import count_parameters
+from trainer.generic_utils import count_parameters, to_device
 
 from TTS.config import load_config
 from TTS.tts.configs.shared_configs import BaseTTSConfig
@@ -21,9 +21,7 @@ from TTS.tts.utils.speakers import SpeakerManager
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import quantize
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
-
-use_cuda = torch.cuda.is_available()
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -93,6 +91,12 @@ The script will create subdirectories in the output path:
         "samples. Use --no-eval to process only training samples.",
         default=True,
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
+    )
     return parser.parse_args(arg_list)
 
 
@@ -135,7 +139,7 @@ def setup_loader(
     )
 
 
-def format_data(data):
+def format_data(data, device: torch.device):
     # setup input data
     text_input = data["token_id"]
     text_lengths = data["token_id_lengths"]
@@ -148,18 +152,13 @@ def format_data(data):
     avg_text_length = torch.mean(text_lengths.float())
     avg_spec_length = torch.mean(mel_lengths.float())
 
-    # dispatch data to GPU
-    if use_cuda:
-        text_input = text_input.cuda(non_blocking=True)
-        text_lengths = text_lengths.cuda(non_blocking=True)
-        mel_input = mel_input.cuda(non_blocking=True)
-        mel_lengths = mel_lengths.cuda(non_blocking=True)
-        if speaker_ids is not None:
-            speaker_ids = speaker_ids.cuda(non_blocking=True)
-        if d_vectors is not None:
-            d_vectors = d_vectors.cuda(non_blocking=True)
-        if attn_mask is not None:
-            attn_mask = attn_mask.cuda(non_blocking=True)
+    text_input = to_device(text_input, device)
+    text_lengths = to_device(text_lengths, device)
+    mel_input = to_device(mel_input, device)
+    mel_lengths = to_device(mel_lengths, device)
+    speaker_ids = to_device(speaker_ids, device)
+    d_vectors = to_device(d_vectors, device)
+    attn_mask = to_device(attn_mask, device)
     return (
         text_input,
         text_lengths,
@@ -232,6 +231,7 @@ def extract_spectrograms(
     metadata_name: str = "metadata.txt",
 ) -> None:
     model.eval()
+    device = next(model.parameters()).device
     export_metadata = []
     for _, data in tqdm(enumerate(data_loader), total=len(data_loader)):
         # format data
@@ -246,7 +246,7 @@ def extract_spectrograms(
             _,
             _,
             item_idx,
-        ) = format_data(data)
+        ) = format_data(data, device)
 
         model_output = inference(
             model_name,
@@ -318,8 +318,7 @@ def main(arg_list: list[str] | None = None) -> None:
     # restore model
     model.load_checkpoint(config, args.checkpoint_path, eval=True)
 
-    if use_cuda:
-        model.cuda()
+    model.to(select_device(args.device))
 
     num_params = count_parameters(model)
     print(f"\n > Model has {num_params} parameters", flush=True)

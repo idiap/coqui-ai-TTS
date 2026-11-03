@@ -8,7 +8,6 @@ from tests import get_tests_input_path
 from TTS.vc.models.freevc import FreeVC, FreeVCConfig
 
 torch.manual_seed(1)
-use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 c = FreeVCConfig()

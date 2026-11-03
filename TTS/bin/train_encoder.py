@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import torch
 from torch.utils.data import DataLoader
 from trainer import TrainerArgs, TrainerConfig
-from trainer.generic_utils import count_parameters, get_experiment_folder_path, get_git_branch
+from trainer.generic_utils import count_parameters, get_device, get_experiment_folder_path, get_git_branch, to_device
 from trainer.io import copy_model_files, get_last_checkpoint, save_best_model, save_checkpoint
 from trainer.logging import BaseDashboardLogger, ConsoleLogger, logger_factory
 from trainer.torch import NoamLR
@@ -31,9 +31,9 @@ from TTS.utils.training import check_update
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 torch.manual_seed(54321)
-use_cuda = torch.cuda.is_available()
+device = get_device()
 num_gpus = torch.cuda.device_count()
-print(" > Using CUDA: ", use_cuda)
+print(" > Using device: ", device)
 print(" > Number of GPUs: ", num_gpus)
 
 
@@ -167,10 +167,8 @@ def evaluation(c: BaseEncoderConfig, model, criterion, data_loader, global_step,
                 inputs.view(c.eval_num_utter_per_class, c.eval_num_classes_in_batch, -1), 0, 1
             ).reshape(inputs.shape)
 
-            # dispatch data to GPU
-            if use_cuda:
-                inputs = inputs.cuda(non_blocking=True)
-                labels = labels.cuda(non_blocking=True)
+            inputs = to_device(inputs, device)
+            labels = to_device(labels, device)
 
             # forward pass model
             outputs = model(inputs)
@@ -245,10 +243,8 @@ def train(
 
             optimizer.zero_grad()
 
-            # dispatch data to GPU
-            if use_cuda:
-                inputs = inputs.cuda(non_blocking=True)
-                labels = labels.cuda(non_blocking=True)
+            inputs = to_device(inputs, device)
+            labels = to_device(labels, device)
 
             # forward pass model
             outputs = model(inputs)
@@ -380,9 +376,7 @@ def main(arg_list: list[str] | None = None):
         copy_model_files(c, OUT_PATH, new_fields={})
 
     if args.restore_path:
-        criterion, args.restore_step = model.load_checkpoint(
-            c, args.restore_path, eval=False, use_cuda=use_cuda, criterion=criterion
-        )
+        criterion, args.restore_step = model.load_checkpoint(c, args.restore_path, eval=False, criterion=criterion)
         print(f" > Model restored from step {args.restore_step}", flush=True)
     else:
         args.restore_step = 0
@@ -395,9 +389,8 @@ def main(arg_list: list[str] | None = None):
     num_params = count_parameters(model)
     print(f"\n > Model has {num_params} parameters", flush=True)
 
-    if use_cuda:
-        model = model.cuda()
-        criterion.cuda()
+    model.to(device)
+    criterion.to(device)
 
     global_step = args.restore_step
     _, global_step = train(

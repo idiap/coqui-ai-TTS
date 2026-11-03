@@ -72,7 +72,7 @@ You can do inference using one of the available speakers using the following com
      --text "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent." \
      --speaker_idx "Ana Florence" \
      --language_idx en \
-     --use_cuda
+     --device cuda
 ```
 
 #### Clone a voice
@@ -90,7 +90,7 @@ You can clone a speaker voice using a single or multiple references:
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/speaker.wav \
      --language_idx tr \
-     --use_cuda
+     --device cuda
 ```
 
 ##### Multiple references
@@ -99,7 +99,7 @@ You can clone a speaker voice using a single or multiple references:
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/speaker.wav /path/to/target/speaker_2.wav /path/to/target/speaker_3.wav \
      --language_idx tr \
-     --use_cuda
+     --device cuda
 ```
 or for all wav files in a directory you can use:
 
@@ -108,7 +108,7 @@ or for all wav files in a directory you can use:
      --text "Bugün okula gitmek istemiyorum." \
      --speaker_wav /path/to/target/*.wav \
      --language_idx tr \
-     --use_cuda
+     --device cuda
 ```
 
 ### 🐸TTS API

@@ -7,6 +7,7 @@ import contextlib
 import importlib.metadata
 import logging
 import sys
+import warnings
 from argparse import RawTextHelpFormatter
 
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
@@ -191,7 +192,7 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         default="tts_output.wav",
         help="Output wav file path.",
     )
-    parser.add_argument("--use_cuda", action="store_true", help="Run model on CUDA.")
+    parser.add_argument("--use_cuda", action="store_true", help="DEPRECATED, use `--device cuda`.")
     parser.add_argument("--device", type=str, help="Device to run model on.", default="cpu")
     parser.add_argument(
         "--vocoder_path",
@@ -353,6 +354,7 @@ def main(arg_list: list[str] | None = None) -> None:
 
         device = args.device
         if args.use_cuda:
+            warnings.warn("`--use_cuda` is deprecated, use `--device cuda` instead.", DeprecationWarning, stacklevel=2)
             device = "cuda"
         # A local model will take precedence if specified via modeL_path
         model_name = args.model_name if args.model_path is None else None

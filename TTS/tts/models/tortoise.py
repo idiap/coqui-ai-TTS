@@ -682,6 +682,8 @@ class Tortoise(BaseTTS):
 
             def potentially_redact(clip, text):
                 if self.enable_redaction:
+                    # The aligner is not a submodule, so it doesn't follow `.to()`
+                    self.aligner.device = self.device
                     return self.aligner.redact(clip.squeeze(1), text).unsqueeze(1)
                 return clip
 
