@@ -329,7 +329,7 @@ class GAN(BaseVocoder):
         config: TrainerConfig,
         *,
         is_eval: bool = True,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ):
         """Initiate and return the GAN dataloader.

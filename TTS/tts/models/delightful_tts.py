@@ -954,7 +954,7 @@ class DelightfulTTS(BaseTTSE2E):
         config: Coqpit,
         *,
         is_eval: bool = False,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
         # init dataloader

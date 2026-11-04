@@ -307,7 +307,7 @@ class Wavegrad(BaseVocoder):
         config: TrainerConfig,
         *,
         is_eval: bool = True,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
         dataset = WaveGradDataset(
