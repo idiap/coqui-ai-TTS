@@ -517,7 +517,7 @@ class ForwardTTS(BaseTTS):
         if self.use_aligner:
             durations = outputs["o_alignment_dur"]
         # use float32 in AMP
-        with torch.autocast("cuda", enabled=False):
+        with torch.autocast(self.device.type, enabled=False):
             # compute loss
             loss_dict = criterion(
                 decoder_output=outputs["model_outputs"],

@@ -829,7 +829,7 @@ class Vits(BaseTTS):
             )
 
             # compute loss
-            with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
+            with torch.autocast(self.device.type, enabled=False):  # use float32 for the criterion
                 loss_dict = criterion(
                     scores_disc_real,
                     scores_disc_fake,
@@ -840,7 +840,7 @@ class Vits(BaseTTS):
             mel = batch["mel"]
 
             # compute melspec segment
-            with torch.autocast("cuda", enabled=False):
+            with torch.autocast(self.device.type, enabled=False):
                 if self.args.encoder_sample_rate:
                     spec_segment_size = self.spec_segment_size * int(self.interpolate_factor)
                 else:
@@ -867,7 +867,7 @@ class Vits(BaseTTS):
             )
 
             # compute losses
-            with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
+            with torch.autocast(self.device.type, enabled=False):  # use float32 for the criterion
                 loss_dict = criterion(
                     mel_slice_hat=mel_slice.float(),
                     mel_slice=mel_slice_hat.float(),

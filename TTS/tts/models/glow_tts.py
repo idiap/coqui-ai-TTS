@@ -378,7 +378,7 @@ class GlowTTS(BaseTTS):
                 aux_input={"d_vectors": d_vectors, "speaker_ids": speaker_ids},
             )
 
-            with torch.autocast("cuda", enabled=False):  # avoid mixed_precision in criterion
+            with torch.autocast(self.device.type, enabled=False):  # avoid mixed_precision in criterion
                 loss_dict = criterion(
                     outputs["z"].float(),
                     outputs["y_mean"].float(),

@@ -556,7 +556,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
                 # compute loss
-                with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
+                with torch.autocast(self.device.type, enabled=False):  # use float32 for the criterion
                     loss_dict = criterion(
                         scores_disc_fake=scores_d_fake,
                         scores_disc_real=scores_d_real,
@@ -567,7 +567,7 @@ class DelightfulTTS(BaseTTSE2E):
         if optimizer_idx == 1:
             mel = batch["mel_input"]
             # compute melspec segment
-            with torch.autocast("cuda", enabled=False):
+            with torch.autocast(self.device.type, enabled=False):
                 mel_slice = segment(
                     mel.float(), self.model_outputs_cache["slice_ids"], self.args.spec_segment_size, pad_short=True
                 )
@@ -595,7 +595,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
             # compute losses
-            with torch.autocast("cuda", enabled=True):  # use float32 for the criterion
+            with torch.autocast(self.device.type, enabled=True):  # use float32 for the criterion
                 loss_dict = criterion(
                     mel_output=self.model_outputs_cache["acoustic_model_outputs"].transpose(1, 2),
                     mel_target=batch["mel_input"],
