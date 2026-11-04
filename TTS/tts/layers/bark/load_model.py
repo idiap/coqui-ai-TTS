@@ -1,5 +1,3 @@
-import contextlib
-import functools
 import hashlib
 import logging
 import os
@@ -10,15 +8,6 @@ import tqdm
 
 from TTS.tts.layers.bark.model import GPT, GPTConfig
 from TTS.tts.layers.bark.model_fine import FineGPT, FineGPTConfig
-
-if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
-    autocast = functools.partial(torch.autocast, device_type="cuda", dtype=torch.bfloat16)
-else:
-
-    @contextlib.contextmanager
-    def autocast():
-        yield
-
 
 # hold models in global scope to lazy load
 
@@ -46,31 +35,6 @@ def _download(from_s3_path, to_local_path, CACHE_DIR):
     progress_bar.close()
     if total_size_in_bytes not in [0, progress_bar.n]:
         raise ValueError("ERROR, something went wrong")
-
-
-class InferenceContext:
-    def __init__(self, benchmark=False):
-        # we can't expect inputs to be the same length, so disable benchmarking by default
-        self._chosen_cudnn_benchmark = benchmark
-        self._cudnn_benchmark = None
-
-    def __enter__(self):
-        self._cudnn_benchmark = torch.backends.cudnn.benchmark
-        torch.backends.cudnn.benchmark = self._chosen_cudnn_benchmark
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        torch.backends.cudnn.benchmark = self._cudnn_benchmark
-
-
-if torch.cuda.is_available():
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-
-
-@contextlib.contextmanager
-def inference_mode():
-    with InferenceContext(), torch.inference_mode(), torch.no_grad(), autocast():
-        yield
 
 
 def clear_cuda_cache():
