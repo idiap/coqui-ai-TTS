@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import importlib
 import logging
 import os
@@ -47,7 +48,17 @@ def slugify(text: str) -> str:
     safe = re.sub(r"[^\w\-]", "_", ascii_str)
 
     # Collapse repeated underscores
-    return re.sub(r"_+", "_", safe).strip("_")
+    slug = re.sub(r"_+", "_", safe).strip("_")
+    if slug or not text:
+        return slug
+
+    # A script with no ASCII decomposition (CJK, Arabic, Devanagari, ...)
+    # normalizes to nothing, which would otherwise collapse every such name
+    # to the same empty slug and silently overwrite one speaker's cached
+    # voice with another's. Fall back to a short, stable hash of the
+    # original text so different names stay distinct and the same name
+    # always maps back to the same slug.
+    return "id_" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
 
 
 def find_module(module_path: str, module_name: str) -> type[Any]:
