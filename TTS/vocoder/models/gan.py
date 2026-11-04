@@ -272,7 +272,7 @@ class GAN(BaseVocoder):
     def get_optimizer(self) -> list[torch.optim.Optimizer]:
         """Initiate and return the GAN optimizers based on the config parameters.
 
-        It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
+        It returns 2 optimizers in a list. First one is for the discriminator and the second one is for the generator.
 
         Returns:
             List: optimizers.

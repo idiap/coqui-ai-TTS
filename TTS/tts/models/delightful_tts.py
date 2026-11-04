@@ -1007,7 +1007,7 @@ class DelightfulTTS(BaseTTSE2E):
 
     def get_optimizer(self) -> list:
         """Initiate and return the GAN optimizers based on the config parameters.
-        It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
+        It returns 2 optimizers in a list. First one is for the discriminator and the second one is for the generator.
         Returns:
             List: optimizers.
         """
@@ -1037,8 +1037,8 @@ class DelightfulTTS(BaseTTSE2E):
         Returns:
             List: Schedulers, one for each optimizer.
         """
-        scheduler_D = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[0])
-        scheduler_G = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
+        scheduler_D = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[0])
+        scheduler_G = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
         return [scheduler_D, scheduler_G]
 
     def on_epoch_end(self, trainer: Trainer) -> None:
