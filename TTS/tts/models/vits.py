@@ -150,7 +150,7 @@ class VitsDataset(TTSDataset):
             torch.LongTensor([x.size(1) for x in batch["wav"]]), dim=0, descending=True
         )
 
-        max_text_len = max([len(x) for x in batch["token_ids"]])
+        max_text_len = max(len(x) for x in batch["token_ids"])
         token_lens = torch.LongTensor(batch["token_len"])
         token_rel_lens = token_lens / token_lens.max()
 
@@ -737,9 +737,7 @@ class Vits(BaseTTS):
         speaker_id, d_vector = self._get_speaker_id_or_dvector(speaker, target_wav, voice_dir)
         source_speaker_id, source_d_vector = self._get_speaker_id_or_dvector(source_speaker, source_wav, voice_dir)
         y = torch.tensor(
-            self.ap.load_wav(
-                source_wav, sr=self.args.encoder_sample_rate if self.args.encoder_sample_rate else self.ap.sample_rate
-            ),
+            self.ap.load_wav(source_wav, sr=self.args.encoder_sample_rate or self.ap.sample_rate),
             dtype=torch.float,
             device=self.device,
         ).unsqueeze(0)

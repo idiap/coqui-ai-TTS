@@ -134,7 +134,7 @@ def test_xtts_v2_streaming(manager, device: torch.device, check_output):
         wav_chunks.append(chunk)
     assert len(wav_chunks) > 1
     check_output(torch.cat(wav_chunks), config.audio.output_sample_rate)
-    normal_len = sum([len(chunk) for chunk in wav_chunks])
+    normal_len = sum(len(chunk) for chunk in wav_chunks)
 
     chunks = model.inference_stream(
         "It took me quite a long time to develop a voice and now that I have it I am not going to be silent.",
@@ -147,7 +147,7 @@ def test_xtts_v2_streaming(manager, device: torch.device, check_output):
     for i, chunk in enumerate(chunks):
         wav_chunks.append(chunk)
     check_output(torch.cat(wav_chunks), config.audio.output_sample_rate, name="fast")
-    fast_len = sum([len(chunk) for chunk in wav_chunks])
+    fast_len = sum(len(chunk) for chunk in wav_chunks)
 
     chunks = model.inference_stream(
         "It took me quite a long time to develop a voice and now that I have it I am not going to be silent.",
@@ -160,7 +160,7 @@ def test_xtts_v2_streaming(manager, device: torch.device, check_output):
     for i, chunk in enumerate(chunks):
         wav_chunks.append(chunk)
     check_output(torch.cat(wav_chunks), config.audio.output_sample_rate, name="slow")
-    slow_len = sum([len(chunk) for chunk in wav_chunks])
+    slow_len = sum(len(chunk) for chunk in wav_chunks)
 
     assert slow_len > normal_len
     assert normal_len > fast_len

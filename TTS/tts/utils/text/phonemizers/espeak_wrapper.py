@@ -188,8 +188,7 @@ class ESpeak(BasePhonemizer):
 
         with tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8") as tmp:
             tmp.write(text)
-        args.append("-f")
-        args.append(tmp.name)
+        args.extend(("-f", tmp.name))
 
         # compute phonemes
         phonemes = ""

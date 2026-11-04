@@ -154,7 +154,7 @@ def setup_loader(c: TrainerConfig, ap: AudioProcessor, is_val: bool = False):
 
 def evaluation(c: BaseEncoderConfig, model, criterion, data_loader, global_step, dashboard_logger: BaseDashboardLogger):
     eval_loss = 0
-    for _, data in enumerate(data_loader):
+    for data in data_loader:
         with torch.inference_mode():
             # setup input data
             inputs, labels = data
@@ -212,7 +212,7 @@ def train(
     for epoch in range(c.epochs):
         tot_loss = 0
         epoch_time = 0
-        for _, data in enumerate(data_loader):
+        for data in data_loader:
             start_time = time.time()
 
             # setup input data

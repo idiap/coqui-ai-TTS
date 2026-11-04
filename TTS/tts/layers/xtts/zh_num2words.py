@@ -380,13 +380,13 @@ CN_CHARS_COMMON = (
 CN_CHARS_EXT = "吶诶屌囧飚屄"
 
 CN_CHARS = CN_CHARS_COMMON + CN_CHARS_EXT
-IN_CH_CHARS = {c: True for c in CN_CHARS}
+IN_CH_CHARS = dict.fromkeys(CN_CHARS, True)
 
 EN_CHARS = string.ascii_letters + string.digits
-IN_EN_CHARS = {c: True for c in EN_CHARS}
+IN_EN_CHARS = dict.fromkeys(EN_CHARS, True)
 
 VALID_CHARS = CN_CHARS + EN_CHARS + " "
-IN_VALID_CHARS = {c: True for c in VALID_CHARS}
+IN_VALID_CHARS = dict.fromkeys(VALID_CHARS, True)
 
 
 # ================================================================================ #
@@ -1024,7 +1024,7 @@ def remove_erhua(text):
     """
 
     new_str = ""
-    while re.search("儿", text):
+    while "儿" in text:
         a = re.search("儿", text).span()
         remove_er_flag = 0
 

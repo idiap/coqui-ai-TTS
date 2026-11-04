@@ -83,7 +83,7 @@ def format_audio_list(
         first_word = True
         # added all segments words in a unique list
         words_list = []
-        for _, segment in enumerate(segments):
+        for segment in segments:
             words = list(segment.words)
             words_list.extend(words)
 

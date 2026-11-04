@@ -350,9 +350,9 @@ class TacotronLoss(torch.nn.Module):
 
         # postnet and decoder loss
         if c.loss_masking:
-            self.criterion = L1LossMasked(c.seq_len_norm) if c.model in ["Tacotron"] else MSELossMasked(c.seq_len_norm)
+            self.criterion = L1LossMasked(c.seq_len_norm) if c.model == "Tacotron" else MSELossMasked(c.seq_len_norm)
         else:
-            self.criterion = nn.L1Loss() if c.model in ["Tacotron"] else nn.MSELoss()
+            self.criterion = nn.L1Loss() if c.model == "Tacotron" else nn.MSELoss()
         # guided attention loss
         if c.ga_alpha > 0:
             self.criterion_ga = GuidedAttentionLoss(sigma=ga_sigma)
@@ -387,7 +387,7 @@ class TacotronLoss(torch.nn.Module):
     ):
         # decoder outputs linear or mel spectrograms for Tacotron and Tacotron2
         # the target should be set acccordingly
-        postnet_target = linear_input if self.config.model.lower() in ["tacotron"] else mel_input
+        postnet_target = linear_input if self.config.model.lower() == "tacotron" else mel_input
 
         return_dict = {}
         # remove lengths if no masking is applied

@@ -77,7 +77,7 @@ class Logger:
     def __init__(self, filename="log.out"):
         self.log_file = filename
         self.terminal = sys.stdout
-        self.log = open(self.log_file, "w")  # noqa: SIM115
+        self.log = open(self.log_file, "w", encoding="utf-8")  # noqa: SIM115
 
     def write(self, message):
         self.terminal.write(message)
@@ -105,7 +105,7 @@ logging.basicConfig(
 
 def read_logs():
     sys.stdout.flush()
-    with open(sys.stdout.log_file) as f:
+    with open(sys.stdout.log_file, encoding="utf-8") as f:
         return f.read()
 
 

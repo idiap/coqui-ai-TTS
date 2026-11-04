@@ -117,7 +117,7 @@ def compute_attention_masks(
         use_cuda: DEPRECATED, use ``device`` instead.
     """
     device = select_device(device, use_cuda=use_cuda)
-    output_path = Path(output_path if output_path else data_path).resolve()
+    output_path = Path(output_path or data_path).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 
     config = load_config(config_path)

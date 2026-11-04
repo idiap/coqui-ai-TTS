@@ -202,7 +202,7 @@ class ForwardTTSE2eDataset(TTSDataset):
         B = len(batch)
         batch = {k: [dic[k] for dic in batch] for k in batch[0]}
 
-        max_text_len = max([len(x) for x in batch["token_ids"]])
+        max_text_len = max(len(x) for x in batch["token_ids"])
         token_lens = torch.LongTensor(batch["token_len"])
         token_rel_lens = token_lens / token_lens.max()
 
