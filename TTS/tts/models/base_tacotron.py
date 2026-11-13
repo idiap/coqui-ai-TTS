@@ -283,8 +283,16 @@ class BaseTacotron(BaseTTS):
             trainer (TrainerTTS): TTS trainer object that is used to train this model.
         """
         if self.gradual_training:
-            r, trainer.config.batch_size = gradual_training_scheduler(trainer.total_steps_done, trainer.config)
+            r, batch_size = gradual_training_scheduler(trainer.total_steps_done, trainer.config)
+            if r != trainer.config.r or batch_size != trainer.config.batch_size:
+                # The trainer caches its data loaders, but they read `r` and `batch_size` when they are built, so
+                # drop them to have them rebuilt from the samples. Loaders passed in by the user are kept.
+                if trainer.train_samples:
+                    trainer.train_loader = None
+                if trainer.eval_samples:
+                    trainer.eval_loader = None
             trainer.config.r = r
+            trainer.config.batch_size = batch_size
             self.decoder.set_r(r)
             if trainer.config.bidirectional_decoder:
                 trainer.model.decoder_backward.set_r(r)
