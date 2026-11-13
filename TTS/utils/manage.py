@@ -348,7 +348,11 @@ class ModelManager:
         # find downloaded files
         output_model_path = output_path
         output_config_path = output_model_path / "config.json"
-        if model not in ["tortoise-v2", "bark", "knnvc"]:
+        if model == "styletts2":
+            # Original StyleTTS2 checkpoint, converted when loading
+            output_config_path = next(output_path.rglob("config.yml"))
+            output_model_path = output_config_path.parent
+        elif model not in ["tortoise-v2", "bark", "knnvc"]:
             output_model_path, output_config_path = self._find_files(output_path)
         if model == "knnvc" and not output_config_path.exists():
             knnvc_config = KNNVCConfig()
@@ -358,7 +362,7 @@ class ModelManager:
             if not output_config_path.is_file():
                 tortoise_config = TortoiseConfig()
                 tortoise_config.save_json(output_config_path)
-        if all(x not in model_name for x in ("fairseq", "openvoice")):
+        if all(x not in model_name for x in ("fairseq", "openvoice", "styletts2")):
             # Update paths in config, except for external models
             self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item

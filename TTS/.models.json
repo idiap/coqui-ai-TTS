@@ -174,6 +174,24 @@
                     "author": "Shivam Metha @shivammehta25",
                     "license": "apache 2.0",
                     "contact": "d83ee8fe45e3c0d776d4a865aca21d7c2ac324c4"
+                },
+                "styletts2": {
+                    "description": "StyleTTS 2 model trained on LJSpeech from https://github.com/yl4579/StyleTTS2. Pre-trained model terms: inform listeners that the speech is synthesized, unless you have permission to use the voice. See https://github.com/yl4579/StyleTTS2#license",
+                    "repo_id": "yl4579/StyleTTS2-LJSpeech",
+                    "allow": ["Models/LJSpeech/*"],
+                    "default_vocoder": null,
+                    "author": "Yinghao Aaron Li @yl4579",
+                    "license": "MIT"
+                }
+            },
+            "libritts": {
+                "styletts2": {
+                    "description": "StyleTTS 2 model trained on LibriTTS with zero-shot voice cloning from https://github.com/yl4579/StyleTTS2. Pre-trained model terms: inform listeners that the speech is synthesized, unless you have permission to use the voice. See https://github.com/yl4579/StyleTTS2#license",
+                    "repo_id": "yl4579/StyleTTS2-LibriTTS",
+                    "allow": ["Models/LibriTTS/*"],
+                    "default_vocoder": null,
+                    "author": "Yinghao Aaron Li @yl4579",
+                    "license": "MIT"
                 }
             },
             "vctk": {

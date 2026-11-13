@@ -98,6 +98,8 @@ class Synthesizer(nn.Module):
         if tts_checkpoint:
             if "fairseq" in str(self.tts_checkpoint):
                 self._load_fairseq(self.tts_checkpoint)
+            elif "StyleTTS2" in str(self.tts_checkpoint):
+                self._load_styletts2(self.tts_checkpoint)
             else:
                 self._load_tts(self.tts_checkpoint, self.tts_config_path)
             checkpoint_dir = self.tts_checkpoint if self.tts_checkpoint.is_dir() else self.tts_checkpoint.parent
@@ -164,6 +166,14 @@ class Synthesizer(nn.Module):
         self.tts_model = Vits(self.tts_config)
         self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_path, eval=True)
         self.tts_config = self.tts_model.config
+        self.output_sample_rate = self.tts_config.audio["sample_rate"]
+
+    def _load_styletts2(self, checkpoint_dir: Path) -> None:
+        """Load an original StyleTTS2 model from a directory with config.yml and *.pth checkpoint."""
+        from TTS.tts.models.styletts2 import StyleTTS2
+
+        self.tts_model, self.tts_config = StyleTTS2.load_from_original_checkpoint(checkpoint_dir)
+        self.tts_model.eval()
         self.output_sample_rate = self.tts_config.audio["sample_rate"]
 
     def _load_openvoice(self, checkpoint: Path) -> None:

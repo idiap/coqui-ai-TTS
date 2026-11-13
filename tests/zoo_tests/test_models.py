@@ -52,7 +52,13 @@ def test_models(tmp_path, model_name, check_output, device: torch.device):
         speaker = None
         language = api.languages[0] if api.languages else None
         speaker = api.speakers[0] if api.speakers else None
-        api.tts_to_file("This is an example.", speaker=speaker, language=language, file_path=file_path)
+        speaker_wav = None
+        if speaker is None and api.is_multi_speaker:
+            # Voice cloning model without built-in speakers
+            speaker_wav = os.path.join(get_tests_data_path(), "ljspeech", "wavs", "LJ001-0001.wav")
+        api.tts_to_file(
+            "This is an example.", speaker=speaker, speaker_wav=speaker_wav, language=language, file_path=file_path
+        )
         check_output(file_path)
     elif "voice_conversion_models" in model_name:
         api = TTS(model_name, progress_bar=False).to(device)
