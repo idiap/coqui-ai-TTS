@@ -513,24 +513,21 @@ class Xtts(BaseTTS):
     def handle_chunks(self, wav_gen, wav_gen_prev, wav_overlap, overlap_len, is_final=False):
         """Handle chunk formatting, retaining the overlap only until the final chunk."""
         chunk_end = None if is_final else -overlap_len
-        wav_chunk = wav_gen[:chunk_end]
+        # Resume where the previous chunk stopped, i.e. `overlap_len` samples before the
+        # end of the audio generated so far. Clamping to 0 keeps chunks that are shorter
+        # than `overlap_len` from re-emitting samples that were already yielded.
+        chunk_start = 0
         if wav_gen_prev is not None:
-            wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) : chunk_end]
-        if wav_overlap is not None:
+            chunk_start = max(0, wav_gen_prev.shape[0] - overlap_len)
+        wav_chunk = wav_gen[chunk_start:chunk_end].clone()
+
+        if wav_overlap is not None and len(wav_chunk) > 0:
             # cross fade the overlap section
-            if overlap_len > len(wav_chunk):
-                # wav_chunk is smaller than overlap_len, pass on last wav_gen
-                if wav_gen_prev is not None:
-                    wav_chunk = wav_gen[(wav_gen_prev.shape[0] - overlap_len) :]
-                else:
-                    # unreachable in practice: wav_overlap is only set together with wav_gen_prev
-                    wav_chunk = wav_gen[-overlap_len:]
-                return wav_chunk, wav_gen, None
-            else:
-                crossfade_wav = wav_chunk[:overlap_len]
-                crossfade_wav = crossfade_wav * torch.linspace(0.0, 1.0, overlap_len).to(crossfade_wav.device)
-                wav_chunk[:overlap_len] = wav_overlap * torch.linspace(1.0, 0.0, overlap_len).to(wav_overlap.device)
-                wav_chunk[:overlap_len] += crossfade_wav
+            crossfade_len = min(overlap_len, len(wav_chunk), wav_overlap.shape[0])
+            if crossfade_len > 0:
+                fade_in = torch.linspace(0.0, 1.0, crossfade_len, device=wav_chunk.device)
+                fade_out = torch.linspace(1.0, 0.0, crossfade_len, device=wav_overlap.device)
+                wav_chunk[:crossfade_len] = wav_overlap[:crossfade_len] * fade_out + wav_chunk[:crossfade_len] * fade_in
 
         wav_overlap = None if is_final else wav_gen[-overlap_len:]
         wav_gen_prev = wav_gen
