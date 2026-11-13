@@ -45,6 +45,7 @@ models/overflow.md
 models/tortoise.md
 models/bark.md
 models/xtts.md
+models/styletts2.md
 ```
 
 

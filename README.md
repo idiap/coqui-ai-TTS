@@ -86,6 +86,7 @@ repository are also still a useful source of information.
 - 🐸[YourTTS](https://arxiv.org/abs/2112.02418)
 - 🐢[Tortoise](https://github.com/neonbjb/tortoise-tts)
 - 🐶[Bark](https://github.com/suno-ai/bark)
+- [StyleTTS 2](https://arxiv.org/abs/2306.07691)
 
 ### Vocoders
 - [MelGAN](https://arxiv.org/abs/1910.06711)

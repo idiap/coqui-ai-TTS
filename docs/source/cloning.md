@@ -9,6 +9,7 @@ allow voice cloning (the model config will contain `supports_cloning=True`):
 - [XTTS](models/xtts.md)
 - [Tortoise](models/tortoise.md)
 - [Bark](models/bark.md)
+- [StyleTTS 2](models/styletts2.md) (LibriTTS model)
 
 All [voice conversion models](vc.md) also perform voice cloning, but with speech as the
 input instead of text.
