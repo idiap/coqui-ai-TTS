@@ -7,7 +7,7 @@ from trainer.io import save_checkpoint
 
 from tests import get_tests_input_path
 from TTS.config import load_config
-from TTS.tts.models import setup_model
+from TTS.tts.models import get_model_class, setup_model
 from TTS.utils.synthesizer import Synthesizer
 
 CURRENT_STEP = 10
@@ -138,3 +138,22 @@ def test_synthesizer_timestamps(tmp_path):
 
     output_no_split = synthesizer.tts("Hello world. This is a test.", split_sentences=False, return_dict=True)
     assert len(output_no_split["segments"]) == 1
+
+
+def test_synthesizer_with_loaded_model(tmp_path):
+    """The Synthesizer can use an already loaded model instead of loading it from a path."""
+    _create_random_model(tmp_path)
+    config = load_config(TTS_CONFIG)
+    model = get_model_class(config).from_pretrained(tmp_path / f"checkpoint_{CURRENT_STEP}.pth", TTS_CONFIG)
+    assert not model.training
+
+    synthesizer = Synthesizer(tts_model=model)
+
+    assert synthesizer.tts_model is model
+    assert synthesizer.voice_dir is None
+    assert isinstance(synthesizer.tts("Hello world.", return_dict=False), list)
+
+
+def test_synthesizer_requires_model():
+    with pytest.raises(RuntimeError, match="Need to initialize a TTS or VC model"):
+        Synthesizer()

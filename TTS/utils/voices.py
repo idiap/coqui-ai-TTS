@@ -154,7 +154,7 @@ class CloningMixin:
         logger.info("Loaded voice `%s` from: %s", speaker_id, voices[speaker_id_slug])
         return voice
 
-    def get_voices(self, voice_dir: str | os.PathLike[Any]) -> dict[str, Path]:
+    def get_voices(self, voice_dir: str | os.PathLike[Any] | None) -> dict[str, Path]:
         """Return all available voices in the given directory.
 
         Args:
@@ -163,4 +163,6 @@ class CloningMixin:
         Returns:
             Dictionary mapping a speaker ID to its voice file.
         """
+        if voice_dir is None:
+            return {}
         return {path.stem: path for path in Path(voice_dir).glob("*.pth")}

@@ -1,6 +1,7 @@
 import os
 import warnings
 from abc import abstractmethod
+from pathlib import Path
 from typing import Any, Self
 
 import torch
@@ -32,6 +33,32 @@ class BaseTrainerModel(TrainerModel):
             stacklevel=2,
         )
         return cls(config)
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_path: str | os.PathLike[Any],
+        config_path: str | os.PathLike[Any] | None = None,
+    ) -> Self:
+        """Load a pre-trained model in Coqui format for inference.
+
+        Args:
+            model_path: Path to the model checkpoint file, or to a directory for
+                models that load multiple files from a directory.
+            config_path: Path to the model config. Defaults to ``config.json``
+                in the checkpoint directory.
+        """
+        from TTS.config import load_config
+
+        model_path = Path(model_path)
+        model_dir = model_path if model_path.is_dir() else model_path.parent
+        config = load_config(config_path if config_path is not None else model_dir / "config.json")
+        model = cls(config)
+        if model_path.is_dir():
+            model.load_checkpoint(config, checkpoint_dir=model_path, eval=True)
+        else:
+            model.load_checkpoint(config, checkpoint_path=model_path, eval=True)
+        return model
 
     @abstractmethod
     def inference(self, input: torch.Tensor, aux_input: dict[str, Any] | None = None) -> dict[str, Any]:

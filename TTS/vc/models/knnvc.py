@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from typing import Any, TypeAlias
 
 import torch
@@ -159,6 +160,23 @@ class KNNVC(CloningMixin, BaseVC):
         best = dists.topk(k=topk, largest=False, dim=-1)
         out_feats = synth_set[best.indices].mean(dim=1)
         return out_feats.unsqueeze(0)
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_path: str | os.PathLike[Any],
+        config_path: str | os.PathLike[Any] | None = None,
+    ) -> "KNNVC":
+        """Load the model, using the default config if there is no ``config.json``.
+
+        kNN-VC has no checkpoint of its own, its components are loaded on demand.
+        """
+        from TTS.config import load_config
+
+        model_path = Path(model_path)
+        model_dir = model_path if model_path.is_dir() else model_path.parent
+        config_path = Path(config_path) if config_path is not None else model_dir / "config.json"
+        return cls(load_config(config_path) if config_path.is_file() else KNNVCConfig()).eval()
 
     def load_checkpoint(
         self,

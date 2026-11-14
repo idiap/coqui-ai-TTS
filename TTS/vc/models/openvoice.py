@@ -174,6 +174,26 @@ class OpenVoice(CloningMixin, BaseVC):
 
         self.ref_enc = ReferenceEncoder(self.spec_channels, self.gin_channels)
 
+    @classmethod
+    def from_original(cls, model_path: str | os.PathLike[Any]) -> "OpenVoice":
+        """Load an original OpenVoice checkpoint.
+
+        Args:
+            model_path: Path to the original ``checkpoint.pth`` (with the original
+                ``config.json`` next to it) or to a directory containing them.
+        """
+        model_path = Path(model_path)
+        if model_path.is_dir():
+            checkpoints = list(model_path.rglob("checkpoint.pth"))
+            if len(checkpoints) != 1:
+                msg = f"Expected exactly one checkpoint.pth in {model_path}, found {len(checkpoints)}"
+                raise FileNotFoundError(msg)
+            model_path = checkpoints[0]
+        config = OpenVoiceConfig()
+        model = cls(config)
+        model.load_checkpoint(config, model_path, eval=True)
+        return model
+
     def load_checkpoint(
         self,
         config: Coqpit,

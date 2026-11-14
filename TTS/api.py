@@ -181,8 +181,15 @@ class TTS(nn.Module):
         self, model_name: str, vocoder_name: str | None = None
     ) -> tuple[Path | None, Path | None, Path | None, Path | None]:
         model_path, config_path, model_item = self.manager.download_model(model_name)
+        vocoder_path, vocoder_config_path = self._download_vocoder(model_item, vocoder_name)
+        return model_path, config_path, vocoder_path, vocoder_config_path
+
+    def _download_vocoder(
+        self, model_item: dict[str, Any], vocoder_name: str | None = None
+    ) -> tuple[Path | None, Path | None]:
+        """Download the vocoder for the given model, if it needs one."""
         if model_item.get("default_vocoder") is None:
-            return model_path, config_path, None, None
+            return None, None
         if vocoder_name is None:
             vocoder_name = model_item["default_vocoder"]
         vocoder_path, vocoder_config_path = None, None
@@ -192,7 +199,7 @@ class TTS(nn.Module):
             vocoder_config_path = self.vocoder_config_path
         if vocoder_path is None or vocoder_config_path is None:
             vocoder_path, vocoder_config_path, _ = self.manager.download_model(vocoder_name)
-        return model_path, config_path, vocoder_path, vocoder_config_path
+        return vocoder_path, vocoder_config_path
 
     def load_model_by_name(self, model_name: str, vocoder_name: str | None = None, *, gpu: bool = False) -> None:
         """Load one of the 🐸TTS models by name.
@@ -212,12 +219,12 @@ class TTS(nn.Module):
         """
         device = self._target_device(gpu=gpu)
         self.model_name = model_name
-        model_path, config_path, vocoder_path, vocoder_config_path = self.download_model_by_name(
-            model_name, vocoder_name
+        model = self.manager.load_model(model_name)
+        vocoder_path, vocoder_config_path = self._download_vocoder(
+            self.manager.get_model_item(model_name), vocoder_name
         )
         self.voice_converter = Synthesizer(
-            vc_checkpoint=model_path,
-            vc_config=config_path,
+            vc_model=model,
             vocoder_checkpoint=vocoder_path,
             vocoder_config=vocoder_config_path,
             voice_dir=self.voice_dir,
@@ -237,16 +244,15 @@ class TTS(nn.Module):
         device = self._target_device(gpu=gpu)
         self.model_name = model_name
 
-        model_path, config_path, vocoder_path, vocoder_config_path = self.download_model_by_name(
-            model_name, vocoder_name
+        model = self.manager.load_model(model_name)
+        vocoder_path, vocoder_config_path = self._download_vocoder(
+            self.manager.get_model_item(model_name), vocoder_name
         )
 
         # init synthesizer
         # None values are fetch from the model
         self.synthesizer = Synthesizer(
-            tts_checkpoint=model_path,
-            tts_config_path=config_path,
-            tts_speakers_file=None,
+            tts_model=model,
             vocoder_checkpoint=vocoder_path,
             vocoder_config=vocoder_config_path,
             encoder_checkpoint=self.encoder_path,

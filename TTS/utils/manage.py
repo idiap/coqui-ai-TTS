@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -7,7 +8,7 @@ from contextlib import nullcontext
 from importlib import resources
 from pathlib import Path
 from shutil import copyfile, rmtree
-from typing import Any, Required, TypedDict
+from typing import TYPE_CHECKING, Any, Required, TypedDict
 
 import requests
 from tqdm import tqdm
@@ -15,9 +16,20 @@ from trainer.io import get_user_data_dir
 
 from TTS.config import load_config
 from TTS.tts.configs.tortoise_config import TortoiseConfig
+from TTS.utils.generic_utils import import_class
 from TTS.vc.configs.knnvc_config import KNNVCConfig
 
+if TYPE_CHECKING:
+    from TTS.model import BaseTrainerModel
+
 logger = logging.getLogger(__name__)
+
+# Modules providing get_model_class() for models in Coqui format
+_MODEL_MODULES = {
+    "tts_models": "TTS.tts.models",
+    "voice_conversion_models": "TTS.vc.models",
+    "vocoder_models": "TTS.vocoder.models",
+}
 
 
 class ModelItem(TypedDict, total=False):
@@ -33,6 +45,8 @@ class ModelItem(TypedDict, total=False):
     repo_id: str
     allow: list[str] | None
     ignore: list[str] | None
+    model_class: str
+    loader: str
 
 
 LICENSE_URLS = {
@@ -270,6 +284,8 @@ class ModelManager:
                 "default_vocoder": None,
                 "author": "fairseq",
                 "description": "this model is released by Meta under Fairseq repo. Visit https://github.com/facebookresearch/fairseq/tree/main/examples/mms for more info.",
+                "model_class": "TTS.tts.models.vits.Vits",
+                "loader": "from_fairseq",
             }
         else:
             # get model from models.json
@@ -324,6 +340,52 @@ class ModelManager:
         self.print_model_license(model_item=model_item)
         return output_path
 
+    def get_model_item(self, model_name: str) -> ModelItem:
+        """Return the information about a model, as specified in `.models.json`.
+
+        Args:
+            model_name: Model name in the format 'type/language/dataset/model'.
+        """
+        return self._set_model_item(model_name)[0]
+
+    def _download_files(self, model_name: str, model_item: ModelItem, model_full_name: str) -> Path:
+        """Download the model files if needed and return the directory containing them."""
+        output_path = self.output_prefix / model_full_name
+        if output_path.is_dir() and "repo_id" not in model_item:
+            logger.info("%s is already downloaded.", model_name)
+            return output_path
+        return self.create_dir_and_download_model(model_name, model_item, output_path)
+
+    def load_model(self, model_name: str) -> "BaseTrainerModel":
+        """Download (if needed) and load a model for inference.
+
+        Models in Coqui format are loaded with `from_pretrained()` of the model
+        class specified in their config. Models in other formats instead specify
+        `model_class` in their `.models.json` entry and optionally `loader`, the
+        name of a class method of the model class (defaults to
+        `from_pretrained`). It is called with the directory containing the
+        downloaded files.
+
+        Args:
+            model_name: Model name in the format 'type/language/dataset/model'.
+
+        Returns:
+            The model, ready for inference.
+        """
+        model_item, model_full_name, _ = self._set_model_item(model_name)
+        output_path = self._download_files(model_name, model_item, model_full_name)
+        if (model_class_path := model_item.get("model_class")) is not None:
+            loader_name = model_item.get("loader", "from_pretrained")
+            if loader_name == "from_pretrained" and (output_path / "config.json").is_file():
+                self._update_paths(output_path, output_path / "config.json")
+            loader = getattr(import_class(model_class_path), loader_name)
+            return loader(output_path)
+        model_path, config_path = self._find_files(output_path)
+        self._update_paths(output_path, config_path)
+        config = load_config(config_path)
+        model_class = importlib.import_module(_MODEL_MODULES[model_item["model_type"]]).get_model_class(config)
+        return model_class.from_pretrained(model_path, config_path)
+
     def download_model(self, model_name: str) -> tuple[Path, Path | None, ModelItem]:
         """Download model files given the full model name.
         Model name is in the format
@@ -339,12 +401,7 @@ class ModelManager:
             model_name (str): model name as explained above.
         """
         model_item, model_full_name, model = self._set_model_item(model_name)
-        # set the model specific output path
-        output_path = self.output_prefix / model_full_name
-        if output_path.is_dir() and "repo_id" not in model_item:
-            logger.info("%s is already downloaded.", model_name)
-        else:
-            output_path = self.create_dir_and_download_model(model_name, model_item, output_path)
+        output_path = self._download_files(model_name, model_item, model_full_name)
         # find downloaded files
         output_model_path = output_path
         output_config_path = output_model_path / "config.json"

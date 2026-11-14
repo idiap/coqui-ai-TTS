@@ -1188,6 +1188,26 @@ class Vits(BaseTTS):
             self.eval()
             assert not self.training
 
+    @classmethod
+    def from_fairseq(cls, model_path: str | os.PathLike[Any]) -> "Vits":
+        """Load a VITS checkpoint released by fairseq.
+
+        Args:
+            model_path: Path to the checkpoint file or a directory containing it
+                (and the ``config.json`` and ``vocab.txt`` files).
+        """
+        model_path = Path(model_path)
+        if model_path.is_dir():
+            checkpoints = list(model_path.glob("*.pth"))
+            if len(checkpoints) != 1:
+                msg = f"Expected exactly one *.pth checkpoint in {model_path}, found {len(checkpoints)}"
+                raise FileNotFoundError(msg)
+            model_path = checkpoints[0]
+        config = VitsConfig()
+        model = cls(config)
+        model.load_fairseq_checkpoint(config, model_path, eval=True)
+        return model
+
     def load_fairseq_checkpoint(self, config, checkpoint_path: Path, eval=False, strict=True):
         """Load VITS checkpoints released by fairseq here: https://github.com/facebookresearch/fairseq/tree/main/examples/mms
         Performs some changes for compatibility.

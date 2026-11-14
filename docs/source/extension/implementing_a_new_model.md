@@ -63,7 +63,33 @@
     `MyModelArgs` as a field if defined. The rest of the fields should define
     the model specific values and parameters.
 
-9. Write Docstrings.
+9. Optionally, make pre-trained models available.
+
+    Pre-trained models are listed in
+    [`TTS/.models.json`](https://github.com/idiap/coqui-ai-TTS/tree/dev/TTS/.models.json)
+    and loaded with `ModelManager().load_model()`. A
+    model in Coqui format (a `config.json` plus checkpoint) needs no extra
+    code: it is loaded with
+    {py:meth}`~TTS.model.BaseTrainerModel.from_pretrained` of the model class
+    named in its config. Override `from_pretrained()` if your model needs to
+    load differently, e.g. from multiple checkpoint files in a directory.
+
+    To use checkpoints released in another format without converting them
+    first, add a class method that loads them, e.g. `from_original()`, and
+    name the class and method in the model's `.models.json` entry. The method
+    is called with the directory containing the downloaded files:
+
+    ```json
+    "my_model": {
+        "description": "My model, trained on ...",
+        "repo_id": "my-org/my-model",
+        "model_class": "TTS.tts.models.my_model.MyModel",
+        "loader": "from_original",
+        "default_vocoder": null
+    }
+    ```
+
+10. Write Docstrings.
 
     We love you more when you document your code. ❤️
 

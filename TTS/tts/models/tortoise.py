@@ -715,6 +715,24 @@ class Tortoise(BaseTTS):
     def eval_step(self, batch, criterion, optimizer_idx=None):
         raise NotImplementedError("Tortoise Training is not implemented")
 
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_path: str | os.PathLike[Any],
+        config_path: str | os.PathLike[Any] | None = None,
+    ) -> "Tortoise":
+        """Load the pre-trained model from a directory.
+
+        Uses the default config if there is no ``config.json`` in the directory.
+        """
+        model_path = Path(model_path)
+        if config_path is None and not (model_path / "config.json").is_file():
+            config = TortoiseConfig()
+            model = cls(config)
+            model.load_checkpoint(config, checkpoint_dir=model_path, eval=True)
+            return model
+        return super().from_pretrained(model_path, config_path)
+
     def load_checkpoint(
         self,
         config,

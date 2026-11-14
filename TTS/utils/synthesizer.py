@@ -3,6 +3,7 @@
 import logging
 import os
 import time
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -12,15 +13,13 @@ import torch
 from torch import nn
 
 from TTS.config import load_config
-from TTS.tts.configs.vits_config import VitsConfig
-from TTS.tts.models import setup_model as setup_tts_model
+from TTS.tts.models import get_model_class as get_tts_model_class
 from TTS.tts.models.vits import Vits
 from TTS.tts.utils.languages import normalize_language
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
 from TTS.utils.generic_utils import optional_to_str, resolve_device
-from TTS.vc.configs.openvoice_config import OpenVoiceConfig
-from TTS.vc.models import setup_model as setup_vc_model
+from TTS.vc.models import get_model_class as get_vc_model_class
 from TTS.vc.models.openvoice import OpenVoice
 from TTS.vocoder.models import setup_model as setup_vocoder_model
 from TTS.vocoder.utils.generic_utils import interpolate_vocoder_input
@@ -35,6 +34,16 @@ logger = logging.getLogger(__name__)
 
 
 PAD_SILENCE_SAMPLES = 10000
+
+
+def _warn_path_loading_deprecated(model: str) -> None:
+    warnings.warn(
+        f"Loading {model} models in their original format from a path in the Synthesizer is deprecated and will "
+        "be removed soon. Use `TTS(model_name)`, or load the model with `ModelManager().load_model(model_name)` "
+        "and pass it as `Synthesizer(tts_model=...)`/`Synthesizer(vc_model=...)`.",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 class Synthesizer(nn.Module):
@@ -53,6 +62,8 @@ class Synthesizer(nn.Module):
         vc_checkpoint: str | os.PathLike[Any] | None = None,
         vc_config: str | os.PathLike[Any] | None = None,
         voice_dir: str | os.PathLike[Any] | None = None,
+        tts_model: "BaseTTS | None" = None,
+        vc_model: "BaseVC | None" = None,
         use_cuda: bool = False,
     ) -> None:
         """General 🐸 TTS interface for inference.
@@ -76,6 +87,10 @@ class Synthesizer(nn.Module):
             encoder_config (str, optional): path to the speaker encoder config file. Defaults to `""`,
             vc_checkpoint (str, optional): path to the voice conversion model file. Defaults to `""`,
             vc_config (str, optional): path to the voice conversion config file. Defaults to `""`,
+            voice_dir (str, optional): directory for cached voices of voice cloning models.
+                Defaults to `voices/` in the checkpoint directory.
+            tts_model (BaseTTS, optional): already loaded TTS model, used instead of `tts_checkpoint`.
+            vc_model (BaseVC, optional): already loaded voice conversion model, used instead of `vc_checkpoint`.
             use_cuda (bool, optional): DEPRECATED, use `synthesizer.to("cuda")` instead.
 
         """
@@ -95,29 +110,44 @@ class Synthesizer(nn.Module):
         self.vc_model: BaseVC | None = None
 
         checkpoint_dir = None
-        if tts_checkpoint:
+        if tts_model is not None:
+            self._set_tts_model(tts_model)
+        elif tts_checkpoint:
+            # TODO: Remove deprecated loading of external models by path
             if "fairseq" in str(self.tts_checkpoint):
-                self._load_fairseq(self.tts_checkpoint)
+                _warn_path_loading_deprecated("fairseq")
+                model = Vits.from_fairseq(self.tts_checkpoint)
             elif "StyleTTS2" in str(self.tts_checkpoint):
-                self._load_styletts2(self.tts_checkpoint)
+                from TTS.tts.models.styletts2 import StyleTTS2
+
+                _warn_path_loading_deprecated("StyleTTS2")
+                model = StyleTTS2.from_original(self.tts_checkpoint)
             else:
-                self._load_tts(self.tts_checkpoint, self.tts_config_path)
+                model = self._load_tts(self.tts_checkpoint, Path(tts_config_path) if tts_config_path else None)
+            self._set_tts_model(model)
             checkpoint_dir = self.tts_checkpoint if self.tts_checkpoint.is_dir() else self.tts_checkpoint.parent
 
-        if vc_checkpoint:
+        if vc_model is not None:
+            self._set_vc_model(vc_model)
+        elif vc_checkpoint:
             if "OpenVoice" in self.vc_checkpoint:
-                self._load_openvoice(Path(vc_checkpoint))
+                _warn_path_loading_deprecated("OpenVoice")
+                model = OpenVoice.from_original(self.vc_checkpoint)
             else:
-                self._load_vc(self.vc_checkpoint, self.vc_config)
+                model = self._load_vc(self.vc_checkpoint, self.vc_config)
+            self._set_vc_model(model)
             checkpoint_dir = Path(self.vc_checkpoint).parent
 
         if vocoder_checkpoint:
             self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config)
 
-        if checkpoint_dir is None:
-            msg = "Need to initialize a TTS or VC model via tts_checkpoint/vc_checkpoint"
+        if self.tts_model is None and self.vc_model is None:
+            msg = "Need to initialize a TTS or VC model via tts_model/tts_checkpoint or vc_model/vc_checkpoint"
             raise RuntimeError(msg)
-        self.voice_dir = Path(voice_dir) if voice_dir is not None else checkpoint_dir / "voices"
+        if voice_dir is not None:
+            self.voice_dir: Path | None = Path(voice_dir)
+        else:
+            self.voice_dir = checkpoint_dir / "voices" if checkpoint_dir is not None else None
         self._set_segmenters()
 
         if device := resolve_device(None, use_cuda=use_cuda, replacement="`Synthesizer(...).to('cuda')`"):
@@ -137,58 +167,19 @@ class Synthesizer(nn.Module):
                 self.segmenter[language] = pysbd.Segmenter(language=seg_language, clean=True)
             logger.info("Segmenters initialized for: %s", self.segmenter.keys())
 
-    def _load_vc(self, vc_checkpoint: str, vc_config_path: str) -> None:
-        """Load the voice conversion model.
-
-        1. Load the model config.
-        2. Init the model from the config.
-        3. Load the model weights.
+    def _load_vc(self, vc_checkpoint: str, vc_config_path: str) -> "BaseVC":
+        """Load a voice conversion model in Coqui format.
 
         Args:
             vc_checkpoint (str): path to the model checkpoint.
             vc_config_path (str): path to the model config file.
 
         """
-        self.vc_config = load_config(vc_config_path)
-        self.output_sample_rate = self.vc_config.audio.get(
-            "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
-        )
-        self.vc_model = setup_vc_model(config=self.vc_config)
-        self.vc_model.load_checkpoint(self.vc_config, vc_checkpoint)
+        config = load_config(vc_config_path)
+        return get_vc_model_class(config).from_pretrained(vc_checkpoint, vc_config_path)
 
-    def _load_fairseq(self, checkpoint_path: Path) -> None:
-        """Load the fairseq model from a directory.
-
-        We assume it is VITS and the model knows how to load itself from the
-        directory and there is a config.json file in the directory.
-        """
-        self.tts_config = VitsConfig()
-        self.tts_model = Vits(self.tts_config)
-        self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_path, eval=True)
-        self.tts_config = self.tts_model.config
-        self.output_sample_rate = self.tts_config.audio["sample_rate"]
-
-    def _load_styletts2(self, checkpoint_dir: Path) -> None:
-        """Load an original StyleTTS2 model from a directory with config.yml and *.pth checkpoint."""
-        from TTS.tts.models.styletts2 import StyleTTS2
-
-        self.tts_model = StyleTTS2.from_original(checkpoint_dir)
-        self.tts_config = self.tts_model.config
-        self.output_sample_rate = self.tts_config.audio["sample_rate"]
-
-    def _load_openvoice(self, checkpoint: Path) -> None:
-        """Load the OpenVoice model from a checkpoint file.
-
-        We assume there is a config.json file in the same directory.
-        """
-        self.vc_config = OpenVoiceConfig()
-        self.vc_model = OpenVoice(self.vc_config)
-        self.vc_model.load_checkpoint(self.vc_config, checkpoint, eval=True)
-        self.vc_config = self.vc_model.config
-        self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
-
-    def _load_tts(self, tts_checkpoint: Path, tts_config_path: Path | None = None) -> None:
-        """Load the TTS model.
+    def _load_tts(self, tts_checkpoint: Path, tts_config_path: Path | None = None) -> "BaseTTS":
+        """Load a TTS model in Coqui format.
 
         Args:
             tts_checkpoint: Path to checkpoint file or directory.
@@ -198,27 +189,34 @@ class Synthesizer(nn.Module):
         checkpoint_dir = tts_checkpoint if tts_checkpoint.is_dir() else tts_checkpoint.parent
         if tts_config_path is None:
             tts_config_path = checkpoint_dir / "config.json"
-        self.tts_config = load_config(tts_config_path)
-        self.output_sample_rate = self.tts_config.audio.get("output_sample_rate", self.tts_config.audio["sample_rate"])
-        if self.tts_config["use_phonemes"] and self.tts_config["phonemizer"] is None:
+        config = load_config(tts_config_path)
+        if config.get("use_phonemes", False) and config.get("phonemizer") is None:
             msg = "Phonemizer is not defined in the TTS config."
             raise ValueError(msg)
+        return get_tts_model_class(config).from_pretrained(tts_checkpoint, tts_config_path)
 
-        self.tts_model = setup_tts_model(config=self.tts_config)
+    def _set_tts_model(self, model: "BaseTTS") -> None:
+        """Use the given TTS model, initializing its speaker encoder if needed."""
+        self.tts_model = model
+        self.tts_config = model.config
+        self.output_sample_rate = self.tts_config.audio.get("output_sample_rate", self.tts_config.audio["sample_rate"])
 
-        if not self.encoder_checkpoint and self.tts_config.model_args.get("speaker_encoder_config_path"):
-            self.encoder_checkpoint = self.tts_config.model_args.speaker_encoder_model_path
-            self.encoder_config = self.tts_config.model_args.speaker_encoder_config_path
-
-        if tts_checkpoint.is_dir():
-            # We assume the model knows how to load itself from a directory
-            self.tts_model.load_checkpoint(self.tts_config, checkpoint_dir=tts_checkpoint, eval=True)
-        else:
-            self.tts_model.load_checkpoint(self.tts_config, checkpoint_path=tts_checkpoint, eval=True)
+        model_args = self.tts_config.get("model_args")
+        if not self.encoder_checkpoint and model_args is not None and model_args.get("speaker_encoder_config_path"):
+            self.encoder_checkpoint = model_args.speaker_encoder_model_path
+            self.encoder_config = model_args.speaker_encoder_config_path
 
         if self.encoder_checkpoint and hasattr(self.tts_model, "speaker_manager"):
             self.tts_model.speaker_manager.init_encoder(self.encoder_checkpoint, self.encoder_config)
             self.tts_model._register_speaker_encoder()
+
+    def _set_vc_model(self, model: "BaseVC") -> None:
+        """Use the given voice conversion model."""
+        self.vc_model = model
+        self.vc_config = model.config
+        self.output_sample_rate = self.vc_config.audio.get(
+            "output_sample_rate", self.vc_config.audio.get("sample_rate", None)
+        )
 
     def _load_vocoder(self, model_file: str, model_config: str) -> None:
         """Load the vocoder model.

@@ -9,18 +9,31 @@ timestamps.
 
 ## Usage
 
-Load a model by name or from a checkpoint file and run synthesis:
+Load a model by name and run synthesis:
 
 ```python
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
-model_path, config_path, _ = ModelManager().download_model("tts_models/en/ljspeech/vits")
+model = ModelManager().load_model("tts_models/en/ljspeech/vits")
 
-synth = Synthesizer(tts_checkpoint=model_path, tts_config_path=config_path)
+synth = Synthesizer(tts_model=model)
 
 wav = synth.tts("Hello World")
 synth.save_wav(wav, "test_audio.wav")
+```
+
+Or load your own model in Coqui format from a checkpoint file:
+
+```python
+synth = Synthesizer(tts_checkpoint="path/to/model.pth", tts_config_path="path/to/config.json")
+```
+
+```{versionchanged} 0.29.0
+Loading models in other formats (e.g. the original StyleTTS 2, fairseq or
+OpenVoice checkpoints) from a path in the `Synthesizer` is deprecated. Load
+them with `ModelManager().load_model()` and pass them via `tts_model` or
+`vc_model` instead.
 ```
 
 Get additional outputs as a Python dictionary with `return_dict=True`:
