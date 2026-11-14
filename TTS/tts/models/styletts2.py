@@ -527,36 +527,34 @@ class StyleTTS2(BaseTTS):
         # TODO: Implement StyleTTS 2 specific data loader
 
     @classmethod
-    def load_from_original_checkpoint(
-        cls,
-        checkpoint_dir: str | os.PathLike[Any],
-        device: str = "cpu",
-    ) -> "StyleTTS2":
-        """Load a StyleTTS 2 model from original checkpoint and convert to Coqui format.
+    def from_original(cls, checkpoint_dir: str | os.PathLike[Any]) -> "StyleTTS2":
+        """Load a checkpoint in the original StyleTTS 2 format and convert it to Coqui format.
 
         Args:
-            checkpoint_dir: Directory containing config.yml and .pth checkpoint file
-            device: Device to load the model on
+            checkpoint_dir: Directory containing the original ``config.yml`` and ``.pth``
+                checkpoint file, either directly or in a subdirectory (as in the authors'
+                Hugging Face repositories).
 
         Returns:
-            StyleTTS2 model with weights loaded from original checkpoint
+            StyleTTS2 model in eval mode.
         """
-        # Load original config
         checkpoint_dir = Path(checkpoint_dir)
-        config_path = checkpoint_dir / "config.yml"
-        with open(config_path) as f:
+        if not (checkpoint_dir / "config.yml").is_file():
+            configs = list(checkpoint_dir.rglob("config.yml"))
+            if len(configs) != 1:
+                msg = f"Expected exactly one config.yml in {checkpoint_dir}, found {len(configs)}"
+                raise FileNotFoundError(msg)
+            checkpoint_dir = configs[0].parent
+        with open(checkpoint_dir / "config.yml") as f:
             orig_config = yaml.safe_load(f)
 
-        # Find checkpoint file
         checkpoint_files = list(checkpoint_dir.glob("*.pth"))
-        if not checkpoint_files:
-            raise FileNotFoundError(f"No .pth checkpoint file found in {checkpoint_dir}")
-
+        if len(checkpoint_files) != 1:
+            msg = f"Expected exactly one .pth checkpoint file in {checkpoint_dir}, found {len(checkpoint_files)}"
+            raise FileNotFoundError(msg)
         checkpoint_path = checkpoint_files[0]
         logger.info("Loading checkpoint from %s", checkpoint_path)
-
-        # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
         orig_state_dict = checkpoint["net"]
 
         # Convert original config to Coqui config
@@ -585,7 +583,8 @@ class StyleTTS2(BaseTTS):
         assert len(unchanged_params) == 0, f"Parameters not updated after loading: {unchanged_params}"
 
         logger.info("Successfully loaded StyleTTS 2 model from original checkpoint")
-        return model, coqui_config
+        model.eval()
+        return model
 
     @staticmethod
     def _convert_original_config(orig_config: dict) -> StyleTTS2Config:

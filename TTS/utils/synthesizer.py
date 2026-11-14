@@ -172,8 +172,8 @@ class Synthesizer(nn.Module):
         """Load an original StyleTTS2 model from a directory with config.yml and *.pth checkpoint."""
         from TTS.tts.models.styletts2 import StyleTTS2
 
-        self.tts_model, self.tts_config = StyleTTS2.load_from_original_checkpoint(checkpoint_dir)
-        self.tts_model.eval()
+        self.tts_model = StyleTTS2.from_original(checkpoint_dir)
+        self.tts_config = self.tts_model.config
         self.output_sample_rate = self.tts_config.audio["sample_rate"]
 
     def _load_openvoice(self, checkpoint: Path) -> None:

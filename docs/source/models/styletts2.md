@@ -98,8 +98,7 @@ and `.pth` files:
 ```python
 from TTS.tts.models.styletts2 import StyleTTS2
 
-model, config = StyleTTS2.load_from_original_checkpoint("path/to/checkpoint_dir/")
-model.eval()
+model = StyleTTS2.from_original("path/to/checkpoint_dir/")
 output = model.synthesize("Hello, how are you?")
 wav = output["wav"]
 ```
