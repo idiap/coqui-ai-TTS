@@ -12,26 +12,28 @@ from TTS.vocoder.models.base_vocoder import BaseVocoder
 logger = logging.getLogger(__name__)
 
 
+def get_model_class(config: BaseVocoderConfig) -> type[BaseVocoder]:
+    """Return the vocoder model class for the given config."""
+    if "discriminator_model" in config and "generator_model" in config:
+        return importlib.import_module("TTS.vocoder.models.gan").GAN
+    module = importlib.import_module("TTS.vocoder.models." + config.model.lower())
+    if config.model.lower() == "wavernn":
+        return module.Wavernn
+    if config.model.lower() == "gan":
+        return module.GAN
+    if config.model.lower() == "wavegrad":
+        return module.Wavegrad
+    try:
+        return getattr(module, to_camel(config.model))
+    except ModuleNotFoundError as e:
+        raise ValueError(f"Model {config.model} does not exist!") from e
+
+
 def setup_model(config: BaseVocoderConfig) -> BaseVocoder:
     """Load models directly from configuration."""
-    if "discriminator_model" in config and "generator_model" in config:
-        MyModel = importlib.import_module("TTS.vocoder.models.gan")
-        MyModel = MyModel.GAN
-    else:
-        MyModel = importlib.import_module("TTS.vocoder.models." + config.model.lower())
-        if config.model.lower() == "wavernn":
-            MyModel = MyModel.Wavernn
-        elif config.model.lower() == "gan":
-            MyModel = MyModel.GAN
-        elif config.model.lower() == "wavegrad":
-            MyModel = MyModel.Wavegrad
-        else:
-            try:
-                MyModel = getattr(MyModel, to_camel(config.model))
-            except ModuleNotFoundError as e:
-                raise ValueError(f"Model {config.model} does not exist!") from e
+    model_class = get_model_class(config)
     logger.info("Vocoder model: %s", config.model)
-    return MyModel(config)
+    return model_class(config)
 
 
 def setup_generator(c: BaseGANVocoderConfig) -> nn.Module:

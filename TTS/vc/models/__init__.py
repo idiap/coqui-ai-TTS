@@ -8,14 +8,16 @@ from TTS.vc.models.base_vc import BaseVC
 logger = logging.getLogger(__name__)
 
 
+def get_model_class(config: BaseVCConfig) -> type[BaseVC]:
+    """Return the voice conversion model class for the given config."""
+    if config["model"].lower() == "freevc":
+        return importlib.import_module("TTS.vc.models.freevc").FreeVC
+    if config["model"].lower() == "knnvc":
+        return importlib.import_module("TTS.vc.models.knnvc").KNNVC
+    msg = f"Model {config.model} does not exist!"
+    raise ValueError(msg)
+
+
 def setup_model(config: BaseVCConfig) -> BaseVC:
     logger.info("Using model: %s", config.model)
-    # fetch the right model implementation.
-    if config["model"].lower() == "freevc":
-        MyModel = importlib.import_module("TTS.vc.models.freevc").FreeVC
-    elif config["model"].lower() == "knnvc":
-        MyModel = importlib.import_module("TTS.vc.models.knnvc").KNNVC
-    else:
-        msg = f"Model {config.model} does not exist!"
-        raise ValueError(msg)
-    return MyModel(config)
+    return get_model_class(config)(config)
