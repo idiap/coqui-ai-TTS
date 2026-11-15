@@ -36,6 +36,13 @@ logger = logging.getLogger(__name__)
 PAD_SILENCE_SAMPLES = 10000
 
 
+def _is_in_hf_cache(path: Path) -> bool:
+    """Check whether the path is inside the Hugging Face cache, which is managed by `huggingface_hub`."""
+    from huggingface_hub import constants
+
+    return path.resolve().is_relative_to(Path(constants.HF_HUB_CACHE).resolve())
+
+
 def _warn_path_loading_deprecated(model: str) -> None:
     warnings.warn(
         f"Loading {model} models in their original format from a path in the Synthesizer is deprecated and will "
@@ -88,7 +95,8 @@ class Synthesizer(nn.Module):
             vc_checkpoint (str, optional): path to the voice conversion model file. Defaults to `""`,
             vc_config (str, optional): path to the voice conversion config file. Defaults to `""`,
             voice_dir (str, optional): directory for cached voices of voice cloning models.
-                Defaults to `voices/` in the checkpoint directory.
+                Defaults to `voices/` in the checkpoint directory, unless the checkpoint is in the
+                Hugging Face cache or the model is passed directly. Then voices are not cached.
             tts_model (BaseTTS, optional): already loaded TTS model, used instead of `tts_checkpoint`.
             vc_model (BaseVC, optional): already loaded voice conversion model, used instead of `vc_checkpoint`.
             use_cuda (bool, optional): DEPRECATED, use `synthesizer.to("cuda")` instead.
@@ -136,7 +144,8 @@ class Synthesizer(nn.Module):
             else:
                 model = self._load_vc(self.vc_checkpoint, self.vc_config)
             self._set_vc_model(model)
-            checkpoint_dir = Path(self.vc_checkpoint).parent
+            vc_checkpoint_path = Path(self.vc_checkpoint)
+            checkpoint_dir = vc_checkpoint_path if vc_checkpoint_path.is_dir() else vc_checkpoint_path.parent
 
         if vocoder_checkpoint:
             self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config)
@@ -144,10 +153,13 @@ class Synthesizer(nn.Module):
         if self.tts_model is None and self.vc_model is None:
             msg = "Need to initialize a TTS or VC model via tts_model/tts_checkpoint or vc_model/vc_checkpoint"
             raise RuntimeError(msg)
+        self.voice_dir: Path | None = None
         if voice_dir is not None:
-            self.voice_dir: Path | None = Path(voice_dir)
-        else:
-            self.voice_dir = checkpoint_dir / "voices" if checkpoint_dir is not None else None
+            self.voice_dir = Path(voice_dir)
+        elif checkpoint_dir is not None and not _is_in_hf_cache(checkpoint_dir):
+            self.voice_dir = checkpoint_dir / "voices"
+        elif self.vc_model is not None or self.tts_model.config.supports_cloning:
+            logger.info("Cloned voices are not cached because no `voice_dir` was specified.")
         self._set_segmenters()
 
         if device := resolve_device(None, use_cuda=use_cuda, replacement="`Synthesizer(...).to('cuda')`"):

@@ -23,6 +23,14 @@ wav = synth.tts("Hello World")
 synth.save_wav(wav, "test_audio.wav")
 ```
 
+For voice cloning models, pass `voice_dir` to cache cloned voices for reuse
+(see [Voice cloning](../cloning.md)):
+
+```python
+model = ModelManager().load_model("tts_models/multilingual/multi-dataset/xtts_v2")
+synth = Synthesizer(tts_model=model, voice_dir="path/to/voices/")
+```
+
 Or load your own model in Coqui format from a checkpoint file:
 
 ```python

@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import ClassVar
 
+import huggingface_hub.constants
 import pysbd
 import pytest
 from trainer.io import save_checkpoint
@@ -157,3 +158,17 @@ def test_synthesizer_with_loaded_model(tmp_path):
 def test_synthesizer_requires_model():
     with pytest.raises(RuntimeError, match="Need to initialize a TTS or VC model"):
         Synthesizer()
+
+
+@pytest.mark.parametrize("in_hf_cache", [False, True])
+def test_synthesizer_default_voice_dir(tmp_path, monkeypatch, in_hf_cache):
+    """Voices are cached next to the checkpoint by default, but never in the Hugging Face cache."""
+    hf_cache = tmp_path / "hf_cache"
+    monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_CACHE", str(hf_cache))
+    model_dir = hf_cache / "models--org--model" / "snapshots" / "abc" if in_hf_cache else tmp_path / "model"
+    model_dir.mkdir(parents=True)
+    _create_random_model(model_dir)
+
+    synthesizer = Synthesizer(tts_checkpoint=model_dir / f"checkpoint_{CURRENT_STEP}.pth", tts_config_path=TTS_CONFIG)
+
+    assert synthesizer.voice_dir == (None if in_hf_cache else model_dir / "voices")

@@ -42,7 +42,11 @@ voice already exists, it is overwritten. Subsequent calls can then use that
   (see the [FAQ](faq.md#where-does-coqui-store-downloaded-models) for
   default model locations on other platforms).
 - **Models loaded by path:** `voice_dir` defaults to a subfolder `voices/` in the
-  folder of the model checkpoint.
+  folder of the model checkpoint. If the checkpoint is in the Hugging Face cache,
+  voices are not cached by default because that folder is managed by
+  `huggingface_hub`.
+- **Models passed to the** {py:class}`~TTS.utils.synthesizer.Synthesizer`
+  **directly:** voices are only cached if you pass `voice_dir`.
 
 ### Python API
 
