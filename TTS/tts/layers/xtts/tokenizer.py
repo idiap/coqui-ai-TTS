@@ -485,6 +485,11 @@ _currency_re = {
     "EUR": re.compile(r"(([0-9\.\,]*[0-9]+€)|((€[0-9\.\,]*[0-9]+)))"),
 }
 
+# English clock times such as 11:08, 8:00 AM or 7:05pm (but not 10:30:45)
+_time_en_re = re.compile(r"(?<![\w:])([01]?[0-9]|2[0-3]):([0-5][0-9])(?![\d:])(?:\s?([ap])\.?m\b)?", re.IGNORECASE)
+# A minus sign directly in front of a number, e.g. -5 (but not 555-1234 or covid-19)
+_negative_en_re = re.compile(r"(?<![\w-])-(?=\d)")
+
 _comma_number_re = re.compile(r"\b\d{1,3}(,\d{3})*(\.\d+)?\b")
 _dot_number_re = re.compile(r"\b\d{1,3}(.\d{3})*(\,\d+)?\b")
 _decimal_number_re = re.compile(r"([0-9]+[.,][0-9]+)")
@@ -547,10 +552,28 @@ def _expand_number(m, lang="en"):
     return num2words(int(m.group(0)), lang=lang)
 
 
+def _expand_time_en(m):
+    hour, minute, am_pm = int(m.group(1)), int(m.group(2)), m.group(3)
+    words = [num2words(hour, lang="en")]
+    if minute == 0:
+        if am_pm is None:
+            words.append("o'clock")
+    elif minute < 10:
+        words += ["oh", num2words(minute, lang="en")]
+    else:
+        words.append(num2words(minute, lang="en"))
+    if am_pm is not None:
+        words += [am_pm.lower(), "m"]
+    return " ".join(words)
+
+
 def expand_numbers_multilingual(text, lang="en"):
     if lang == "zh":
         text = zh_num2words()(text)
     else:
+        if lang == "en":
+            text = re.sub(_time_en_re, _expand_time_en, text)
+            text = re.sub(_negative_en_re, "minus ", text)
         if lang in ["en", "ru"]:
             text = re.sub(_comma_number_re, _remove_commas, text)
         else:
