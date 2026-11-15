@@ -64,3 +64,29 @@ def test_load_model_custom_loader(tmp_path):
 
     assert type(loaded).__name__ == "ExternalFormatModel"
     assert loaded.model_dir == manager.output_prefix / "tts_models--en--test--model"
+
+
+def test_download_model_coqui_format(tmp_path):
+    manager = _manager(tmp_path, {"github_rls_url": "https://example.com/unused.zip", "default_vocoder": None})
+    model_dir = manager.output_prefix / "tts_models--en--test--model"
+    model_dir.mkdir(parents=True)
+    config = load_config(str(TTS_CONFIG))
+    config.save_json(str(model_dir / "config.json"))
+    save_checkpoint(config, setup_model(config), str(model_dir), current_step=1, epoch=1)
+
+    model_path, config_path, _ = manager.download_model(MODEL_NAME)
+
+    assert model_path == model_dir / "checkpoint_1.pth"
+    assert config_path == model_dir / "config.json"
+
+
+def test_download_model_custom_loader(tmp_path):
+    """Models in other formats return the directory with all files and no config."""
+    manager = _manager(
+        tmp_path, {"model_class": f"{__name__}.ExternalFormatModel", "loader": "from_original", "default_vocoder": None}
+    )
+
+    model_path, config_path, _ = manager.download_model(MODEL_NAME)
+
+    assert model_path == manager.output_prefix / "tts_models--en--test--model"
+    assert config_path is None

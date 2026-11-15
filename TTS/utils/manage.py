@@ -392,36 +392,42 @@ class ModelManager:
             'type/language/dataset/model'
             e.g. 'tts_model/en/ljspeech/tacotron'
 
-        Every model must have the following files:
+        Models in Coqui format must have the following files:
             - *.pth : pytorch model checkpoint file.
             - config.json : model config file.
             - scale_stats.npy (if exist): scale values for preprocessing.
+
+        For models with a `model_class` in `.models.json`, the directory
+        containing all downloaded files is returned instead of a checkpoint
+        file, and no config path if they are not in Coqui format.
+
+        Use :meth:`load_model` to download and load a model in one step.
 
         Args:
             model_name (str): model name as explained above.
         """
         model_item, model_full_name, model = self._set_model_item(model_name)
         output_path = self._download_files(model_name, model_item, model_full_name)
-        # find downloaded files
-        output_model_path = output_path
-        output_config_path = output_model_path / "config.json"
-        if model == "styletts2":
-            # Original StyleTTS2 checkpoint, converted when loading
-            output_config_path = next(output_path.rglob("config.yml"))
-            output_model_path = output_config_path.parent
-        elif model not in ["tortoise-v2", "bark", "knnvc"]:
+        if "model_class" not in model_item:
             output_model_path, output_config_path = self._find_files(output_path)
-        if model == "knnvc" and not output_config_path.exists():
-            knnvc_config = KNNVCConfig()
-            knnvc_config.save_json(output_config_path)
-        if model == "tortoise-v2" and not output_config_path.exists():
+            self._update_paths(output_path, output_config_path)
+            return output_model_path, output_config_path, model_item
+
+        # Models with a `model_class` are loaded from the whole directory
+        if model_item.get("loader", "from_pretrained") != "from_pretrained":
+            # Not in Coqui format, so there is no Coqui config
+            return output_path, None, model_item
+        output_model_path = output_path
+        output_config_path = output_path / "config.json"
+        # TODO: Remove together with the deprecated loading of models by path in
+        # the Synthesizer. from_pretrained() of these models already uses their
+        # default config if there is no config.json.
+        if not output_config_path.is_file() and model in ("tortoise-v2", "knnvc"):
             output_config_path = self.output_prefix / model_full_name / "config.json"
             if not output_config_path.is_file():
-                tortoise_config = TortoiseConfig()
-                tortoise_config.save_json(output_config_path)
-        if all(x not in model_name for x in ("fairseq", "openvoice", "styletts2")):
-            # Update paths in config, except for external models
-            self._update_paths(output_path, output_config_path)
+                default_config = TortoiseConfig() if model == "tortoise-v2" else KNNVCConfig()
+                default_config.save_json(output_config_path)
+        self._update_paths(output_path, output_config_path)
         return output_model_path, output_config_path, model_item
 
     @staticmethod
