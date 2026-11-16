@@ -6,9 +6,9 @@ _time_re = re.compile(
     r"""\b
                           ((0?[0-9])|(1[0-1])|(1[2-9])|(2[0-3]))  # hours
                           :
-                          ([0-5][0-9])                            # minutes
-                          \s*(a\\.m\\.|am|pm|p\\.m\\.|a\\.m|p\\.m)? # am/pm
-                          \b""",
+                          ([0-5][0-9])(?!\d)                      # minutes
+                          (?:\s*(?P<am_pm>[ap])(?:m\b|\.m\b(?P<dot>\.)?))?  # am, a.m, a.m., pm, ...
+                          (?!\w)""",
     re.IGNORECASE | re.VERBOSE,
 )
 
@@ -29,12 +29,17 @@ def _expand_time_english(match: re.Match) -> str:
         if minute < 10:
             time.append("oh")
         time.append(_expand_num(minute))
-    am_pm = match.group(7)
+    am_pm = match.group("am_pm")
     if am_pm is None:
         time.append("p m" if past_noon else "a m")
     else:
-        time.extend(list(am_pm.replace(".", "")))
-    return " ".join(time)
+        time.extend([am_pm.lower(), "m"])
+    text = " ".join(time)
+    # Drop the final dot of "a.m." mid-sentence, but keep it when it ends the text,
+    # where it doubles as the sentence-final period.
+    if match.group("dot") and not match.string[match.end() :].strip():
+        text += "."
+    return text
 
 
 def expand_time_english(text: str) -> str:

@@ -22,6 +22,13 @@ def test_time() -> None:
     assert english_cleaners("It's 00:00") == "it's twelve a m"
     assert english_cleaners("It's 00:30") == "it's twelve thirty a m"
     assert english_cleaners("It's 12:00") == "it's twelve p m"
+    assert english_cleaners("At 9:30 a.m. tomorrow") == "at nine thirty a m tomorrow"
+    assert english_cleaners("At 9:30 p.m., then") == "at nine thirty p m, then"
+    assert english_cleaners("It starts at 9:30 a.m.") == "it starts at nine thirty a m."
+    assert english_cleaners("It starts at 9:30 a.m") == "it starts at nine thirty a m"
+    assert english_cleaners("At 8:00am. Then") == "at eight a m. then"
+    assert english_cleaners("At 8:00 PM") == "at eight p m"
+    assert english_cleaners("At 8:00 amazing") == "at eight a m amazing"
 
 
 def test_currency() -> None:
