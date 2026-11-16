@@ -328,12 +328,14 @@ class GPT(nn.Module):
                 cond_lens = cond_lens // self.code_stride_len
 
         if cond_idxs is not None:
+            cond_code_idxs = cond_idxs // self.code_stride_len
+            cond_mel_idxs = cond_idxs.clone()
             # recompute cond idxs for mel lengths
-            for idx in range(cond_idxs.size(0)):
+            for idx in range(cond_mel_idxs.size(0)):
                 if self.use_perceiver_resampler:
-                    cond_idxs[idx] = cond_idxs[idx] // self.perceiver_cond_length_compression
+                    cond_mel_idxs[idx] = cond_mel_idxs[idx] // self.perceiver_cond_length_compression
                 else:
-                    cond_idxs[idx] = cond_idxs[idx] // self.code_stride_len
+                    cond_mel_idxs[idx] = cond_mel_idxs[idx] // self.code_stride_len
 
         # ensure that the cond_mel does not have padding
         # if cond_lens is not None and cond_idxs is None:
@@ -400,7 +402,7 @@ class GPT(nn.Module):
 
             if cond_idxs is not None:
                 # use masking approach
-                for idx, r in enumerate(cond_idxs):
+                for idx, r in enumerate(cond_mel_idxs):
                     l = r[1] - r[0]
                     attn_mask_cond[idx, l:] = 0.0
             elif cond_lens is not None:
@@ -461,9 +463,10 @@ class GPT(nn.Module):
         # ignore the loss for the segment used for conditioning
         # coin flip for the segment to be ignored
         if cond_idxs is not None:
-            cond_start = cond_idxs[idx, 0]
-            cond_end = cond_idxs[idx, 1]
-            mel_targets[idx, cond_start:cond_end] = -1
+            for idx in range(cond_code_idxs.shape[0]):
+                cond_start = cond_code_idxs[idx, 0]
+                cond_end = cond_code_idxs[idx, 1]
+                mel_targets[idx, cond_start:cond_end] = -1
 
         # Compute losses
         loss_text = F.cross_entropy(
