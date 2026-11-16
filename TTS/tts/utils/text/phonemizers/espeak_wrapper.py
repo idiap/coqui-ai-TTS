@@ -154,16 +154,17 @@ class ESpeak(BasePhonemizer):
     def name() -> str:
         return "espeak"
 
-    def phonemize_espeak(self, text: str, separator: str = "|", *, tie: bool = False) -> str:
+    def phonemize_espeak(self, text: str, separator: str = "|", *, tie: bool | str = False) -> str:
         """Convert input text to phonemes.
 
         Args:
             text (str):
                 Text to be converted to phonemes.
 
-            tie (bool, optional) : When True use a '͡' character between
-                consecutive characters of a single phoneme. Else separate phoneme
-                with '_'. This option requires espeak>=1.49. Default to False.
+            tie (bool | str, optional) : When True use a '͡' character between
+                consecutive characters of a single phoneme, or the given character
+                if it is a string. Else separate phoneme with '_'. This option
+                requires espeak>=1.49. Default to False.
         """
         # set arguments
         args = ["-v", f"{self._language}"]
@@ -184,7 +185,7 @@ class ESpeak(BasePhonemizer):
             else:
                 args.append("--ipa=1")
         if tie:
-            args.append(f"--tie={tie}")
+            args.append(f"--tie={'͡' if tie is True else tie}")
 
         with tempfile.NamedTemporaryFile(mode="w+t", delete=False, encoding="utf8") as tmp:
             tmp.write(text)
