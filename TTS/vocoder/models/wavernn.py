@@ -548,7 +548,7 @@ class Wavernn(BaseVocoder):
         config: TrainerConfig,
         *,
         is_eval: bool = True,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ):
         dataset = WaveRNNDataset(

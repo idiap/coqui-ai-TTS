@@ -78,3 +78,25 @@ def test_embedding_file_loading_multiple():
     manager = EmbeddingManager(embedding_file_path=[embeddings_file_pth_path, embeddings_file_path2])
     assert manager.embedding_dim == 256
     assert manager.num_embeddings == 384 * 2
+
+
+def test_inputs_follow_encoder_device(
+    encoder_model_path: Path, encoder_config_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Inputs are moved to the encoder's device, also when it was moved after initialization."""
+    manager = EmbeddingManager(encoder_model_path=encoder_model_path, encoder_config_path=encoder_config_path)
+    manager.encoder.to("meta")
+    # Don't run the encoder itself because autocast doesn't support the meta device
+    monkeypatch.setattr(manager.encoder, "compute_embedding", lambda feats: feats)
+    waveform = manager.encoder_ap.load_wav(sample_wav_path)
+    mel = manager.encoder_ap.melspectrogram(waveform)
+    feats = manager.compute_embeddings(mel)
+    assert feats.device.type == "meta"
+
+
+def test_encoder_device(encoder_model_path: Path, encoder_config_path: Path):
+    """The encoder is loaded on the requested device."""
+    manager = EmbeddingManager(
+        encoder_model_path=encoder_model_path, encoder_config_path=encoder_config_path, device="meta"
+    )
+    assert manager.encoder_device == torch.device("meta")

@@ -9,7 +9,7 @@ from tqdm import tqdm
 from TTS.config import load_config
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 
 
 def compute_encoder_accuracy(dataset_items, encoder_manager):
@@ -27,8 +27,7 @@ def compute_encoder_accuracy(dataset_items, encoder_manager):
         embedd = encoder_manager.compute_embedding_from_clip(wav_file)
         if encoder_manager.encoder_criterion is not None and map_classid_to_classname is not None:
             embedding = torch.FloatTensor(embedd).unsqueeze(0)
-            if encoder_manager.use_cuda:
-                embedding = embedding.cuda()
+            embedding = embedding.to(encoder_manager.encoder_device)
 
             class_id = encoder_manager.encoder_criterion.softmax.inference(embedding).item()
             predicted_label = map_classid_to_classname[str(class_id)]
@@ -76,7 +75,15 @@ if __name__ == "__main__":
         type=str,
         help="Path to dataset config file.",
     )
-    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, help="flag to set cuda.", default=True)
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
+    )
+    parser.add_argument(
+        "--use_cuda", action=argparse.BooleanOptionalAction, help="DEPRECATED, use `--device`.", default=None
+    )
     parser.add_argument("--eval", action=argparse.BooleanOptionalAction, help="compute eval.", default=True)
 
     args = parser.parse_args()
@@ -87,7 +94,9 @@ if __name__ == "__main__":
     items = meta_data_train + meta_data_eval
 
     enc_manager = SpeakerManager(
-        encoder_model_path=args.model_path, encoder_config_path=args.config_path, use_cuda=args.use_cuda
+        encoder_model_path=args.model_path,
+        encoder_config_path=args.config_path,
+        device=select_device(args.device, use_cuda=args.use_cuda, arg_name="--use_cuda", replacement="`--device`"),
     )
 
     compute_encoder_accuracy(items, enc_manager)

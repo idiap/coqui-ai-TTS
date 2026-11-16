@@ -600,7 +600,7 @@ class Tortoise(BaseTTS):
             )
             self.autoregressive = self.autoregressive.to(self.device)
             logger.info("Generating autoregressive samples..")
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half):
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=half):
                 for b in tqdm(range(num_batches), disable=not verbose):
                     codes = self.autoregressive.inference_speech(
                         auto_conditioning,
@@ -620,7 +620,7 @@ class Tortoise(BaseTTS):
             self.autoregressive_batch_size = orig_batch_size  # in the case of single_sample
 
             clip_results = []
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=half):
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=half):
                 for batch in tqdm(samples, disable=not verbose):
                     for i in range(batch.shape[0]):
                         batch[i] = fix_autoregressive_output(batch[i], stop_mel_token)
@@ -682,6 +682,8 @@ class Tortoise(BaseTTS):
 
             def potentially_redact(clip, text):
                 if self.enable_redaction:
+                    # The aligner is not a submodule, so it doesn't follow `.to()`
+                    self.aligner.device = self.device
                     return self.aligner.redact(clip.squeeze(1), text).unsqueeze(1)
                 return clip
 

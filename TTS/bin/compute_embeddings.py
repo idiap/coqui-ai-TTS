@@ -13,7 +13,7 @@ from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.utils.managers import save_file
 from TTS.tts.utils.speakers import SpeakerManager
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -63,7 +63,13 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         default=False,
         action="store_true",
     )
-    parser.add_argument("--disable_cuda", action="store_true", help="Flag to disable cuda.", default=False)
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
+    )
+    parser.add_argument("--disable_cuda", action="store_true", help="DEPRECATED, use `--device cpu`.", default=False)
     parser.add_argument("--no_eval", help="Do not compute eval?. Default False", default=False, action="store_true")
     parser.add_argument(
         "--formatter_name",
@@ -110,10 +116,19 @@ def compute_embeddings(
     dataset_path: str | None = None,
     meta_file_train=None,
     meta_file_val=None,
-    disable_cuda=False,
+    disable_cuda: bool = False,
     no_eval=False,
+    device: str | torch.device | None = None,
 ):
-    use_cuda = torch.cuda.is_available() and not disable_cuda
+    """Compute speaker embeddings for a dataset.
+
+    Args:
+        disable_cuda: DEPRECATED, use ``device="cpu"`` instead.
+        device: Device to run the encoder on. Defaults to the best available device.
+    """
+    device = select_device(
+        device, use_cuda=False if disable_cuda else None, arg_name="disable_cuda", replacement="`device='cpu'`"
+    )
 
     if config_dataset_path is not None:
         c_dataset = load_config(config_dataset_path)
@@ -135,7 +150,7 @@ def compute_embeddings(
         encoder_model_path=model_path,
         encoder_config_path=config_path,
         d_vectors_file_path=old_speakers_file,
-        use_cuda=use_cuda,
+        device=device,
     )
 
     class_name_key = encoder_manager.encoder_config.class_name_key
@@ -198,8 +213,13 @@ def main(arg_list: list[str] | None = None):
         dataset_path=args.dataset_path,
         meta_file_train=args.meta_file_train,
         meta_file_val=args.meta_file_val,
-        disable_cuda=args.disable_cuda,
         no_eval=args.no_eval,
+        device=select_device(
+            args.device,
+            use_cuda=False if args.disable_cuda else None,
+            arg_name="--disable_cuda",
+            replacement="`--device cpu`",
+        ),
     )
     sys.exit(0)
 

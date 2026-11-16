@@ -150,7 +150,7 @@ def coqui(root_path, meta_file, ignored_speakers=None):
 
 
 def tweb(root_path, meta_file, **kwargs):
-    """Normalize TWEB dataset.
+    r"""Normalize TWEB dataset.
 
     Website: https://www.kaggle.com/bryanpark/the-world-english-bible-speech-dataset
 

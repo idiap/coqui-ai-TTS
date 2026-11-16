@@ -32,7 +32,7 @@ For the GPU version, you need to have the latest NVIDIA drivers installed.
 With `nvidia-smi` you can check the supported CUDA version.
 
 ```bash
-docker run --rm --gpus all -v ~/tts-output:/root/tts-output ghcr.io/idiap/coqui-tts --text "Hello." --out_path /root/tts-output/hello.wav --use_cuda
+docker run --rm --gpus all -v ~/tts-output:/root/tts-output ghcr.io/idiap/coqui-tts --text "Hello." --out_path /root/tts-output/hello.wav --device cuda
 ```
 
 ## Start a server
@@ -52,7 +52,7 @@ tts-server --model_name tts_models/en/vctk/vits
 ```bash
 docker run --rm -it -p 5002:5002 --gpus all --entrypoint /bin/bash ghcr.io/idiap/coqui-tts
 tts-server --list_models #To get the list of available models
-tts-server --model_name tts_models/en/vctk/vits --use_cuda
+tts-server --model_name tts_models/en/vctk/vits --device cuda
 ```
 
 You can then find a web interface at: http://localhost:5002

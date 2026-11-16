@@ -443,7 +443,7 @@ class AudioProcessor:
         save_wav(
             wav=wav,
             path=path,
-            sample_rate=sr if sr else self.sample_rate,
+            sample_rate=sr or self.sample_rate,
             pipe_out=pipe_out,
             do_rms_norm=self.do_rms_norm,
             db_level=self.db_level,

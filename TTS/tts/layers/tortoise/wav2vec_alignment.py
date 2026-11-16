@@ -46,7 +46,7 @@ class Wav2VecAlignment:
     Uses wav2vec2 to perform audio<->text alignment.
     """
 
-    def __init__(self, device="cuda"):
+    def __init__(self, device="cpu"):
         self.model = Wav2Vec2ForCTC.from_pretrained("jbetker/wav2vec2-large-robust-ft-libritts-voxpopuli").cpu()
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-960h")
         self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained("jbetker/tacotron-symbols")

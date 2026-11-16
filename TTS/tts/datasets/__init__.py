@@ -154,7 +154,7 @@ def load_tts_samples(
         if dataset.meta_file_attn_mask:
             meta_data = dict(load_attention_mask_meta_data(dataset["meta_file_attn_mask"]))
             for meta_data_all in (meta_data_train_all, meta_data_eval_all):
-                for idx, ins in enumerate(meta_data_all):
+                for ins in meta_data_all:
                     attn_file = meta_data[ins["audio_file"]].strip()
                     ins.update({"alignment_file": attn_file})
         # set none for the next iter

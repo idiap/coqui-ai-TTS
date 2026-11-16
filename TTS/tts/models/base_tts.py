@@ -313,7 +313,7 @@ class BaseTTS(CloningMixin, BaseTrainerModel):
         config: TrainerConfig,
         *,
         is_eval: bool = False,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
         # setup multi-speaker attributes

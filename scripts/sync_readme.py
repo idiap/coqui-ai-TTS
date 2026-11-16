@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -25,9 +26,9 @@ def sync_readme():
             print(
                 "README.md is out of sync; please reconcile README.md and TTS/bin/synthesize.py and run scripts/sync_readme.py"
             )
-            exit(42)
+            sys.exit(42)
         print("All good, files in sync")
-        exit(0)
+        sys.exit(0)
     readme_path.write_text(new_content)
     print("Updated README.md")
 

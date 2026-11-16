@@ -120,7 +120,7 @@ You can also help us implement more models.
 > [!NOTE]
 > From `coqui-tts` 0.27.4, PyTorch is not included by default and you need to install it yourself.
 
-🐸TTS is tested on Ubuntu 24.04 with **python >= 3.10, < 3.15** and PyTorch
+🐸TTS is tested on Ubuntu 24.04 with **python >= 3.11** and PyTorch
 2.2+, but should also work on Mac and Windows.
 
 It is strongly recommended to use [uv](https://docs.astral.sh/uv/) to install
@@ -241,17 +241,17 @@ print(tts.speakers)
 
 # TTS with list of amplitude values as output, clone the voice from `speaker_wav`
 wav = tts.tts(
-  text="Hello world!",
-  speaker_wav="my/cloning/audio.wav",
-  language="en"
+    text="Hello world!",
+    speaker_wav="my/cloning/audio.wav",
+    language="en",
 )
 
 # TTS to a file, use a preset speaker
 tts.tts_to_file(
-  text="Hello world!",
-  speaker="Craig Gutsy",
-  language="en",
-  file_path="output.wav"
+    text="Hello world!",
+    speaker="Craig Gutsy",
+    language="en",
+    file_path="output.wav",
 )
 ```
 
@@ -280,9 +280,9 @@ Converting the voice in `source_wav` to the voice of `target_wav`:
 ```python
 tts = TTS("voice_conversion_models/multilingual/vctk/freevc24").to("cuda")
 tts.voice_conversion_to_file(
-  source_wav="my/source.wav",
-  target_wav="my/target.wav",
-  file_path="output.wav"
+    source_wav="my/source.wav",
+    target_wav="my/target.wav",
+    file_path="output.wav",
 )
 ```
 
@@ -300,12 +300,11 @@ This way, you can clone voices by using any model in 🐸TTS. The FreeVC model i
 used for voice conversion after synthesizing speech.
 
 ```python
-
 tts = TTS("tts_models/de/thorsten/tacotron2-DDC")
 tts.tts_with_vc_to_file(
     "Wie sage ich auf Italienisch, dass ich dich liebe?",
     speaker_wav="target/speaker.wav",
-    file_path="output.wav"
+    file_path="output.wav",
 )
 ```
 
@@ -319,7 +318,7 @@ and learn about the Fairseq models [here](https://github.com/facebookresearch/fa
 api = TTS("tts_models/deu/fairseq/vits")
 api.tts_to_file(
     "Wie sage ich auf Italienisch, dass ich dich liebe?",
-    file_path="output.wav"
+    file_path="output.wav",
 )
 ```
 

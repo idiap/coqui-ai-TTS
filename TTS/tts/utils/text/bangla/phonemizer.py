@@ -110,7 +110,7 @@ def bangla_text_to_phonemes(text: str) -> str:
 
     data = ""
     for sent in sentences:
-        res = re.sub("\n", "", sent)
+        res = sent.replace("\n", "")
         res = normalize(res)
         # expand attributes
         res = expand_full_attribution(res)

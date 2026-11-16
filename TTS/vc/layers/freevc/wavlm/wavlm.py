@@ -142,7 +142,7 @@ def compute_mask_indices(
 
         mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))
 
-    min_len = min([len(m) for m in mask_idcs])
+    min_len = min(len(m) for m in mask_idcs)
     for i, mask_idc in enumerate(mask_idcs):
         if len(mask_idc) > min_len:
             mask_idc = np.random.choice(mask_idc, min_len, replace=False)
@@ -452,8 +452,6 @@ class ConvFeatureExtractionModel(nn.Module):
                 if (i + 1) % 2 == 0:
                     self.conv_layers.append(torch.nn.MaxPool2d(2, stride=2, ceil_mode=True))
                     idim = math.ceil(idim / 2)
-        else:
-            pass
 
     def forward(self, x, mask=None):
         # BxT -> BxCxT

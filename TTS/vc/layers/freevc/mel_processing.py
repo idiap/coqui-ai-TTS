@@ -2,7 +2,6 @@ import logging
 
 import librosa
 import torch
-import torch.utils.data
 
 from TTS.utils.audio.torch_transforms import amp_to_db
 

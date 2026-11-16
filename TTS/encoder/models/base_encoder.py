@@ -9,6 +9,7 @@ from trainer.generic_utils import set_partial_state_dict
 from trainer.io import load_fsspec
 
 from TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
+from TTS.utils.generic_utils import resolve_device
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ class BaseEncoder(nn.Module):
             criterion = self.get_criterion(config, len(config.map_classid_to_classname))
             criterion.load_state_dict(state["criterion"])
 
-        if use_cuda:
+        if resolve_device(None, use_cuda=use_cuda, replacement="`.to(device)` on the model and criterion"):
             self.cuda()
             if criterion is not None:
                 criterion = criterion.cuda()

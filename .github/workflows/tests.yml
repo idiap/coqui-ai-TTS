@@ -39,22 +39,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
         subset: ["data_tests", "inference_tests", "test_aux", "test_text", "test_tts", "test_vc", "test_vocoder"]
         uv-resolution: ["highest", "lowest-direct"]
         exclude:
-          - python-version: "3.10"
-            uv-resolution: "highest"
           - python-version: "3.11"
-            uv-resolution: "lowest-direct"
+            uv-resolution: "highest"
           - python-version: "3.12"
             uv-resolution: "lowest-direct"
           - python-version: "3.13"
             uv-resolution: "lowest-direct"
           - python-version: "3.14"
             uv-resolution: "lowest-direct"
+          - python-version: "3.15"
+            uv-resolution: "lowest-direct"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -80,7 +80,7 @@ jobs:
           uv run --resolution=${{ matrix.uv-resolution }} --extra cpu
           --extra codec --extra server --extra languages --extra onnx make ${{ matrix.subset }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: coverage-data-${{ matrix.subset }}-${{ matrix.python-version }}
@@ -91,15 +91,15 @@ jobs:
       fail-fast: false
       matrix:
         shard: [0, 1, 2, 3, 4, 5]
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.11", "3.15"]
         uv-resolution: ["highest", "lowest-direct"]
         exclude:
-          - python-version: "3.10"
+          - python-version: "3.11"
             uv-resolution: "highest"
-          - python-version: "3.14"
+          - python-version: "3.15"
             uv-resolution: "lowest-direct"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -130,7 +130,7 @@ jobs:
             --extra codec --extra languages coverage run -m \
             pytest -x -v --durations=0 $shard_tests
       - name: Upload coverage data
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: coverage-data-integration-${{ matrix.shard }}-${{ matrix.python-version }}
@@ -140,10 +140,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.14"]
+        python-version: ["3.15"]
         partition: ["0", "1", "2"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -169,7 +169,7 @@ jobs:
           NUM_PARTITIONS: 3
           TEST_PARTITION: ${{ matrix.partition }}
       - name: Upload coverage data
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: coverage-data-zoo-${{ matrix.partition }}
@@ -179,9 +179,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.14"]
+        python-version: ["3.15"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup uv
         uses: ./.github/actions/setup-uv
       - name: Install Espeak
@@ -208,10 +208,10 @@ jobs:
     needs: [unit, integration, zoo]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup uv
         uses: ./.github/actions/setup-uv
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: coverage-data-*
           merge-multiple: true

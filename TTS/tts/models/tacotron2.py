@@ -317,7 +317,7 @@ class Tacotron2(BaseTacotron):
             alignment_lengths = mel_lengths // self.decoder.r
 
         # compute loss
-        with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
+        with torch.autocast(self.device.type, enabled=False):  # use float32 for the criterion
             loss_dict = criterion(
                 outputs["model_outputs"].float(),
                 outputs["decoder_outputs"].float(),
