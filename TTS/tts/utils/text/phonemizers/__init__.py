@@ -5,6 +5,7 @@ from typing import Any
 from TTS.tts.utils.text.phonemizers.base import BasePhonemizer
 from TTS.tts.utils.text.phonemizers.belarusian_phonemizer import BEL_Phonemizer
 from TTS.tts.utils.text.phonemizers.espeak_wrapper import ESpeak
+from TTS.tts.utils.text.phonemizers.kokoro_phonemizer import KokoroPhonemizer
 from TTS.utils.import_utils import PHONEMIZER_DEPS, is_phonemizer_available
 
 # Dict mapping phonemizer name to its class
@@ -75,6 +76,7 @@ def _register_phonemizers() -> None:
             DEF_LANG_TO_PHONEMIZER["en"] = DEF_LANG_TO_PHONEMIZER["en-us"]
         DEF_LANG_TO_PHONEMIZER["be"] = BEL_Phonemizer.name()
         PHONEMIZERS[BEL_Phonemizer.name()] = BEL_Phonemizer
+        PHONEMIZERS[KokoroPhonemizer.name()] = KokoroPhonemizer
 
         _register_bangla()
         _register_japanese()
