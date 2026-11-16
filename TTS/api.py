@@ -9,7 +9,6 @@ from typing import Any
 
 import torch
 from torch import nn
-from trainer.io import get_user_data_dir
 
 from TTS.config import load_config
 from TTS.utils.generic_utils import resolve_device
@@ -102,7 +101,7 @@ class TTS(nn.Module):
                     f'vocoder_name="{model_name}")'
                 )
                 raise ValueError(msg)
-            self.voice_dir = get_user_data_dir("tts") / model_name / "voices"
+            self.voice_dir = self._get_voice_dir(model_name)
             if "tts_models" in model_name:
                 self.load_tts_model_by_name(model_name, vocoder_name)
             elif "voice_conversion_models" in model_name:
@@ -116,6 +115,29 @@ class TTS(nn.Module):
 
         if device := resolve_device(None, use_cuda=gpu, arg_name="gpu", replacement=_GPU_REPLACEMENT):
             self.to(device)
+
+    def _get_voice_dir(self, model_name: str) -> Path:
+        """Return the directory for cached voices of a model loaded by name, next to its files."""
+        voice_dir = self.manager.get_model_dir(model_name) / "voices"
+        # TODO: Remove moving voices from their location in v0.28
+        old_voice_dir = self.manager.output_prefix / model_name / "voices"
+        if old_voice_dir.is_dir() and not voice_dir.exists():
+            try:
+                voice_dir.parent.mkdir(parents=True, exist_ok=True)
+                old_voice_dir.rename(voice_dir)
+            except OSError as e:
+                logger.warning("Could not move cached voices from %s to %s: %s", old_voice_dir, voice_dir, e)
+                return voice_dir
+            logger.info("Moved cached voices from %s to %s", old_voice_dir, voice_dir)
+            # Remove the now empty parent directories of the old location
+            for parent in old_voice_dir.parents:
+                if parent == self.manager.output_prefix:
+                    break
+                try:
+                    parent.rmdir()
+                except OSError:
+                    break
+        return voice_dir
 
     def _target_device(self, *, gpu: bool) -> torch.device | str | None:
         """Return the device that a newly loaded model should be moved to.

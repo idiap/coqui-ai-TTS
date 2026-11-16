@@ -340,6 +340,19 @@ class ModelManager:
         self.print_model_license(model_item=model_item)
         return output_path
 
+    def get_model_dir(self, model_name: str) -> Path:
+        """Return the directory where Coqui stores the files of a model.
+
+        Models hosted on Hugging Face keep their checkpoints in the Hugging Face
+        cache instead, but this directory is still used for other files of the
+        model, e.g. cached voices.
+
+        Args:
+            model_name: Model name in the format 'type/language/dataset/model'.
+        """
+        _, model_full_name, _ = self._set_model_item(model_name)
+        return self.output_prefix / model_full_name
+
     def get_model_item(self, model_name: str) -> ModelItem:
         """Return the information about a model, as specified in `.models.json`.
 
