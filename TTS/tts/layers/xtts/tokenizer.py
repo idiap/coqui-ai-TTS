@@ -485,8 +485,14 @@ _currency_re = {
     "EUR": re.compile(r"(([0-9\.\,]*[0-9]+€)|((€[0-9\.\,]*[0-9]+)))"),
 }
 
-# English clock times such as 11:08, 8:00 AM or 7:05pm (but not 10:30:45)
-_time_en_re = re.compile(r"(?<![\w:])([01]?[0-9]|2[0-3]):([0-5][0-9])(?![\d:])(?:\s?([ap])\.?m\b)?", re.IGNORECASE)
+# English clock times such as 11:08, 8:00 AM, 7:05pm or 9:30 a.m. (but not 10:30:45).
+# NOTE: This is intentionally separate from TTS/tts/utils/text/english/time_norm.py (used by
+# `english_cleaners`). XTTS checkpoints were trained on the output of this module's cleaners
+# (num2words-based), so it follows its own conventions, e.g. it only adds "a m"/"p m" when the
+# text specifies it or the hour is unambiguously in 24-hour format.
+_time_en_re = re.compile(
+    r"(?<![\w:])([01]?[0-9]|2[0-4]):([0-5][0-9])(?![\d:])(?:\s?([ap])(?:m\b|\.m\b(\.)?))?", re.IGNORECASE
+)
 # A minus sign directly in front of a number, e.g. -5 (but not 555-1234 or covid-19)
 _negative_en_re = re.compile(r"(?<![\w-])-(?=\d)")
 
@@ -552,8 +558,17 @@ def _expand_number(m, lang="en"):
     return num2words(int(m.group(0)), lang=lang)
 
 
-def _expand_time_en(m):
-    hour, minute, am_pm = int(m.group(1)), int(m.group(2)), m.group(3)
+def _expand_time_en(m: re.Match) -> str:
+    hour, minute, am_pm, final_dot = int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)
+    if hour == 24 and minute != 0:
+        return m.group(0)
+    # Hours 0, 13-24 are unambiguously 24-hour format: speak them as 12-hour times
+    if hour == 0 or hour == 24:
+        hour = 12
+        am_pm = am_pm or "a"
+    elif hour > 12:
+        hour -= 12
+        am_pm = am_pm or "p"
     words = [num2words(hour, lang="en")]
     if minute == 0:
         if am_pm is None:
@@ -564,7 +579,12 @@ def _expand_time_en(m):
         words.append(num2words(minute, lang="en"))
     if am_pm is not None:
         words += [am_pm.lower(), "m"]
-    return " ".join(words)
+    text = " ".join(words)
+    # Drop the final dot of "a.m." mid-sentence, but keep it when it ends the text,
+    # where it doubles as the sentence-final period.
+    if final_dot and not m.string[m.end() :].strip():
+        text += "."
+    return text
 
 
 def expand_numbers_multilingual(text, lang="en"):
