@@ -148,6 +148,7 @@ class DifferentiableDurationPredictor(nn.Module):
         training: bool = True,
         target_durations: torch.Tensor | None = None,
         extra_final_frames: int = 0,
+        speed: float = 1.0,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
@@ -157,6 +158,7 @@ class DifferentiableDurationPredictor(nn.Module):
             training: Whether in training mode
             target_durations: Target durations for training [B, T]
             extra_final_frames: Frames added to the last token's predicted duration at inference
+            speed: Speaking rate at inference, predicted durations are divided by it
 
         Returns:
             Dictionary containing duration predictions and alignments
@@ -192,7 +194,7 @@ class DifferentiableDurationPredictor(nn.Module):
             alignments = self._generate_alignment(durations)
         else:
             # Inference mode: predict durations
-            duration_raw = torch.sigmoid(duration_logits).sum(dim=-1)  # [B, T]
+            duration_raw = torch.sigmoid(duration_logits).sum(dim=-1) / speed  # [B, T]
             durations = torch.round(duration_raw.squeeze()).clamp(min=1)
 
             durations[-1] += extra_final_frames
@@ -221,7 +223,7 @@ class DifferentiableDurationPredictor(nn.Module):
         max_duration = int(total_durations.max().item())
 
         # Create alignment matrix (binary assignment like original)
-        alignment = torch.zeros(text_len, int(total_durations))
+        alignment = torch.zeros(text_len, int(total_durations), device=durations.device)
         # alignment = torch.zeros(batch_size, max_duration, text_len, device=device)
 
         c_frame = 0
