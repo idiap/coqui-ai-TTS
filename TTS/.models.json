@@ -34,6 +34,16 @@
                     "default_vocoder": null,
                     "license": "MIT",
                     "contact": "https://www.suno.ai/"
+                },
+                "kokoro": {
+                    "description": "Kokoro v1.0 (82M parameters) from https://huggingface.co/hexgrad/Kokoro-82M with 54 voices. Based on StyleTTS 2.",
+                    "repo_id": "hexgrad/Kokoro-82M",
+                    "model_class": "TTS.tts.models.kokoro.Kokoro",
+                    "loader": "from_original",
+                    "allow": ["config.json", "kokoro-v1_0.pth", "voices/*"],
+                    "default_vocoder": null,
+                    "author": "hexgrad",
+                    "license": "apache 2.0"
                 }
             }
         },

@@ -103,8 +103,64 @@ output = model.synthesize("Hello, how are you?")
 wav = output["wav"]
 ```
 
+## Kokoro
+
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is a lightweight (82M
+parameters) multilingual model by hexgrad based on StyleTTS 2, but without the
+style encoders and style diffusion: each speaker is represented by a
+precomputed "voice", a set of style vectors. Voice cloning is therefore not
+supported. As for StyleTTS 2, Coqui supports inference with the original
+checkpoint, converted on the fly when loaded.
+
+| Model name | Languages | Voices |
+|---|---|---|
+| `tts_models/multilingual/multi-dataset/kokoro` | `en-us`, `en-gb`, `es`, `fr-fr`, `hi`, `it`, `pt-br` | 54 |
+
+The model produces 24 kHz audio. The [available
+voices](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md) can be
+listed with `tts.speakers`. The first letter of a voice name indicates its
+language (`a`: American English, `b`: British English, `e`: Spanish, `f`:
+French, `h`: Hindi, `i`: Italian, `p`: Brazilian Portuguese) and the second
+letter its gender. Japanese (`j`) and Mandarin Chinese (`z`) voices are
+included, but these languages are not supported yet.
+
+```python
+from TTS.api import TTS
+
+tts = TTS("tts_models/multilingual/multi-dataset/kokoro")
+tts.tts_to_file(text="Hello, how are you?", speaker="af_heart", language="en-us", file_path="output.wav")
+
+# Mix voices by separating them with commas and change the speaking rate
+tts.tts_to_file(text="Hola, ¿qué tal?", speaker="ef_dora,af_heart", language="es", speed=1.2, file_path="output.wav")
+```
+
+```console
+tts --model_name tts_models/multilingual/multi-dataset/kokoro \
+    --text "This is an example." \
+    --speaker_idx af_heart \
+    --language_idx en-us \
+    --out_path output.wav
+```
+
+Other checkpoints in the original Kokoro format can be loaded with
+`Kokoro.from_original("path/to/checkpoint_dir/")` from a directory containing
+the original `config.json`, the `.pth` checkpoint and a `voices` folder with
+the `.pt` voice files.
+
+### Phonemization
+
+Kokoro was trained on phonemes from [misaki](https://github.com/hexgrad/misaki).
+For all supported languages except English, misaki uses
+[espeak-ng](https://github.com/espeak-ng/espeak-ng) and Coqui produces the same
+phonemes without needing misaki. For English, misaki mainly relies on its own
+pronunciation dictionaries. Coqui uses espeak-ng for English by default, which
+can lead to some pronunciations differing from what the model was trained on.
+If misaki is installed in your environment (`pip install "misaki[en]"`), it is
+automatically used for English instead.
+
 ## Important resources & papers
 - Original repository: https://github.com/yl4579/StyleTTS2
+- Kokoro repository: https://github.com/hexgrad/kokoro
 - StyleTTS 2 paper: https://arxiv.org/abs/2306.07691
 - PL-BERT: https://arxiv.org/abs/2301.08810
 - iSTFTNet: https://arxiv.org/abs/2203.02395
@@ -125,5 +181,11 @@ wav = output["wav"]
 ## StyleTTS2 Model
 ```{eval-rst}
 .. autoclass:: TTS.tts.models.styletts2.StyleTTS2
+    :members:
+```
+
+## Kokoro Model
+```{eval-rst}
+.. autoclass:: TTS.tts.models.kokoro.Kokoro
     :members:
 ```
