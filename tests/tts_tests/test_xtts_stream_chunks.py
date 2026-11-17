@@ -34,8 +34,13 @@ def test_final_chunk_crossfades_with_previous_overlap():
     assert overlap is None
 
 
-@pytest.mark.parametrize("token_count", [1, 2, 19, 20, 21, 22, 23, 40, 45])
-def test_inference_stream_flushes_final_audio(token_count):
+@pytest.mark.parametrize(
+    "token_count,stream_chunk_size,overlap_wav_len",
+    [(count, 20, 32) for count in [1, 2, 19, 20, 21, 22, 23, 40, 45]]
+    # A streaming step yielding fewer samples than the overlap must not re-emit audio.
+    + [(count, 1, 32) for count in [5, 9, 40]],
+)
+def test_inference_stream_flushes_final_audio(token_count, stream_chunk_size, overlap_wav_len):
     gpt = SimpleNamespace(
         compute_embeddings=lambda *args: torch.zeros(1, 1),
         get_generator=lambda **kwargs: iter((torch.tensor([i]), torch.zeros(1, 4)) for i in range(token_count)),
@@ -57,8 +62,8 @@ def test_inference_stream_flushes_final_audio(token_count):
             "en",
             torch.zeros(1),
             torch.zeros(1),
-            stream_chunk_size=20,
-            overlap_wav_len=32,
+            stream_chunk_size=stream_chunk_size,
+            overlap_wav_len=overlap_wav_len,
         )
     )
     torch.testing.assert_close(torch.cat(chunks), torch.arange(token_count * 16, dtype=torch.float32))
