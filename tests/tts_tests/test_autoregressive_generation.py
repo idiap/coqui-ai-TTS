@@ -3,6 +3,7 @@
 These rely on private transformers generation internals and catch breaking changes in new releases, e.g.:
 - transformers>=5.3 only slices the inputs to the uncached tokens if `next_sequence_length` is passed
 - transformers>=5.18 drops an all-ones attention_mask in generate()
+- transformers>=5.24 passes the KV cache to forward() as `cache` instead of `past_key_values`
 """
 
 import functools
@@ -27,8 +28,8 @@ def record_steps(monkeypatch, inference_model) -> list[tuple[int, int]]:
     # wraps() keeps the signature, which transformers inspects to decide which inputs to pass
     @functools.wraps(forward)
     def recording_forward(*args, **kwargs):
-        past_key_values = kwargs.get("past_key_values")
-        past_length = 0 if past_key_values is None else past_key_values.get_seq_length()
+        cache = kwargs.get("cache", kwargs.get("past_key_values"))
+        past_length = 0 if cache is None else cache.get_seq_length()
         steps.append((kwargs["input_ids"].shape[1], past_length))
         return forward(*args, **kwargs)
 

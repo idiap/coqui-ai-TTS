@@ -10,6 +10,7 @@ from transformers import GenerationMixin, GPT2Config, GPT2PreTrainedModel, Logit
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
 from TTS.tts.layers.tortoise.arch_utils import AttentionBlock, TypicalLogitsWarper
+from TTS.utils.import_utils import is_transformers_greater_or_equal
 
 
 def null_position_embeddings(range, dim):
@@ -94,12 +95,16 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        cache=None,
         **kwargs,
     ):
         assert self.cached_mel_emb is not None
         assert inputs_embeds is None  # Not supported by this inference model.
         assert labels is None  # Training not supported by this inference model.
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        # transformers>=5.24 passes the KV cache as `cache` instead of `past_key_values`
+        cache = cache if cache is not None else past_key_values
+        cache_kwarg = "cache" if is_transformers_greater_or_equal("5.24") else "past_key_values"
 
         # Create embedding
         mel_len = self.cached_mel_emb.shape[1]
@@ -115,13 +120,11 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
         else:
             emb = self.embeddings(input_ids)
             # Not using attention_mask here because transformers>=5.18 drops it from generate() if it is all ones
-            emb = emb + self.text_pos_embedding.get_fixed_embedding(
-                past_key_values.get_seq_length() - mel_len, input_ids.device
-            )
+            emb = emb + self.text_pos_embedding.get_fixed_embedding(cache.get_seq_length() - mel_len, input_ids.device)
 
         transformer_outputs = self.transformer(
             inputs_embeds=emb,
-            past_key_values=past_key_values,
+            **{cache_kwarg: cache},
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
@@ -142,7 +145,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel, GenerationMixin):
         return CausalLMOutputWithCrossAttentions(
             loss=None,
             logits=lm_logits,
-            past_key_values=transformer_outputs.past_key_values,
+            **{cache_kwarg: getattr(transformer_outputs, cache_kwarg)},
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
             cross_attentions=transformer_outputs.cross_attentions,
