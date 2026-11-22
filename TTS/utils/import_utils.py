@@ -131,6 +131,15 @@ def is_torch_greater_or_equal(library_version: str) -> bool:
 
 
 @lru_cache
+def is_transformers_greater_or_equal(library_version: str) -> bool:
+    """Return True if the current Transformers version is greater than or equal to the given version."""
+    available, transformers_version = _is_package_available("transformers", return_version=True)
+    if not available:
+        return False
+    return version.parse(transformers_version) >= version.parse(library_version)
+
+
+@lru_cache
 def is_torchaudio_available() -> bool:
     """Return whether Torchaudio is available in the environment."""
     return _is_package_available("torchaudio")
