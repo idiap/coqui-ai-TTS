@@ -11,6 +11,7 @@ from typing import Any, TextIO, TypeVar
 
 import torch
 from packaging.version import Version
+from trainer.generic_utils import get_device
 from typing_extensions import TypeIs
 
 logger = logging.getLogger(__name__)
@@ -178,3 +179,67 @@ def warn_synthesize_speaker_id_deprecated() -> None:
         "The `speaker_id` argument of synthesize() is deprecated and will be removed soon. Use `speaker` instead.",
         UserWarning,
     )
+
+
+def resolve_device(
+    device: str | torch.device | None,
+    *,
+    use_cuda: bool,
+    arg_name: str = "use_cuda",
+    replacement: str = "`device='cuda'`",
+    stacklevel: int = 3,
+) -> str | torch.device | None:
+    """Map a deprecated CUDA flag (e.g. ``use_cuda`` or ``gpu``) to a device.
+
+    Warns if the flag is set. The default ``stacklevel`` points the warning at
+    the caller of the function that received the deprecated argument.
+
+    Args:
+        device: Device to use if the deprecated flag is not set.
+        use_cuda: Value of the deprecated flag.
+        arg_name: Name of the deprecated argument, for the warning message.
+        replacement: What to use instead, for the warning message.
+        stacklevel: Passed on to :func:`warnings.warn`.
+
+    Returns:
+        ``"cuda"`` if the flag is set, else ``device``.
+    """
+    if use_cuda:
+        warnings.warn(
+            f"`{arg_name}` is deprecated and will be removed. Please use {replacement} instead.",
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+        return "cuda"
+    return device
+
+
+def select_device(
+    device: str | torch.device | None,
+    *,
+    use_cuda: bool | None = None,
+    arg_name: str = "use_cuda",
+    replacement: str = "`device`",
+    stacklevel: int = 3,
+) -> torch.device:
+    """Select a device, defaulting to the best available one.
+
+    A deprecated CUDA flag takes precedence over ``device`` and triggers a
+    warning. Unlike :func:`resolve_device`, ``False`` explicitly selects the CPU,
+    so pass ``None`` if the flag was not set.
+
+    Args:
+        device: Requested device. ``None`` selects the best available device.
+        use_cuda: Value of the deprecated flag, ``None`` if not set.
+        arg_name: Name of the deprecated argument, for the warning message.
+        replacement: What to use instead, for the warning message.
+        stacklevel: Passed on to :func:`warnings.warn`.
+    """
+    if use_cuda is not None:
+        warnings.warn(
+            f"`{arg_name}` is deprecated and will be removed. Please use {replacement} instead.",
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+        return torch.device("cuda" if use_cuda else "cpu")
+    return torch.device(device) if device is not None else get_device()

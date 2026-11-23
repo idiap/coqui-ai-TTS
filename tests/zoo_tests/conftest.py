@@ -45,7 +45,7 @@ def seed_everything():
 
 
 def _load_checksums(path: Path) -> dict:
-    return json.loads(path.read_text()) if path.is_file() else {}
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def check_output(request: pytest.FixtureRequest, device: torch.device) -> Callab
         expected = device_checksums.get(key)
         if expected is None or UPDATE_CHECKSUMS:
             device_checksums[key] = entry
-            path.write_text(json.dumps(checksums, indent=2, sort_keys=True) + "\n")
+            path.write_text(json.dumps(checksums, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         elif expected != entry:
             pytest.fail(f"Output changed for {key} on {device.type}:\n  expected {expected}\n  got      {entry}")
 

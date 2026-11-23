@@ -16,8 +16,8 @@ class StandardScaler:
         self.scale_ = scale
 
     def reset_stats(self):
-        delattr(self, "mean_")
-        delattr(self, "scale_")
+        del self.mean_
+        del self.scale_
 
     def transform(self, X):
         X = np.asarray(X)

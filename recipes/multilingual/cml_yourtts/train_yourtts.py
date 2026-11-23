@@ -166,7 +166,6 @@ def main():
                 dataset_path=dataset_conf.path,
                 meta_file_train=dataset_conf.meta_file_train,
                 meta_file_val=dataset_conf.meta_file_val,
-                disable_cuda=False,
                 no_eval=False,
             )
         D_VECTOR_FILES.append(embeddings_file)

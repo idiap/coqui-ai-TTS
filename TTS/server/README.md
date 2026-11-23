@@ -23,8 +23,8 @@ python TTS/server/server.py --model_name tts_models/en/ljspeech/tacotron2-DCA \
 Run the server with the official models on a GPU:
 ```bash
 CUDA_VISIBLE_DEVICES="0" python TTS/server/server.py \
-    --model_name tts_models/en/ljspeech/tacotron2-DCA
-    --vocoder_name vocoder_models/en/ljspeech/multiband-melgan --use_cuda
+    --model_name tts_models/en/ljspeech/tacotron2-DCA \
+    --vocoder_name vocoder_models/en/ljspeech/multiband-melgan --device cuda
 ```
 
 Run the server with a custom models:

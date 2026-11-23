@@ -13,7 +13,6 @@ from TTS.tts.layers.losses import GlowTTSLoss
 from TTS.tts.models.glow_tts import GlowTTS
 
 torch.manual_seed(1)
-use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 c = GlowTTSConfig()

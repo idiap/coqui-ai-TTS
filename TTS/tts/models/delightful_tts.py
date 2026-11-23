@@ -202,7 +202,7 @@ class ForwardTTSE2eDataset(TTSDataset):
         B = len(batch)
         batch = {k: [dic[k] for dic in batch] for k in batch[0]}
 
-        max_text_len = max([len(x) for x in batch["token_ids"]])
+        max_text_len = max(len(x) for x in batch["token_ids"])
         token_lens = torch.LongTensor(batch["token_len"])
         token_rel_lens = token_lens / token_lens.max()
 
@@ -556,7 +556,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
                 # compute loss
-                with torch.autocast("cuda", enabled=False):  # use float32 for the criterion
+                with torch.autocast(self.device.type, enabled=False):  # use float32 for the criterion
                     loss_dict = criterion(
                         scores_disc_fake=scores_d_fake,
                         scores_disc_real=scores_d_real,
@@ -567,7 +567,7 @@ class DelightfulTTS(BaseTTSE2E):
         if optimizer_idx == 1:
             mel = batch["mel_input"]
             # compute melspec segment
-            with torch.autocast("cuda", enabled=False):
+            with torch.autocast(self.device.type, enabled=False):
                 mel_slice = segment(
                     mel.float(), self.model_outputs_cache["slice_ids"], self.args.spec_segment_size, pad_short=True
                 )
@@ -595,7 +595,7 @@ class DelightfulTTS(BaseTTSE2E):
                 )
 
             # compute losses
-            with torch.autocast("cuda", enabled=True):  # use float32 for the criterion
+            with torch.autocast(self.device.type, enabled=True):  # use float32 for the criterion
                 loss_dict = criterion(
                     mel_output=self.model_outputs_cache["acoustic_model_outputs"].transpose(1, 2),
                     mel_target=batch["mel_input"],
@@ -954,7 +954,7 @@ class DelightfulTTS(BaseTTSE2E):
         config: Coqpit,
         *,
         is_eval: bool = False,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
         # init dataloader
@@ -1007,7 +1007,7 @@ class DelightfulTTS(BaseTTSE2E):
 
     def get_optimizer(self) -> list:
         """Initiate and return the GAN optimizers based on the config parameters.
-        It returnes 2 optimizers in a list. First one is for the generator and the second one is for the discriminator.
+        It returns 2 optimizers in a list. First one is for the discriminator and the second one is for the generator.
         Returns:
             List: optimizers.
         """
@@ -1037,8 +1037,8 @@ class DelightfulTTS(BaseTTSE2E):
         Returns:
             List: Schedulers, one for each optimizer.
         """
-        scheduler_D = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[0])
-        scheduler_G = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[1])
+        scheduler_D = get_scheduler(self.config.lr_scheduler_disc, self.config.lr_scheduler_disc_params, optimizer[0])
+        scheduler_G = get_scheduler(self.config.lr_scheduler_gen, self.config.lr_scheduler_gen_params, optimizer[1])
         return [scheduler_D, scheduler_G]
 
     def on_epoch_end(self, trainer: Trainer) -> None:

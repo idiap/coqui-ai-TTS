@@ -93,8 +93,7 @@ def _num2chinese(num: str, big=False, simp=True, o=False, twoalt=False) -> str:
     else:
         result.append(c_basic[0])
     if remainder:
-        result.append(c_symbol[2])
-        result.append("".join(c_basic[int(ch)] for ch in remainder))
+        result.extend((c_symbol[2], "".join(c_basic[int(ch)] for ch in remainder)))
     return "".join(result)
 
 

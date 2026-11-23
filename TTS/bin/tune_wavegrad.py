@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from TTS.config import load_config
 from TTS.utils.audio import AudioProcessor
-from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
+from TTS.utils.generic_utils import ConsoleFormatter, select_device, setup_logger
 from TTS.vocoder.datasets.preprocess import load_wav_data
 from TTS.vocoder.datasets.wavegrad_dataset import WaveGradDataset
 from TTS.vocoder.models import setup_model
@@ -30,7 +30,13 @@ if __name__ == "__main__":
         type=int,
         help="Number of model inference iterations that you like to optimize noise schedule for.",
     )
-    parser.add_argument("--use_cuda", action="store_true", help="enable CUDA.")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to run on, e.g. `cpu` or `cuda`. Defaults to the best available.",
+    )
+    parser.add_argument("--use_cuda", action="store_true", default=None, help="DEPRECATED, use `--device`.")
     parser.add_argument("--num_samples", type=int, default=1, help="Number of datasamples used for inference.")
     parser.add_argument(
         "--search_depth",
@@ -41,6 +47,7 @@ if __name__ == "__main__":
 
     # load config
     args = parser.parse_args()
+    device = select_device(args.device, use_cuda=args.use_cuda, arg_name="--use_cuda", replacement="`--device`")
     config = load_config(args.config_path)
 
     # setup audio processor
@@ -73,8 +80,7 @@ if __name__ == "__main__":
 
     # setup the model
     model = setup_model(config)
-    if args.use_cuda:
-        model.cuda()
+    model.to(device)
 
     # setup optimization parameters
     base_values = sorted(10 * np.random.uniform(size=args.search_depth))
@@ -88,11 +94,7 @@ if __name__ == "__main__":
         model.compute_noise_level(beta)
         for data in loader:
             mel, audio = data
-            y_hat = model.inference(mel.cuda() if args.use_cuda else mel)
-
-            if args.use_cuda:
-                y_hat = y_hat.cpu()
-            y_hat = y_hat.numpy()
+            y_hat = model.inference(mel.to(device)).cpu().numpy()
 
             mel_hat = []
             for i in range(y_hat.shape[0]):

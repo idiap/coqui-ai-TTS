@@ -31,26 +31,33 @@ Using 🐸TTS API:
 
 ```python
 from TTS.api import TTS
+
 tts = TTS("tts_models/en/multi-dataset/tortoise-v2").to("cuda")
 
 # Clone voice and cache it with the custom ID `lj`
 # with custom inference settings overriding defaults.
-tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
-                file_path="output.wav",
-                speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
-                speaker="lj",
-                num_autoregressive_samples=1,
-                diffusion_iterations=10)
+tts.tts_to_file(
+    text="Hello, my name is Manmay , how are you?",
+    file_path="output.wav",
+    speaker_wav=["tests/data/ljspeech/wavs/LJ001-0001.wav"],
+    speaker="lj",
+    num_autoregressive_samples=1,
+    diffusion_iterations=10,
+)
 
 # Using presets with the same voice after it is cached.
-tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
-                file_path="output.wav",
-                speaker="lj",
-                preset="ultra_fast")
+tts.tts_to_file(
+    text="Hello, my name is Manmay , how are you?",
+    file_path="output.wav",
+    speaker="lj",
+    preset="ultra_fast",
+)
 
 # Random voice generation
-tts.tts_to_file(text="Hello, my name is Manmay , how are you?",
-                file_path="output.wav")
+tts.tts_to_file(
+    text="Hello, my name is Manmay , how are you?",
+    file_path="output.wav",
+)
 ```
 
 Using 🐸TTS Command line:

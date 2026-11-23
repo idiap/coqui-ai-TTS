@@ -7,12 +7,11 @@ from contextlib import nullcontext
 from importlib import resources
 from pathlib import Path
 from shutil import copyfile, rmtree
-from typing import Any, TypedDict
+from typing import Any, Required, TypedDict
 
 import requests
 from tqdm import tqdm
 from trainer.io import get_user_data_dir
-from typing_extensions import Required
 
 from TTS.config import load_config
 from TTS.tts.configs.tortoise_config import TortoiseConfig

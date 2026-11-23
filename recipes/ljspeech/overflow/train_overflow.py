@@ -79,7 +79,6 @@ def main():
         model=model,
         train_samples=train_samples,
         eval_samples=eval_samples,
-        gpu=1,
     )
     trainer.fit()
 

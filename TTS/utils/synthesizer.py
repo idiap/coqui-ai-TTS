@@ -18,7 +18,7 @@ from TTS.tts.models.vits import Vits
 from TTS.tts.utils.languages import normalize_language
 from TTS.utils.audio import AudioProcessor
 from TTS.utils.audio.numpy_transforms import save_wav
-from TTS.utils.generic_utils import optional_to_str
+from TTS.utils.generic_utils import optional_to_str, resolve_device
 from TTS.vc.configs.openvoice_config import OpenVoiceConfig
 from TTS.vc.models import setup_model as setup_vc_model
 from TTS.vc.models.openvoice import OpenVoice
@@ -76,7 +76,7 @@ class Synthesizer(nn.Module):
             encoder_config (str, optional): path to the speaker encoder config file. Defaults to `""`,
             vc_checkpoint (str, optional): path to the voice conversion model file. Defaults to `""`,
             vc_config (str, optional): path to the voice conversion config file. Defaults to `""`,
-            use_cuda (bool, optional): enable/disable cuda. Defaults to False.
+            use_cuda (bool, optional): DEPRECATED, use `synthesizer.to("cuda")` instead.
 
         """
         super().__init__()
@@ -93,33 +93,33 @@ class Synthesizer(nn.Module):
         self.tts_model: BaseTTS | None = None
         self.vocoder_model: BaseVocoder | None = None
         self.vc_model: BaseVC | None = None
-        self.use_cuda = use_cuda
-        if self.use_cuda:
-            assert torch.cuda.is_available(), "CUDA is not availabe on this machine."
 
         checkpoint_dir = None
         if tts_checkpoint:
             if "fairseq" in str(self.tts_checkpoint):
-                self._load_fairseq(self.tts_checkpoint, use_cuda=use_cuda)
+                self._load_fairseq(self.tts_checkpoint)
             else:
-                self._load_tts(self.tts_checkpoint, self.tts_config_path, use_cuda=use_cuda)
+                self._load_tts(self.tts_checkpoint, self.tts_config_path)
             checkpoint_dir = self.tts_checkpoint if self.tts_checkpoint.is_dir() else self.tts_checkpoint.parent
 
         if vc_checkpoint:
             if "OpenVoice" in self.vc_checkpoint:
-                self._load_openvoice(Path(vc_checkpoint), use_cuda=use_cuda)
+                self._load_openvoice(Path(vc_checkpoint))
             else:
-                self._load_vc(self.vc_checkpoint, self.vc_config, use_cuda=use_cuda)
+                self._load_vc(self.vc_checkpoint, self.vc_config)
             checkpoint_dir = Path(self.vc_checkpoint).parent
 
         if vocoder_checkpoint:
-            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config, use_cuda=use_cuda)
+            self._load_vocoder(self.vocoder_checkpoint, self.vocoder_config)
 
         if checkpoint_dir is None:
             msg = "Need to initialize a TTS or VC model via tts_checkpoint/vc_checkpoint"
             raise RuntimeError(msg)
         self.voice_dir = Path(voice_dir) if voice_dir is not None else checkpoint_dir / "voices"
         self._set_segmenters()
+
+        if device := resolve_device(None, use_cuda=use_cuda, replacement="`Synthesizer(...).to('cuda')`"):
+            self.to(device)
 
     def _set_segmenters(self) -> None:
         """Set the sentence segmenters for the model's languages."""
@@ -135,18 +135,16 @@ class Synthesizer(nn.Module):
                 self.segmenter[language] = pysbd.Segmenter(language=seg_language, clean=True)
             logger.info("Segmenters initialized for: %s", self.segmenter.keys())
 
-    def _load_vc(self, vc_checkpoint: str, vc_config_path: str, *, use_cuda: bool) -> None:
+    def _load_vc(self, vc_checkpoint: str, vc_config_path: str) -> None:
         """Load the voice conversion model.
 
         1. Load the model config.
         2. Init the model from the config.
         3. Load the model weights.
-        4. Move the model to the GPU if CUDA is enabled.
 
         Args:
             vc_checkpoint (str): path to the model checkpoint.
             vc_config_path (str): path to the model config file.
-            use_cuda (bool): enable/disable CUDA use.
 
         """
         self.vc_config = load_config(vc_config_path)
@@ -155,10 +153,8 @@ class Synthesizer(nn.Module):
         )
         self.vc_model = setup_vc_model(config=self.vc_config)
         self.vc_model.load_checkpoint(self.vc_config, vc_checkpoint)
-        if use_cuda:
-            self.vc_model.cuda()
 
-    def _load_fairseq(self, checkpoint_path: Path, *, use_cuda: bool) -> None:
+    def _load_fairseq(self, checkpoint_path: Path) -> None:
         """Load the fairseq model from a directory.
 
         We assume it is VITS and the model knows how to load itself from the
@@ -169,10 +165,8 @@ class Synthesizer(nn.Module):
         self.tts_model.load_fairseq_checkpoint(self.tts_config, checkpoint_path, eval=True)
         self.tts_config = self.tts_model.config
         self.output_sample_rate = self.tts_config.audio["sample_rate"]
-        if use_cuda:
-            self.tts_model.cuda()
 
-    def _load_openvoice(self, checkpoint: Path, *, use_cuda: bool) -> None:
+    def _load_openvoice(self, checkpoint: Path) -> None:
         """Load the OpenVoice model from a checkpoint file.
 
         We assume there is a config.json file in the same directory.
@@ -182,16 +176,13 @@ class Synthesizer(nn.Module):
         self.vc_model.load_checkpoint(self.vc_config, checkpoint, eval=True)
         self.vc_config = self.vc_model.config
         self.output_sample_rate = self.vc_config.audio["output_sample_rate"]
-        if use_cuda:
-            self.vc_model.cuda()
 
-    def _load_tts(self, tts_checkpoint: Path, tts_config_path: Path | None = None, *, use_cuda: bool) -> None:
+    def _load_tts(self, tts_checkpoint: Path, tts_config_path: Path | None = None) -> None:
         """Load the TTS model.
 
         Args:
             tts_checkpoint: Path to checkpoint file or directory.
             tts_config_path: Path to config.json. If None, inferred from checkpoint directory.
-            use_cuda: Enable/disable CUDA use.
 
         """
         checkpoint_dir = tts_checkpoint if tts_checkpoint.is_dir() else tts_checkpoint.parent
@@ -214,25 +205,21 @@ class Synthesizer(nn.Module):
             self.tts_model.load_checkpoint(self.tts_config, checkpoint_dir=tts_checkpoint, eval=True)
         else:
             self.tts_model.load_checkpoint(self.tts_config, checkpoint_path=tts_checkpoint, eval=True)
-        if use_cuda:
-            self.tts_model.cuda()
 
         if self.encoder_checkpoint and hasattr(self.tts_model, "speaker_manager"):
-            self.tts_model.speaker_manager.init_encoder(self.encoder_checkpoint, self.encoder_config, use_cuda)
+            self.tts_model.speaker_manager.init_encoder(self.encoder_checkpoint, self.encoder_config)
             self.tts_model._register_speaker_encoder()
 
-    def _load_vocoder(self, model_file: str, model_config: str, *, use_cuda: bool) -> None:
+    def _load_vocoder(self, model_file: str, model_config: str) -> None:
         """Load the vocoder model.
 
         1. Load the vocoder config.
         2. Init the AudioProcessor for the vocoder.
         3. Init the vocoder model from the config.
-        4. Move the model to the GPU if CUDA is enabled.
 
         Args:
             model_file (str): path to the model checkpoint.
             model_config (str): path to the model config file.
-            use_cuda (bool): enable/disable CUDA use.
 
         """
         self.vocoder_config = load_config(model_config)
@@ -240,8 +227,6 @@ class Synthesizer(nn.Module):
         self.vocoder_ap = AudioProcessor(self.vocoder_config.audio)
         self.vocoder_model = setup_vocoder_model(self.vocoder_config)
         self.vocoder_model.load_checkpoint(self.vocoder_config, model_file, eval=True)
-        if use_cuda:
-            self.vocoder_model.cuda()
 
     def _run_vocoder(
         self,
@@ -401,8 +386,6 @@ class Synthesizer(nn.Module):
         use_gl = self.vocoder_model is None
         if not use_gl:
             vocoder_device = next(self.vocoder_model.parameters()).device
-        if self.use_cuda:
-            vocoder_device = "cuda"
 
         if not source_wav:  # not voice conversion
             for sen in sens:

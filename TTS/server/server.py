@@ -62,7 +62,9 @@ def create_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--speakers_file_path", type=str, help="JSON file for multi-speaker model.", default=None)
     parser.add_argument("--port", type=int, default=5002, help="port to listen on.")
     parser.add_argument("--device", type=str, help="Device to run model on.", default="cpu")
-    parser.add_argument("--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="true to use CUDA.")
+    parser.add_argument(
+        "--use_cuda", action=argparse.BooleanOptionalAction, default=False, help="DEPRECATED, use `--device cuda`."
+    )
     parser.add_argument(
         "--debug", action=argparse.BooleanOptionalAction, default=False, help="true to enable Flask debug mode."
     )
@@ -91,6 +93,7 @@ if args.list_models:
 device = args.device
 if args.use_cuda:
     warnings.warn("`--use_cuda` is deprecated, use `--device cuda` instead.", DeprecationWarning, stacklevel=2)
+    device = "cuda"
 
 # CASE2: load models
 model_name = args.model_name if args.model_path is None else None

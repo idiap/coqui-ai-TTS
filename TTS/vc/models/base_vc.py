@@ -46,6 +46,6 @@ class BaseVC(BaseTrainerModel):
             raise TypeError("config must be either a *Config or *Args")
 
     def get_data_loader(
-        self, config: TrainerConfig, *, is_eval: bool = False, samples: list[Any] | None = None, verbose: bool = True
+        self, config: TrainerConfig, *, is_eval: bool = False, samples: list[Any], verbose: bool = True
     ) -> torch.utils.data.DataLoader[Any]:
         raise NotImplementedError

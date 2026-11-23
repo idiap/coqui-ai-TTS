@@ -8,6 +8,7 @@ import torch
 from TTS.config import get_from_config_or_model_args
 from TTS.config.shared_configs import BaseTrainingConfig
 from TTS.tts.utils.managers import EmbeddingManager
+from TTS.utils.generic_utils import resolve_device
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +61,15 @@ class SpeakerManager(EmbeddingManager):
         encoder_model_path: str | os.PathLike[Any] = "",
         encoder_config_path: str | os.PathLike[Any] = "",
         use_cuda: bool = False,
+        *,
+        device: str | torch.device = "cpu",
     ):
         super().__init__(
             embedding_file_path=d_vectors_file_path,
             id_file_path=speaker_id_file_path,
             encoder_model_path=encoder_model_path,
             encoder_config_path=encoder_config_path,
-            use_cuda=use_cuda,
+            device=resolve_device(device, use_cuda=use_cuda),
         )
 
         if data_items:

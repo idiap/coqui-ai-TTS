@@ -182,7 +182,7 @@ def auto_train(data_path, save_path="model.pth", load_model: str | None = None, 
 
     epoch = 1
 
-    while 1:
+    while True:
         for _ in range(save_epochs):
             for j, (x, y) in enumerate(zip(data_x, data_y)):
                 model_training.train_step(

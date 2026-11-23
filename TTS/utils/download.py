@@ -4,7 +4,6 @@ import hashlib
 import logging
 import os
 import tarfile
-import urllib
 import urllib.request
 import zipfile
 from collections.abc import Iterable

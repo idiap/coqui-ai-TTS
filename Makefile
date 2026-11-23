@@ -63,14 +63,14 @@ lint:	## run linters.
 	uv run --only-dev ruff format ${target_dirs} --check
 
 system-deps:	## install linux system deps
-	sudo apt-get install -y libsndfile1-dev ffmpeg
+	sudo apt-get install -y libsndfile1-dev ffmpeg libmecab-dev
 
 install:	## install 🐸 TTS
 	uv sync --all-extras
 
 install_dev:	## install 🐸 TTS for development.
 	uv sync --all-extras
-	uv run pre-commit install
+	uv run prek install
 
 docs:	## build the docs
 	uv run --extra cpu --extra codec --group docs $(MAKE) -C docs clean

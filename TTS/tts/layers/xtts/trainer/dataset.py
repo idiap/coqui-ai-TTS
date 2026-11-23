@@ -203,7 +203,7 @@ class XTTSDataset(torch.utils.data.Dataset):
     def __len__(self):
         if self.is_eval:
             return len(self.samples)
-        return sum([len(v) for v in self.samples.values()])
+        return sum(len(v) for v in self.samples.values())
 
     def collate_fn(self, batch):
         # convert list of dicts to dict of lists

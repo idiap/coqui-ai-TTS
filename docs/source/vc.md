@@ -17,9 +17,9 @@ from TTS.api import TTS
 
 tts = TTS("voice_conversion_models/multilingual/vctk/freevc24").to("cuda")
 tts.voice_conversion_to_file(
-  source_wav="my/source.wav",
-  target_wav="my/target.wav",
-  file_path="output.wav"
+    source_wav="my/source.wav",
+    target_wav="my/target.wav",
+    file_path="output.wav",
 )
 ```
 
@@ -32,17 +32,17 @@ tts = TTS("voice_conversion_models/multilingual/multi-dataset/openvoice_v2").to(
 
 # First call with target audio
 tts.voice_conversion_to_file(
-  source_wav="my/source.wav",
-  target_wav="my/target.wav",
-  speaker="MySpeaker"
-  file_path="output.wav"
+    source_wav="my/source.wav",
+    target_wav="my/target.wav",
+    speaker="MySpeaker",
+    file_path="output.wav",
 )
 
 # Later calls don't need target audio
 tts.voice_conversion_to_file(
-  source_wav="my/source.wav",
-  speaker="MySpeaker"
-  file_path="output.wav"
+    source_wav="my/source.wav",
+    speaker="MySpeaker",
+    file_path="output.wav",
 )
 ```
 
@@ -50,12 +50,11 @@ Voice cloning by combining TTS and VC. The FreeVC model is used for voice
 conversion after synthesizing speech.
 
 ```python
-
 tts = TTS("tts_models/de/thorsten/tacotron2-DDC")
 tts.tts_with_vc_to_file(
-  "Wie sage ich auf Italienisch, dass ich dich liebe?",
-  speaker_wav=["target1.wav", "target2.wav"],
-  file_path="output.wav"
+    "Wie sage ich auf Italienisch, dass ich dich liebe?",
+    speaker_wav=["target1.wav", "target2.wav"],
+    file_path="output.wav",
 )
 ```
 
@@ -65,9 +64,9 @@ and a separate voice conversion step is not necessary:
 ```python
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
 wav = tts.tts(
-  text="Hello world!",
-  speaker_wav="my/cloning/audio.wav",
-  language="en"
+    text="Hello world!",
+    speaker_wav="my/cloning/audio.wav",
+    language="en",
 )
 ```
 

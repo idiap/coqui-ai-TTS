@@ -358,7 +358,7 @@ class GPTTrainer(BaseTTS):
         config: Coqpit,
         *,
         is_eval: bool = False,
-        samples: list[Any] | None = None,
+        samples: list[Any],
         verbose: bool = True,
     ) -> torch.utils.data.DataLoader:
         # init dataloader

@@ -7,14 +7,18 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import torch
 from torch import nn
 from trainer.io import get_user_data_dir
 
 from TTS.config import load_config
+from TTS.utils.generic_utils import resolve_device
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
 logger = logging.getLogger(__name__)
+
+_GPU_REPLACEMENT = "`TTS(...).to('cuda')`"
 
 
 class TTS(nn.Module):
@@ -88,9 +92,6 @@ class TTS(nn.Module):
         self.encoder_config_path = encoder_config_path
         self.speakers_file_path = speakers_file_path
 
-        if gpu:
-            warnings.warn("`gpu` will be deprecated. Please use `tts.to(device)` instead.")
-
         if model_name is not None and len(model_name) > 0:
             if "vocoder_models" in model_name:
                 msg = (
@@ -103,15 +104,30 @@ class TTS(nn.Module):
                 raise ValueError(msg)
             self.voice_dir = get_user_data_dir("tts") / model_name / "voices"
             if "tts_models" in model_name:
-                self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
+                self.load_tts_model_by_name(model_name, vocoder_name)
             elif "voice_conversion_models" in model_name:
-                self.load_vc_model_by_name(model_name, vocoder_name, gpu=gpu)
+                self.load_vc_model_by_name(model_name, vocoder_name)
             # To allow just TTS("xtts")
             else:
-                self.load_model_by_name(model_name, vocoder_name, gpu=gpu)
+                self.load_model_by_name(model_name, vocoder_name)
 
         if model_path:
-            self.load_tts_model_by_path(model_path, config_path, gpu=gpu)
+            self.load_tts_model_by_path(model_path, config_path)
+
+        if device := resolve_device(None, use_cuda=gpu, arg_name="gpu", replacement=_GPU_REPLACEMENT):
+            self.to(device)
+
+    def _target_device(self, *, gpu: bool) -> torch.device | str | None:
+        """Return the device that a newly loaded model should be moved to.
+
+        Models are loaded on CPU. If other models have already been loaded and
+        moved to a device, new ones follow them there.
+        """
+        if gpu:
+            return resolve_device(None, use_cuda=gpu, arg_name="gpu", replacement=_GPU_REPLACEMENT, stacklevel=4)
+        if (param := next(self.parameters(), None)) is not None:
+            return param.device
+        return None
 
     @property
     def models(self) -> list[str]:
@@ -183,7 +199,7 @@ class TTS(nn.Module):
 
         Args:
             model_name (str): Model name to load. You can list models by ```tts.models```.
-            gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
+            gpu (bool, optional): DEPRECATED, use `tts.to("cuda")` instead.
         """
         self.load_tts_model_by_name(model_name, vocoder_name, gpu=gpu)
 
@@ -192,8 +208,9 @@ class TTS(nn.Module):
 
         Args:
             model_name (str): Model name to load. You can list models by ```tts.models```.
-            gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
+            gpu (bool, optional): DEPRECATED, use `tts.to("cuda")` instead.
         """
+        device = self._target_device(gpu=gpu)
         self.model_name = model_name
         model_path, config_path, vocoder_path, vocoder_config_path = self.download_model_by_name(
             model_name, vocoder_name
@@ -204,18 +221,20 @@ class TTS(nn.Module):
             vocoder_checkpoint=vocoder_path,
             vocoder_config=vocoder_config_path,
             voice_dir=self.voice_dir,
-            use_cuda=gpu,
         )
+        if device is not None:
+            self.voice_converter.to(device)
 
     def load_tts_model_by_name(self, model_name: str, vocoder_name: str | None = None, *, gpu: bool = False) -> None:
         """Load one of 🐸TTS models by name.
 
         Args:
             model_name (str): Model name to load. You can list models by ```tts.models```.
-            gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
+            gpu (bool, optional): DEPRECATED, use `tts.to("cuda")` instead.
 
         TODO: Add tests
         """
+        device = self._target_device(gpu=gpu)
         self.model_name = model_name
 
         model_path, config_path, vocoder_path, vocoder_config_path = self.download_model_by_name(
@@ -233,8 +252,9 @@ class TTS(nn.Module):
             encoder_checkpoint=self.encoder_path,
             encoder_config=self.encoder_config_path,
             voice_dir=self.voice_dir,
-            use_cuda=gpu,
         )
+        if device is not None:
+            self.synthesizer.to(device)
 
     def load_tts_model_by_path(self, model_path: str, config_path: str, *, gpu: bool = False) -> None:
         """Load a model from a path.
@@ -244,9 +264,9 @@ class TTS(nn.Module):
             config_path (str): Path to the model config.
             vocoder_path (str, optional): Path to the vocoder checkpoint. Defaults to None.
             vocoder_config (str, optional): Path to the vocoder config. Defaults to None.
-            gpu (bool, optional): Enable/disable GPU. Some models might be too slow on CPU. Defaults to False.
+            gpu (bool, optional): DEPRECATED, use `tts.to("cuda")` instead.
         """
-
+        device = self._target_device(gpu=gpu)
         self.synthesizer = Synthesizer(
             tts_checkpoint=model_path,
             tts_config_path=config_path,
@@ -255,8 +275,9 @@ class TTS(nn.Module):
             vocoder_config=self.vocoder_config_path,
             encoder_checkpoint=self.encoder_path,
             encoder_config=self.encoder_config_path,
-            use_cuda=gpu,
         )
+        if device is not None:
+            self.synthesizer.to(device)
         self.voice_dir = self.synthesizer.voice_dir
 
     def _check_arguments(

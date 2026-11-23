@@ -28,7 +28,7 @@ name = "coqui-tts"
 version = "0.28.0"
 description = "Deep learning for Text to Speech."
 readme = "README.md"
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11"
 license = {text = "MPL-2.0"}
 authors = [
     {name = "Eren Gölge", email = "egolge@coqui.ai"}
@@ -39,7 +39,6 @@ maintainers = [
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -73,9 +72,9 @@ dependencies = [
     # Inference
     "pysbd>=0.3.4",
     # Training
-    "matplotlib>=3.8.4",
+    "matplotlib>=3.9.0",
     # Coqui stack
-    "coqui-tts-trainer>=0.4.0,<0.5.0",
+    "coqui-tts-trainer>=0.5.0,<0.6.0",
     "coqpit-config>=0.2.5,<0.3.0",
     "monotonic-alignment-search>=0.1.0",
     "ko-speech-tools>=0.1.0",
@@ -106,9 +105,9 @@ codec-cuda = [
 # Only used in notebooks
 notebooks = [
     "bokeh>=3.0.3",
-    "pandas>=1.4,<3.0",
+    "pandas>=1.5,<3.0",
     "tqdm[notebook]>=4.64.1",
-    "umap-learn>=0.5.1",
+    "umap-learn>=0.5.8",
 ]
 # For running the TTS server
 server = ["flask>=3.0.0"]
@@ -165,6 +164,8 @@ conflicts = [
 ]
 
 [tool.uv.sources]
+coqpit-config = { git = "https://github.com/idiap/coqui-ai-coqpit", branch = "python315" }
+coqui-tts-trainer = { git = "https://github.com/idiap/coqui-ai-Trainer", branch = "py315" }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cuda", extra = "cuda" },
@@ -192,7 +193,7 @@ explicit = true
 [dependency-groups]
 dev = [
     "coverage[toml]>=7",
-    "pre-commit>=4",
+    "prek>=0.5",
     "pytest>=9",
     "ruff==0.17.0",
 ]
@@ -223,10 +224,10 @@ tts-server = "TTS.server.server:main"
 exclude = [
     "/.github",
     "/.gitignore",
-    "/.pre-commit-config.yaml",
     "/.readthedocs.yml",
     "/Makefile",
     "/dockerfiles",
+    "/prek.toml",
     "/scripts",
     "/tests",
 ]

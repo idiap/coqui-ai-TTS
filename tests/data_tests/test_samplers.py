@@ -90,8 +90,7 @@ class TestSamplers(unittest.TestCase):
 
     def test_perfect_sampler(self):
         classes = set()
-        for item in train_samples:
-            classes.add(item["speaker_name"])
+        classes.update(item["speaker_name"] for item in train_samples)
 
         sampler = PerfectBatchSampler(
             train_samples,
@@ -115,8 +114,7 @@ class TestSamplers(unittest.TestCase):
 
     def test_perfect_sampler_shuffle(self):
         classes = set()
-        for item in train_samples:
-            classes.add(item["speaker_name"])
+        classes.update(item["speaker_name"] for item in train_samples)
 
         sampler = PerfectBatchSampler(
             train_samples,
