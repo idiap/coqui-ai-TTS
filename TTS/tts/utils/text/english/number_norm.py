@@ -46,7 +46,7 @@ def __expand_currency(value: str, inflection: dict[float, str]) -> str:
     if integer > 0:
         integer_unit = inflection.get(integer, inflection[2])
         text.append(f"{integer} {integer_unit}")
-    fraction = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+    fraction = int(parts[1].ljust(2, "0")) if len(parts) > 1 and parts[1] else 0
     if fraction > 0:
         fraction_unit = inflection.get(fraction / 100, inflection[0.02])
         text.append(f"{fraction} {fraction_unit}")
