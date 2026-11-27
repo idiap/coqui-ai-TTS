@@ -35,12 +35,11 @@ def assert_phonemes_match_tokenizer(config, output):
     phones_line = next(line for line in output.splitlines() if line.startswith(" > Unique phonemes: "))
     phones = set(phones_line.removeprefix(" > Unique phonemes: "))
 
-    tokenizer, _ = TTSTokenizer.init_from_config(replace(config, add_blank=False, enable_eos_bos_chars=False))
+    tokenizer, _ = TTSTokenizer.init_from_config(config)
     train_items, eval_items = load_tts_samples(config, eval_split=True)
     expected = set()
     for item in train_items + eval_items:
-        expected.update(tokenizer.decode(tokenizer.text_to_ids(item["text"], item["language"])))
-    expected.update(tokenizer.not_found_characters)
+        expected.update(tokenizer.text_to_phonemes(item["text"], item["language"]))
     assert phones == expected
     assert f" > Number of unique phonemes: {len(expected)}" in output
 

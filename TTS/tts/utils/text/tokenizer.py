@@ -97,6 +97,28 @@ class TTSTokenizer:
             text += self.characters.id_to_char(token_id)
         return text
 
+    def text_to_phonemes(self, text: str, language: str | None = None) -> str:
+        """Clean and, if `use_phonemes` is True, phonemize the text.
+
+        This is the string that :meth:`text_to_ids` encodes, before characters missing from the vocabulary are
+        discarded.
+
+        Args:
+            text(str):
+                The text to process.
+
+            language(str):
+                The language code of the text. Defaults to None.
+        """
+        logger.debug("Tokenizer input text: %s (language: %s)", text, language)
+        if self.text_cleaner is not None:
+            text = self.text_cleaner(text, lang=normalize_language(language))
+            logger.debug("Cleaned text: %s", text)
+        if self.phonemizer:
+            text = self.phonemizer.phonemize(text, separator="", language=language)
+            logger.debug("Phonemes: %s", text)
+        return text
+
     def text_to_ids(self, text: str, language: str | None = None) -> list[int]:
         """Convert a string of text to a sequence of token IDs.
 
@@ -113,13 +135,7 @@ class TTSTokenizer:
         4. Add BOS and EOS characters
         5. Text to token IDs
         """
-        logger.debug("Tokenizer input text: %s (language: %s)", text, language)
-        if self.text_cleaner is not None:
-            text = self.text_cleaner(text, lang=normalize_language(language))
-            logger.debug("Cleaned text: %s", text)
-        if self.phonemizer:
-            text = self.phonemizer.phonemize(text, separator="", language=language)
-            logger.debug("Phonemes: %s", text)
+        text = self.text_to_phonemes(text, language)
         token_ids = self.encode(text)
         if self.add_blank:
             token_ids = self.intersperse_blank_char(token_ids)

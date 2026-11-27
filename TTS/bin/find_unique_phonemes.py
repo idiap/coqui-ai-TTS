@@ -12,7 +12,6 @@ from tqdm import tqdm
 from TTS.config import load_config
 from TTS.tts.configs.shared_configs import BaseTTSConfig
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.utils.languages import normalize_language
 from TTS.tts.utils.text.tokenizer import TTSTokenizer
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 
@@ -26,13 +25,8 @@ def init_worker(config: BaseTTSConfig) -> None:
 
 
 def compute_phonemes(item: dict) -> set[str]:
-    """Clean and phonemize as in text_to_ids, without discarding unknown symbols."""
-    language = item["language"]
-    text = item["text"]
-    if tokenizer.text_cleaner is not None:
-        text = tokenizer.text_cleaner(text, lang=normalize_language(language))
-    ph = tokenizer.phonemizer.phonemize(text, separator="", language=language)
-    return set(ph)
+    """Return the symbols the model's tokenizer would encode, including unknown ones."""
+    return set(tokenizer.text_to_phonemes(item["text"], item["language"]))
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
