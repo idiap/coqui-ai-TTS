@@ -136,6 +136,8 @@ def tokenizer_with_cleaner():
         ("Hello; world", "el", "hello; world"),
         # English: semicolon converted to comma
         ("Hello; world", "en", "hello, world"),
+        # Region codes are stripped before cleaning, so Greek rules still apply
+        ("Hello; world", "el-gr", "hello; world"),
     ],
 )
 def test_tokenizer_language_dependent_cleaning(
