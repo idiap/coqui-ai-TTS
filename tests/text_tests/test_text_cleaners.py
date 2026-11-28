@@ -33,7 +33,11 @@ def test_time() -> None:
 
 def test_currency() -> None:
     assert phoneme_cleaners("It's $10.50") == "It's ten dollars fifty cents"
-    assert phoneme_cleaners("£1.1") == "one pound sterling one penny"
+    assert phoneme_cleaners("£1.1") == "one pound sterling ten pence"
+    assert phoneme_cleaners("£1.01") == "one pound sterling one penny"
+    assert phoneme_cleaners("It's $2.5") == "It's two dollars fifty cents"
+    assert phoneme_cleaners("$0.5") == "fifty cents"
+    assert phoneme_cleaners("$1.05") == "one dollar five cents"
     assert phoneme_cleaners("¥1") == "one yen"
     assert phoneme_cleaners("It's €10.50") == "It's ten euros fifty cents"
 
