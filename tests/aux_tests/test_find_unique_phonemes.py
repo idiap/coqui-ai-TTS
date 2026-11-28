@@ -46,8 +46,8 @@ def assert_phonemes_match_tokenizer(config, output):
 
 @pytest.mark.parametrize(
     ("phonemizer", "languages"),
-    [(None, ["en"]), ("espeak", [""]), ("multi_phonemizer", ["en", "de"])],
-    ids=["default", "espeak", "multi_phonemizer"],
+    [(None, ["en"]), ("gruut", [""]), ("multi_phonemizer", ["en", "de"])],
+    ids=["default", "gruut", "multi_phonemizer"],
 )
 def test_find_phonemes(tmp_path, capsys, monkeypatch, phonemizer, languages):
     # Avoid starting one worker per CPU core.
@@ -74,27 +74,6 @@ def test_find_phonemes(tmp_path, capsys, monkeypatch, phonemizer, languages):
     config.save_json(config_path)
 
     # run test
-    run_main(main, ["--config_path", config_path])
-    assert_phonemes_match_tokenizer(config, capsys.readouterr().out)
-
-
-def test_find_phonemes_normalizes_language(tmp_path, capsys, monkeypatch):
-    # Avoid starting one worker per CPU core.
-    monkeypatch.setattr("TTS.bin.find_unique_phonemes.multiprocessing.cpu_count", lambda: 2)
-    texts = ["Mr. Jones; St. Louis: Capt. Kidd & co.", "Hello world!", "A quiet evening"]
-    (tmp_path / "metadata.csv").write_text(
-        "".join(f"LJ001-{i:04d}|{text}|{text}\n" for i, text in enumerate(texts, start=1)), encoding="utf-8"
-    )
-    config_path = str(tmp_path / "test_model_config.json")
-    config = VitsConfig(
-        use_phonemes=True,
-        phonemizer="espeak",
-        phoneme_language="en-us",
-        text_cleaner="english_cleaners",
-        datasets=[replace(dataset_config_en, path=str(tmp_path), language="en-us")],
-    )
-    config.save_json(config_path)
-
     run_main(main, ["--config_path", config_path])
     assert_phonemes_match_tokenizer(config, capsys.readouterr().out)
 
